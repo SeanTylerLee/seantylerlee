@@ -89,3 +89,25 @@ body {
   .app-card { grid-template-columns: 64px 1fr; }
   .app-icon { width: 64px; height: 64px; }
 }
+
+.app-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.website-btn {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #555; /* Dark grey for contrast */
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  border: 1px solid rgba(0,0,0,0.04);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+.website-btn:active {
+  transform: translateY(1px);
+}
