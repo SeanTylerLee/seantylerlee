@@ -1,0 +1,91 @@
+/* ===== Base / iOS-friendly scaffolding ===== */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #F0F0ED;
+  color: #111111;
+}
+
+/* Respect iPhone safe areas (notch) */
+.safe-top { padding-top: env(safe-area-inset-top); }
+
+/* Header image sizing */
+.header-banner {
+  display: block;
+  width: 100%;
+  height: clamp(80px, 20vh, 160px);
+  object-fit: contain;
+  background: #F0F0ED;
+}
+
+/* Page container */
+.container {
+  padding: 16px;
+  padding-left: calc(16px + env(safe-area-inset-left));
+  padding-right: calc(16px + env(safe-area-inset-right));
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 6px 0 14px 2px;
+}
+
+/* ===== App list/cards ===== */
+.app-list {
+  display: grid;
+  gap: 14px;
+}
+
+/* Card surface */
+.app-card {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 12px;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e9e9ee;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+
+/* Icon */
+.app-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+  object-fit: cover; /* use 'contain' if your icon has transparent padding */
+  background: #f5f7fb;
+  border: 1px solid #eef0f4;
+}
+
+/* Text */
+.app-body { display: grid; gap: 6px; }
+.app-title { margin: 0; font-size: 18px; font-weight: 700; }
+.app-desc  { margin: 0; font-size: 14px; line-height: 1.35; color: #444; }
+
+/* Button */
+.download-btn {
+  justify-self: start;
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #0a84ff;      /* iOS blue */
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  border: 1px solid rgba(0,0,0,0.04);
+  box-shadow: 0 2px 6px rgba(10,132,255,0.25);
+}
+.download-btn:active { transform: translateY(1px); }
+
+/* Small screens polish */
+@media (max-width: 360px) {
+  .app-card { grid-template-columns: 64px 1fr; }
+  .app-icon { width: 64px; height: 64px; }
+}
