@@ -111,3 +111,14 @@ body {
 .website-btn:active {
   transform: translateY(1px);
 }
+
+
+.site-footer {
+  margin-top: 40px;
+  padding: 16px;
+  background-color: #f5f5f7; /* iOS light grey */
+  color: #555;
+  font-size: 12px;
+  text-align: center;
+  border-top: 1px solid #e0e0e0;
+}
