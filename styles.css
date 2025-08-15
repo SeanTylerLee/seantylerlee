@@ -129,3 +129,14 @@ body {
   text-decoration: none;
   color: inherit;
 }
+
+.app-card {
+  display: block;              /* Make the entire area clickable */
+  text-decoration: none;       /* Remove link underline */
+  color: inherit;              /* Keep text color consistent */
+  cursor: pointer;             /* Show pointer on hover/tap */
+}
+
+.app-card * {
+  pointer-events: none;        /* Allow the anchor to receive clicks, not child elements */
+}
