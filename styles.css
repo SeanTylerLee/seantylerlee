@@ -1,9 +1,5 @@
 /* =========================================================
-   SeanTylerLee.com • styles.css (Neon/Glassy theme)
-   - iOS-friendly layout
-   - Glass cards with electric-blue accent
-   - Buttons for Download / Website
-   - Safe-area support + accessible focus styles
+   SeanTylerLee.com • styles.css (Neon/Glassy theme + HERO)
    ========================================================= */
 
 /* ---- Tokens ---- */
@@ -40,13 +36,47 @@ body {
 /* Respect iPhone safe areas (notch) */
 .safe-top { padding-top: env(safe-area-inset-top); }
 
-/* ---- Header ---- */
-.header-banner {
-  display: block;
-  width: 100%;
-  height: clamp(80px, 22vh, 180px);
-  object-fit: contain;
-  filter: drop-shadow(0 10px 24px rgba(46,168,255,.45)); /* soft blue glow */
+/* ---- HERO (logo + tagline + contact) ---- */
+.hero{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:24px 16px 12px;
+  text-align:center;
+}
+.hero-logo{
+  width:80%;
+  max-width:340px;           /* caps the logo on iPhone */
+  height:auto;
+  object-fit:contain;
+  margin-bottom:12px;
+  filter: drop-shadow(0 10px 24px rgba(46,168,255,.45)); /* blue glow */
+}
+.hero-tag{
+  margin:0;
+  font-size:15px;
+  line-height:1.4;
+  color:var(--muted);
+}
+.hero-contact{
+  margin:8px 0 0;
+  font-size:13px;
+  color:var(--text);
+}
+.hero-contact a{
+  color:var(--accent);
+  text-decoration:none;
+}
+.hero-contact a:hover{ text-decoration:underline; }
+
+/* ---- Legacy header image (keep for compatibility; unused if using .hero) ---- */
+.header-banner{
+  display:block;
+  width:100%;
+  height:clamp(80px,22vh,180px);
+  object-fit:contain;
+  filter: drop-shadow(0 10px 24px rgba(46,168,255,.45));
 }
 
 /* ---- Page container ---- */
@@ -82,7 +112,7 @@ body {
   gap: 14px;
 }
 
-/* Card surface (used by <article class="app-card">) */
+/* Card surface */
 .app-card {
   display: grid;
   grid-template-columns: 72px 1fr;
@@ -119,146 +149,154 @@ body {
 }
 
 /* Text area inside the card */
-.app-body {
-  display: grid;
-  gap: 6px;
-}
-.app-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-}
-.app-desc  {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.35;
-  color: var(--muted);
-}
+.app-body { display: grid; gap: 6px; }
+.app-title { margin: 0; font-size: 18px; font-weight: 700; }
+.app-desc  { margin: 0; font-size: 14px; line-height: 1.35; color: var(--muted); }
 
-/* Buttons container inside cards */
-.app-buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+/* Buttons */
+.app-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* ---- Buttons ---- */
 .download-btn,
-.website-btn {
-  display: inline-block;
-  padding: 10px 14px;
-  border-radius: 12px;
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 14px;
-  line-height: 1;
-  border: 1px solid rgba(0,0,0,0.12);
+.website-btn{
+  display:inline-block;
+  padding:10px 14px;
+  border-radius:12px;
+  text-decoration:none;
+  font-weight:700;
+  font-size:14px;
+  line-height:1;
+  border:1px solid rgba(0,0,0,0.12);
   transition: transform .05s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease, filter .15s ease;
-  color:#05182e; /* overridden for website */
+  color:#05182e; /* overridden below for website */
 }
-
-.download-btn {
+.download-btn{
   color:#05182e;
   background: linear-gradient(180deg, var(--accent-soft), var(--accent));
-  box-shadow:
-    0 2px 10px rgba(46,168,255,.35),
-    0 0 14px rgba(46,168,255,.45);
+  box-shadow: 0 2px 10px rgba(46,168,255,.35), 0 0 14px rgba(46,168,255,.45);
 }
-.download-btn:hover {
-  box-shadow:
-    0 3px 12px rgba(46,168,255,.45),
-    0 0 18px rgba(46,168,255,.55);
+.download-btn:hover{
+  box-shadow: 0 3px 12px rgba(46,168,255,.45), 0 0 18px rgba(46,168,255,.55);
 }
-
-.website-btn {
+.website-btn{
   color: var(--text);
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(180,200,255,0.22);
   box-shadow: 0 1px 6px rgba(0,0,0,.2);
 }
-.website-btn:hover {
-  border-color: rgba(117,198,255,.45);
-}
+.website-btn:hover{ border-color: rgba(117,198,255,.45); }
+.download-btn:active, .website-btn:active { transform: translateY(1px); }
 
-.download-btn:active,
-.website-btn:active { transform: translateY(1px); }
-
-/* Accessible focus rings for keyboard users */
+/* Accessible focus rings */
 .download-btn:focus-visible,
 .website-btn:focus-visible,
-.app-card-link:focus-visible {
+.app-card-link:focus-visible{
   outline: 3px solid rgba(46,168,255,.55);
   outline-offset: 2px;
   border-radius: 12px;
 }
 
 /* =========================================================
-   Special case: the "Advertisements" card is a full <a>
+   Full-link card (Advertisements)
    ========================================================= */
-.app-card-link {
-  display: grid;
-  grid-template-columns: 72px 1fr;
-  gap: 12px;
-  align-items: center;
+.app-card-link{
+  display:grid;
+  grid-template-columns:72px 1fr;
+  gap:12px;
+  align-items:center;
 
   background: var(--card-bg);
   border: 1px solid var(--card-brd);
   border-radius: var(--radius);
   padding: 12px;
 
-  text-decoration: none;
-  color: inherit;
-  cursor: pointer;
+  text-decoration:none;
+  color:inherit;
+  cursor:pointer;
 
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 
-  box-shadow:
-    0 2px 10px rgba(0,0,0,.25),
-    0 0 .5px 1px rgba(46,168,255,.06) inset;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25), 0 0 .5px 1px rgba(46,168,255,.06) inset;
 }
-.app-card-link * { pointer-events: none; }
-.app-card-link:hover { filter: brightness(1.03); }
+.app-card-link *{ pointer-events:none; }
+.app-card-link:hover{ filter:brightness(1.03); }
 
 /* =========================================================
    Footer
    ========================================================= */
-.site-footer {
-  margin-top: 40px;
-  padding: 16px;
+.site-footer{
+  margin-top:40px;
+  padding:16px;
   background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
-  color: var(--muted);
-  font-size: 12px;
-  text-align: center;
-  border-top: 1px solid rgba(180,200,255,.16);
+  color:var(--muted);
+  font-size:12px;
+  text-align:center;
+  border-top:1px solid rgba(180,200,255,.16);
 }
 
 /* =========================================================
    Small screens polish
    ========================================================= */
-@media (max-width: 360px) {
-  .app-card,
-  .app-card-link {
-    grid-template-columns: 64px 1fr;
-  }
-  .app-icon { width: 64px; height: 64px; }
+@media (max-width: 360px){
+  .app-card, .app-card-link{ grid-template-columns:64px 1fr; }
+  .app-icon{ width:64px; height:64px; }
 }
 
 /* =========================================================
-   (Optional) Light mode (if you ever need it)
+   Optional Light mode
    Toggle with: <html data-theme="light">
    ========================================================= */
-:root[data-theme="light"] body {
-  background: #F0F0ED;
-  color: #111;
-}
+:root[data-theme="light"] body{ background:#F0F0ED; color:#111; }
 :root[data-theme="light"] .app-card,
-:root[data-theme="light"] .app-card-link {
+:root[data-theme="light"] .app-card-link{
   background:#fff; border:1px solid #e9e9ee; box-shadow:0 1px 3px rgba(0,0,0,.06);
   backdrop-filter:none; -webkit-backdrop-filter:none;
 }
-:root[data-theme="light"] .app-icon { background:#f5f7fb; border-color:#eef0f4; box-shadow:none; }
-:root[data-theme="light"] .app-desc { color:#444; }
-:root[data-theme="light"] .site-footer { background:#f5f5f7; color:#555; border-top:1px solid #e0e0e0; }
-:root[data-theme="light"] .website-btn { background:#555; color:#fff; border-color:rgba(0,0,0,.04); box-shadow:0 2px 6px rgba(0,0,0,.2); }
-:root[data-theme="light"] .download-btn { color:#fff; background:#0a84ff; box-shadow:0 2px 6px rgba(10,132,255,.25); }
+:root[data-theme="light"] .app-icon{ background:#f5f7fb; border-color:#eef0f4; box-shadow:none; }
+:root[data-theme="light"] .app-desc{ color:#444; }
+:root[data-theme="light"] .site-footer{ background:#f5f5f7; color:#555; border-top:1px solid #e0e0e0; }
+:root[data-theme="light"] .website-btn{ background:#555; color:#fff; border-color:rgba(0,0,0,.04); box-shadow:0 2px 6px rgba(0,0,0,.2); }
+:root[data-theme="light"] .download-btn{ color:#fff; background:#0a84ff; box-shadow:0 2px 6px rgba(10,132,255,.25); }
+
+/*  below os added css for download and websire buttons  
+ */
+ 
+ /* Bubble buttons inside app cards */
+.app-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.bubble-btn {
+  flex: 1;
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: 999px; /* pill shape */
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+/* Download = glowing electric blue */
+.bubble-btn.download {
+  background: linear-gradient(180deg, var(--accent-soft), var(--accent));
+  color: #05182e;
+  box-shadow: 0 2px 8px rgba(46,168,255,.45);
+}
+.bubble-btn.download:hover {
+  box-shadow: 0 4px 12px rgba(46,168,255,.6);
+}
+
+/* Website = frosted glass */
+.bubble-btn.website {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(180,200,255,0.22);
+  color: var(--text);
+  backdrop-filter: blur(8px);
+}
+.bubble-btn.website:hover {
+  border-color: rgba(117,198,255,.45);
+  box-shadow: 0 2px 8px rgba(46,168,255,.35);
+}
