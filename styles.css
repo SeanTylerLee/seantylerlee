@@ -1,11 +1,23 @@
 /* =========================================================
-   SeanTylerLee.com • styles.css
+   SeanTylerLee.com • styles.css (Neon/Glassy theme)
    - iOS-friendly layout
-   - Clean card grid for app list
+   - Glass cards with electric-blue accent
    - Buttons for Download / Website
-   - Safe-area support (iPhone notch)
-   - Accessible focus styles
+   - Safe-area support + accessible focus styles
    ========================================================= */
+
+/* ---- Tokens ---- */
+:root{
+  --bg0:#0a2347;              /* deep indigo */
+  --bg1:#0e2e5f;              /* top gradient */
+  --text:#e8f0ff;             /* near-white on dark */
+  --muted:#a9b8d0;
+  --accent:#2ea8ff;           /* electric blue */
+  --accent-soft:#75c6ff;      /* glow edge */
+  --card-bg: rgba(255,255,255,0.06);
+  --card-brd: rgba(180,200,255,0.18);
+  --radius:14px;
+}
 
 /* ---- Reset / Base ---- */
 * { box-sizing: border-box; }
@@ -14,10 +26,15 @@ html, body { height: 100%; }
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #F0F0ED; /* light neutral background */
-  color: #111111;
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Neon halo + deep gradient */
+  background:
+    radial-gradient(1200px 600px at 50% -200px, rgba(46,168,255,.25), transparent 60%),
+    radial-gradient(900px 900px at 80% 10%, rgba(117,198,255,.20), transparent 55%),
+    linear-gradient(180deg, var(--bg1), var(--bg0));
 }
 
 /* Respect iPhone safe areas (notch) */
@@ -27,9 +44,9 @@ body {
 .header-banner {
   display: block;
   width: 100%;
-  height: clamp(80px, 20vh, 160px);
-  object-fit: contain;       /* keep your header logo fully visible */
-  background: #F0F0ED;
+  height: clamp(80px, 22vh, 180px);
+  object-fit: contain;
+  filter: drop-shadow(0 10px 24px rgba(46,168,255,.45)); /* soft blue glow */
 }
 
 /* ---- Page container ---- */
@@ -43,6 +60,18 @@ body {
   font-size: 20px;
   font-weight: 700;
   margin: 6px 0 14px 2px;
+  letter-spacing: .2px;
+  position: relative;
+}
+.page-title::after{
+  content:"";
+  display:block;
+  height:2px;
+  width:56px;
+  margin-top:6px;
+  background:linear-gradient(90deg, var(--accent), transparent);
+  box-shadow:0 0 12px var(--accent);
+  border-radius:2px;
 }
 
 /* =========================================================
@@ -59,22 +88,34 @@ body {
   grid-template-columns: 72px 1fr;
   gap: 12px;
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #e9e9ee;
-  border-radius: 14px;
+
+  background: var(--card-bg);
+  border: 1px solid var(--card-brd);
+  border-radius: var(--radius);
   padding: 12px;
-  /* subtle, non-intrusive shadow */
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  box-shadow:
+    0 2px 10px rgba(0,0,0,.25),
+    0 0 .5px 1px rgba(46,168,255,.06) inset;
+
+  transition: transform .08s ease, box-shadow .2s ease, border-color .2s ease, filter .2s ease;
+}
+.app-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(117,198,255,.35);
 }
 
-/* App icon inside a card */
 .app-icon {
   width: 72px;
   height: 72px;
   border-radius: 14px;
-  object-fit: cover;          /* use 'contain' if your icon has transparent padding */
-  background: #f5f7fb;
-  border: 1px solid #eef0f4;
+  object-fit: cover;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 4px 18px rgba(46,168,255,.18);
 }
 
 /* Text area inside the card */
@@ -82,18 +123,16 @@ body {
   display: grid;
   gap: 6px;
 }
-
 .app-title {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
 }
-
 .app-desc  {
   margin: 0;
   font-size: 14px;
   line-height: 1.35;
-  color: #444;
+  color: var(--muted);
 }
 
 /* Buttons container inside cards */
@@ -109,73 +148,77 @@ body {
   display: inline-block;
   padding: 10px 14px;
   border-radius: 12px;
-  color: #fff;
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
   line-height: 1;
-  border: 1px solid rgba(0,0,0,0.04);
-  transition: transform 0.05s ease, filter 0.15s ease;
+  border: 1px solid rgba(0,0,0,0.12);
+  transition: transform .05s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease, filter .15s ease;
+  color:#05182e; /* overridden for website */
 }
 
 .download-btn {
-  background: #0a84ff; /* iOS blue */
-  box-shadow: 0 2px 6px rgba(10,132,255,0.25);
+  color:#05182e;
+  background: linear-gradient(180deg, var(--accent-soft), var(--accent));
+  box-shadow:
+    0 2px 10px rgba(46,168,255,.35),
+    0 0 14px rgba(46,168,255,.45);
+}
+.download-btn:hover {
+  box-shadow:
+    0 3px 12px rgba(46,168,255,.45),
+    0 0 18px rgba(46,168,255,.55);
 }
 
 .website-btn {
-  background: #555;    /* dark gray for contrast */
-  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(180,200,255,0.22);
+  box-shadow: 0 1px 6px rgba(0,0,0,.2);
+}
+.website-btn:hover {
+  border-color: rgba(117,198,255,.45);
 }
 
 .download-btn:active,
-.website-btn:active {
-  transform: translateY(1px);
-}
-
-.download-btn:hover,
-.website-btn:hover {
-  filter: brightness(1.03);
-}
+.website-btn:active { transform: translateY(1px); }
 
 /* Accessible focus rings for keyboard users */
 .download-btn:focus-visible,
 .website-btn:focus-visible,
 .app-card-link:focus-visible {
-  outline: 3px solid rgba(10,132,255,0.5);
+  outline: 3px solid rgba(46,168,255,.55);
   outline-offset: 2px;
   border-radius: 12px;
 }
 
 /* =========================================================
    Special case: the "Advertisements" card is a full <a>
-   We make the entire card clickable without breaking
-   buttons elsewhere.
    ========================================================= */
 .app-card-link {
-  display: grid;              /* match the normal card’s grid behavior */
+  display: grid;
   grid-template-columns: 72px 1fr;
   gap: 12px;
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #e9e9ee;
-  border-radius: 14px;
+
+  background: var(--card-bg);
+  border: 1px solid var(--card-brd);
+  border-radius: var(--radius);
   padding: 12px;
-  text-decoration: none;      /* remove link underline */
-  color: inherit;             /* keep text color */
+
+  text-decoration: none;
+  color: inherit;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-}
 
-/* Make the whole link clickable without child elements blocking it */
-.app-card-link * {
-  pointer-events: none;       /* children don't steal the click */
-}
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 
-/* Optional: a tiny hover lift for the linked card */
-.app-card-link:hover {
-  filter: brightness(1.01);
+  box-shadow:
+    0 2px 10px rgba(0,0,0,.25),
+    0 0 .5px 1px rgba(46,168,255,.06) inset;
 }
+.app-card-link * { pointer-events: none; }
+.app-card-link:hover { filter: brightness(1.03); }
 
 /* =========================================================
    Footer
@@ -183,11 +226,11 @@ body {
 .site-footer {
   margin-top: 40px;
   padding: 16px;
-  background-color: #f5f5f7;  /* iOS light grey */
-  color: #555;
+  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+  color: var(--muted);
   font-size: 12px;
   text-align: center;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid rgba(180,200,255,.16);
 }
 
 /* =========================================================
@@ -202,42 +245,20 @@ body {
 }
 
 /* =========================================================
-   (Optional) Dark mode – simple invert for comfort
-   Toggle with: <html data-theme="dark">
+   (Optional) Light mode (if you ever need it)
+   Toggle with: <html data-theme="light">
    ========================================================= */
-:root[data-theme="dark"] body {
-  background: #0f1113;
-  color: #f5f5f5;
+:root[data-theme="light"] body {
+  background: #F0F0ED;
+  color: #111;
 }
-
-:root[data-theme="dark"] .app-card,
-:root[data-theme="dark"] .app-card-link {
-  background: #181a1c;
-  border-color: #26292d;
-  box-shadow: none;
+:root[data-theme="light"] .app-card,
+:root[data-theme="light"] .app-card-link {
+  background:#fff; border:1px solid #e9e9ee; box-shadow:0 1px 3px rgba(0,0,0,.06);
+  backdrop-filter:none; -webkit-backdrop-filter:none;
 }
-
-:root[data-theme="dark"] .app-icon {
-  background: #15181b;
-  border-color: #202328;
-}
-
-:root[data-theme="dark"] .app-desc {
-  color: #c6c6c6;
-}
-
-:root[data-theme="dark"] .site-footer {
-  background: #16181c;
-  color: #aaa;
-  border-top-color: #24262b;
-}
-
-:root[data-theme="dark"] .download-btn {
-  background: #1973e8;
-  box-shadow: none;
-}
-
-:root[data-theme="dark"] .website-btn {
-  background: #3a3a3a;
-  box-shadow: none;
-}
+:root[data-theme="light"] .app-icon { background:#f5f7fb; border-color:#eef0f4; box-shadow:none; }
+:root[data-theme="light"] .app-desc { color:#444; }
+:root[data-theme="light"] .site-footer { background:#f5f5f7; color:#555; border-top:1px solid #e0e0e0; }
+:root[data-theme="light"] .website-btn { background:#555; color:#fff; border-color:rgba(0,0,0,.04); box-shadow:0 2px 6px rgba(0,0,0,.2); }
+:root[data-theme="light"] .download-btn { color:#fff; background:#0a84ff; box-shadow:0 2px 6px rgba(10,132,255,.25); }
