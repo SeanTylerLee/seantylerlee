@@ -244,3 +244,32 @@ body { background-color: #0a2347; }                  /* solid fallback */
   background: transparent !important;
   border-color: var(--card-brd) !important;
 }
+
+.full-screen-image {
+  margin: 0;
+  padding: 0;
+  height: 100vh;           /* fill the viewport height */
+  width: 100vw;            /* fill the viewport width */
+  display: flex;
+  justify-content: center; /* center horizontally */
+  align-items: center;     /* center vertically */
+  background: #05182e;        /* optional background */
+}
+
+.full-screen-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;     /* scale down without cropping */
+}
+
+.ad-card {
+  margin: 0;
+  padding: 0;
+}
+
+.ad-card img {
+  display: block;     /* removes the inline gap */
+  width: 100vw;       /* full width of the screen */
+  height: 100vh;      /* full height of the screen */
+  object-fit: contain; /* keeps proportions */
+}
