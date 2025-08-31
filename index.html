@@ -20,9 +20,6 @@
   </header>
 
   <!-- Hero -->
-  <section class="hero container">
-    <p>High-end design. Low-end cost.</p>
-  </section>
 
   <!-- App list -->
   <main class="container">
@@ -37,11 +34,28 @@
       </a>
       <!-- Add more app cards later by copying the block above -->
     </div>
+
+    <!-- Reports button -->
+    <div class="reports-section" style="margin-top: 2rem; text-align: center;">
+      <button class="reports-btn" onclick="openReports()">Go to Reports</button>
+    </div>
   </main>
 
   <!-- Footer -->
   <footer class="site-footer">
     © 2025 SeanTylerLee.com. All rights reserved.
   </footer>
+
+  <!-- PIN script -->
+  <script>
+    function openReports() {
+      const pin = prompt("Enter PIN to access reports:");
+      if (pin === "5335") {
+        window.location.href = "reports.html";
+      } else if (pin !== null) {
+        alert("Incorrect PIN. Access denied.");
+      }
+    }
+  </script>
 </body>
 </html>
