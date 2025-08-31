@@ -9,14 +9,13 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚛 Haul Path</h1>
+            <h1><img src="images/haulpath-icon.png" alt="Haul Path" style="width: 58px; height: 58px; vertical-align: middle; margin-right: 12px; border-radius: 8px;">Haul Path</h1>
             <p>Data Accuracy Reporting System</p>
         </div>
 
         <div class="content">
             <div class="tabs">
                 <button class="tab active" onclick="showTab('dashboard')">📊 Dashboard</button>
-                <button class="tab" onclick="showTab('submit')">📝 Submit Report</button>
                 <button class="tab" onclick="showTab('api')">🔧 API Info</button>
             </div>
 
@@ -37,153 +36,18 @@
                     </div>
                     <div class="stat-card">
                         <div class="stat-number" id="accuracyChallenge">0</div>
-                        <div class="stat-label">Challenge Reports</div>
+                        <div class="stat-label">Pending/In Progress</div>
                     </div>
                 </div>
 
-                <div class="filters">
-                    <div class="filter-group">
-                        <label>State:</label>
-                        <select id="stateFilter">
-                            <option value="">All States</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label>Status:</label>
-                        <select id="statusFilter">
-                            <option value="">All Status</option>
-                            <option value="new">New</option>
-                            <option value="reviewed">Reviewed</option>
-                            <option value="resolved">Resolved</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label>Type:</label>
-                        <select id="typeFilter">
-                            <option value="">All Types</option>
-                            <option value="manual">Manual Report</option>
-                            <option value="app">App Report</option>
-                            <option value="challenge">Accuracy Challenge</option>
-                        </select>
-                    </div>
-                </div>
+
 
                 <div class="reports-grid" id="reportsContainer">
                     <!-- Reports will be loaded here -->
                 </div>
             </div>
 
-            <!-- Submit Report Tab -->
-            <div id="submit" class="tab-content">
-                <h2>Submit Manual Report</h2>
-                
-                <div class="success-message" id="successMessage">
-                    ✅ Report submitted successfully! Thank you for helping improve Haul Path.
-                </div>
-                
-                <div class="error-message" id="errorMessage">
-                    ❌ Error submitting report. Please try again.
-                </div>
 
-                <form id="reportForm">
-                    <div class="form-group">
-                        <label for="reportState">State *</label>
-                        <select id="reportState" required>
-                            <option value="">Select State</option>
-                            <option value="AL">Alabama</option>
-                            <option value="AZ">Arizona</option>
-                            <option value="AR">Arkansas</option>
-                            <option value="CA">California</option>
-                            <option value="CO">Colorado</option>
-                            <option value="CT">Connecticut</option>
-                            <option value="DE">Delaware</option>
-                            <option value="FL">Florida</option>
-                            <option value="GA">Georgia</option>
-                            <option value="ID">Idaho</option>
-                            <option value="IL">Illinois</option>
-                            <option value="IN">Indiana</option>
-                            <option value="IA">Iowa</option>
-                            <option value="KS">Kansas</option>
-                            <option value="KY">Kentucky</option>
-                            <option value="LA">Louisiana</option>
-                            <option value="ME">Maine</option>
-                            <option value="MD">Maryland</option>
-                            <option value="MA">Massachusetts</option>
-                            <option value="MI">Michigan</option>
-                            <option value="MN">Minnesota</option>
-                            <option value="MS">Mississippi</option>
-                            <option value="MO">Missouri</option>
-                            <option value="MT">Montana</option>
-                            <option value="NE">Nebraska</option>
-                            <option value="NV">Nevada</option>
-                            <option value="NH">New Hampshire</option>
-                            <option value="NJ">New Jersey</option>
-                            <option value="NM">New Mexico</option>
-                            <option value="NY">New York</option>
-                            <option value="NC">North Carolina</option>
-                            <option value="ND">North Dakota</option>
-                            <option value="OH">Ohio</option>
-                            <option value="OK">Oklahoma</option>
-                            <option value="OR">Oregon</option>
-                            <option value="PA">Pennsylvania</option>
-                            <option value="RI">Rhode Island</option>
-                            <option value="SC">South Carolina</option>
-                            <option value="SD">South Dakota</option>
-                            <option value="TN">Tennessee</option>
-                            <option value="TX">Texas</option>
-                            <option value="UT">Utah</option>
-                            <option value="VT">Vermont</option>
-                            <option value="VA">Virginia</option>
-                            <option value="WA">Washington</option>
-                            <option value="WV">West Virginia</option>
-                            <option value="WI">Wisconsin</option>
-                            <option value="WY">Wyoming</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="thresholdType">Threshold Type *</label>
-                        <select id="thresholdType" required>
-                            <option value="">Select Threshold Type</option>
-                            <option value="weight">Weight Limit</option>
-                            <option value="height">Height Limit</option>
-                            <option value="width">Width Limit</option>
-                            <option value="length">Length Limit</option>
-                            <option value="axle">Axle Weight</option>
-                            <option value="permit">Permit Requirement</option>
-                            <option value="route">Route Restriction</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="currentValue">Current Value in App *</label>
-                        <input type="text" id="currentValue" placeholder="e.g., 80,000 lbs" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="correctValue">Correct Value *</label>
-                        <input type="text" id="correctValue" placeholder="e.g., 85,000 lbs" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="sourceLink">Official Source Link *</label>
-                        <input type="url" id="sourceLink" placeholder="https://..." required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="additionalNotes">Additional Notes</label>
-                        <textarea id="additionalNotes" placeholder="Any additional details or context..."></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="reporterEmail">Your Email (Optional)</label>
-                        <input type="email" id="reporterEmail" placeholder="your@email.com">
-                    </div>
-
-                    <button type="submit" class="btn">Submit Report</button>
-                </form>
-            </div>
 
             <!-- API Info Tab -->
             <div id="api" class="tab-content">
@@ -267,41 +131,27 @@
             const totalReports = reports.length;
             const newReports = reports.filter(r => r.status === 'new').length;
             const resolvedReports = reports.filter(r => r.status === 'resolved').length;
-            const challengeReports = reports.filter(r => r.reportType === 'challenge').length;
+            const pendingReports = reports.filter(r => r.status === 'pending').length;
+            const inProgressReports = reports.filter(r => r.status === 'in-progress').length;
             
             document.getElementById('totalReports').textContent = totalReports;
             document.getElementById('newReports').textContent = newReports;
             document.getElementById('resolvedReports').textContent = resolvedReports;
-            document.getElementById('accuracyChallenge').textContent = challengeReports;
+            document.getElementById('accuracyChallenge').textContent = pendingReports + inProgressReports;
         }
 
         // Display reports
         function displayReports() {
             const container = document.getElementById('reportsContainer');
-            const stateFilter = document.getElementById('stateFilter').value;
-            const statusFilter = document.getElementById('statusFilter').value;
-            const typeFilter = document.getElementById('typeFilter').value;
-            
-            let filteredReports = reports;
-            
-            if (stateFilter) {
-                filteredReports = filteredReports.filter(r => r.state === stateFilter);
-            }
-            if (statusFilter) {
-                filteredReports = filteredReports.filter(r => r.status === statusFilter);
-            }
-            if (typeFilter) {
-                filteredReports = filteredReports.filter(r => r.reportType === typeFilter);
-            }
             
             container.innerHTML = '';
             
-            if (filteredReports.length === 0) {
-                container.innerHTML = '<p class="no-results">No reports found matching your filters.</p>';
+            if (reports.length === 0) {
+                container.innerHTML = '<p class="no-results">No reports submitted yet.</p>';
                 return;
             }
             
-            filteredReports.forEach(report => {
+            reports.forEach(report => {
                 const card = createReportCard(report);
                 container.appendChild(card);
             });
@@ -327,8 +177,11 @@
                     ${report.additionalNotes ? `<p><strong>Notes:</strong> ${report.additionalNotes}</p>` : ''}
                 </div>
                 <div class="report-actions">
-                    <button class="btn btn-small btn-secondary" onclick="markReviewed('${report.id}')">Mark Reviewed</button>
-                    <button class="btn btn-small btn-success" onclick="markResolved('${report.id}')">Mark Resolved</button>
+                    <button class="btn btn-small btn-secondary" onclick="markReviewed('${report.id}')">👀 Reviewed</button>
+                    <button class="btn btn-small btn-warning" onclick="markPending('${report.id}')">⏳ Pending</button>
+                    <button class="btn btn-small btn-info" onclick="markInProgress('${report.id}')">🔄 In Progress</button>
+                    <button class="btn btn-small btn-success" onclick="markResolved('${report.id}')">✅ Resolved</button>
+                    <button class="btn btn-small btn-danger" onclick="markRejected('${report.id}')">❌ Rejected</button>
                 </div>
             `;
             
@@ -344,6 +197,24 @@
             }
         }
 
+        // Mark report as pending
+        function markPending(reportId) {
+            const report = reports.find(r => r.id === reportId);
+            if (report) {
+                report.status = 'pending';
+                loadDashboard();
+            }
+        }
+
+        // Mark report as in progress
+        function markInProgress(reportId) {
+            const report = reports.find(r => r.id === reportId);
+            if (report) {
+                report.status = 'in-progress';
+                loadDashboard();
+            }
+        }
+
         // Mark report as resolved
         function markResolved(reportId) {
             const report = reports.find(r => r.id === reportId);
@@ -353,49 +224,18 @@
             }
         }
 
-        // Handle form submission
-        document.getElementById('reportForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = {
-                state: document.getElementById('reportState').value,
-                thresholdType: document.getElementById('thresholdType').value,
-                currentValue: document.getElementById('currentValue').value,
-                correctValue: document.getElementById('correctValue').value,
-                sourceLink: document.getElementById('sourceLink').value,
-                additionalNotes: document.getElementById('additionalNotes').value,
-                reporterEmail: document.getElementById('reporterEmail').value,
-                reportType: 'manual',
-                timestamp: new Date().toISOString()
-            };
-            
-            // Add to reports array (in real implementation, this would be sent to server)
-            const newReport = {
-                id: `RPT-${String(reports.length + 1).padStart(3, '0')}`,
-                ...formData,
-                status: 'new'
-            };
-            
-            reports.push(newReport);
-            
-            // Show success message
-            document.getElementById('successMessage').style.display = 'block';
-            document.getElementById('errorMessage').style.display = 'none';
-            
-            // Reset form
-            document.getElementById('reportForm').reset();
-            
-            // Switch to dashboard to see the new report
-            setTimeout(() => {
-                showTab('dashboard');
-                document.getElementById('successMessage').style.display = 'none';
-            }, 2000);
-        });
+        // Mark report as rejected
+        function markRejected(reportId) {
+            const report = reports.find(r => r.id === reportId);
+            if (report) {
+                report.status = 'rejected';
+                loadDashboard();
+            }
+        }
 
-        // Filter functionality
-        document.getElementById('stateFilter').addEventListener('change', displayReports);
-        document.getElementById('statusFilter').addEventListener('change', displayReports);
-        document.getElementById('typeFilter').addEventListener('change', displayReports);
+
+
+
 
         // Load dashboard on page load
         document.addEventListener('DOMContentLoaded', function() {
