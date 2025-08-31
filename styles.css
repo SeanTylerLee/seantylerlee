@@ -1,0 +1,229 @@
+/* ================================
+   SeanTylerLee.com – Global Styles
+   Clean, iOS-inspired look
+   ================================ */
+
+/* Design tokens */
+:root{
+  --bg: #f5f5f7;
+  --card: #ffffff;
+  --text: #333333;
+  --muted: #666666;
+  --tint: #007AFF;      /* iOS blue */
+  --tint-2:#2196f3;
+  --warn:#ffc107;
+  --radius: 12px;
+  --shadow: 0 2px 10px rgba(0,0,0,0.08);
+  --maxw: 960px;
+}
+
+/* Base reset */
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.6;
+  margin:0;
+}
+
+/* Layout helpers */
+.container{
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 20px;
+}
+.card{
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* Header */
+.site-header{
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.site-header-inner{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  max-width: var(--maxw);
+  margin:0 auto;
+  padding: 14px 20px;
+}
+.site-title{
+  font-size: clamp(22px, 3.5vw, 28px);
+  margin:0;
+  color: var(--tint);
+  letter-spacing: 0.2px;
+  font-weight: 700;
+}
+.site-contact{
+  font-size: 14px;
+  color: var(--muted);
+}
+.site-contact a{
+  color: var(--tint);
+  text-decoration: none;
+}
+.site-contact a:hover{ text-decoration: underline; }
+
+/* Hero / intro section (home) */
+.hero{
+  text-align: center;
+  padding: 36px 20px 10px;
+}
+.hero p{
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+/* Headings */
+h1,h2,h3{
+  margin: 0 0 12px 0;
+}
+h1{
+  color: var(--tint);
+  font-size: clamp(28px, 4vw, 40px);
+  text-align: center;
+}
+h2{
+  color: var(--tint);
+  border-bottom: 2px solid var(--tint);
+  padding-bottom: 8px;
+  margin-top: 28px;
+}
+h3{ color:#222; margin-top: 20px; }
+
+/* Body text */
+p{ margin: 0 0 12px 0; text-align: justify; }
+ul{ margin: 0 0 12px 20px; }
+li{ margin: 6px 0; }
+
+/* Info blocks */
+.highlight{
+  background: #e3f2fd;
+  border-left: 4px solid var(--tint-2);
+  padding: 14px 16px;
+  border-radius: 8px;
+  margin: 18px 0;
+}
+.disclaimer{
+  background: #fff3cd;
+  border-left: 4px solid var(--warn);
+  padding: 14px 16px;
+  border-radius: 8px;
+  margin: 18px 0;
+}
+.contact-info{
+  background: #f8f9fa;
+  border-left: 4px solid var(--tint);
+  padding: 16px;
+  border-radius: 8px;
+  margin: 18px 0;
+}
+
+/* App list grid */
+.app-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+.app-card{
+  display:flex;
+  align-items:center;
+  gap: 14px;
+  padding: 14px;
+  transition: transform .12s ease, box-shadow .12s ease;
+  text-decoration: none; /* for <a> wrapper */
+  color: inherit;
+}
+.app-card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+.app-icon{
+  width: 72px; height: 72px;
+  border-radius: 16px;
+  flex: 0 0 72px;
+  object-fit: cover;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+  background: #eee;
+}
+.app-meta{ flex:1; min-width: 0; }
+.app-title{
+  font-weight: 700;
+  font-size: 18px;
+  margin: 0 0 4px 0;
+}
+.app-desc{
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Footer */
+.site-footer{
+  text-align:center;
+  color: #888;
+  border-top: 1px solid rgba(0,0,0,0.08);
+  padding: 18px 12px 28px;
+  margin-top: 32px;
+}
+
+/* Content wrapper for “legal” pages */
+.page{
+  padding: 24px;
+}
+.page .container-narrow{
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Buttons (if you add any later) */
+.btn{
+  display:inline-block;
+  background: var(--tint);
+  color:#fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 600;
+}
+.btn:hover{ filter: brightness(0.95); }
+
+/* Small screens */
+@media (max-width: 480px){
+  .site-header-inner{ padding: 12px 14px; }
+  .app-icon{ width:64px; height:64px; border-radius: 14px; }
+}
+
+/* Optional: tasteful dark mode */
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0e0f12;
+    --card:#15171b;
+    --text:#e9e9ec;
+    --muted:#a3a3ac;
+    --shadow: 0 2px 10px rgba(0,0,0,0.5);
+    --tint:#0a84ff;
+    --tint-2:#0a84ff;
+    --warn:#ffd257;
+    border-color: rgba(255,255,255,0.08);
+  }
+  .site-header{
+    background: rgba(15,16,20,0.65);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .site-footer{
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+}
