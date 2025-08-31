@@ -75,7 +75,7 @@
 
             <!-- Submit Report Tab -->
             <div id="submit" class="tab-content">
-                <h2 style="margin-bottom: 20px;">Submit Manual Report</h2>
+                <h2>Submit Manual Report</h2>
                 
                 <div class="success-message" id="successMessage">
                     ✅ Report submitted successfully! Thank you for helping improve Haul Path.
@@ -91,7 +91,6 @@
                         <select id="reportState" required>
                             <option value="">Select State</option>
                             <option value="AL">Alabama</option>
-                            <option value="AK">Alaska</option>
                             <option value="AZ">Arizona</option>
                             <option value="AR">Arkansas</option>
                             <option value="CA">California</option>
@@ -100,7 +99,6 @@
                             <option value="DE">Delaware</option>
                             <option value="FL">Florida</option>
                             <option value="GA">Georgia</option>
-                            <option value="HI">Hawaii</option>
                             <option value="ID">Idaho</option>
                             <option value="IL">Illinois</option>
                             <option value="IN">Indiana</option>
@@ -189,22 +187,22 @@
 
             <!-- API Info Tab -->
             <div id="api" class="tab-content">
-                <h2 style="margin-bottom: 20px;">API Information</h2>
+                <h2>API Information</h2>
                 
-                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <div class="api-section">
                     <h3>📱 App Integration</h3>
                     <p>Your Haul Path app can submit reports directly to this system using the following API endpoint:</p>
                     
-                    <div style="background: #2c3e50; color: #fff; padding: 15px; border-radius: 8px; margin: 15px 0; font-family: monospace;">
+                    <div class="code-block">
                         <strong>Endpoint:</strong> POST /api/reports<br>
                         <strong>Content-Type:</strong> application/json<br>
                         <strong>Base URL:</strong> https://yourwebsite.com
                     </div>
                 </div>
 
-                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <div class="api-section">
                     <h3>📋 Request Format</h3>
-                    <pre style="background: #2c3e50; color: #fff; padding: 15px; border-radius: 8px; overflow-x: auto;">
+                    <pre class="code-block">
 {
   "state": "TX",
   "thresholdType": "weight",
@@ -218,9 +216,9 @@
 }</pre>
                 </div>
 
-                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
+                <div class="api-section">
                     <h3>🔧 Implementation Notes</h3>
-                    <ul style="margin-left: 20px; line-height: 1.6;">
+                    <ul>
                         <li>Reports from the app will be marked as "app" type</li>
                         <li>Manual submissions will be marked as "manual" type</li>
                         <li>Accuracy challenge reports will be marked as "challenge" type</li>
@@ -233,35 +231,8 @@
     </div>
 
     <script>
-        // Sample data - in real implementation, this would come from a database
-        let reports = [
-            {
-                id: "RPT-001",
-                state: "TX",
-                thresholdType: "weight",
-                currentValue: "80,000 lbs",
-                correctValue: "85,000 lbs",
-                sourceLink: "https://txdot.gov/permits/oversize",
-                additionalNotes: "Updated weight limit effective Jan 2024",
-                reporterEmail: "user@example.com",
-                reportType: "app",
-                status: "new",
-                timestamp: "2025-08-31T10:30:00Z"
-            },
-            {
-                id: "RPT-002",
-                state: "CA",
-                thresholdType: "height",
-                currentValue: "13'6\"",
-                correctValue: "14'0\"",
-                sourceLink: "https://dot.ca.gov/permits/oversize",
-                additionalNotes: "Bridge clearance updated",
-                reporterEmail: "trucker@example.com",
-                reportType: "manual",
-                status: "reviewed",
-                timestamp: "2025-08-30T15:45:00Z"
-            }
-        ];
+        // Reports data - starts empty, will be populated by API calls
+        let reports = [];
 
         // Tab functionality
         function showTab(tabName) {
@@ -326,7 +297,7 @@
             container.innerHTML = '';
             
             if (filteredReports.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No reports found matching your filters.</p>';
+                container.innerHTML = '<p class="no-results">No reports found matching your filters.</p>';
                 return;
             }
             
