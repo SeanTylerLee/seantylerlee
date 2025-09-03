@@ -105,11 +105,12 @@
       display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
       margin-top: 14px;
     }
-    .btn {
+    .btn, .btn-ghost, .btn-primary {
       display:inline-block; padding:12px 16px; border-radius:12px;
       text-decoration:none; font-weight:700; font-size:14px; line-height:1;
       transition: transform .05s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
       border: 1px solid rgba(0,0,0,0.12);
+      cursor: pointer;
     }
     .btn-primary{
       color:#05182e;
@@ -125,9 +126,7 @@
     }
     .btn:active{ transform: translateY(1px); }
 
-    main {
-      padding: 12px 0 24px;
-    }
+    main { padding: 12px 0 24px; }
 
     /* Glassy placeholder card list */
     .cards { display:grid; gap:14px; padding: 0 16px; }
@@ -148,6 +147,75 @@
     .card h2 { margin:0; font-size:16px; }
     .card p { margin:3px 0 0; font-size:14px; color: var(--muted); }
 
+    /* ===== Collapsible Quote Panel ===== */
+    .accordion {
+      margin: 18px 16px 0;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--card-brd);
+      background: rgba(255,255,255,0.04);
+      box-shadow: 0 2px 10px rgba(0,0,0,.25);
+    }
+    .acc-header {
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding: 14px 16px;
+      cursor: pointer;
+      user-select: none;
+      background: rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .acc-header h3 { margin:0; font-size:16px; }
+    .chev { transition: transform .2s ease; }
+    .acc-header[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+    .acc-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .3s ease;
+      padding: 0 16px;
+    }
+    .acc-body-inner { padding: 14px 0 16px; }
+
+    /* Quote form */
+    .grid-2{ display:grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 720px){ .grid-2{ grid-template-columns: 1fr 1fr; } }
+
+    .field{ display:grid; gap:6px; }
+    .field label{ font-weight:700; font-size:13px; }
+    .muted{ color: var(--muted); font-size: 12px; }
+
+    input[type="text"], input[type="number"], input[type="email"], textarea, select{
+      border: 1px solid rgba(226, 232, 240, .35);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font: inherit;
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      width: 100%;
+      outline: none;
+    }
+    textarea{ min-height: 90px; resize: vertical; }
+
+    .feature-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    @media (min-width: 900px){ .feature-grid{ grid-template-columns: 1fr 1fr 1fr; } }
+    .feature{ background: rgba(255,255,255,0.06); border:1px solid rgba(180,200,255,0.18); border-radius:12px; padding:8px; }
+
+    .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap: wrap; }
+    .inline{ display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
+    .divider{ height:1px; background: rgba(180,200,255,.16); margin: 12px 0; }
+    .chip{ font-size: .85rem; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.08); }
+    .badge{ font-weight:800; }
+    .total{ font-size: 1.4rem; font-weight: 900; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .primary-btn{ composes: btn btn-primary; } /* (harmless if composes unsupported) */
+
+    .breakdown{
+      background: rgba(46,168,255,.06);
+      border:1px solid rgba(46,168,255,.18);
+      border-radius:12px;
+      padding:12px;
+    }
+
     footer {
       margin-top: 24px;
       padding: 16px;
@@ -159,9 +227,7 @@
     }
 
     /* Accessibility */
-    .btn:focus-visible,
-    a:focus-visible,
-    .card:focus-visible{
+    .btn:focus-visible, a:focus-visible, .card:focus-visible, .acc-header:focus-visible{
       outline: 3px solid rgba(46,168,255,.55);
       outline-offset: 2px;
       border-radius: 12px;
@@ -172,28 +238,224 @@
       header.hero{ padding-top: 40px; }
       .cards{ grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
+
+    /* ===== Printable Quote ===== */
+    #printable-quote{ display:none; }
+    #printable-quote .doc{
+      width: 850px; max-width: 100%; margin: 0 auto; background: #fff; color:#111;
+      border: 1px solid #e5e7eb; border-radius: 16px; padding: 32px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+    #printable-quote .doc-header{
+      display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom: 20px;
+    }
+    #printable-quote .brand{ display:flex; align-items:center; gap:12px; }
+    #printable-quote .brand img{ width:40px; height:40px; object-fit:contain; }
+    #printable-quote h1{ margin:0; font-size:1.6rem; }
+    #printable-quote .meta{ text-align:right; font-size:.95rem; color:#444; }
+    #printable-quote .section{ margin-top:16px; }
+    #printable-quote .section h3{ margin: 0 0 8px; font-size:1.05rem; letter-spacing:.2px; }
+    #printable-quote .kv{ display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; font-size:.98rem; }
+    #printable-quote table{ width:100%; border-collapse:collapse; margin-top:8px; font-size:.98rem; }
+    #printable-quote th, #printable-quote td{ border-bottom:1px solid #ececec; padding:10px 8px; text-align:left; vertical-align:top; }
+    #printable-quote tfoot td{ border-top:2px solid #111; font-weight:800; font-size:1.1rem; }
+    #printable-quote .terms{ font-size:.9rem; color:#555; line-height:1.5; margin-top:10px; }
+    #printable-quote .sig{ display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:24px; }
+    #printable-quote .sig div{ height:70px; border-top:1px solid #bbb; padding-top:6px; }
+    #printable-quote .footer-note{ margin-top:16px; font-size:.85rem; color:#666; text-align:center; }
+
+    /* Print rules: only show the printable doc */
+    @media print{
+      body{ background:#fff !important; }
+      header, main, footer{ display:none !important; }
+      #printable-quote{ display:block !important; }
+      #printable-quote .doc{ border:0; border-radius:0; padding:24px; }
+      @page { size: Letter; margin: 18mm; } /* Change to A4 if preferred */
+    }
   </style>
 </head>
 <body>
   <header class="safe-top hero">
     <div class="wrap safe-x">
-      <!-- Replace logo.png with your real logo -->
       <img src="images/Icon.jpg" alt="SeanTylerLee.com" class="logo" />
       <h1 class="tag">Professional builds at a fraction of the price.</h1>
-      <p class="subtag">Websites • iOS Apps • PWAs</p>
+      <p class="subtag">Get an instant quote today.</p>
 
       <div class="cta-row">
-        <a class="btn btn-ghost" href="tel:5807298184">Call (580) 729-8184</a>
-        <a class="primary-btn" onclick="location.href='qform.html'">Instant Quote/button</a>
-    
+        <a class="btn-ghost" href="tel:5807298184">Call (580) 729-8184</a>
+        <!-- Removed Instant Quote button per request -->
       </div>
     </div>
   </header>
 
   <main>
     <div class="wrap">
-        
-      <!-- Placeholder cards (edit or delete later) -->
+      <!-- Collapsible Quote Panel -->
+      <section class="accordion" id="quoteAcc">
+        <div class="acc-header" id="quoteToggle" aria-controls="quoteBody" aria-expanded="false" tabindex="0">
+          <h3>Get a Quote</h3>
+          <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+        <div class="acc-body" id="quoteBody">
+          <div class="acc-body-inner">
+            <form id="quoteForm">
+              <div class="grid-2">
+                <div class="field">
+                  <label for="name">Your name</label>
+                  <input id="name" type="text" placeholder="Jane Doe" />
+                </div>
+                <div class="field">
+                  <label for="email">Email</label>
+                  <input id="email" type="email" placeholder="you@company.com" />
+                </div>
+              </div>
+
+              <div class="grid-2">
+                <div class="field">
+                  <label for="company">Company/Brand (optional)</label>
+                  <input id="company" type="text" placeholder="Acme Transport" />
+                </div>
+                <div class="field">
+                  <label for="deadline">Target launch date</label>
+                  <input id="deadline" type="text" placeholder="e.g., Nov 15, 2025" />
+                  <span class="muted">Used for rush factor (if any).</span>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="projectType">Project type</label>
+                <select id="projectType">
+                  <option value="website">Website</option>
+                  <option value="pwa">PWA (Progressive Web App)</option>
+                  <option value="ios">iOS App</option>
+                  <option value="android">Android App</option>
+                  <option value="cross">Cross-platform (iOS + Android)</option>
+                </select>
+              </div>
+
+              <div class="grid-2">
+                <div class="field">
+                  <label for="pages"># of pages/screens</label>
+                  <input id="pages" type="number" min="1" value="5" />
+                </div>
+                <div class="field">
+                  <label for="complexity">Feature complexity</label>
+                  <select id="complexity">
+                    <option value="simple">Simple</option>
+                    <option value="standard" selected>Standard</option>
+                    <option value="advanced">Advanced</option>
+                    <option value="pro">Pro</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Features</label>
+                <div class="feature-grid">
+                  <label class="feature"><input type="checkbox" class="feat" value="auth" /> Auth</label>
+                  <label class="feature"><input type="checkbox" class="feat" value="cms" /> CMS</label>
+                  <label class="feature"><input type="checkbox" class="feat" value="payments" /> Payments</label>
+                  <label class="feature"><input type="checkbox" class="feat" value="maps" /> Maps/Routing</label>
+                  <label class="feature"><input type="checkbox" class="feat" value="ai" /> AI/OCR/Chat</label>
+                  <label class="feature"><input type="checkbox" class="feat" value="db" /> DB + Admin</label>
+                  <label class="feature"><input type="checkbox" class="feat" value="offline" /> Offline/PWA</label>
+                  <label class="feature"><input type="checkbox" class="feat" value="push" /> Push</label>
+                  <label class="feature"><input type="checkbox" class="feat" value="carplay" /> CarPlay/Auto</label>
+                </div>
+              </div>
+
+              <div class="grid-2">
+                <div class="field">
+                  <label for="design">Design effort</label>
+                  <select id="design">
+                    <option value="reuse">Reuse existing</option>
+                    <option value="light" selected>Light custom</option>
+                    <option value="full">Full system</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="branding">Branding</label>
+                  <select id="branding">
+                    <option value="none">None</option>
+                    <option value="logo">Logo refresh</option>
+                    <option value="full">Full brand kit</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid-2">
+                <div class="field">
+                  <label for="copy">Copywriting</label>
+                  <select id="copy">
+                    <option value="client">Client provides</option>
+                    <option value="assist">Assisted</option>
+                    <option value="full">Full copywriting</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="seo">SEO / ASO</label>
+                  <select id="seo">
+                    <option value="basic">Basic</option>
+                    <option value="opt">Optimization + analytics</option>
+                    <option value="campaign">Launch campaign</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid-2">
+                <div class="field">
+                  <label for="rush">Rush?</label>
+                  <select id="rush">
+                    <option value="no" selected>No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="maintenance">Maintenance plan</label>
+                  <select id="maintenance">
+                    <option value="none">None</option>
+                    <option value="basic">Basic ($149/mo)</option>
+                    <option value="pro">Pro ($299/mo)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="notes">Notes / must-haves</label>
+                <textarea id="notes" placeholder="Goals, tech, integrations, examples…"></textarea>
+              </div>
+
+              <div class="row">
+                <div class="inline">
+                  <button class="btn-primary" id="calcBtn" type="button">Calculate</button>
+                  <button class="btn-ghost" type="button" id="saveBtn">Save</button>
+                  <button class="btn-ghost" type="button" id="loadBtn">Load</button>
+                  <button class="btn-ghost" type="button" id="printBtn">Print Quote (PDF)</button>
+                </div>
+                <span class="chip">v1.1</span>
+              </div>
+
+              <div class="divider"></div>
+
+              <div class="breakdown" id="breakdown" hidden>
+                <div class="row">
+                  <div class="badge">Estimated Total</div>
+                  <div class="total" id="total">$0</div>
+                </div>
+                <div id="lineItems" class="mono" style="white-space:pre-wrap;"></div>
+                <div class="divider"></div>
+                <div class="row">
+                  <a id="mailto" class="btn-primary" href="#">Email Me This Quote</a>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- Content cards -->
       <section class="cards safe-x" aria-label="Coming soon">
         <article class="card">
           <div class="card-icon"></div>
@@ -218,12 +480,283 @@
     © 2025 SeanTylerLee.com and all associated applications. All rights reserved.
   </footer>
 
-  <!-- Optional: minimal SW registration (works if you add /sw.js later) -->
+  <!-- ===== Printable Document Template (populated dynamically) ===== -->
+  <section id="printable-quote">
+    <div class="doc">
+      <div class="doc-header">
+        <div class="brand">
+          <img src="images/haulpath-icon.png" alt="Logo" onerror="this.style.display='none'">
+          <div>
+            <h1>Quote</h1>
+            <div style="color:#666;font-size:.95rem;">SeanTylerLee.com</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div id="pq-id" class="mono"></div>
+          <div id="pq-date"></div>
+          <div>seantylerlee@icloud.com</div>
+          <div>SeanTylerLee.com</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Client</h3>
+        <div class="kv" id="pq-client"></div>
+      </div>
+
+      <div class="section">
+        <h3>Project Overview</h3>
+        <div class="kv" id="pq-overview"></div>
+        <div id="pq-notes" style="background:#eef4ff; color:#0f172a; border-radius:12px; padding:10px; margin-top:8px;"></div>
+      </div>
+
+      <div class="section">
+        <h3>Pricing Breakdown</h3>
+        <table id="pq-table">
+          <thead><tr><th style="width:65%;">Item</th><th style="width:35%;">Amount</th></tr></thead>
+          <tbody></tbody>
+          <tfoot><tr><td>Total (one-time)</td><td id="pq-total"></td></tr></tfoot>
+        </table>
+        <div id="pq-maint" style="margin-top:6px; font-size:.95rem;"></div>
+      </div>
+
+      <div class="section">
+        <h3>Terms</h3>
+        <div class="terms">
+          This quote is an estimate based on the provided scope and selections. Final pricing may adjust if scope changes.
+          50% deposit to begin; remainder due at delivery. Rush timelines incur expedite fees. IP transfers upon final payment.
+          Maintenance is optional and billed monthly. Valid for 30 days.
+        </div>
+      </div>
+
+      <div class="sig">
+        <div>Client Signature & Date</div>
+        <div>SeanTylerLee.com Signature & Date</div>
+      </div>
+
+      <div class="footer-note">
+        Thank you for the opportunity! Questions? Email seantylerlee@icloud.com
+      </div>
+    </div>
+  </section>
+
   <script>
+    // ===== Accordion (collapsible) behavior =====
+    const toggle = document.getElementById('quoteToggle');
+    const panel  = document.getElementById('quoteBody');
+    let open = false;
+
+    function setOpen(next){
+      open = next;
+      toggle.setAttribute('aria-expanded', String(open));
+      if(open){
+        panel.style.maxHeight = panel.scrollHeight + 'px';
+      } else {
+        panel.style.maxHeight = '0px';
+      }
+    }
+    setOpen(false);
+
+    toggle.addEventListener('click', ()=> setOpen(!open));
+    toggle.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); setOpen(!open); } });
+
+    // ===== Pricing Model =====
+    const RATES = {
+      base:        { website: 1200, pwa: 2500, ios: 4000, android: 4000, cross: 7000 },
+      perPage:     { website: 120,  pwa: 220,  ios: 350,  android: 350,  cross: 600  },
+      complexity:  { simple: 1.0, standard: 1.25, advanced: 1.6, pro: 2.2 },
+      featureAddons: {
+        auth: 600, cms: 700, payments: 1200, maps: 900, ai: 1500,
+        db: 900, offline: 700, push: 500, carplay: 1200
+      },
+      design:      { reuse: 0, light: 600, full: 1800 },
+      branding:    { none: 0, logo: 500, full: 1600 },
+      copy:        { client: 0, assist: 400, full: 1200 },
+      seo:         { basic: 0, opt: 600, campaign: 1500 },
+      rushMultiplier: 1.35,
+      discounts:   { bigScopeThreshold: 18, bigScopePercentOff: 0.07 },
+      maintenanceMonthly: { none: 0, basic: 149, pro: 299 }
+    };
+
+    // ===== Helpers =====
+    const $$  = (s)=>document.querySelector(s);
+    const $$$ = (s)=>Array.from(document.querySelectorAll(s));
+    const money   = (n)=>n.toLocaleString(undefined,{style:'currency',currency:'USD'});
+    const todayStr= ()=> new Date().toLocaleDateString(undefined,{year:'numeric',month:'short',day:'2-digit'});
+    const quoteId = ()=>{
+      const d=new Date(), y=d.getFullYear().toString().slice(-2), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'), rnd=Math.floor(1000+Math.random()*9000);
+      return `Q-${y}${m}${day}-${rnd}`;
+    };
+
+    function gather(){
+      return {
+        name: $$('#name').value.trim(),
+        email: $$('#email').value.trim(),
+        company: $$('#company').value.trim(),
+        deadline: $$('#deadline').value.trim(),
+        projectType: $$('#projectType').value,
+        pages: Math.max(1, parseInt($$('#pages').value || '1', 10)),
+        complexity: $$('#complexity').value,
+        features: $$$('.feat:checked').map(el=>el.value),
+        design: $$('#design').value,
+        branding: $$('#branding').value,
+        copy: $$('#copy').value,
+        seo: $$('#seo').value,
+        rush: $$('#rush').value,
+        maintenance: $$('#maintenance').value,
+        notes: $$('#notes').value.trim()
+      };
+    }
+
+    function calculateQuote(d){
+      const lines=[]; let subtotal=0;
+
+      const base=RATES.base[d.projectType]||0;
+      const perPage=RATES.perPage[d.projectType]||0;
+      const mult=RATES.complexity[d.complexity]||1;
+
+      lines.push({label:`Base (${d.projectType})`, amount: base}); subtotal+=base;
+      lines.push({label:`Pages/screens (${d.pages} × ${money(perPage)})`, amount: d.pages*perPage}); subtotal+=d.pages*perPage;
+
+      d.features.forEach(f=>{ const c=RATES.featureAddons[f]||0; lines.push({label:`Feature: ${f}`, amount:c}); subtotal+=c; });
+
+      const design=RATES.design[d.design]||0, brand=RATES.branding[d.branding]||0, copy=RATES.copy[d.copy]||0, seo=RATES.seo[d.seo]||0;
+      [['Design',design],['Branding',brand],['Copywriting',copy],['SEO/ASO',seo]].forEach(([l,v])=>{ lines.push({label:l, amount:v}); subtotal+=v; });
+
+      const after=Math.round(subtotal*mult), up=after-subtotal; if(up>0) lines.push({label:`Complexity (${d.complexity} ×${mult})`, amount: up}); subtotal=after;
+
+      if(d.pages>=RATES.discounts.bigScopeThreshold){
+        const disc=Math.round(subtotal*RATES.discounts.bigScopePercentOff);
+        lines.push({label:`Large scope discount (${RATES.discounts.bigScopePercentOff*100}% off)`, amount:-disc});
+        subtotal-=disc;
+      }
+
+      if(d.rush==='yes'){
+        const newTot=Math.round(subtotal*RATES.rushMultiplier);
+        const add=newTot-subtotal;
+        lines.push({label:`Rush (+${Math.round((RATES.rushMultiplier-1)*100)}%)`, amount:add});
+        subtotal=newTot;
+      }
+
+      const monthly=RATES.maintenanceMonthly[d.maintenance]||0;
+      return { total: subtotal, monthly, lines };
+    }
+
+    function updateUI(d,q){
+      $$('#breakdown').hidden=false;
+      $$('#total').textContent=money(q.total);
+      $$('#lineItems').textContent=q.lines.map(li=>`${li.label}: ${money(li.amount)}`).join('\n');
+
+      const subject=encodeURIComponent(`Quote for ${d.projectType} – ${d.name||'Client'}`);
+      const body=[
+        `Name: ${d.name}`,
+        `Email: ${d.email}`,
+        `Company: ${d.company}`,
+        `Project Type: ${d.projectType}`,
+        `Pages/Screens: ${d.pages}`,
+        `Complexity: ${d.complexity}`,
+        `Features: ${d.features.join(', ')||'none'}`,
+        `Design: ${d.design} | Branding: ${d.branding} | Copy: ${d.copy} | SEO/ASO: ${d.seo}`,
+        `Rush: ${d.rush} | Maintenance: ${d.maintenance} (${money(q.monthly)}/mo)`,
+        `Deadline: ${d.deadline}`,
+        '',
+        '--- Estimate ---',
+        ...q.lines.map(li=>`${li.label}: ${money(li.amount)}`),
+        '',
+        `Total: ${money(q.total)}`,
+        q.monthly?`Maintenance: ${money(q.monthly)}/mo`: '',
+        '',
+        'Notes:',
+        d.notes||'(none)'
+      ].join('\n');
+
+      $$('#mailto').href=`mailto:seantylerlee@icloud.com?subject=${subject}&body=${encodeURIComponent(body)}`;
+    }
+
+    function buildPrintable(d,q){
+      const id=quoteId();
+      $$('#pq-id').textContent=id;
+      $$('#pq-date').textContent=todayStr();
+
+      $$('#pq-client').innerHTML = `
+        <div><strong>Name:</strong> ${d.name||'—'}</div>
+        <div><strong>Email:</strong> ${d.email||'—'}</div>
+        <div><strong>Company:</strong> ${d.company||'—'}</div>
+        <div><strong>Target Launch:</strong> ${d.deadline||'—'}</div>
+      `;
+
+      const features = (d.features && d.features.length) ? d.features.join(', ') : 'none';
+      $$('#pq-overview').innerHTML = `
+        <div><strong>Type:</strong> ${d.projectType}</div>
+        <div><strong>Scope:</strong> ${d.pages} ${d.projectType==='website'?'pages':'screens'}</div>
+        <div><strong>Complexity:</strong> ${d.complexity}</div>
+        <div><strong>Maintenance:</strong> ${d.maintenance} ${q.monthly?`(${money(q.monthly)}/mo)`:''}</div>
+        <div><strong>Design/Brand/Copy/SEO:</strong> ${d.design} / ${d.branding} / ${d.copy} / ${d.seo}</div>
+        <div><strong>Features:</strong> ${features}</div>
+      `;
+
+      $$('#pq-notes').textContent = d.notes ? d.notes : 'No additional notes provided.';
+
+      const tbody = $$('#pq-table tbody'); tbody.innerHTML='';
+      q.lines.forEach(li=>{
+        const tr=document.createElement('tr');
+        const t1=document.createElement('td'); const t2=document.createElement('td');
+        t1.textContent=li.label; t2.textContent=(li.amount<0?'-':'')+money(Math.abs(li.amount));
+        t2.style.textAlign='right';
+        tr.appendChild(t1); tr.appendChild(t2); tbody.appendChild(tr);
+      });
+      $$('#pq-total').textContent=money(q.total);
+      $$('#pq-maint').textContent = q.monthly ? `Maintenance plan: ${money(q.monthly)}/month` : 'No maintenance plan selected.';
+      localStorage.setItem('stl-quote-last-id', id);
+    }
+
+    // ===== Wire up buttons =====
+    $$('#calcBtn').addEventListener('click', ()=>{
+      const d=gather(); const q=calculateQuote(d); updateUI(d,q);
+      localStorage.setItem('stl-quote-latest', JSON.stringify({d,q}));
+    });
+
+    $$('#saveBtn').addEventListener('click', ()=>{
+      const d=gather(); localStorage.setItem('stl-quote-draft', JSON.stringify(d));
+      alert('Saved locally on this device.');
+    });
+
+    $$('#loadBtn').addEventListener('click', ()=>{
+      const raw=localStorage.getItem('stl-quote-draft');
+      if(!raw) return alert('No saved draft found.');
+      const d=JSON.parse(raw);
+      $$('#name').value = d.name || '';
+      $$('#email').value = d.email || '';
+      $$('#company').value = d.company || '';
+      $$('#deadline').value = d.deadline || '';
+      $$('#projectType').value = d.projectType || 'website';
+      $$('#pages').value = d.pages || 5;
+      $$('#complexity').value = d.complexity || 'standard';
+      $$$('.feat').forEach(el => { el.checked = (d.features||[]).includes(el.value); });
+      $$('#design').value = d.design || 'light';
+      $$('#branding').value = d.branding || 'none';
+      $$('#copy').value = d.copy || 'assist';
+      $$('#seo').value = d.seo || 'basic';
+      $$('#rush').value = d.rush || 'no';
+      $$('#maintenance').value = d.maintenance || 'none';
+      $$('#notes').value = d.notes || '';
+      alert('Draft loaded.');
+    });
+
+    $$('#printBtn').addEventListener('click', ()=>{
+      const d=gather(); const q=calculateQuote(d); updateUI(d,q); buildPrintable(d,q);
+      // Show printable section (print CSS hides everything else)
+      $$('#printable-quote').style.display='block';
+      setTimeout(()=>{
+        window.print();
+        $$('#printable-quote').style.display='none';
+      }, 40);
+    });
+
+    // Optional SW registration
     if ('serviceWorker' in navigator) {
-      // navigator.serviceWorker.register('/sw.js'); // uncomment when sw.js exists
+      // navigator.serviceWorker.register('/sw.js');
     }
   </script>
 </body>
 </html>
-
