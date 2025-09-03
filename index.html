@@ -50,7 +50,7 @@
       color:var(--text);
 
       background-image:
-        /* subtle noise (prevents gradient banding) */
+        /* subtle noise */
         url('data:image/svg+xml;utf8,\
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">\
   <filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch"/></filter>\
@@ -84,7 +84,7 @@
     }
     .logo {
       width:min(520px, 64vw);
-      max-width: 320px;      /* comfortable on iPhone */
+      max-width: 320px;
       height:auto; object-fit:contain;
       filter: drop-shadow(0 10px 24px rgba(46,168,255,.45));
     }
@@ -147,57 +147,22 @@
     .card h2 { margin:0; font-size:16px; }
     .card p { margin:3px 0 0; font-size:14px; color: var(--muted); }
 
-    /* ===== Backdrop to dim page when quote open ===== */
-    .page-backdrop{
-      position: fixed; inset: 0; z-index: 10;
-      background: rgba(6,16,32,.55);
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
-    }
-    [hidden].page-backdrop { display:none !important; }
-
-    /* ===== Collapsible Quote Panel ===== */
-    .accordion {
+    /* ===== Quote calculator section (static, bottom) ===== */
+    .quote-card{
       margin: 18px 16px 0;
       border-radius: var(--radius);
-      /* overflow: hidden;  <-- removed to prevent clipping */
       border: 1px solid var(--card-brd);
       background: rgba(255,255,255,0.04);
       box-shadow: 0 2px 10px rgba(0,0,0,.25);
-      position: relative;
-      z-index: 11; /* above backdrop */
-    }
-    .acc-header {
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
       padding: 14px 16px;
-      cursor: pointer;
-      user-select: none;
-      background: rgba(255,255,255,0.06);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
-    .acc-header h3 { margin:0; font-size:16px; }
-    .chev { transition: transform .2s ease; }
-    .acc-header[aria-expanded="true"] .chev { transform: rotate(180deg); }
-
-    .acc-body {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height .3s ease;
-      padding: 0 16px;
-    }
-    .acc-body-inner { padding: 14px 0 16px; }
-
-    /* OPEN state: let the body scroll, keep plenty of room */
-    .accordion.open .acc-body{
-      max-height: 85vh;                 /* tall on phones */
-      overflow: auto;                    /* internal scroll */
-      -webkit-overflow-scrolling: touch; /* smooth iOS scroll */
-    }
-    @media (min-width: 900px){
-      .accordion.open .acc-body{ max-height: 90vh; }
+    .quote-card h3{
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: .2px;
     }
 
-    /* Quote form */
     .grid-2{ display:grid; grid-template-columns: 1fr; gap: 12px; }
     @media (min-width: 720px){ .grid-2{ grid-template-columns: 1fr 1fr; } }
 
@@ -247,13 +212,13 @@
     }
 
     /* Accessibility */
-    .btn:focus-visible, a:focus-visible, .card:focus-visible, .acc-header:focus-visible{
+    .btn:focus-visible, a:focus-visible, .card:focus-visible{
       outline: 3px solid rgba(46,168,255,.55);
       outline-offset: 2px;
       border-radius: 12px;
     }
 
-    /* Smooth scrolling for auto-scroll */
+    /* Smooth scrolling */
     html { scroll-behavior: smooth; }
 
     /* ===== Printable Quote ===== */
@@ -281,25 +246,13 @@
     #printable-quote .sig div{ height:70px; border-top:1px solid #bbb; padding-top:6px; }
     #printable-quote .footer-note{ margin-top:16px; font-size:.85rem; color:#666; text-align:center; }
 
-    /* Print rules: only show the printable doc */
     @media print{
       body{ background:#fff !important; }
       header, main, footer{ display:none !important; }
       #printable-quote{ display:block !important; }
       #printable-quote .doc{ border:0; border-radius:0; padding:24px; }
-      @page { size: Letter; margin: 18mm; } /* Change to A4 if preferred */
+      @page { size: Letter; margin: 18mm; }
     }
-      /* Panel open: internal scroll, but don't scroll-chain to body */
-      .accordion.open .acc-body{
-        max-height: 85vh;
-        overflow: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain; /* <-- add this */
-      }
-      
-      
-      
-      
   </style>
 </head>
 <body>
@@ -307,11 +260,10 @@
     <div class="wrap safe-x">
       <img src="images/Icon.jpg" alt="SeanTylerLee.com" class="logo" />
       <h1 class="tag">Professional builds at a fraction of the price.</h1>
-      <p class="subtag"> </p>
+      <p class="subtag"></p>
 
       <div class="cta-row">
         <a class="btn-ghost" href="tel:5807298184">Call Today</a>
-        <!-- No Instant Quote button -->
       </div>
     </div>
   </header>
@@ -319,172 +271,163 @@
   <main>
     <div class="wrap">
 
-      <!-- ===== Backdrop (hidden until quote opens) ===== -->
-      <div id="pageBackdrop" class="page-backdrop" hidden></div>
+      <!-- (Your other content/cards can go here) -->
 
-      <!-- Collapsible Quote Panel -->
-      <section class="accordion" id="quoteAcc">
-        <div class="acc-header" id="quoteToggle" aria-controls="quoteBody" aria-expanded="false" tabindex="0">
-          <h3>Get a Quote</h3>
-          <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </div>
-        <div class="acc-body" id="quoteBody">
-          <div class="acc-body-inner">
-            <form id="quoteForm">
-              <div class="grid-2">
-                <div class="field">
-                  <label for="name">Your name</label>
-                  <input id="name" type="text" placeholder="First and Last" />
-                </div>
-                <div class="field">
-                  <label for="email">Email</label>
-                  <input id="email" type="email" placeholder="you@company.com" />
-                </div>
-              </div>
+      <!-- ===== Quote Calculator (static, bottom) ===== -->
+      <section class="quote-card" id="quoteSection">
+        <h3>Get an Instant Quote Now</h3>
 
-              <div class="grid-2">
-                <div class="field">
-                  <label for="company">Company/Brand (optional)</label>
-                  <input id="company" type="text" placeholder="Optional" />
-                </div>
-                <div class="field">
-                  <label for="deadline">Target launch date</label>
-                  <input id="deadline" type="text" placeholder="00/00/0000" />
-                  <span class="muted">Used for rush factor (if any).</span>
-                </div>
-              </div>
-
-              <div class="field">
-                <label for="projectType">Project type</label>
-                <select id="projectType">
-                  <option value="website">Website</option>
-                  <option value="pwa">PWA (Progressive Web App)</option>
-                  <option value="ios">iOS App</option>
-                  <option value="android">Android App</option>
-                  <option value="cross">Cross-platform (iOS + Android)</option>
-                </select>
-              </div>
-
-              <div class="grid-2">
-                <div class="field">
-                  <label for="pages"># of pages/screens</label>
-                  <input id="pages" type="number" min="1" value="5" />
-                </div>
-                <div class="field">
-                  <label for="complexity">Feature complexity</label>
-                  <select id="complexity">
-                    <option value="simple">Simple</option>
-                    <option value="standard" selected>Standard</option>
-                    <option value="advanced">Advanced</option>
-                    <option value="pro">Pro</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="field">
-                <label>Features</label>
-                <div class="feature-grid">
-                  <label class="feature"><input type="checkbox" class="feat" value="auth" /> Auth</label>
-                  <label class="feature"><input type="checkbox" class="feat" value="cms" /> CMS</label>
-                  <label class="feature"><input type="checkbox" class="feat" value="payments" /> Payments</label>
-                  <label class="feature"><input type="checkbox" class="feat" value="maps" /> Maps/Routing</label>
-                  <label class="feature"><input type="checkbox" class="feat" value="ai" /> AI/OCR/Chat</label>
-                  <label class="feature"><input type="checkbox" class="feat" value="db" /> DB + Admin</label>
-                  <label class="feature"><input type="checkbox" class="feat" value="offline" /> Offline/PWA</label>
-                  <label class="feature"><input type="checkbox" class="feat" value="push" /> Push</label>
-                  <label class="feature"><input type="checkbox" class="feat" value="carplay" /> CarPlay/Auto</label>
-                </div>
-              </div>
-
-              <div class="grid-2">
-                <div class="field">
-                  <label for="design">Design effort</label>
-                  <select id="design">
-                    <option value="reuse">Reuse existing</option>
-                    <option value="light" selected>Light custom</option>
-                    <option value="full">Full system</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label for="branding">Branding</label>
-                  <select id="branding">
-                    <option value="none">None</option>
-                    <option value="logo">Logo refresh</option>
-                    <option value="full">Full brand kit</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="grid-2">
-                <div class="field">
-                  <label for="copy">Copywriting</label>
-                  <select id="copy">
-                    <option value="client">Client provides</option>
-                    <option value="assist">Assisted</option>
-                    <option value="full">Full copywriting</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label for="seo">SEO / ASO</label>
-                  <select id="seo">
-                    <option value="basic">Basic</option>
-                    <option value="opt">Optimization + analytics</option>
-                    <option value="campaign">Launch campaign</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="grid-2">
-                <div class="field">
-                  <label for="rush">Rush?</label>
-                  <select id="rush">
-                    <option value="no" selected>No</option>
-                    <option value="yes">Yes</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label for="maintenance">Maintenance plan</label>
-                  <select id="maintenance">
-                    <option value="none">None</option>
-                    <option value="basic">Basic ($100/mo)</option>
-                    <option value="pro">Pro ($200/mo)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="field">
-                <label for="notes">Notes / must-haves</label>
-                <textarea id="notes" placeholder="Goals, tech, integrations, examples…"></textarea>
-              </div>
-
-              <div class="row">
-                <div class="inline">
-                  <button class="btn-primary" id="calcBtn" type="button">Calculate</button>
-                  <button class="btn-ghost"  id="saveBtn" type="button">Save</button>
-                  <button class="btn-ghost"  id="loadBtn" type="button">Load</button>
-                  <button class="btn-ghost"  id="printBtn" type="button">Print Quote (PDF)</button>
-                </div>
-                <span class="chip">v1.1</span>
-              </div>
-
-              <div class="divider"></div>
-
-              <div class="breakdown" id="breakdown" hidden>
-                <div class="row">
-                  <div class="badge">Estimated Total</div>
-                  <div class="total" id="total">$0</div>
-                </div>
-                <div id="lineItems" class="mono" style="white-space:pre-wrap;"></div>
-                <div class="divider"></div>
-                <div class="row">
-                  <a id="mailto" class="btn-primary" href="#">Email Me This Quote</a>
-                </div>
-              </div>
-            </form>
+        <form id="quoteForm">
+          <div class="grid-2">
+            <div class="field">
+              <label for="name">Your name</label>
+              <input id="name" type="text" placeholder="First and Last" />
+            </div>
+            <div class="field">
+              <label for="email">Email</label>
+              <input id="email" type="email" placeholder="you@company.com" />
+            </div>
           </div>
-        </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="company">Company/Brand (optional)</label>
+              <input id="company" type="text" placeholder="Optional" />
+            </div>
+            <div class="field">
+              <label for="deadline">Target launch date</label>
+              <input id="deadline" type="text" placeholder="00/00/0000" />
+              <span class="muted">Used for rush factor (if any).</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="projectType">Project type</label>
+            <select id="projectType">
+              <option value="website">Website</option>
+              <option value="pwa">PWA (Progressive Web App)</option>
+              <option value="ios">iOS App</option>
+              <option value="android">Android App</option>
+              <option value="cross">Cross-platform (iOS + Android)</option>
+            </select>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="pages"># of pages/screens</label>
+              <input id="pages" type="number" min="1" value="5" />
+            </div>
+            <div class="field">
+              <label for="complexity">Feature complexity</label>
+              <select id="complexity">
+                <option value="simple">Simple</option>
+                <option value="standard" selected>Standard</option>
+                <option value="advanced">Advanced</option>
+                <option value="pro">Pro</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Features</label>
+            <div class="feature-grid">
+              <label class="feature"><input type="checkbox" class="feat" value="auth" /> Auth</label>
+              <label class="feature"><input type="checkbox" class="feat" value="cms" /> CMS</label>
+              <label class="feature"><input type="checkbox" class="feat" value="payments" /> Payments</label>
+              <label class="feature"><input type="checkbox" class="feat" value="maps" /> Maps/Routing</label>
+              <label class="feature"><input type="checkbox" class="feat" value="ai" /> AI/OCR/Chat</label>
+              <label class="feature"><input type="checkbox" class="feat" value="db" /> DB + Admin</label>
+              <label class="feature"><input type="checkbox" class="feat" value="offline" /> Offline/PWA</label>
+              <label class="feature"><input type="checkbox" class="feat" value="push" /> Push</label>
+              <label class="feature"><input type="checkbox" class="feat" value="carplay" /> CarPlay/Auto</label>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="design">Design effort</label>
+              <select id="design">
+                <option value="reuse">Reuse existing</option>
+                <option value="light" selected>Light custom</option>
+                <option value="full">Full system</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="branding">Branding</label>
+              <select id="branding">
+                <option value="none">None</option>
+                <option value="logo">Logo refresh</option>
+                <option value="full">Full brand kit</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="copy">Copywriting</label>
+              <select id="copy">
+                <option value="client">Client provides</option>
+                <option value="assist">Assisted</option>
+                <option value="full">Full copywriting</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="seo">SEO / ASO</label>
+              <select id="seo">
+                <option value="basic">Basic</option>
+                <option value="opt">Optimization + analytics</option>
+                <option value="campaign">Launch campaign</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="rush">Rush?</label>
+              <select id="rush">
+                <option value="no" selected>No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="maintenance">Maintenance plan</label>
+              <select id="maintenance">
+                <option value="none">None</option>
+                <option value="basic">Basic ($100/mo)</option>
+                <option value="pro">Pro ($200/mo)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="notes">Notes / must-haves</label>
+            <textarea id="notes" placeholder="Goals, tech, integrations, examples…"></textarea>
+          </div>
+
+          <div class="row">
+            <div class="inline">
+              <button class="btn-primary" id="calcBtn" type="button">Calculate</button>
+              <button class="btn-ghost"  id="saveBtn" type="button">Save</button>
+              <button class="btn-ghost"  id="loadBtn" type="button">Load</button>
+              <button class="btn-ghost"  id="printBtn" type="button">Print Quote (PDF)</button>
+            </div>
+            <span class="chip">v1.1</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="breakdown" id="breakdown" hidden>
+            <div class="row">
+              <div class="badge">Estimated Total</div>
+              <div class="total" id="total">$0</div>
+            </div>
+            <div id="lineItems" class="mono" style="white-space:pre-wrap;"></div>
+            <div class="divider"></div>
+            <div class="row">
+              <a id="mailto" class="btn-primary" href="#">Email Me This Quote</a>
+            </div>
+          </div>
+        </form>
       </section>
 
     </div>
@@ -499,7 +442,7 @@
     <div class="doc">
       <div class="doc-header">
         <div class="brand">
-          <img src="images/haulpath-icon.png" alt="Logo" onerror="this.style.display='none'">
+          <img src="images/Icon.jpg" alt="Logo" onerror="this.style.display='none'">
           <div>
             <h1>Quote</h1>
             <div style="color:#666;font-size:.95rem;">SeanTylerLee.com</div>
@@ -555,39 +498,6 @@
   </section>
 
   <script>
-    /* ===== Accordion (bottom) with backdrop & scroll lock ===== */
-    const toggle     = document.getElementById('quoteToggle');
-    const acc        = document.getElementById('quoteAcc');
-    const panel      = document.getElementById('quoteBody');
-    const backdrop   = document.getElementById('pageBackdrop');
-    let isOpen = false;
-
-    function setOpen(next){
-      isOpen = next;
-      toggle.setAttribute('aria-expanded', String(isOpen));
-      acc.classList.toggle('open', isOpen);
-
-      if(isOpen){
-        backdrop.hidden = false;
-        document.body.style.overflow = 'hidden'; // lock page
-        acc.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        requestAnimationFrame(()=>{ panel.scrollTop = 0; });
-      } else {
-        backdrop.hidden = true;
-        document.body.style.overflow = '';       // unlock page
-      }
-    }
-
-    setOpen(false);
-    toggle.addEventListener('click', () => setOpen(!isOpen));
-    toggle.addEventListener('keydown', (e)=>{
-      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); setOpen(!isOpen); }
-    });
-    backdrop.addEventListener('click', ()=> setOpen(false));
-    window.addEventListener('resize', ()=>{
-      if(isOpen){ /* CSS handles height; nothing needed */ }
-    });
-
     // ===== Pricing Model =====
     const RATES = {
       base:        { website: 800, pwa: 1500, ios: 2000, android: 2000, cross: 4000 },
@@ -742,6 +652,8 @@
     $$('#calcBtn').addEventListener('click', ()=>{
       const d=gather(); const q=calculateQuote(d); updateUI(d,q);
       localStorage.setItem('stl-quote-latest', JSON.stringify({d,q}));
+      // jump user to the results
+      document.getElementById('total').scrollIntoView({behavior:'smooth', block:'center'});
     });
 
     $$('#saveBtn').addEventListener('click', ()=>{
