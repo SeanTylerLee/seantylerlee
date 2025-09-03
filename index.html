@@ -289,6 +289,17 @@
       #printable-quote .doc{ border:0; border-radius:0; padding:24px; }
       @page { size: Letter; margin: 18mm; } /* Change to A4 if preferred */
     }
+      /* Panel open: internal scroll, but don't scroll-chain to body */
+      .accordion.open .acc-body{
+        max-height: 85vh;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain; /* <-- add this */
+      }
+      
+      
+      
+      
   </style>
 </head>
 <body>
