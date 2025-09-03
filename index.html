@@ -279,10 +279,10 @@
     <div class="wrap safe-x">
       <img src="images/Icon.jpg" alt="SeanTylerLee.com" class="logo" />
       <h1 class="tag">Professional builds at a fraction of the price.</h1>
-      <p class="subtag">Get an instant quote today.</p>
+      <p class="subtag"> </p>
 
       <div class="cta-row">
-        <a class="btn-ghost" href="tel:5807298184">Call (580) 729-8184</a>
+        <a class="btn-ghost" href="tel:5807298184">Call Today</a>
         <!-- Removed Instant Quote button per request -->
       </div>
     </div>
@@ -304,7 +304,7 @@
               <div class="grid-2">
                 <div class="field">
                   <label for="name">Your name</label>
-                  <input id="name" type="text" placeholder="Jane Doe" />
+                  <input id="name" type="text" placeholder="First and Last" />
                 </div>
                 <div class="field">
                   <label for="email">Email</label>
@@ -315,11 +315,11 @@
               <div class="grid-2">
                 <div class="field">
                   <label for="company">Company/Brand (optional)</label>
-                  <input id="company" type="text" placeholder="Acme Transport" />
+                  <input id="company" type="text" placeholder="Optional" />
                 </div>
                 <div class="field">
                   <label for="deadline">Target launch date</label>
-                  <input id="deadline" type="text" placeholder="e.g., Nov 15, 2025" />
+                  <input id="deadline" type="text" placeholder="00/00/0000" />
                   <span class="muted">Used for rush factor (if any).</span>
                 </div>
               </div>
@@ -416,8 +416,8 @@
                   <label for="maintenance">Maintenance plan</label>
                   <select id="maintenance">
                     <option value="none">None</option>
-                    <option value="basic">Basic ($149/mo)</option>
-                    <option value="pro">Pro ($299/mo)</option>
+                    <option value="basic">Basic ($100/mo)</option>
+                    <option value="pro">Pro ($200/mo)</option>
                   </select>
                 </div>
               </div>
@@ -456,23 +456,7 @@
       </section>
 
       <!-- Content cards -->
-      <section class="cards safe-x" aria-label="Coming soon">
-        <article class="card">
-          <div class="card-icon"></div>
-          <div>
-            <h2>Project Spotlight</h2>
-            <p>A clean area to feature your next app or client site.</p>
-          </div>
-        </article>
 
-        <article class="card">
-          <div class="card-icon"></div>
-          <div>
-            <h2>Services</h2>
-            <p>Custom websites, iOS apps, and PWAs—fast, modern, and affordable.</p>
-          </div>
-        </article>
-      </section>
     </div>
   </main>
 
@@ -562,8 +546,8 @@
 
     // ===== Pricing Model =====
     const RATES = {
-      base:        { website: 1200, pwa: 2500, ios: 4000, android: 4000, cross: 7000 },
-      perPage:     { website: 120,  pwa: 220,  ios: 350,  android: 350,  cross: 600  },
+      base:        { website: 800, pwa: 1500, ios: 2000, android: 2000, cross: 4000 },
+      perPage:     { website: 100,  pwa: 200,  ios: 350,  android: 350,  cross: 600  },
       complexity:  { simple: 1.0, standard: 1.25, advanced: 1.6, pro: 2.2 },
       featureAddons: {
         auth: 600, cms: 700, payments: 1200, maps: 900, ai: 1500,
@@ -575,7 +559,7 @@
       seo:         { basic: 0, opt: 600, campaign: 1500 },
       rushMultiplier: 1.35,
       discounts:   { bigScopeThreshold: 18, bigScopePercentOff: 0.07 },
-      maintenanceMonthly: { none: 0, basic: 149, pro: 299 }
+      maintenanceMonthly: { none: 0, basic: 100, pro: 200 }
     };
 
     // ===== Helpers =====
