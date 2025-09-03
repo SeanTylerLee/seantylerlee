@@ -147,14 +147,25 @@
     .card h2 { margin:0; font-size:16px; }
     .card p { margin:3px 0 0; font-size:14px; color: var(--muted); }
 
+    /* ===== Backdrop to dim page when quote open ===== */
+    .page-backdrop{
+      position: fixed; inset: 0; z-index: 10;
+      background: rgba(6,16,32,.55);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+    }
+    [hidden].page-backdrop { display:none !important; }
+
     /* ===== Collapsible Quote Panel ===== */
     .accordion {
       margin: 18px 16px 0;
       border-radius: var(--radius);
-      overflow: hidden;
+      /* overflow: hidden;  <-- removed to prevent clipping */
       border: 1px solid var(--card-brd);
       background: rgba(255,255,255,0.04);
       box-shadow: 0 2px 10px rgba(0,0,0,.25);
+      position: relative;
+      z-index: 11; /* above backdrop */
     }
     .acc-header {
       display:flex; align-items:center; justify-content:space-between; gap:12px;
@@ -175,6 +186,16 @@
       padding: 0 16px;
     }
     .acc-body-inner { padding: 14px 0 16px; }
+
+    /* OPEN state: let the body scroll, keep plenty of room */
+    .accordion.open .acc-body{
+      max-height: 85vh;                 /* tall on phones */
+      overflow: auto;                    /* internal scroll */
+      -webkit-overflow-scrolling: touch; /* smooth iOS scroll */
+    }
+    @media (min-width: 900px){
+      .accordion.open .acc-body{ max-height: 90vh; }
+    }
 
     /* Quote form */
     .grid-2{ display:grid; grid-template-columns: 1fr; gap: 12px; }
@@ -207,7 +228,6 @@
     .badge{ font-weight:800; }
     .total{ font-size: 1.4rem; font-weight: 900; }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .primary-btn{ composes: btn btn-primary; } /* (harmless if composes unsupported) */
 
     .breakdown{
       background: rgba(46,168,255,.06);
@@ -233,11 +253,8 @@
       border-radius: 12px;
     }
 
-    /* Desktop polish */
-    @media (min-width: 900px){
-      header.hero{ padding-top: 40px; }
-      .cards{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-    }
+    /* Smooth scrolling for auto-scroll */
+    html { scroll-behavior: smooth; }
 
     /* ===== Printable Quote ===== */
     #printable-quote{ display:none; }
@@ -283,13 +300,17 @@
 
       <div class="cta-row">
         <a class="btn-ghost" href="tel:5807298184">Call Today</a>
-        <!-- Removed Instant Quote button per request -->
+        <!-- No Instant Quote button -->
       </div>
     </div>
   </header>
 
   <main>
     <div class="wrap">
+
+      <!-- ===== Backdrop (hidden until quote opens) ===== -->
+      <div id="pageBackdrop" class="page-backdrop" hidden></div>
+
       <!-- Collapsible Quote Panel -->
       <section class="accordion" id="quoteAcc">
         <div class="acc-header" id="quoteToggle" aria-controls="quoteBody" aria-expanded="false" tabindex="0">
@@ -430,9 +451,9 @@
               <div class="row">
                 <div class="inline">
                   <button class="btn-primary" id="calcBtn" type="button">Calculate</button>
-                  <button class="btn-ghost" type="button" id="saveBtn">Save</button>
-                  <button class="btn-ghost" type="button" id="loadBtn">Load</button>
-                  <button class="btn-ghost" type="button" id="printBtn">Print Quote (PDF)</button>
+                  <button class="btn-ghost"  id="saveBtn" type="button">Save</button>
+                  <button class="btn-ghost"  id="loadBtn" type="button">Load</button>
+                  <button class="btn-ghost"  id="printBtn" type="button">Print Quote (PDF)</button>
                 </div>
                 <span class="chip">v1.1</span>
               </div>
@@ -454,8 +475,6 @@
           </div>
         </div>
       </section>
-
-      <!-- Content cards -->
 
     </div>
   </main>
@@ -525,24 +544,38 @@
   </section>
 
   <script>
-    // ===== Accordion (collapsible) behavior =====
-    const toggle = document.getElementById('quoteToggle');
-    const panel  = document.getElementById('quoteBody');
-    let open = false;
+    /* ===== Accordion (bottom) with backdrop & scroll lock ===== */
+    const toggle     = document.getElementById('quoteToggle');
+    const acc        = document.getElementById('quoteAcc');
+    const panel      = document.getElementById('quoteBody');
+    const backdrop   = document.getElementById('pageBackdrop');
+    let isOpen = false;
 
     function setOpen(next){
-      open = next;
-      toggle.setAttribute('aria-expanded', String(open));
-      if(open){
-        panel.style.maxHeight = panel.scrollHeight + 'px';
+      isOpen = next;
+      toggle.setAttribute('aria-expanded', String(isOpen));
+      acc.classList.toggle('open', isOpen);
+
+      if(isOpen){
+        backdrop.hidden = false;
+        document.body.style.overflow = 'hidden'; // lock page
+        acc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        requestAnimationFrame(()=>{ panel.scrollTop = 0; });
       } else {
-        panel.style.maxHeight = '0px';
+        backdrop.hidden = true;
+        document.body.style.overflow = '';       // unlock page
       }
     }
-    setOpen(false);
 
-    toggle.addEventListener('click', ()=> setOpen(!open));
-    toggle.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); setOpen(!open); } });
+    setOpen(false);
+    toggle.addEventListener('click', () => setOpen(!isOpen));
+    toggle.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); setOpen(!isOpen); }
+    });
+    backdrop.addEventListener('click', ()=> setOpen(false));
+    window.addEventListener('resize', ()=>{
+      if(isOpen){ /* CSS handles height; nothing needed */ }
+    });
 
     // ===== Pricing Model =====
     const RATES = {
