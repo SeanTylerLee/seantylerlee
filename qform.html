@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Get a Quote – SeanTylerLee.com</title>
+  <link rel="icon" href="favicon.ico" />
+  <meta name="theme-color" content="#007AFF" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* ===== Minimal additions that lean on your existing styles.css ===== */
+    .page { max-width: 980px; margin: 0 auto; padding: 16px; }
+    .card.form { background: var(--card, #fff); border-radius: var(--radius, 14px); box-shadow: var(--shadow, 0 6px 18px rgba(0,0,0,.08)); padding: 18px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 720px){ .grid-2 { grid-template-columns: 1fr 1fr; } }
+    .field { display: grid; gap: 8px; }
+    .field label { font-weight: 600; }
+    .muted { color: var(--muted, #666); font-size: .9rem; }
+    .inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .divider { height: 1px; background: #e9e9ef; margin: 12px 0; }
+    .total { font-size: 1.5rem; font-weight: 800; }
+    .pill { display: inline-block; padding: 8px 12px; border-radius: 999px; background: #f2f6ff; }
+    .primary-btn { background: #007AFF; color: #fff; border: 0; padding: 12px 16px; border-radius: 12px; font-weight: 700; cursor: pointer; }
+    .ghost-btn { background: transparent; border: 1px solid #d6d6dc; padding: 10px 14px; border-radius: 12px; font-weight: 600; }
+    .right { text-align: right; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .chip { font-size: .9rem; padding: 2px 8px; border-radius: 999px; background: #f5f5f7; }
+    .badge { font-weight: 700; }
+    input[type="text"], input[type="number"], input[type="email"], textarea, select {
+      border: 1px solid #e2e2ea; border-radius: 12px; padding: 10px 12px; font: inherit; background: #fff;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (min-width: 900px){ .feature-grid { grid-template-columns: 1fr 1fr 1fr; } }
+    .feature { background: #fafafa; padding: 10px; border-radius: 12px; border: 1px solid #eee; }
+    .breakdown { background: #fbfcff; border: 1px solid #e7edff; border-radius: 12px; padding: 12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    /* ===== Printable Quote (professional layout) ===== */
+    #printable-quote { display: none; }
+    #printable-quote .doc {
+      width: 850px; max-width: 100%; margin: 0 auto; background: #fff;
+      border: 1px solid #e5e7eb; border-radius: 16px; padding: 32px;
+    }
+    #printable-quote .doc-header {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px;
+    }
+    #printable-quote .brand {
+      display: flex; align-items: center; gap: 12px;
+    }
+    #printable-quote .brand img { width: 40px; height: 40px; object-fit: contain; }
+    #printable-quote h1 { margin: 0; font-size: 1.6rem; }
+    #printable-quote .meta { text-align: right; font-size: .95rem; color: #444; }
+    #printable-quote .section { margin-top: 16px; }
+    #printable-quote .section h3 { margin: 0 0 8px; font-size: 1.05rem; letter-spacing: .2px; }
+    #printable-quote .kv {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; font-size: .98rem;
+    }
+    #printable-quote .pill { background: #eef4ff; }
+    #printable-quote table {
+      width: 100%; border-collapse: collapse; margin-top: 8px; font-size: .98rem;
+    }
+    #printable-quote th, #printable-quote td {
+      border-bottom: 1px solid #ececec; padding: 10px 8px; text-align: left; vertical-align: top;
+    }
+    #printable-quote tfoot td { border-top: 2px solid #111; font-weight: 800; font-size: 1.1rem; }
+    #printable-quote .terms { font-size: .9rem; color: #555; line-height: 1.5; margin-top: 10px; }
+    #printable-quote .sig {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;
+    }
+    #printable-quote .sig div { height: 70px; border-top: 1px solid #bbb; padding-top: 6px; }
+    #printable-quote .footer-note { margin-top: 16px; font-size: .85rem; color: #666; text-align: center; }
+
+    /* Print rules: only show the printable doc */
+    @media print {
+      body { background: #fff !important; }
+      header, main .card.form, .site-footer { display: none !important; }
+      #printable-quote { display: block !important; }
+      #printable-quote .doc { border: 0; border-radius: 0; padding: 24px; }
+      @page { size: Letter; margin: 18mm; } /* Adjust to A4 if you prefer */
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <h1 class="site-title">Get a Quote</h1>
+      <div class="site-contact">
+        <a href="index.html" class="ghost-btn">← Back</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="card form" id="quote-form">
+      <h2>Tell me about your project</h2>
+      <p class="muted">Answer a few questions and I’ll calculate an instant estimate. You can tweak inputs to see how scope affects price.</p>
+      <div class="divider"></div>
+
+      <!-- Contact & Project Basics -->
+      <div class="grid-2">
+        <div class="field">
+          <label for="name">Your name</label>
+          <input id="name" type="text" placeholder="Jane Doe" />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" placeholder="you@company.com" />
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="company">Company/Brand (optional)</label>
+          <input id="company" type="text" placeholder="Acme Transport" />
+        </div>
+        <div class="field">
+          <label for="deadline">Target launch date</label>
+          <input id="deadline" type="text" placeholder="e.g., Nov 15, 2025" />
+          <span class="muted">Helpful for rush factor.</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="projectType">Project type</label>
+        <select id="projectType">
+          <option value="website">Website</option>
+          <option value="pwa">PWA (Progressive Web App)</option>
+          <option value="ios">iOS App</option>
+          <option value="android">Android App</option>
+          <option value="cross">Cross-platform (iOS + Android)</option>
+        </select>
+      </div>
+
+      <!-- Scope -->
+      <div class="grid-2">
+        <div class="field">
+          <label for="pages"># of pages/screens</label>
+          <input id="pages" type="number" min="1" value="5" />
+          <span class="muted">Rough count of unique templates or screens.</span>
+        </div>
+        <div class="field">
+          <label for="complexity">Feature complexity</label>
+          <select id="complexity">
+            <option value="simple">Simple (static or basic forms)</option>
+            <option value="standard" selected>Standard (auth, CMS, DB)</option>
+            <option value="advanced">Advanced (payments, maps, AI)</option>
+            <option value="pro">Pro (real-time sync, OCR/AI, offline)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Features -->
+      <div class="field">
+        <label>Features</label>
+        <div class="feature-grid">
+          <label class="feature"><input type="checkbox" class="feat" value="auth" /> User accounts / Authentication</label>
+          <label class="feature"><input type="checkbox" class="feat" value="cms" /> CMS or editable content</label>
+          <label class="feature"><input type="checkbox" class="feat" value="payments" /> Payments / Subscriptions</label>
+          <label class="feature"><input type="checkbox" class="feat" value="maps" /> Maps / Routing (Mapbox)</label>
+          <label class="feature"><input type="checkbox" class="feat" value="ai" /> AI / OCR / Chat</label>
+          <label class="feature"><input type="checkbox" class="feat" value="db" /> Database & Admin panel</label>
+          <label class="feature"><input type="checkbox" class="feat" value="offline" /> Offline/PWA features</label>
+          <label class="feature"><input type="checkbox" class="feat" value="push" /> Push notifications</label>
+          <label class="feature"><input type="checkbox" class="feat" value="carplay" /> CarPlay / Auto integrations</label>
+        </div>
+      </div>
+
+      <!-- Design/Brand/Content -->
+      <div class="grid-2">
+        <div class="field">
+          <label for="design">Design effort</label>
+          <select id="design">
+            <option value="reuse">Reuse existing brand/components</option>
+            <option value="light" selected>Light custom (polish + layout)</option>
+            <option value="full">Full custom design system</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="branding">Branding</label>
+          <select id="branding">
+            <option value="none">None</option>
+            <option value="logo">Logo refresh</option>
+            <option value="full">Full brand kit (logo, palette, type)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="copy">Copywriting</label>
+          <select id="copy">
+            <option value="client">Client provides content</option>
+            <option value="assist">Assisted (light editing)</option>
+            <option value="full">Full copywriting</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="seo">SEO / ASO</label>
+          <select id="seo">
+            <option value="basic">Basic metadata</option>
+            <option value="opt">Optimization + analytics</option>
+            <option value="campaign">Launch campaign bundle</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Timeline & Extras -->
+      <div class="grid-2">
+        <div class="field">
+          <label for="rush">Rush?</label>
+          <select id="rush">
+            <option value="no" selected>No</option>
+            <option value="yes">Yes (expedite)</option>
+          </select>
+          <span class="muted">Adds a multiplier if selected.</span>
+        </div>
+        <div class="field">
+          <label for="maintenance">Maintenance plan</label>
+          <select id="maintenance">
+            <option value="none">None</option>
+            <option value="basic">Basic ($149/mo)</option>
+            <option value="pro">Pro ($299/mo)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Project notes -->
+      <div class="field">
+        <label for="notes">Notes / must-haves</label>
+        <textarea id="notes" placeholder="Describe your goals, existing tech, integrations, example sites, etc."></textarea>
+      </div>
+
+      <!-- Actions -->
+      <div class="row">
+        <div class="inline">
+          <button class="primary-btn" id="calcBtn">Calculate Quote</button>
+          <button class="ghost-btn" id="saveBtn" type="button">Save Progress</button>
+          <button class="ghost-btn" id="loadBtn" type="button">Load Saved</button>
+          <button class="ghost-btn" id="printBtn" type="button">Print Quote (PDF)</button>
+        </div>
+        <div class="inline">
+          <span class="chip">v1.1</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Output / Breakdown -->
+      <div class="breakdown" id="breakdown" hidden>
+        <div class="row">
+          <div><span class="badge">Estimated Total</span></div>
+          <div class="total" id="total">$0</div>
+        </div>
+        <div id="lineItems" class="mono" style="margin-top:8px; white-space:pre-wrap;"></div>
+
+        <div class="divider"></div>
+        <div class="inline right">
+          <a id="mailto" class="primary-btn" href="#">Email Me This Quote</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== Printable Document Template (populated dynamically) ===== -->
+  <section id="printable-quote">
+    <div class="doc">
+      <div class="doc-header">
+        <div class="brand">
+          <!-- Swap src with your logo path if you want -->
+          <img src="images/haulpath-icon.png" alt="Logo" onerror="this.style.display='none'">
+          <div>
+            <h1>Quote</h1>
+            <div style="color:#666;font-size:.95rem;">SeanTylerLee.com</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div id="pq-id" class="mono"></div>
+          <div id="pq-date"></div>
+          <div>seantylerlee@icloud.com</div>
+          <div>SeanTylerLee.com</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Client</h3>
+        <div class="kv" id="pq-client"></div>
+      </div>
+
+      <div class="section">
+        <h3>Project Overview</h3>
+        <div class="kv" id="pq-overview"></div>
+        <div id="pq-notes" class="pill" style="margin-top:8px; padding:10px;"></div>
+      </div>
+
+      <div class="section">
+        <h3>Pricing Breakdown</h3>
+        <table id="pq-table">
+          <thead>
+            <tr><th style="width:65%;">Item</th><th style="width:35%;">Amount</th></tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <td>Total (one-time)</td>
+              <td id="pq-total"></td>
+            </tr>
+          </tfoot>
+        </table>
+        <div id="pq-maint" style="margin-top:6px; font-size:.95rem; color:#333;"></div>
+      </div>
+
+      <div class="section">
+        <h3>Terms</h3>
+        <div class="terms">
+          This quote is an estimate based on the provided scope and selections. Final pricing may adjust if scope changes.
+          50% deposit to begin; remainder due at delivery. Rush timelines incur expedite fees. Intellectual property transfers
+          upon final payment. Maintenance is optional and billed monthly. This quote is valid for 30 days.
+        </div>
+      </div>
+
+      <div class="sig">
+        <div>Client Signature & Date</div>
+        <div>SeanTylerLee.com Signature & Date</div>
+      </div>
+
+      <div class="footer-note">
+        Thank you for the opportunity! Questions? Email seantylerlee@icloud.com
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    © 2025 SeanTylerLee.com. All rights reserved.
+  </footer>
+
+  <script>
+    // ========= Pricing Model (tweak these constants any time) =========
+    const RATES = {
+      base: { website: 1200, pwa: 2500, ios: 4000, android: 4000, cross: 7000 },
+      perPage: { website: 120, pwa: 220, ios: 350, android: 350, cross: 600 },
+      complexity: { simple: 1.0, standard: 1.25, advanced: 1.6, pro: 2.2 },
+      featureAddons: {
+        auth: 600, cms: 700, payments: 1200, maps: 900, ai: 1500,
+        db: 900, offline: 700, push: 500, carplay: 1200
+      },
+      design: { reuse: 0, light: 600, full: 1800 },
+      branding: { none: 0, logo: 500, full: 1600 },
+      copy: { client: 0, assist: 400, full: 1200 },
+      seo: { basic: 0, opt: 600, campaign: 1500 },
+      rushMultiplier: 1.35,
+      discounts: { bigScopeThreshold: 18, bigScopePercentOff: 0.07 },
+      maintenanceMonthly: { none: 0, basic: 149, pro: 299 }
+    };
+
+    // ========= Helpers =========
+    const $$  = sel => document.querySelector(sel);
+    const $$$ = sel => Array.from(document.querySelectorAll(sel));
+    const money = n => n.toLocaleString(undefined, {style:'currency', currency:'USD'});
+    const todayStr = () => new Date().toLocaleDateString(undefined, {year:'numeric', month:'short', day:'2-digit'});
+    const quoteId = () => {
+      const d = new Date();
+      const y = d.getFullYear().toString().slice(-2);
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      const rnd = Math.floor(1000 + Math.random()*9000);
+      return `Q-${y}${m}${day}-${rnd}`;
+    };
+
+    function gather(){
+      return {
+        name: $$('#name').value.trim(),
+        email: $$('#email').value.trim(),
+        company: $$('#company').value.trim(),
+        deadline: $$('#deadline').value.trim(),
+        projectType: $$('#projectType').value,
+        pages: Math.max(1, parseInt($$('#pages').value || '1', 10)),
+        complexity: $$('#complexity').value,
+        features: $$$('.feat:checked').map(el => el.value),
+        design: $$('#design').value,
+        branding: $$('#branding').value,
+        copy: $$('#copy').value,
+        seo: $$('#seo').value,
+        rush: $$('#rush').value,
+        maintenance: $$('#maintenance').value,
+        notes: $$('#notes').value.trim()
+      };
+    }
+
+    function calculateQuote(d){
+      const lines = [];
+      let subtotal = 0;
+
+      // Base + pages
+      const base = RATES.base[d.projectType] || 0;
+      const perPage = RATES.perPage[d.projectType] || 0;
+      const complexityMult = RATES.complexity[d.complexity] || 1;
+
+      lines.push({label:`Base (${d.projectType})`, amount: base});
+      subtotal += base;
+
+      const pagesCost = d.pages * perPage;
+      lines.push({label:`Pages/screens (${d.pages} × ${money(perPage)})`, amount: pagesCost});
+      subtotal += pagesCost;
+
+      // Features
+      if(d.features.length){
+        d.features.forEach(f => {
+          const c = RATES.featureAddons[f] || 0;
+          lines.push({label:`Feature: ${f}`, amount: c});
+          subtotal += c;
+        });
+      }
+
+      // Design/branding/content/seo
+      const designCost = RATES.design[d.design] || 0;
+      const brandCost  = RATES.branding[d.branding] || 0;
+      const copyCost   = RATES.copy[d.copy] || 0;
+      const seoCost    = RATES.seo[d.seo] || 0;
+
+      lines.push({label:'Design', amount: designCost});
+      lines.push({label:'Branding', amount: brandCost});
+      lines.push({label:'Copywriting', amount: copyCost});
+      lines.push({label:'SEO/ASO', amount: seoCost});
+
+      subtotal += designCost + brandCost + copyCost + seoCost;
+
+      // Complexity multiplier
+      const beforeComplexity = subtotal;
+      const afterComplexity = Math.round(beforeComplexity * complexityMult);
+      const complexityUpsell = afterComplexity - beforeComplexity;
+      if (complexityUpsell > 0) lines.push({label:`Complexity (${d.complexity} ×${complexityMult})`, amount: complexityUpsell});
+      subtotal = afterComplexity;
+
+      // Big scope discount
+      if(d.pages >= RATES.discounts.bigScopeThreshold){
+        const discount = Math.round(subtotal * RATES.discounts.bigScopePercentOff);
+        lines.push({label:`Large scope discount (${RATES.discounts.bigScopePercentOff*100}% off)`, amount: -discount});
+        subtotal -= discount;
+      }
+
+      // Rush?
+      if(d.rush === 'yes'){
+        const newTotal = Math.round(subtotal * RATES.rushMultiplier);
+        const rushAdded = newTotal - subtotal;
+        lines.push({label:`Rush (+${Math.round((RATES.rushMultiplier-1)*100)}%)`, amount: rushAdded});
+        subtotal = newTotal;
+      }
+
+      // Maintenance (separate)
+      const maintMonthly = RATES.maintenanceMonthly[d.maintenance] || 0;
+
+      return { total: subtotal, monthly: maintMonthly, lines };
+    }
+
+    function updateUI(d, q){
+      $$('#breakdown').hidden = false;
+      $$('#total').textContent = money(q.total);
+      const textLines = q.lines.map(li => `${li.label}: ${money(li.amount)}`);
+      $$('#lineItems').textContent = textLines.join('\n');
+
+      const subject = encodeURIComponent(`Quote for ${d.projectType} – ${d.name || 'Client'}`);
+      const bodyLines = [
+        `Name: ${d.name}`,
+        `Email: ${d.email}`,
+        `Company: ${d.company}`,
+        `Project Type: ${d.projectType}`,
+        `Pages/Screens: ${d.pages}`,
+        `Complexity: ${d.complexity}`,
+        `Features: ${d.features.join(', ') || 'none'}`,
+        `Design: ${d.design} | Branding: ${d.branding} | Copy: ${d.copy} | SEO/ASO: ${d.seo}`,
+        `Rush: ${d.rush} | Maintenance: ${d.maintenance} (${money(q.monthly)}/mo)`,
+        `Deadline: ${d.deadline}`,
+        '',
+        '--- Estimate ---',
+        ...textLines,
+        '',
+        `Total: ${money(q.total)}`,
+        q.monthly ? `Maintenance: ${money(q.monthly)}/mo` : '',
+        '',
+        'Notes:',
+        d.notes || '(none)'
+      ].join('\n');
+      const mail = `mailto:seantylerlee@icloud.com?subject=${subject}&body=${encodeURIComponent(bodyLines)}`;
+      $$('#mailto').setAttribute('href', mail);
+    }
+
+    // Build professional printable doc
+    function buildPrintable(d, q){
+      const id = quoteId();
+      $$('#pq-id').textContent = id;
+      $$('#pq-date').textContent = todayStr();
+
+      // Client block
+      $$('#pq-client').innerHTML = `
+        <div><strong>Name:</strong> ${d.name || '—'}</div>
+        <div><strong>Email:</strong> ${d.email || '—'}</div>
+        <div><strong>Company:</strong> ${d.company || '—'}</div>
+        <div><strong>Target Launch:</strong> ${d.deadline || '—'}</div>
+      `;
+
+      // Overview block
+      const features = (d.features && d.features.length) ? d.features.join(', ') : 'none';
+      $$('#pq-overview').innerHTML = `
+        <div><strong>Type:</strong> ${d.projectType}</div>
+        <div><strong>Scope:</strong> ${d.pages} ${d.projectType==='website'?'pages':'screens'}</div>
+        <div><strong>Complexity:</strong> ${d.complexity}</div>
+        <div><strong>Maintenance:</strong> ${d.maintenance} ${q.monthly?`(${money(q.monthly)}/mo)`:''}</div>
+        <div><strong>Design/Brand/Copy/SEO:</strong> ${d.design} / ${d.branding} / ${d.copy} / ${d.seo}</div>
+        <div><strong>Features:</strong> ${features}</div>
+      `;
+
+      $$('#pq-notes').textContent = d.notes ? d.notes : 'No additional notes provided.';
+
+      // Table
+      const tbody = $$('#pq-table tbody');
+      tbody.innerHTML = '';
+      q.lines.forEach(li => {
+        const tr = document.createElement('tr');
+        const label = document.createElement('td');
+        const amt = document.createElement('td');
+        label.textContent = li.label;
+        amt.textContent = (li.amount < 0 ? '-' : '') + money(Math.abs(li.amount));
+        amt.style.textAlign = 'right';
+        tr.appendChild(label);
+        tr.appendChild(amt);
+        tbody.appendChild(tr);
+      });
+      $$('#pq-total').textContent = money(q.total);
+
+      $$('#pq-maint').textContent = q.monthly ? `Maintenance plan: ${money(q.monthly)}/month` : 'No maintenance plan selected.';
+      // Store the last printable ID so a client and you can refer to it
+      localStorage.setItem('stl-quote-last-id', id);
+    }
+
+    // ========= Events =========
+    $$('#calcBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      const d = gather();
+      const q = calculateQuote(d);
+      updateUI(d, q);
+      localStorage.setItem('stl-quote-latest', JSON.stringify({d, q}));
+    });
+
+    $$('#saveBtn').addEventListener('click', () => {
+      const d = gather();
+      localStorage.setItem('stl-quote-draft', JSON.stringify(d));
+      alert('Saved locally on this device.');
+    });
+
+    $$('#loadBtn').addEventListener('click', () => {
+      const raw = localStorage.getItem('stl-quote-draft');
+      if(!raw) return alert('No saved draft found.');
+      const d = JSON.parse(raw);
+      $$('#name').value = d.name || '';
+      $$('#email').value = d.email || '';
+      $$('#company').value = d.company || '';
+      $$('#deadline').value = d.deadline || '';
+      $$('#projectType').value = d.projectType || 'website';
+      $$('#pages').value = d.pages || 5;
+      $$('#complexity').value = d.complexity || 'standard';
+      $$$('.feat').forEach(el => { el.checked = (d.features||[]).includes(el.value); });
+      $$('#design').value = d.design || 'light';
+      $$('#branding').value = d.branding || 'none';
+      $$('#copy').value = d.copy || 'assist';
+      $$('#seo').value = d.seo || 'basic';
+      $$('#rush').value = d.rush || 'no';
+      $$('#maintenance').value = d.maintenance || 'none';
+      $$('#notes').value = d.notes || '';
+      alert('Draft loaded.');
+    });
+
+    $$('#printBtn').addEventListener('click', () => {
+      // Make sure we have a fresh calculation
+      const d = gather();
+      const q = calculateQuote(d);
+      updateUI(d, q);
+      buildPrintable(d, q);
+
+      // Show printable section (print CSS hides everything else)
+      $$('#printable-quote').style.display = 'block';
+      // Give layout a tick, then print
+      setTimeout(() => {
+        window.print();
+        // After printing, keep the printable section hidden for normal UX
+        $$('#printable-quote').style.display = 'none';
+      }, 50);
+    });
+  </script>
+</body>
+</html>
