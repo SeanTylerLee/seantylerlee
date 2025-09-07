@@ -37,7 +37,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   color: var(--text-primary);
   background: 
-    linear-gradient(rgba(10, 35, 71, 0.9), rgba(14, 46, 95, 0.9)),
+    linear-gradient(rgba(10, 35, 71, 0.95), rgba(14, 46, 95, 0.95)),
     url('images/background.PNG') repeat;
   background-size: auto;
   background-position: center;
@@ -227,7 +227,6 @@ body {
 /* Services Section */
 .services {
   padding: 20px 0;
-  background: rgba(255, 255, 255, 0.05);
 }
 
 .services h2 {
