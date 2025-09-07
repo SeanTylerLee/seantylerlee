@@ -38,9 +38,9 @@ body {
   color: var(--text-primary);
   background: 
     linear-gradient(rgba(10, 35, 71, 0.9), rgba(14, 46, 95, 0.9)),
-    url('images/background.PNG') center/cover no-repeat,
+    url('images/background.PNG') center/cover repeat,
     linear-gradient(180deg, var(--secondary-bg) 0%, #12396f 25%, #0f2f5f 50%, #0c2957 75%, var(--primary-bg) 100%);
-  background-attachment: fixed;
+  background-attachment: scroll;
   min-height: 100vh;
   line-height: 1.6;
 }
