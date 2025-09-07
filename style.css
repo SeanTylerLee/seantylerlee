@@ -38,7 +38,7 @@ body {
   color: var(--text-primary);
   background: 
     linear-gradient(rgba(10, 35, 71, 0.9), rgba(14, 46, 95, 0.9)),
-    url('images/background.png') center/cover no-repeat,
+    url('images/background.PNG') center/cover no-repeat,
     linear-gradient(180deg, var(--secondary-bg) 0%, #12396f 25%, #0f2f5f 50%, #0c2957 75%, var(--primary-bg) 100%);
   background-attachment: fixed;
   min-height: 100vh;
@@ -364,6 +364,16 @@ footer {
 
 .contact-section {
   margin-bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.about-btn {
+  width: 200px;
+  min-width: 200px;
+  max-width: 200px;
 }
 
 .contact-section h3 {
@@ -554,21 +564,13 @@ footer {
   display: inline-block;
   padding: 4px;
   border-radius: 50%;
-  background: rgba(46, 168, 255, 0.3);
-  width: 28px;
-  height: 28px;
-  text-align: center;
-  line-height: 20px;
-  border: 1px solid rgba(46, 168, 255, 0.5);
   color: var(--accent-blue);
   font-weight: bold;
 }
 
 .info-icon:hover {
-  opacity: 1;
-  background: rgba(46, 168, 255, 0.6);
+  opacity: 0.8;
   transform: scale(1.15);
-  border-color: var(--accent-blue);
 }
 
 .tooltip {
@@ -773,6 +775,97 @@ footer {
   width: 28px;
   height: 28px;
   object-fit: contain;
+}
+
+/* About Page Styles */
+.about-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.about-content {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--border-radius);
+  padding: 40px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(180, 200, 255, 0.2);
+}
+
+.about-section {
+  margin-bottom: 40px;
+}
+
+.about-section h2 {
+  font-size: clamp(24px, 4vw, 32px);
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.about-section p {
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  text-align: justify;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+  margin-top: 30px;
+}
+
+.feature-item {
+  text-align: center;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(180, 200, 255, 0.2);
+}
+
+.feature-item h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--accent-soft);
+}
+
+.feature-item p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  text-align: center;
+}
+
+.cta-section {
+  text-align: center;
+  background: rgba(46, 168, 255, 0.1);
+  border: 1px solid rgba(46, 168, 255, 0.3);
+  border-radius: 16px;
+  padding: 40px;
+  margin-top: 40px;
+}
+
+.cta-section h2 {
+  color: var(--accent-soft);
+  margin-bottom: 20px;
+}
+
+.cta-section p {
+  font-size: 18px;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.cta-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 /* Responsive Design */

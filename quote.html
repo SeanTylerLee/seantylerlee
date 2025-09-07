@@ -214,8 +214,7 @@
           
           <div class="quote-actions">
             <button type="button" class="btn btn-primary" id="generatePDF">Generate PDF Quote</button>
-            <button type="button" class="btn btn-secondary" id="emailQuote">Email Quote to Me</button>
-            <button type="button" class="btn btn-secondary" id="printQuote">Print Quote</button>
+            <button type="button" class="btn btn-primary" id="submitQuote">Submit Quote</button>
           </div>
         </div>
       </form>
@@ -302,8 +301,7 @@
     const form = document.getElementById('quoteForm');
     const calculateBtn = document.getElementById('calculateQuote');
     const generatePDFBtn = document.getElementById('generatePDF');
-    const emailQuoteBtn = document.getElementById('emailQuote');
-    const printQuoteBtn = document.getElementById('printQuote');
+    const submitQuoteBtn = document.getElementById('submitQuote');
     const quoteResult = document.getElementById('quoteResult');
     const quoteTotal = document.getElementById('quoteTotal');
     const quoteBreakdown = document.getElementById('quoteBreakdown');
@@ -405,90 +403,333 @@
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       
-      // Header
-      doc.setFontSize(24);
-      doc.text('Project Quote', 20, 30);
+      // Add header image (logo)
+      try {
+        const img = new Image();
+        img.src = 'images/logo.PNG';
+        doc.addImage(img, 'PNG', 20, 10, 30, 30);
+      } catch (e) {
+        // If image fails to load, continue without it
+      }
+      
+      // Company header
+      doc.setFontSize(20);
+      doc.setTextColor(46, 168, 255);
+      doc.text('SeanTylerLee.com', 60, 25);
+      
       doc.setFontSize(12);
-      doc.text('SeanTylerLee.com', 20, 40);
-      doc.text('seantylerlee@icloud.com', 20, 46);
+      doc.setTextColor(0, 0, 0);
+      doc.text('seantylerlee@icloud.com', 60, 32);
+      doc.text('580-729-8184', 60, 38);
       
       // Quote ID and date
       const quoteId = 'Q-' + Date.now().toString().slice(-6);
       const date = new Date().toLocaleDateString();
-      doc.text(`Quote ID: ${quoteId}`, 150, 30);
-      doc.text(`Date: ${date}`, 150, 36);
+      doc.setFontSize(10);
+      doc.text(`Quote ID: ${quoteId}`, 150, 20);
+      doc.text(`Date: ${date}`, 150, 26);
+      
+      let yPos = 55;
       
       // Client info
       doc.setFontSize(14);
-      doc.text('Client Information', 20, 60);
+      doc.setTextColor(46, 168, 255);
+      doc.text('CLIENT INFORMATION', 20, yPos);
       doc.setFontSize(10);
-      doc.text(`Name: ${window.currentQuote.data.clientName}`, 20, 70);
-      doc.text(`Email: ${window.currentQuote.data.clientEmail}`, 20, 76);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
+      doc.text(`Name: ${window.currentQuote.data.clientName}`, 20, yPos);
+      yPos += 6;
+      doc.text(`Email: ${window.currentQuote.data.clientEmail}`, 20, yPos);
+      yPos += 6;
       if (window.currentQuote.data.companyName) {
-        doc.text(`Company: ${window.currentQuote.data.companyName}`, 20, 82);
+        doc.text(`Company: ${window.currentQuote.data.companyName}`, 20, yPos);
+        yPos += 6;
       }
+      if (window.currentQuote.data.phoneNumber) {
+        doc.text(`Phone: ${window.currentQuote.data.phoneNumber}`, 20, yPos);
+        yPos += 6;
+      }
+      yPos += 10;
       
       // Project details
       doc.setFontSize(14);
-      doc.text('Project Details', 20, 100);
+      doc.setTextColor(46, 168, 255);
+      doc.text('PROJECT DETAILS', 20, yPos);
       doc.setFontSize(10);
-      doc.text(`Type: ${window.currentQuote.data.projectType}`, 20, 110);
-      doc.text(`Pages/Screens: ${window.currentQuote.data.pagesScreens}`, 20, 116);
-      doc.text(`Complexity: ${window.currentQuote.data.complexity}`, 20, 122);
-      doc.text(`Timeline: ${window.currentQuote.data.timeline}`, 20, 128);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
+      doc.text(`Project Type: ${window.currentQuote.data.projectType}`, 20, yPos);
+      yPos += 6;
+      doc.text(`Pages/Screens: ${window.currentQuote.data.pagesScreens}`, 20, yPos);
+      yPos += 6;
+      doc.text(`Complexity: ${window.currentQuote.data.complexity}`, 20, yPos);
+      yPos += 6;
+      doc.text(`Timeline: ${window.currentQuote.data.timeline}`, 20, yPos);
+      yPos += 10;
       
       // Features
       if (window.currentQuote.features.length > 0) {
         doc.setFontSize(14);
-        doc.text('Features', 20, 145);
+        doc.setTextColor(46, 168, 255);
+        doc.text('INCLUDED FEATURES', 20, yPos);
         doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        yPos += 10;
         window.currentQuote.features.forEach((feature, index) => {
-          doc.text(`• ${feature.replace('-', ' ')}`, 20, 155 + (index * 6));
+          doc.text(`• ${feature.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}`, 20, yPos);
+          yPos += 6;
         });
+        yPos += 5;
       }
+      
+      // Additional services
+      doc.setFontSize(14);
+      doc.setTextColor(46, 168, 255);
+      doc.text('ADDITIONAL SERVICES', 20, yPos);
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
+      
+      const services = [
+        { name: 'Design Services', value: window.currentQuote.data.design },
+        { name: 'Content Creation', value: window.currentQuote.data.content },
+        { name: 'Maintenance Plan', value: window.currentQuote.data.maintenance },
+        { name: 'Hosting Services', value: window.currentQuote.data.hosting }
+      ];
+      
+      services.forEach(service => {
+        if (service.value && service.value !== 'None') {
+          doc.text(`• ${service.name}: ${service.value}`, 20, yPos);
+          yPos += 6;
+        }
+      });
+      yPos += 10;
       
       // Pricing breakdown
       doc.setFontSize(14);
-      doc.text('Pricing Breakdown', 20, 180);
+      doc.setTextColor(46, 168, 255);
+      doc.text('PRICING BREAKDOWN', 20, yPos);
       doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
       
-      let yPos = 190;
+      // Draw table header
+      doc.setDrawColor(46, 168, 255);
+      doc.line(20, yPos - 5, 180, yPos - 5);
+      doc.text('Description', 20, yPos);
+      doc.text('Amount', 150, yPos);
+      doc.line(20, yPos + 2, 180, yPos + 2);
+      yPos += 8;
+      
       window.currentQuote.breakdown.forEach(item => {
         doc.text(item.item, 20, yPos);
         doc.text(`$${item.amount.toLocaleString()}`, 150, yPos);
         yPos += 6;
       });
       
-      // Total
-      doc.setFontSize(16);
-      doc.text('TOTAL', 20, yPos + 10);
-      doc.text(`$${window.currentQuote.total.toLocaleString()}`, 150, yPos + 10);
+      // Total line
+      doc.setDrawColor(46, 168, 255);
+      doc.line(20, yPos + 2, 180, yPos + 2);
+      doc.setFontSize(14);
+      doc.setTextColor(46, 168, 255);
+      doc.text('TOTAL PROJECT COST', 20, yPos + 8);
+      doc.text(`$${window.currentQuote.total.toLocaleString()}`, 150, yPos + 8);
+      yPos += 15;
       
       // Maintenance
       if (window.currentQuote.maintenance > 0) {
         doc.setFontSize(12);
-        doc.text(`Monthly Maintenance: $${window.currentQuote.maintenance}`, 20, yPos + 20);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Monthly Maintenance: $${window.currentQuote.maintenance}`, 20, yPos);
+        yPos += 10;
       }
       
-      // Terms
-      doc.setFontSize(10);
-      doc.text('Terms: 50% deposit to begin, remainder due at delivery.', 20, yPos + 40);
-      doc.text('Quote valid for 30 days. Final pricing may adjust if scope changes.', 20, yPos + 46);
+      // Professional closing
+      yPos += 10;
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text('We look forward to the opportunity to work with you and bring your vision to life.', 20, yPos);
+      yPos += 8;
+      doc.text('All quotes are negotiable and we are committed to finding a pricing solution that', 20, yPos);
+      yPos += 6;
+      doc.text('works within your budget while delivering exceptional quality and service.', 20, yPos);
       
       // Save PDF
       doc.save(`quote-${quoteId}.pdf`);
     }
 
-    // Email quote
-    function emailQuote() {
+    // Submit quote (generate PDF and email)
+    function submitQuote() {
       if (!window.currentQuote) {
         alert('Please calculate a quote first.');
         return;
       }
       
-      const subject = encodeURIComponent(`Quote Request - ${window.currentQuote.data.projectType} - ${window.currentQuote.data.clientName}`);
+      // Generate PDF first
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      
+      // Add header image (logo)
+      try {
+        const img = new Image();
+        img.src = 'images/logo.PNG';
+        doc.addImage(img, 'PNG', 20, 10, 30, 30);
+      } catch (e) {
+        // If image fails to load, continue without it
+      }
+      
+      // Company header
+      doc.setFontSize(20);
+      doc.setTextColor(46, 168, 255);
+      doc.text('SeanTylerLee.com', 60, 25);
+      
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text('seantylerlee@icloud.com', 60, 32);
+      doc.text('580-729-8184', 60, 38);
+      
+      // Quote ID and date
+      const quoteId = 'Q-' + Date.now().toString().slice(-6);
+      const date = new Date().toLocaleDateString();
+      doc.setFontSize(10);
+      doc.text(`Quote ID: ${quoteId}`, 150, 20);
+      doc.text(`Date: ${date}`, 150, 26);
+      
+      let yPos = 55;
+      
+      // Client info
+      doc.setFontSize(14);
+      doc.setTextColor(46, 168, 255);
+      doc.text('CLIENT INFORMATION', 20, yPos);
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
+      doc.text(`Name: ${window.currentQuote.data.clientName}`, 20, yPos);
+      yPos += 6;
+      doc.text(`Email: ${window.currentQuote.data.clientEmail}`, 20, yPos);
+      yPos += 6;
+      if (window.currentQuote.data.companyName) {
+        doc.text(`Company: ${window.currentQuote.data.companyName}`, 20, yPos);
+        yPos += 6;
+      }
+      if (window.currentQuote.data.phoneNumber) {
+        doc.text(`Phone: ${window.currentQuote.data.phoneNumber}`, 20, yPos);
+        yPos += 6;
+      }
+      yPos += 10;
+      
+      // Project details
+      doc.setFontSize(14);
+      doc.setTextColor(46, 168, 255);
+      doc.text('PROJECT DETAILS', 20, yPos);
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
+      doc.text(`Project Type: ${window.currentQuote.data.projectType}`, 20, yPos);
+      yPos += 6;
+      doc.text(`Pages/Screens: ${window.currentQuote.data.pagesScreens}`, 20, yPos);
+      yPos += 6;
+      doc.text(`Complexity: ${window.currentQuote.data.complexity}`, 20, yPos);
+      yPos += 6;
+      doc.text(`Timeline: ${window.currentQuote.data.timeline}`, 20, yPos);
+      yPos += 10;
+      
+      // Features
+      if (window.currentQuote.features.length > 0) {
+        doc.setFontSize(14);
+        doc.setTextColor(46, 168, 255);
+        doc.text('INCLUDED FEATURES', 20, yPos);
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        yPos += 10;
+        window.currentQuote.features.forEach((feature, index) => {
+          doc.text(`• ${feature.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}`, 20, yPos);
+          yPos += 6;
+        });
+        yPos += 5;
+      }
+      
+      // Additional services
+      doc.setFontSize(14);
+      doc.setTextColor(46, 168, 255);
+      doc.text('ADDITIONAL SERVICES', 20, yPos);
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
+      
+      const services = [
+        { name: 'Design Services', value: window.currentQuote.data.design },
+        { name: 'Content Creation', value: window.currentQuote.data.content },
+        { name: 'Maintenance Plan', value: window.currentQuote.data.maintenance },
+        { name: 'Hosting Services', value: window.currentQuote.data.hosting }
+      ];
+      
+      services.forEach(service => {
+        if (service.value && service.value !== 'None') {
+          doc.text(`• ${service.name}: ${service.value}`, 20, yPos);
+          yPos += 6;
+        }
+      });
+      yPos += 10;
+      
+      // Pricing breakdown
+      doc.setFontSize(14);
+      doc.setTextColor(46, 168, 255);
+      doc.text('PRICING BREAKDOWN', 20, yPos);
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
+      
+      // Draw table header
+      doc.setDrawColor(46, 168, 255);
+      doc.line(20, yPos - 5, 180, yPos - 5);
+      doc.text('Description', 20, yPos);
+      doc.text('Amount', 150, yPos);
+      doc.line(20, yPos + 2, 180, yPos + 2);
+      yPos += 8;
+      
+      window.currentQuote.breakdown.forEach(item => {
+        doc.text(item.item, 20, yPos);
+        doc.text(`$${item.amount.toLocaleString()}`, 150, yPos);
+        yPos += 6;
+      });
+      
+      // Total line
+      doc.setDrawColor(46, 168, 255);
+      doc.line(20, yPos + 2, 180, yPos + 2);
+      doc.setFontSize(14);
+      doc.setTextColor(46, 168, 255);
+      doc.text('TOTAL PROJECT COST', 20, yPos + 8);
+      doc.text(`$${window.currentQuote.total.toLocaleString()}`, 150, yPos + 8);
+      yPos += 15;
+      
+      // Maintenance
+      if (window.currentQuote.maintenance > 0) {
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Monthly Maintenance: $${window.currentQuote.maintenance}`, 20, yPos);
+        yPos += 10;
+      }
+      
+      // Professional closing
+      yPos += 10;
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text('We look forward to the opportunity to work with you and bring your vision to life.', 20, yPos);
+      yPos += 8;
+      doc.text('All quotes are negotiable and we are committed to finding a pricing solution that', 20, yPos);
+      yPos += 6;
+      doc.text('works within your budget while delivering exceptional quality and service.', 20, yPos);
+      
+      // Generate PDF as blob for email attachment
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      // Create email with PDF attachment
+      const subject = encodeURIComponent(`New Quote Request - ${window.currentQuote.data.projectType} - ${window.currentQuote.data.clientName}`);
       const body = encodeURIComponent(`
-Quote Request Details:
+New Quote Request Received
 
 Client Information:
 - Name: ${window.currentQuote.data.clientName}
@@ -502,8 +743,8 @@ Project Details:
 - Complexity: ${window.currentQuote.data.complexity}
 - Timeline: ${window.currentQuote.data.timeline}
 
-Features:
-${window.currentQuote.features.map(f => `- ${f.replace('-', ' ')}`).join('\n')}
+Features Requested:
+${window.currentQuote.features.map(f => `- ${f.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}`).join('\n')}
 
 Additional Services:
 - Design: ${window.currentQuote.data.design}
@@ -517,102 +758,28 @@ ${window.currentQuote.data.projectDescription || 'No description provided'}
 Quote Total: $${window.currentQuote.total.toLocaleString()}
 ${window.currentQuote.maintenance > 0 ? `Monthly Maintenance: $${window.currentQuote.maintenance}` : ''}
 
-Please contact me to discuss this quote and next steps.
+A detailed PDF quote has been generated and is attached to this email.
+
+Please contact the client to discuss this quote and next steps.
 
 Best regards,
-${window.currentQuote.data.clientName}
+SeanTylerLee.com Quote System
       `);
       
+      // Open email client with pre-filled content
       window.location.href = `mailto:seantylerlee@icloud.com?subject=${subject}&body=${body}`;
-    }
-
-    // Print quote
-    function printQuote() {
-      if (!window.currentQuote) {
-        alert('Please calculate a quote first.');
-        return;
-      }
       
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Quote - ${window.currentQuote.data.clientName}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 40px; }
-              h1 { color: #2ea8ff; }
-              .header { border-bottom: 2px solid #2ea8ff; padding-bottom: 20px; margin-bottom: 30px; }
-              .section { margin-bottom: 25px; }
-              .breakdown { background: #f5f5f5; padding: 15px; border-radius: 8px; }
-              .total { font-size: 24px; font-weight: bold; color: #2ea8ff; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>Project Quote</h1>
-              <p><strong>SeanTylerLee.com</strong><br>
-              seantylerlee@icloud.com</p>
-            </div>
-            
-            <div class="section">
-              <h2>Client Information</h2>
-              <p><strong>Name:</strong> ${window.currentQuote.data.clientName}<br>
-              <strong>Email:</strong> ${window.currentQuote.data.clientEmail}<br>
-              <strong>Company:</strong> ${window.currentQuote.data.companyName || 'N/A'}<br>
-              <strong>Phone:</strong> ${window.currentQuote.data.phoneNumber || 'N/A'}</p>
-            </div>
-            
-            <div class="section">
-              <h2>Project Details</h2>
-              <p><strong>Type:</strong> ${window.currentQuote.data.projectType}<br>
-              <strong>Pages/Screens:</strong> ${window.currentQuote.data.pagesScreens}<br>
-              <strong>Complexity:</strong> ${window.currentQuote.data.complexity}<br>
-              <strong>Timeline:</strong> ${window.currentQuote.data.timeline}</p>
-            </div>
-            
-            <div class="section">
-              <h2>Features</h2>
-              <ul>
-                ${window.currentQuote.features.map(f => `<li>${f.replace('-', ' ')}</li>`).join('')}
-              </ul>
-            </div>
-            
-            <div class="section">
-              <h2>Pricing Breakdown</h2>
-              <div class="breakdown">
-                ${window.currentQuote.breakdown.map(item => 
-                  `<div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                    <span>${item.item}</span>
-                    <span>$${item.amount.toLocaleString()}</span>
-                  </div>`
-                ).join('')}
-                <hr>
-                <div style="display: flex; justify-content: space-between; font-weight: bold;">
-                  <span>TOTAL</span>
-                  <span class="total">$${window.currentQuote.total.toLocaleString()}</span>
-                </div>
-                ${window.currentQuote.maintenance > 0 ? 
-                  `<div style="margin-top: 10px;">Monthly Maintenance: $${window.currentQuote.maintenance}</div>` : ''
-                }
-              </div>
-            </div>
-            
-            <div class="section">
-              <h2>Terms</h2>
-              <p>50% deposit to begin, remainder due at delivery. Quote valid for 30 days. Final pricing may adjust if scope changes.</p>
-            </div>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
+      // Also save the PDF locally for the user
+      doc.save(`quote-${quoteId}.pdf`);
+      
+      // Show success message
+      alert('Quote submitted successfully! The PDF has been saved and an email has been prepared for you to send.');
     }
 
     // Event listeners
     calculateBtn.addEventListener('click', calculateQuote);
     generatePDFBtn.addEventListener('click', generatePDF);
-    emailQuoteBtn.addEventListener('click', emailQuote);
-    printQuoteBtn.addEventListener('click', printQuote);
+    submitQuoteBtn.addEventListener('click', submitQuote);
 
     // Form validation
     form.addEventListener('submit', (e) => {
