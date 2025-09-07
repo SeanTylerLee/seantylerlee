@@ -2,701 +2,86 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
-  />
-  <title>SeanTylerLee.com</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>SeanTylerLee.com - Professional Development Services</title>
+  
   <!-- PWA / iOS -->
   <meta name="theme-color" content="#0b2a52" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="appicon.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="appicon.png" />
-  <link rel="apple-touch-icon" sizes="167x167" href="appicon.png" />
-  <link rel="apple-touch-icon" sizes="152x152" href="appicon.png" />
   <link rel="icon" href="favicon.ico" />
-
-  <style>
-    /* =========================
-       Tokens / Always-dark theme
-       ========================= */
-    :root{
-      --bg0:#0a2347;        /* deep indigo */
-      --bg1:#0e2e5f;        /* top gradient */
-      --text:#e8f0ff;       /* near-white on dark */
-      --muted:#a9b8d0;
-      --accent:#2ea8ff;     /* electric blue */
-      --accent-soft:#75c6ff;
-      --card-bg: rgba(255,255,255,0.06);
-      --card-brd: rgba(180,200,255,0.18);
-      --radius:16px;
-      --maxw: 1024px;
-    }
-
-    *{ box-sizing: border-box; }
-    html, body { height: 100%; }
-    :root, html, body { color-scheme: dark; }
-
-    /* =========================
-       Smooth background + noise
-       ========================= */
-    body{
-      margin:0;
-      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-      color:var(--text);
-
-      background-image:
-        /* subtle noise */
-        url('data:image/svg+xml;utf8,\
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">\
-  <filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch"/></filter>\
-  <rect width="100%" height="100%" filter="url(%23n)" opacity="0.025"/>\
-</svg>'),
-        radial-gradient(1200px 600px at 50% -200px, rgba(46,168,255,.22), transparent 60%),
-        radial-gradient(900px 900px at 80% 10%, rgba(117,198,255,.15), transparent 55%),
-        linear-gradient(180deg, var(--bg1) 0%, #12396f 25%, #0f2f5f 50%, #0c2957 75%, var(--bg0) 100%);
-      background-blend-mode: overlay, normal, normal, normal;
-      background-repeat: repeat, no-repeat, no-repeat, no-repeat;
-      background-size: 128px 128px, auto, auto, auto;
-      min-height: 100vh;
-    }
-
-    /* Safe-area for iPhone notch */
-    .safe-top { padding-top: env(safe-area-inset-top); }
-    .safe-x {
-      padding-left: calc(16px + env(safe-area-inset-left));
-      padding-right: calc(16px + env(safe-area-inset-right));
-    }
-
-    /* =========================
-       Layout
-       ========================= */
-    .wrap { max-width: var(--maxw); margin: 0 auto; }
-
-    header.hero {
-      display:flex; flex-direction:column; align-items:center; text-align:center;
-      padding: 28px 16px 16px;
-      gap: 10px;
-    }
-    .logo {
-      width:min(520px, 64vw);
-      max-width: 320px;
-      height:auto; object-fit:contain;
-      filter: drop-shadow(0 10px 24px rgba(46,168,255,.45));
-    }
-    .tag {
-      margin:0;
-      font-size: clamp(18px, 2.6vw, 22px);
-      font-weight: 700;
-      letter-spacing: .2px;
-      color: var(--text);
-    }
-    .subtag {
-      margin:2px 0 0;
-      font-size: 14px;
-      color: var(--muted);
-    }
-
-    .cta-row {
-      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
-      margin-top: 14px;
-    }
-    .btn, .btn-ghost, .btn-primary {
-      display:inline-block; padding:12px 16px; border-radius:12px;
-      text-decoration:none; font-weight:700; font-size:14px; line-height:1;
-      transition: transform .05s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
-      border: 1px solid rgba(0,0,0,0.12);
-      cursor: pointer;
-    }
-    .btn-primary{
-      color:#05182e;
-      background: linear-gradient(180deg, var(--accent-soft), var(--accent));
-      box-shadow: 0 2px 10px rgba(46,168,255,.35), 0 0 14px rgba(46,168,255,.45);
-    }
-    .btn-ghost{
-      color: var(--text);
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(180,200,255,0.22);
-      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-      box-shadow: 0 1px 6px rgba(0,0,0,.2);
-    }
-    .btn:active{ transform: translateY(1px); }
-
-    main { padding: 12px 0 24px; }
-
-    /* Glassy placeholder card list */
-    .cards { display:grid; gap:14px; padding: 0 16px; }
-    .card {
-      display:grid; grid-template-columns: 60px 1fr; gap:12px; align-items:center;
-      background: var(--card-bg);
-      border:1px solid var(--card-brd);
-      border-radius: var(--radius);
-      padding:12px;
-      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-      box-shadow: 0 2px 10px rgba(0,0,0,.25), 0 0 .5px 1px rgba(46,168,255,.06) inset;
-    }
-    .card-icon {
-      width:60px; height:60px; border-radius:14px; object-fit:cover;
-      background: rgba(255,255,255,0.05);
-      border:1px solid rgba(255,255,255,0.12);
-    }
-    .card h2 { margin:0; font-size:16px; }
-    .card p { margin:3px 0 0; font-size:14px; color: var(--muted); }
-
-    /* ===== Quote calculator section (static, bottom) ===== */
-    .quote-card{
-      margin: 18px 16px 0;
-      border-radius: var(--radius);
-      border: 1px solid var(--card-brd);
-      background: rgba(255,255,255,0.04);
-      box-shadow: 0 2px 10px rgba(0,0,0,.25);
-      padding: 14px 16px;
-    }
-    .quote-card h3{
-      margin: 0 0 10px;
-      font-size: 18px;
-      font-weight: 800;
-      letter-spacing: .2px;
-    }
-
-    .grid-2{ display:grid; grid-template-columns: 1fr; gap: 12px; }
-    @media (min-width: 720px){ .grid-2{ grid-template-columns: 1fr 1fr; } }
-
-    .field{ display:grid; gap:6px; }
-    .field label{ font-weight:700; font-size:13px; }
-    .muted{ color: var(--muted); font-size: 12px; }
-
-    input[type="text"], input[type="number"], input[type="email"], textarea, select{
-      border: 1px solid rgba(226, 232, 240, .35);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font: inherit;
-      background: rgba(255,255,255,0.06);
-      color: var(--text);
-      width: 100%;
-      outline: none;
-    }
-    textarea{ min-height: 90px; resize: vertical; }
-
-    .feature-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
-    @media (min-width: 900px){ .feature-grid{ grid-template-columns: 1fr 1fr 1fr; } }
-    .feature{ background: rgba(255,255,255,0.06); border:1px solid rgba(180,200,255,0.18); border-radius:12px; padding:8px; }
-
-    .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap: wrap; }
-    .inline{ display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
-    .divider{ height:1px; background: rgba(180,200,255,.16); margin: 12px 0; }
-    .chip{ font-size: .85rem; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.08); }
-    .badge{ font-weight:800; }
-    .total{ font-size: 1.4rem; font-weight: 900; }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-
-    .breakdown{
-      background: rgba(46,168,255,.06);
-      border:1px solid rgba(46,168,255,.18);
-      border-radius:12px;
-      padding:12px;
-    }
-
-    footer {
-      margin-top: 24px;
-      padding: 16px;
-      text-align:center;
-      color: var(--muted);
-      border-top: 1px solid rgba(180,200,255,.16);
-      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
-      font-size: 12px;
-    }
-
-    /* Accessibility */
-    .btn:focus-visible, a:focus-visible, .card:focus-visible{
-      outline: 3px solid rgba(46,168,255,.55);
-      outline-offset: 2px;
-      border-radius: 12px;
-    }
-
-    /* Smooth scrolling */
-    html { scroll-behavior: smooth; }
-
-    /* ===== Printable Quote ===== */
-    #printable-quote{ display:none; }
-    #printable-quote .doc{
-      width: 850px; max-width: 100%; margin: 0 auto; background: #fff; color:#111;
-      border: 1px solid #e5e7eb; border-radius: 16px; padding: 32px;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    }
-    #printable-quote .doc-header{
-      display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom: 20px;
-    }
-    #printable-quote .brand{ display:flex; align-items:center; gap:12px; }
-    #printable-quote .brand img{ width:40px; height:40px; object-fit:contain; }
-    #printable-quote h1{ margin:0; font-size:1.6rem; }
-    #printable-quote .meta{ text-align:right; font-size:.95rem; color:#444; }
-    #printable-quote .section{ margin-top:16px; }
-    #printable-quote .section h3{ margin: 0 0 8px; font-size:1.05rem; letter-spacing:.2px; }
-    #printable-quote .kv{ display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; font-size:.98rem; }
-    #printable-quote table{ width:100%; border-collapse:collapse; margin-top:8px; font-size:.98rem; }
-    #printable-quote th, #printable-quote td{ border-bottom:1px solid #ececec; padding:10px 8px; text-align:left; vertical-align:top; }
-    #printable-quote tfoot td{ border-top:2px solid #111; font-weight:800; font-size:1.1rem; }
-    #printable-quote .terms{ font-size:.9rem; color:#555; line-height:1.5; margin-top:10px; }
-    #printable-quote .sig{ display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:24px; }
-    #printable-quote .sig div{ height:70px; border-top:1px solid #bbb; padding-top:6px; }
-    #printable-quote .footer-note{ margin-top:16px; font-size:.85rem; color:#666; text-align:center; }
-
-    @media print{
-      body{ background:#fff !important; }
-      header, main, footer{ display:none !important; }
-      #printable-quote{ display:block !important; }
-      #printable-quote .doc{ border:0; border-radius:0; padding:24px; }
-      @page { size: Letter; margin: 18mm; }
-    }
-  </style>
+  
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="safe-top hero">
-    <div class="wrap safe-x">
-      <img src="images/Icon.jpg" alt="SeanTylerLee.com" class="logo" />
-      <h1 class="tag">Professional builds at a fraction of the price.</h1>
-      <p class="subtag"></p>
-
-      <div class="cta-row">
-        <a class="btn-ghost" href="tel:5807298184">Call Today</a>
+  <header class="hero">
+    <div class="container">
+      <img src="images/logo.PNG" alt="SeanTylerLee.com" class="logo" />
+      <h1 class="tagline">Professional Development Services</h1>
+      <p class="subtitle">Custom websites, PWAs, mobile apps, and any digital solution you need</p>
+      
+      <div class="cta-buttons">
+        <a href="quote.html" class="cta-image-link">
+          <img src="images/wba.jpg" alt="Get Instant Quote" class="cta-image" />
+        </a>
+        <a href="soa.html" class="btn btn-secondary">View Our Apps</a>
       </div>
     </div>
   </header>
 
   <main>
-    <div class="wrap">
-
-      <!-- (Your other content/cards can go here) -->
-
-      <!-- ===== Quote Calculator (static, bottom) ===== -->
-      <section class="quote-card" id="quoteSection">
-        <h3>Get an Instant Quote Now</h3>
-
-        <form id="quoteForm">
-          <div class="grid-2">
-            <div class="field">
-              <label for="name">Your name</label>
-              <input id="name" type="text" placeholder="First and Last" />
+    <section class="services">
+      <div class="container">
+        <h2>What We Build</h2>
+        <div class="services-grid">
+          <div class="service-card">
+            <div class="service-icon">
+              <img src="images/website.PNG" alt="Website Development" class="service-icon-img" />
             </div>
-            <div class="field">
-              <label for="email">Email</label>
-              <input id="email" type="email" placeholder="you@company.com" />
-            </div>
+            <h3>Websites</h3>
+            <p>Modern, responsive websites that convert visitors into customers</p>
           </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="company">Company/Brand (optional)</label>
-              <input id="company" type="text" placeholder="Optional" />
+          <div class="service-card">
+            <div class="service-icon">
+              <img src="images/pwa.PNG" alt="PWA Development" class="service-icon-img" />
             </div>
-            <div class="field">
-              <label for="deadline">Target launch date</label>
-              <input id="deadline" type="text" placeholder="00/00/0000" />
-              <span class="muted">Used for rush factor (if any).</span>
-            </div>
+            <h3>PWAs</h3>
+            <p>Progressive Web Apps that work like native apps on any device</p>
           </div>
-
-          <div class="field">
-            <label for="projectType">Project type</label>
-            <select id="projectType">
-              <option value="website">Website</option>
-              <option value="pwa">PWA (Progressive Web App)</option>
-              <option value="ios">iOS App</option>
-              <option value="android">Android App</option>
-              <option value="cross">Cross-platform (iOS + Android)</option>
-            </select>
+          <div class="service-card">
+            <div class="service-icon">
+              <img src="images/apple.PNG" alt="iOS App Development" class="service-icon-img" />
+            </div>
+            <h3>iOS Apps</h3>
+            <p>Native iOS applications built with the latest technologies</p>
           </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="pages"># of pages/screens</label>
-              <input id="pages" type="number" min="1" value="5" />
+          <div class="service-card">
+            <div class="service-icon">
+              <img src="images/android.PNG" alt="Android App Development" class="service-icon-img" />
             </div>
-            <div class="field">
-              <label for="complexity">Feature complexity</label>
-              <select id="complexity">
-                <option value="simple">Simple</option>
-                <option value="standard" selected>Standard</option>
-                <option value="advanced">Advanced</option>
-                <option value="pro">Pro</option>
-              </select>
-            </div>
+            <h3>Android Apps</h3>
+            <p>High-performance Android apps that users love</p>
           </div>
+        </div>
+      </div>
+    </section>
 
-          <div class="field">
-            <label>Features</label>
-            <div class="feature-grid">
-              <label class="feature"><input type="checkbox" class="feat" value="auth" /> Auth</label>
-              <label class="feature"><input type="checkbox" class="feat" value="cms" /> CMS</label>
-              <label class="feature"><input type="checkbox" class="feat" value="payments" /> Payments</label>
-              <label class="feature"><input type="checkbox" class="feat" value="maps" /> Maps/Routing</label>
-              <label class="feature"><input type="checkbox" class="feat" value="ai" /> AI/OCR/Chat</label>
-              <label class="feature"><input type="checkbox" class="feat" value="db" /> DB + Admin</label>
-              <label class="feature"><input type="checkbox" class="feat" value="offline" /> Offline/PWA</label>
-              <label class="feature"><input type="checkbox" class="feat" value="push" /> Push</label>
-              <label class="feature"><input type="checkbox" class="feat" value="carplay" /> CarPlay/Auto</label>
-            </div>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="design">Design effort</label>
-              <select id="design">
-                <option value="reuse">Reuse existing</option>
-                <option value="light" selected>Light custom</option>
-                <option value="full">Full system</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="branding">Branding</label>
-              <select id="branding">
-                <option value="none">None</option>
-                <option value="logo">Logo refresh</option>
-                <option value="full">Full brand kit</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="copy">Copywriting</label>
-              <select id="copy">
-                <option value="client">Client provides</option>
-                <option value="assist">Assisted</option>
-                <option value="full">Full copywriting</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="seo">SEO / ASO</label>
-              <select id="seo">
-                <option value="basic">Basic</option>
-                <option value="opt">Optimization + analytics</option>
-                <option value="campaign">Launch campaign</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="rush">Rush?</label>
-              <select id="rush">
-                <option value="no" selected>No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="maintenance">Maintenance plan</label>
-              <select id="maintenance">
-                <option value="none">None</option>
-                <option value="basic">Basic ($100/mo)</option>
-                <option value="pro">Pro ($200/mo)</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="field">
-            <label for="notes">Notes / must-haves</label>
-            <textarea id="notes" placeholder="Goals, tech, integrations, examples…"></textarea>
-          </div>
-
-          <div class="row">
-            <div class="inline">
-              <button class="btn-primary" id="calcBtn" type="button">Calculate</button>
-              <button class="btn-ghost"  id="saveBtn" type="button">Save</button>
-              <button class="btn-ghost"  id="loadBtn" type="button">Load</button>
-              <button class="btn-ghost"  id="printBtn" type="button">Print Quote (PDF)</button>
-            </div>
-            <span class="chip">v1.1</span>
-          </div>
-
-          <div class="divider"></div>
-
-          <div class="breakdown" id="breakdown" hidden>
-            <div class="row">
-              <div class="badge">Estimated Total</div>
-              <div class="total" id="total">$0</div>
-            </div>
-            <div id="lineItems" class="mono" style="white-space:pre-wrap;"></div>
-            <div class="divider"></div>
-            <div class="row">
-              <a id="mailto" class="btn-primary" href="#">Email Me This Quote</a>
-            </div>
-          </div>
-        </form>
-      </section>
-
-    </div>
   </main>
 
   <footer>
-    © 2025 SeanTylerLee.com and all associated applications. All rights reserved.
-  </footer>
-
-  <!-- ===== Printable Document Template (populated dynamically) ===== -->
-  <section id="printable-quote">
-    <div class="doc">
-      <div class="doc-header">
-        <div class="brand">
-          <img src="images/Icon.jpg" alt="Logo" onerror="this.style.display='none'">
-          <div>
-            <h1>Quote</h1>
-            <div style="color:#666;font-size:.95rem;">SeanTylerLee.com</div>
-          </div>
+    <div class="container">
+      <div class="footer-content">
+        <div class="contact-section">
+          <a href="mailto:seantylerlee@icloud.com" class="contact-image-link">
+            <img src="images/cu.jpg" alt="Contact Us" class="contact-image" />
+          </a>
         </div>
-        <div class="meta">
-          <div id="pq-id" class="mono"></div>
-          <div id="pq-date"></div>
-          <div>seantylerlee@icloud.com</div>
-          <div>SeanTylerLee.com</div>
+        <div class="footer-info">
+          <p>&copy; 2025 SeanTylerLee.com. All rights reserved.</p>
+          <p>Professional development services you can trust.</p>
         </div>
-      </div>
-
-      <div class="section">
-        <h3>Client</h3>
-        <div class="kv" id="pq-client"></div>
-      </div>
-
-      <div class="section">
-        <h3>Project Overview</h3>
-        <div class="kv" id="pq-overview"></div>
-        <div id="pq-notes" style="background:#eef4ff; color:#0f172a; border-radius:12px; padding:10px; margin-top:8px;"></div>
-      </div>
-
-      <div class="section">
-        <h3>Pricing Breakdown</h3>
-        <table id="pq-table">
-          <thead><tr><th style="width:65%;">Item</th><th style="width:35%;">Amount</th></tr></thead>
-          <tbody></tbody>
-          <tfoot><tr><td>Total (one-time)</td><td id="pq-total"></td></tr></tfoot>
-        </table>
-        <div id="pq-maint" style="margin-top:6px; font-size:.95rem;"></div>
-      </div>
-
-      <div class="section">
-        <h3>Terms</h3>
-        <div class="terms">
-          This quote is an estimate based on the provided scope and selections. Final pricing may adjust if scope changes.
-          50% deposit to begin; remainder due at delivery. Rush timelines incur expedite fees. IP transfers upon final payment.
-          Maintenance is optional and billed monthly. Valid for 30 days.
-        </div>
-      </div>
-
-      <div class="sig">
-        <div>Client Signature & Date</div>
-        <div>SeanTylerLee.com Signature & Date</div>
-      </div>
-
-      <div class="footer-note">
-        Thank you for the opportunity! Questions? Email seantylerlee@icloud.com
       </div>
     </div>
-  </section>
-
-  <script>
-    // ===== Pricing Model =====
-    const RATES = {
-      base:        { website: 800, pwa: 1500, ios: 2000, android: 2000, cross: 4000 },
-      perPage:     { website: 100,  pwa: 200,  ios: 350,  android: 350,  cross: 600  },
-      complexity:  { simple: 1.0, standard: 1.25, advanced: 1.6, pro: 2.2 },
-      featureAddons: {
-        auth: 600, cms: 700, payments: 1200, maps: 900, ai: 1500,
-        db: 900, offline: 700, push: 500, carplay: 1200
-      },
-      design:      { reuse: 0, light: 600, full: 1800 },
-      branding:    { none: 0, logo: 500, full: 1600 },
-      copy:        { client: 0, assist: 400, full: 1200 },
-      seo:         { basic: 0, opt: 600, campaign: 1500 },
-      rushMultiplier: 1.35,
-      discounts:   { bigScopeThreshold: 18, bigScopePercentOff: 0.07 },
-      maintenanceMonthly: { none: 0, basic: 100, pro: 200 }
-    };
-
-    // ===== Helpers =====
-    const $$  = (s)=>document.querySelector(s);
-    const $$$ = (s)=>Array.from(document.querySelectorAll(s));
-    const money   = (n)=>n.toLocaleString(undefined,{style:'currency',currency:'USD'});
-    const todayStr= ()=> new Date().toLocaleDateString(undefined,{year:'numeric',month:'short',day:'2-digit'});
-    const quoteId = ()=>{
-      const d=new Date(), y=d.getFullYear().toString().slice(-2), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'), rnd=Math.floor(1000+Math.random()*9000);
-      return `Q-${y}${m}${day}-${rnd}`;
-    };
-
-    function gather(){
-      return {
-        name: $$('#name').value.trim(),
-        email: $$('#email').value.trim(),
-        company: $$('#company').value.trim(),
-        deadline: $$('#deadline').value.trim(),
-        projectType: $$('#projectType').value,
-        pages: Math.max(1, parseInt($$('#pages').value || '1', 10)),
-        complexity: $$('#complexity').value,
-        features: $$$('.feat:checked').map(el=>el.value),
-        design: $$('#design').value,
-        branding: $$('#branding').value,
-        copy: $$('#copy').value,
-        seo: $$('#seo').value,
-        rush: $$('#rush').value,
-        maintenance: $$('#maintenance').value,
-        notes: $$('#notes').value.trim()
-      };
-    }
-
-    function calculateQuote(d){
-      const lines=[]; let subtotal=0;
-
-      const base=RATES.base[d.projectType]||0;
-      const perPage=RATES.perPage[d.projectType]||0;
-      const mult=RATES.complexity[d.complexity]||1;
-
-      lines.push({label:`Base (${d.projectType})`, amount: base}); subtotal+=base;
-      lines.push({label:`Pages/screens (${d.pages} × ${money(perPage)})`, amount: d.pages*perPage}); subtotal+=d.pages*perPage;
-
-      d.features.forEach(f=>{ const c=RATES.featureAddons[f]||0; lines.push({label:`Feature: ${f}`, amount:c}); subtotal+=c; });
-
-      const design=RATES.design[d.design]||0, brand=RATES.branding[d.branding]||0, copy=RATES.copy[d.copy]||0, seo=RATES.seo[d.seo]||0;
-      [['Design',design],['Branding',brand],['Copywriting',copy],['SEO/ASO',seo]].forEach(([l,v])=>{ lines.push({label:l, amount:v}); subtotal+=v; });
-
-      const after=Math.round(subtotal*mult), up=after-subtotal; if(up>0) lines.push({label:`Complexity (${d.complexity} ×${mult})`, amount: up}); subtotal=after;
-
-      if(d.pages>=RATES.discounts.bigScopeThreshold){
-        const disc=Math.round(subtotal*RATES.discounts.bigScopePercentOff);
-        lines.push({label:`Large scope discount (${RATES.discounts.bigScopePercentOff*100}% off)`, amount:-disc});
-        subtotal-=disc;
-      }
-
-      if(d.rush==='yes'){
-        const newTot=Math.round(subtotal*RATES.rushMultiplier);
-        const add=newTot-subtotal;
-        lines.push({label:`Rush (+${Math.round((RATES.rushMultiplier-1)*100)}%)`, amount:add});
-        subtotal=newTot;
-      }
-
-      const monthly=RATES.maintenanceMonthly[d.maintenance]||0;
-      return { total: subtotal, monthly, lines };
-    }
-
-    function updateUI(d,q){
-      $$('#breakdown').hidden=false;
-      $$('#total').textContent=money(q.total);
-      $$('#lineItems').textContent=q.lines.map(li=>`${li.label}: ${money(li.amount)}`).join('\n');
-
-      const subject=encodeURIComponent(`Quote for ${d.projectType} – ${d.name||'Client'}`);
-      const body=[
-        `Name: ${d.name}`,
-        `Email: ${d.email}`,
-        `Company: ${d.company}`,
-        `Project Type: ${d.projectType}`,
-        `Pages/Screens: ${d.pages}`,
-        `Complexity: ${d.complexity}`,
-        `Features: ${d.features.join(', ')||'none'}`,
-        `Design: ${d.design} | Branding: ${d.branding} | Copy: ${d.copy} | SEO/ASO: ${d.seo}`,
-        `Rush: ${d.rush} | Maintenance: ${d.maintenance} (${money(q.monthly)}/mo)`,
-        `Deadline: ${d.deadline}`,
-        '',
-        '--- Estimate ---',
-        ...q.lines.map(li=>`${li.label}: ${money(li.amount)}`),
-        '',
-        `Total: ${money(q.total)}`,
-        q.monthly?`Maintenance: ${money(q.monthly)}/mo`: '',
-        '',
-        'Notes:',
-        d.notes||'(none)'
-      ].join('\n');
-
-      $$('#mailto').href=`mailto:seantylerlee@icloud.com?subject=${subject}&body=${encodeURIComponent(body)}`;
-    }
-
-    function buildPrintable(d,q){
-      const id=quoteId();
-      $$('#pq-id').textContent=id;
-      $$('#pq-date').textContent=todayStr();
-
-      $$('#pq-client').innerHTML = `
-        <div><strong>Name:</strong> ${d.name||'—'}</div>
-        <div><strong>Email:</strong> ${d.email||'—'}</div>
-        <div><strong>Company:</strong> ${d.company||'—'}</div>
-        <div><strong>Target Launch:</strong> ${d.deadline||'—'}</div>
-      `;
-
-      const features = (d.features && d.features.length) ? d.features.join(', ') : 'none';
-      $$('#pq-overview').innerHTML = `
-        <div><strong>Type:</strong> ${d.projectType}</div>
-        <div><strong>Scope:</strong> ${d.pages} ${d.projectType==='website'?'pages':'screens'}</div>
-        <div><strong>Complexity:</strong> ${d.complexity}</div>
-        <div><strong>Maintenance:</strong> ${d.maintenance} ${q.monthly?`(${money(q.monthly)}/mo)`:''}</div>
-        <div><strong>Design/Brand/Copy/SEO:</strong> ${d.design} / ${d.branding} / ${d.copy} / ${d.seo}</div>
-        <div><strong>Features:</strong> ${features}</div>
-      `;
-
-      $$('#pq-notes').textContent = d.notes ? d.notes : 'No additional notes provided.';
-
-      const tbody = $$('#pq-table tbody'); tbody.innerHTML='';
-      q.lines.forEach(li=>{
-        const tr=document.createElement('tr');
-        const t1=document.createElement('td'); const t2=document.createElement('td');
-        t1.textContent=li.label; t2.textContent=(li.amount<0?'-':'')+money(Math.abs(li.amount));
-        t2.style.textAlign='right';
-        tr.appendChild(t1); tr.appendChild(t2); tbody.appendChild(tr);
-      });
-      $$('#pq-total').textContent=money(q.total);
-      $$('#pq-maint').textContent = q.monthly ? `Maintenance plan: ${money(q.monthly)}/month` : 'No maintenance plan selected.';
-      localStorage.setItem('stl-quote-last-id', id);
-    }
-
-    // ===== Wire up buttons =====
-    $$('#calcBtn').addEventListener('click', ()=>{
-      const d=gather(); const q=calculateQuote(d); updateUI(d,q);
-      localStorage.setItem('stl-quote-latest', JSON.stringify({d,q}));
-      // jump user to the results
-      document.getElementById('total').scrollIntoView({behavior:'smooth', block:'center'});
-    });
-
-    $$('#saveBtn').addEventListener('click', ()=>{
-      const d=gather(); localStorage.setItem('stl-quote-draft', JSON.stringify(d));
-      alert('Saved locally on this device.');
-    });
-
-    $$('#loadBtn').addEventListener('click', ()=>{
-      const raw=localStorage.getItem('stl-quote-draft');
-      if(!raw) return alert('No saved draft found.');
-      const d=JSON.parse(raw);
-      $$('#name').value = d.name || '';
-      $$('#email').value = d.email || '';
-      $$('#company').value = d.company || '';
-      $$('#deadline').value = d.deadline || '';
-      $$('#projectType').value = d.projectType || 'website';
-      $$('#pages').value = d.pages || 5;
-      $$('#complexity').value = d.complexity || 'standard';
-      $$$('.feat').forEach(el => { el.checked = (d.features||[]).includes(el.value); });
-      $$('#design').value = d.design || 'light';
-      $$('#branding').value = d.branding || 'none';
-      $$('#copy').value = d.copy || 'assist';
-      $$('#seo').value = d.seo || 'basic';
-      $$('#rush').value = d.rush || 'no';
-      $$('#maintenance').value = d.maintenance || 'none';
-      $$('#notes').value = d.notes || '';
-      alert('Draft loaded.');
-    });
-
-    $$('#printBtn').addEventListener('click', ()=>{
-      const d=gather(); const q=calculateQuote(d); updateUI(d,q); buildPrintable(d,q);
-      // Show printable section (print CSS hides everything else)
-      $$('#printable-quote').style.display='block';
-      setTimeout(()=>{
-        window.print();
-        $$('#printable-quote').style.display='none';
-      }, 40);
-    });
-
-    // Optional SW registration
-    if ('serviceWorker' in navigator) {
-      // navigator.serviceWorker.register('/sw.js');
-    }
-  </script>
+  </footer>
 </body>
 </html>

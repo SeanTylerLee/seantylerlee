@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Get Instant Quote - SeanTylerLee.com</title>
+  <!-- Cache bust: Draft buttons removed -->
+  
+  <!-- PWA / iOS -->
+  <meta name="theme-color" content="#0b2a52" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="icon" href="favicon.ico" />
+  
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- PDF Generation Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <a href="index.html" class="back-link">← Back to Home</a>
+      <div class="logo-container">
+        <img src="images/logo.PNG" alt="SeanTylerLee.com" class="logo" />
+      </div>
+      <h1 class="tagline">Get Your Instant Quote</h1>
+      <p class="subtitle">Professional development services at competitive prices</p>
+    </div>
+  </header>
+
+  <main>
+    <div class="quote-container">
+      <div class="quote-header">
+        <h1>Project Quote Calculator</h1>
+        <p>Fill out the form below to get an instant quote for your project</p>
+        <div class="pricing-comparison">
+          <a href="pricing.html" class="btn btn-secondary pricing-btn">
+            Compare Our Prices to Industry Standards
+          </a>
+        </div>
+      </div>
+
+      <form class="quote-form" id="quoteForm">
+        <!-- Client Information -->
+        <h2>Client Information</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="clientName">Your Name *</label>
+            <input type="text" id="clientName" name="clientName" required placeholder="John Doe">
+          </div>
+          <div class="form-group">
+            <label for="clientEmail">Email Address *</label>
+            <input type="email" id="clientEmail" name="clientEmail" required placeholder="john@company.com">
+          </div>
+          <div class="form-group">
+            <label for="companyName">Company/Brand (Optional)</label>
+            <input type="text" id="companyName" name="companyName" placeholder="Your Company">
+          </div>
+          <div class="form-group">
+            <label for="phoneNumber">Phone Number (Optional)</label>
+            <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="(555) 123-4567">
+          </div>
+        </div>
+
+        <!-- Project Details -->
+        <h2>Project Details</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="projectType">Project Type *</label>
+            <select id="projectType" name="projectType" required>
+              <option value="">Select project type</option>
+              <option value="website">Website</option>
+              <option value="pwa">PWA (Progressive Web App)</option>
+              <option value="ios">iOS App</option>
+              <option value="android">Android App</option>
+              <option value="cross-platform">Cross-platform (iOS + Android)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pagesScreens">Number of Pages/Screens *</label>
+            <input type="number" id="pagesScreens" name="pagesScreens" min="1" value="5" required>
+          </div>
+          <div class="form-group">
+            <label for="complexity">Complexity Level *</label>
+            <select id="complexity" name="complexity" required>
+              <option value="standard" selected>Standard - Moderate features</option>
+              <option value="advanced">Advanced - Complex features</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="timeline">Desired Timeline</label>
+            <select id="timeline" name="timeline">
+              <option value="flexible">Flexible (4-8 weeks)</option>
+              <option value="standard" selected>Standard (2-4 weeks)</option>
+              <option value="rush">Rush (1-2 weeks)</option>
+              <option value="urgent">Urgent (3-7 days)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Features -->
+        <h2>Required Features</h2>
+        <p class="feature-intro">Select the features you need for your project. Click the info icon (ℹ️) to learn more about each feature.</p>
+        <div class="feature-checkboxes">
+          <label class="feature-checkbox">
+            <input type="checkbox" name="features" value="authentication">
+            <span>User Authentication</span>
+            <span class="info-icon" data-feature="authentication">ℹ️</span>
+          </label>
+          <label class="feature-checkbox">
+            <input type="checkbox" name="features" value="database">
+            <span>Database Integration</span>
+            <span class="info-icon" data-feature="database">ℹ️</span>
+          </label>
+          <label class="feature-checkbox">
+            <input type="checkbox" name="features" value="payments">
+            <span>Payment Processing</span>
+            <span class="info-icon" data-feature="payments">ℹ️</span>
+          </label>
+          <label class="feature-checkbox">
+            <input type="checkbox" name="features" value="maps">
+            <span>Maps & Location</span>
+            <span class="info-icon" data-feature="maps">ℹ️</span>
+          </label>
+          <label class="feature-checkbox">
+            <input type="checkbox" name="features" value="push-notifications">
+            <span>Push Notifications</span>
+            <span class="info-icon" data-feature="push-notifications">ℹ️</span>
+          </label>
+          <label class="feature-checkbox">
+            <input type="checkbox" name="features" value="offline-support">
+            <span>Offline Support</span>
+            <span class="info-icon" data-feature="offline-support">ℹ️</span>
+          </label>
+          <label class="feature-checkbox">
+            <input type="checkbox" name="features" value="admin-panel">
+            <span>Admin Panel</span>
+            <span class="info-icon" data-feature="admin-panel">ℹ️</span>
+          </label>
+          <label class="feature-checkbox">
+            <input type="checkbox" name="features" value="api-integration">
+            <span>Third-party API Integration</span>
+            <span class="info-icon" data-feature="api-integration">ℹ️</span>
+          </label>
+          <label class="feature-checkbox">
+            <input type="checkbox" name="features" value="analytics">
+            <span>Analytics & Tracking</span>
+            <span class="info-icon" data-feature="analytics">ℹ️</span>
+          </label>
+          <label class="feature-checkbox">
+            <input type="checkbox" name="features" value="seo">
+            <span>SEO Optimization</span>
+            <span class="info-icon" data-feature="seo">ℹ️</span>
+          </label>
+        </div>
+
+        <!-- Additional Services -->
+        <h2>Additional Services</h2>
+        <p class="service-intro">Choose the level of design and content services you need. Click the info icon (ℹ️) to understand what each option includes.</p>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="design">Design Services <span class="info-icon" data-service="design">ℹ️</span></label>
+            <select id="design" name="design">
+              <option value="none">Use existing design - You already have a design/logo</option>
+              <option value="basic" selected>Basic design refresh - Update colors, fonts, and layout</option>
+              <option value="custom">Custom design system - Create new visual design from scratch</option>
+              <option value="full">Full brand identity - Complete logo, colors, fonts, and style guide</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="content">Content Creation <span class="info-icon" data-service="content">ℹ️</span></label>
+            <select id="content" name="content">
+              <option value="client-provided" selected>Client provides content - You write all text and provide images</option>
+              <option value="assisted">Assisted content creation - We help you write and organize your content</option>
+              <option value="full">Full content creation - We write all text, create descriptions, and source images</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="maintenance">Maintenance Plan <span class="info-icon" data-service="maintenance">ℹ️</span></label>
+            <select id="maintenance" name="maintenance">
+              <option value="none" selected>No maintenance - You handle updates and changes yourself</option>
+              <option value="basic">Basic ($150/month) - Security updates and bug fixes</option>
+              <option value="standard">Standard ($300/month) - Updates, backups, and minor content changes</option>
+              <option value="premium">Premium ($500/month) - Full support, major updates, and priority assistance</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="hosting">Hosting & Deployment <span class="info-icon" data-service="hosting">ℹ️</span></label>
+            <select id="hosting" name="hosting">
+              <option value="client-handles" selected>Client handles hosting - You set up and manage your own hosting</option>
+              <option value="assisted">Assisted setup - We help you choose and set up hosting</option>
+              <option value="full-service">Full hosting service - We manage all hosting and server needs</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Project Description -->
+        <div class="form-group">
+          <label for="projectDescription">Project Description & Requirements</label>
+          <textarea id="projectDescription" name="projectDescription" placeholder="Describe your project goals, target audience, key features, and any specific requirements..."></textarea>
+        </div>
+
+        <!-- Quote Actions -->
+        <div class="quote-actions">
+          <button type="button" class="btn btn-primary" id="calculateQuote">Calculate Quote</button>
+        </div>
+
+        <!-- Quote Result -->
+        <div class="quote-result" id="quoteResult" style="display: none;">
+          <h2>Your Quote</h2>
+          <div class="quote-total" id="quoteTotal">$0</div>
+          <div class="quote-breakdown" id="quoteBreakdown"></div>
+          
+          <div class="quote-actions">
+            <button type="button" class="btn btn-primary" id="generatePDF">Generate PDF Quote</button>
+            <button type="button" class="btn btn-secondary" id="emailQuote">Email Quote to Me</button>
+            <button type="button" class="btn btn-secondary" id="printQuote">Print Quote</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-info">
+          <p>&copy; 2025 SeanTylerLee.com. All rights reserved.</p>
+          <p>Questions? Email us at <a href="mailto:seantylerlee@icloud.com">seantylerlee@icloud.com</a></p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Pricing configuration
+    const PRICING = {
+      base: {
+        website: 640,        // 20% below $800
+        pwa: 1200,          // 20% below $1500
+        ios: 1600,          // 20% below $2000
+        android: 1600,      // 20% below $2000
+        'cross-platform': 3200  // 20% below $4000
+      },
+      perPage: {
+        website: 80,        // 20% below $100
+        pwa: 160,           // 20% below $200
+        ios: 280,           // 20% below $350
+        android: 280,       // 20% below $350
+        'cross-platform': 480  // 20% below $600
+      },
+      complexity: {
+        simple: 1.0,
+        standard: 1.25,
+        advanced: 1.6,
+        enterprise: 2.2
+      },
+      features: {
+        authentication: 480,    // 20% below $600
+        database: 640,          // 20% below $800
+        payments: 960,          // 20% below $1200
+        maps: 720,              // 20% below $900
+        'push-notifications': 400,  // 20% below $500
+        'offline-support': 560,     // 20% below $700
+        'admin-panel': 800,         // 20% below $1000
+        'api-integration': 640,     // 20% below $800
+        analytics: 320,             // 20% below $400
+        seo: 480                    // 20% below $600
+      },
+      design: {
+        none: 0,
+        basic: 480,          // 20% below $600
+        custom: 1200,        // 20% below $1500
+        full: 2000           // 20% below $2500
+      },
+      content: {
+        'client-provided': 0,
+        assisted: 320,       // 20% below $400
+        full: 960            // 20% below $1200
+      },
+      maintenance: {
+        none: 0,
+        basic: 120,          // 20% below $150
+        standard: 240,       // 20% below $300
+        premium: 400         // 20% below $500
+      },
+      hosting: {
+        'client-handles': 0,
+        assisted: 160,       // 20% below $200
+        'full-service': 400  // 20% below $500
+      },
+      timeline: {
+        flexible: 1.0,
+        standard: 1.0,
+        rush: 1.3,
+        urgent: 1.6
+      }
+    };
+
+    // DOM elements
+    const form = document.getElementById('quoteForm');
+    const calculateBtn = document.getElementById('calculateQuote');
+    const generatePDFBtn = document.getElementById('generatePDF');
+    const emailQuoteBtn = document.getElementById('emailQuote');
+    const printQuoteBtn = document.getElementById('printQuote');
+    const quoteResult = document.getElementById('quoteResult');
+    const quoteTotal = document.getElementById('quoteTotal');
+    const quoteBreakdown = document.getElementById('quoteBreakdown');
+
+    // Calculate quote
+    function calculateQuote() {
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData.entries());
+      
+      // Get selected features
+      const features = Array.from(document.querySelectorAll('input[name="features"]:checked')).map(cb => cb.value);
+      
+      let total = 0;
+      const breakdown = [];
+      
+      // Base price
+      const basePrice = PRICING.base[data.projectType] || 0;
+      total += basePrice;
+      breakdown.push({ item: `Base ${data.projectType}`, amount: basePrice });
+      
+      // Pages/screens
+      const pages = parseInt(data.pagesScreens) || 1;
+      const perPagePrice = PRICING.perPage[data.projectType] || 0;
+      const pagesPrice = pages * perPagePrice;
+      total += pagesPrice;
+      breakdown.push({ item: `${pages} pages/screens`, amount: pagesPrice });
+      
+      // Features
+      features.forEach(feature => {
+        const featurePrice = PRICING.features[feature] || 0;
+        if (featurePrice > 0) {
+          total += featurePrice;
+          breakdown.push({ item: `Feature: ${feature.replace('-', ' ')}`, amount: featurePrice });
+        }
+      });
+      
+      // Additional services
+      const designPrice = PRICING.design[data.design] || 0;
+      if (designPrice > 0) {
+        total += designPrice;
+        breakdown.push({ item: `Design: ${data.design}`, amount: designPrice });
+      }
+      
+      const contentPrice = PRICING.content[data.content] || 0;
+      if (contentPrice > 0) {
+        total += contentPrice;
+        breakdown.push({ item: `Content: ${data.content}`, amount: contentPrice });
+      }
+      
+      const hostingPrice = PRICING.hosting[data.hosting] || 0;
+      if (hostingPrice > 0) {
+        total += hostingPrice;
+        breakdown.push({ item: `Hosting: ${data.hosting}`, amount: hostingPrice });
+      }
+      
+      // Apply complexity multiplier
+      const complexityMultiplier = PRICING.complexity[data.complexity] || 1;
+      const complexityAdjustment = Math.round(total * (complexityMultiplier - 1));
+      if (complexityAdjustment > 0) {
+        total += complexityAdjustment;
+        breakdown.push({ item: `Complexity: ${data.complexity}`, amount: complexityAdjustment });
+      }
+      
+      // Apply timeline multiplier
+      const timelineMultiplier = PRICING.timeline[data.timeline] || 1;
+      const timelineAdjustment = Math.round(total * (timelineMultiplier - 1));
+      if (timelineAdjustment > 0) {
+        total += timelineAdjustment;
+        breakdown.push({ item: `Timeline: ${data.timeline}`, amount: timelineAdjustment });
+      }
+      
+      // Display results
+      quoteTotal.textContent = `$${total.toLocaleString()}`;
+      quoteBreakdown.innerHTML = breakdown.map(item => 
+        `${item.item}: $${item.amount.toLocaleString()}`
+      ).join('\n');
+      
+      quoteResult.style.display = 'block';
+      quoteResult.scrollIntoView({ behavior: 'smooth' });
+      
+      // Store quote data for PDF generation
+      window.currentQuote = {
+        data: data,
+        features: features,
+        total: total,
+        breakdown: breakdown,
+        maintenance: PRICING.maintenance[data.maintenance] || 0
+      };
+    }
+
+
+    // Generate PDF
+    function generatePDF() {
+      if (!window.currentQuote) {
+        alert('Please calculate a quote first.');
+        return;
+      }
+      
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFontSize(24);
+      doc.text('Project Quote', 20, 30);
+      doc.setFontSize(12);
+      doc.text('SeanTylerLee.com', 20, 40);
+      doc.text('seantylerlee@icloud.com', 20, 46);
+      
+      // Quote ID and date
+      const quoteId = 'Q-' + Date.now().toString().slice(-6);
+      const date = new Date().toLocaleDateString();
+      doc.text(`Quote ID: ${quoteId}`, 150, 30);
+      doc.text(`Date: ${date}`, 150, 36);
+      
+      // Client info
+      doc.setFontSize(14);
+      doc.text('Client Information', 20, 60);
+      doc.setFontSize(10);
+      doc.text(`Name: ${window.currentQuote.data.clientName}`, 20, 70);
+      doc.text(`Email: ${window.currentQuote.data.clientEmail}`, 20, 76);
+      if (window.currentQuote.data.companyName) {
+        doc.text(`Company: ${window.currentQuote.data.companyName}`, 20, 82);
+      }
+      
+      // Project details
+      doc.setFontSize(14);
+      doc.text('Project Details', 20, 100);
+      doc.setFontSize(10);
+      doc.text(`Type: ${window.currentQuote.data.projectType}`, 20, 110);
+      doc.text(`Pages/Screens: ${window.currentQuote.data.pagesScreens}`, 20, 116);
+      doc.text(`Complexity: ${window.currentQuote.data.complexity}`, 20, 122);
+      doc.text(`Timeline: ${window.currentQuote.data.timeline}`, 20, 128);
+      
+      // Features
+      if (window.currentQuote.features.length > 0) {
+        doc.setFontSize(14);
+        doc.text('Features', 20, 145);
+        doc.setFontSize(10);
+        window.currentQuote.features.forEach((feature, index) => {
+          doc.text(`• ${feature.replace('-', ' ')}`, 20, 155 + (index * 6));
+        });
+      }
+      
+      // Pricing breakdown
+      doc.setFontSize(14);
+      doc.text('Pricing Breakdown', 20, 180);
+      doc.setFontSize(10);
+      
+      let yPos = 190;
+      window.currentQuote.breakdown.forEach(item => {
+        doc.text(item.item, 20, yPos);
+        doc.text(`$${item.amount.toLocaleString()}`, 150, yPos);
+        yPos += 6;
+      });
+      
+      // Total
+      doc.setFontSize(16);
+      doc.text('TOTAL', 20, yPos + 10);
+      doc.text(`$${window.currentQuote.total.toLocaleString()}`, 150, yPos + 10);
+      
+      // Maintenance
+      if (window.currentQuote.maintenance > 0) {
+        doc.setFontSize(12);
+        doc.text(`Monthly Maintenance: $${window.currentQuote.maintenance}`, 20, yPos + 20);
+      }
+      
+      // Terms
+      doc.setFontSize(10);
+      doc.text('Terms: 50% deposit to begin, remainder due at delivery.', 20, yPos + 40);
+      doc.text('Quote valid for 30 days. Final pricing may adjust if scope changes.', 20, yPos + 46);
+      
+      // Save PDF
+      doc.save(`quote-${quoteId}.pdf`);
+    }
+
+    // Email quote
+    function emailQuote() {
+      if (!window.currentQuote) {
+        alert('Please calculate a quote first.');
+        return;
+      }
+      
+      const subject = encodeURIComponent(`Quote Request - ${window.currentQuote.data.projectType} - ${window.currentQuote.data.clientName}`);
+      const body = encodeURIComponent(`
+Quote Request Details:
+
+Client Information:
+- Name: ${window.currentQuote.data.clientName}
+- Email: ${window.currentQuote.data.clientEmail}
+- Company: ${window.currentQuote.data.companyName || 'N/A'}
+- Phone: ${window.currentQuote.data.phoneNumber || 'N/A'}
+
+Project Details:
+- Type: ${window.currentQuote.data.projectType}
+- Pages/Screens: ${window.currentQuote.data.pagesScreens}
+- Complexity: ${window.currentQuote.data.complexity}
+- Timeline: ${window.currentQuote.data.timeline}
+
+Features:
+${window.currentQuote.features.map(f => `- ${f.replace('-', ' ')}`).join('\n')}
+
+Additional Services:
+- Design: ${window.currentQuote.data.design}
+- Content: ${window.currentQuote.data.content}
+- Maintenance: ${window.currentQuote.data.maintenance}
+- Hosting: ${window.currentQuote.data.hosting}
+
+Project Description:
+${window.currentQuote.data.projectDescription || 'No description provided'}
+
+Quote Total: $${window.currentQuote.total.toLocaleString()}
+${window.currentQuote.maintenance > 0 ? `Monthly Maintenance: $${window.currentQuote.maintenance}` : ''}
+
+Please contact me to discuss this quote and next steps.
+
+Best regards,
+${window.currentQuote.data.clientName}
+      `);
+      
+      window.location.href = `mailto:seantylerlee@icloud.com?subject=${subject}&body=${body}`;
+    }
+
+    // Print quote
+    function printQuote() {
+      if (!window.currentQuote) {
+        alert('Please calculate a quote first.');
+        return;
+      }
+      
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Quote - ${window.currentQuote.data.clientName}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 40px; }
+              h1 { color: #2ea8ff; }
+              .header { border-bottom: 2px solid #2ea8ff; padding-bottom: 20px; margin-bottom: 30px; }
+              .section { margin-bottom: 25px; }
+              .breakdown { background: #f5f5f5; padding: 15px; border-radius: 8px; }
+              .total { font-size: 24px; font-weight: bold; color: #2ea8ff; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Project Quote</h1>
+              <p><strong>SeanTylerLee.com</strong><br>
+              seantylerlee@icloud.com</p>
+            </div>
+            
+            <div class="section">
+              <h2>Client Information</h2>
+              <p><strong>Name:</strong> ${window.currentQuote.data.clientName}<br>
+              <strong>Email:</strong> ${window.currentQuote.data.clientEmail}<br>
+              <strong>Company:</strong> ${window.currentQuote.data.companyName || 'N/A'}<br>
+              <strong>Phone:</strong> ${window.currentQuote.data.phoneNumber || 'N/A'}</p>
+            </div>
+            
+            <div class="section">
+              <h2>Project Details</h2>
+              <p><strong>Type:</strong> ${window.currentQuote.data.projectType}<br>
+              <strong>Pages/Screens:</strong> ${window.currentQuote.data.pagesScreens}<br>
+              <strong>Complexity:</strong> ${window.currentQuote.data.complexity}<br>
+              <strong>Timeline:</strong> ${window.currentQuote.data.timeline}</p>
+            </div>
+            
+            <div class="section">
+              <h2>Features</h2>
+              <ul>
+                ${window.currentQuote.features.map(f => `<li>${f.replace('-', ' ')}</li>`).join('')}
+              </ul>
+            </div>
+            
+            <div class="section">
+              <h2>Pricing Breakdown</h2>
+              <div class="breakdown">
+                ${window.currentQuote.breakdown.map(item => 
+                  `<div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>${item.item}</span>
+                    <span>$${item.amount.toLocaleString()}</span>
+                  </div>`
+                ).join('')}
+                <hr>
+                <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                  <span>TOTAL</span>
+                  <span class="total">$${window.currentQuote.total.toLocaleString()}</span>
+                </div>
+                ${window.currentQuote.maintenance > 0 ? 
+                  `<div style="margin-top: 10px;">Monthly Maintenance: $${window.currentQuote.maintenance}</div>` : ''
+                }
+              </div>
+            </div>
+            
+            <div class="section">
+              <h2>Terms</h2>
+              <p>50% deposit to begin, remainder due at delivery. Quote valid for 30 days. Final pricing may adjust if scope changes.</p>
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+
+    // Event listeners
+    calculateBtn.addEventListener('click', calculateQuote);
+    generatePDFBtn.addEventListener('click', generatePDF);
+    emailQuoteBtn.addEventListener('click', emailQuote);
+    printQuoteBtn.addEventListener('click', printQuote);
+
+    // Form validation
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      calculateQuote();
+    });
+
+    // Feature explanations
+    const featureExplanations = {
+      authentication: "User login, registration, and account management. Allows users to create accounts, sign in, and manage their profiles.",
+      database: "Data storage and management system. Stores user information, content, and other data your app needs to remember.",
+      payments: "Accept credit cards, PayPal, and other payment methods. Essential for e-commerce, subscriptions, or paid services.",
+      maps: "Location services, maps, and GPS features. Shows user location, finds nearby places, or provides directions.",
+      'push-notifications': "Send messages to users even when they're not using your app. Great for updates, reminders, or promotions.",
+      'offline-support': "App works without internet connection. Users can still access some features when offline.",
+      'admin-panel': "Dashboard for you to manage your app. Add content, view analytics, manage users, and make updates.",
+      'api-integration': "Connect to external services like social media, email providers, or other apps to extend functionality.",
+      analytics: "Track how users interact with your app. See which features are popular and how users navigate your app.",
+      seo: "Optimize your website to appear higher in Google search results. Helps potential customers find you online."
+    };
+
+    const serviceExplanations = {
+      design: "Design services range from using your existing visuals to creating a complete brand identity from scratch.",
+      content: "Content creation includes writing text, organizing information, and sourcing images for your project.",
+      maintenance: "Ongoing support plans to keep your app updated, secure, and running smoothly after launch.",
+      hosting: "Where your website or app lives on the internet. We can help set this up or manage it completely for you."
+    };
+
+    // Tooltip functionality
+    let currentTooltip = null;
+
+    function showTooltip(element, text) {
+      hideTooltip();
+      
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip';
+      tooltip.textContent = text;
+      tooltip.style.position = 'fixed';
+      tooltip.style.zIndex = '9999';
+      document.body.appendChild(tooltip);
+      
+      // Position tooltip above the element
+      const rect = element.getBoundingClientRect();
+      const tooltipWidth = tooltip.offsetWidth;
+      const tooltipHeight = tooltip.offsetHeight;
+      
+      let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+      let top = rect.top - tooltipHeight - 15;
+      
+      // Keep tooltip within viewport
+      if (left < 10) left = 10;
+      if (left + tooltipWidth > window.innerWidth - 10) {
+        left = window.innerWidth - tooltipWidth - 10;
+      }
+      if (top < 10) {
+        top = rect.bottom + 15; // Show below if no room above
+      }
+      
+      tooltip.style.left = left + 'px';
+      tooltip.style.top = top + 'px';
+      
+      currentTooltip = tooltip;
+    }
+
+    function hideTooltip() {
+      if (currentTooltip) {
+        currentTooltip.remove();
+        currentTooltip = null;
+      }
+    }
+
+    // Add event listeners for info icons
+    function initializeInfoIcons() {
+      const infoIcons = document.querySelectorAll('.info-icon');
+      
+      infoIcons.forEach(icon => {
+        icon.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const feature = this.getAttribute('data-feature');
+          const service = this.getAttribute('data-service');
+          
+          if (feature && featureExplanations[feature]) {
+            showTooltip(this, featureExplanations[feature]);
+          } else if (service && serviceExplanations[service]) {
+            showTooltip(this, serviceExplanations[service]);
+          }
+        });
+      });
+    }
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeInfoIcons);
+    } else {
+      initializeInfoIcons();
+    }
+
+    // Hide tooltip when clicking elsewhere
+    document.addEventListener('click', function(e) {
+      if (!e.target.classList.contains('info-icon')) {
+        hideTooltip();
+      }
+    });
+
+    // Hide tooltip when scrolling
+    window.addEventListener('scroll', hideTooltip);
+  </script>
+</body>
+</html>
