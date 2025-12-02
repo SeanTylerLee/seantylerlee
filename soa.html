@@ -4,10 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Our Apps - SeanTylerLee.com</title>
-  <!-- Cache bust: Spacing reduced -->
   
   <!-- PWA / iOS -->
-  <meta name="theme-color" content="#0b2a52" />
+  <meta name="theme-color" content="#0a0a0f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="icon" href="favicon.ico" />
@@ -15,14 +14,27 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <nav id="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="nav-logo">SeanTylerLee</a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="soa.html">Apps</a></li>
+        <li><a href="quote.html" class="btn btn-primary" style="padding: 10px 24px; font-size: 14px;">Get Quote</a></li>
+      </ul>
+    </div>
+  </nav>
+
   <header class="hero">
     <div class="container">
-      <a href="index.html" class="back-link">← Back to Home</a>
-      <div class="logo-container">
+      <div class="hero-content">
+        <a href="index.html" class="back-link">← Back to Home</a>
         <img src="images/logo.PNG" alt="SeanTylerLee.com" class="logo" />
+        <h1 class="tagline">Our Applications</h1>
+        <p class="subtitle">Professional mobile and web applications built with care</p>
       </div>
-      <h1 class="tagline">Our Applications</h1>
-      <p class="subtitle">Professional mobile and web applications built with care</p>
     </div>
   </header>
 
@@ -70,6 +82,10 @@
               <img src="images/android.PNG" alt="Android" class="app-store-icon" />
               <span>Get it on Google Play</span>
             </a>
+            <a href="https://www.permitpath.com" class="app-link website" target="_blank" rel="noopener">
+              <img src="images/website.PNG" alt="Website" class="app-store-icon" />
+              <span>Visit Website</span>
+            </a>
           </div>
         </div>
 
@@ -90,20 +106,17 @@
   </footer>
 
   <script>
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+    });
+
     // Add some interactive features
     document.addEventListener('DOMContentLoaded', function() {
-      // Add hover effects to app cards
-      const appCards = document.querySelectorAll('.app-card');
-      appCards.forEach(card => {
-        card.addEventListener('mouseenter', function() {
-          this.style.transform = 'translateY(-5px)';
-        });
-        
-        card.addEventListener('mouseleave', function() {
-          this.style.transform = 'translateY(0)';
-        });
-      });
-
       // Add click tracking for app store links
       const appLinks = document.querySelectorAll('.app-link[target="_blank"]');
       appLinks.forEach(link => {

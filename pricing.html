@@ -6,7 +6,7 @@
   <title>Pricing Comparison - SeanTylerLee.com</title>
   
   <!-- PWA / iOS -->
-  <meta name="theme-color" content="#0b2a52" />
+  <meta name="theme-color" content="#0a0a0f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="icon" href="favicon.ico" />
@@ -14,14 +14,27 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <nav id="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="nav-logo">SeanTylerLee</a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="soa.html">Apps</a></li>
+        <li><a href="quote.html" class="btn btn-primary" style="padding: 10px 24px; font-size: 14px;">Get Quote</a></li>
+      </ul>
+    </div>
+  </nav>
+
   <header class="hero">
     <div class="container">
-      <a href="index.html" class="back-link">← Back to Home</a>
-      <div class="logo-container">
+      <div class="hero-content">
+        <a href="index.html" class="back-link">← Back to Home</a>
         <img src="images/logo.PNG" alt="SeanTylerLee.com" class="logo" />
+        <h1 class="tagline">Pricing Comparison</h1>
+        <p class="subtitle">See how our competitive pricing compares to industry standards</p>
       </div>
-      <h1 class="tagline">Pricing Comparison</h1>
-      <p class="subtitle">See how our competitive pricing compares to industry standards</p>
     </div>
   </header>
 
@@ -247,5 +260,16 @@
       </div>
     </div>
   </footer>
+
+  <script>
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+    });
+  </script>
 </body>
 </html>
