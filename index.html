@@ -2,131 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <title>SeanTylerLee.com - Professional Development Services</title>
-  
-  <!-- SEO Meta Tags -->
-  <meta name="description" content="Professional website and app development services. Custom websites, PWAs, iOS and Android apps. 20% below industry standards with negotiable pricing." />
-  <meta name="keywords" content="website development, app development, PWA, iOS apps, Android apps, custom software, web design, mobile apps" />
-  <meta name="author" content="Sean Tyler Lee" />
-  <meta name="robots" content="index, follow" />
-  
-  <!-- Open Graph / Facebook -->
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://seantylerlee.com/" />
-  <meta property="og:title" content="SeanTylerLee.com - Professional Development Services" />
-  <meta property="og:description" content="Professional website and app development services. Custom websites, PWAs, iOS and Android apps. 20% below industry standards with negotiable pricing." />
-  <meta property="og:image" content="https://seantylerlee.com/images/logo.PNG" />
-  <meta property="og:site_name" content="SeanTylerLee.com" />
-  
-  <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image" />
-  <meta property="twitter:url" content="https://seantylerlee.com/" />
-  <meta property="twitter:title" content="SeanTylerLee.com - Professional Development Services" />
-  <meta property="twitter:description" content="Professional website and app development services. Custom websites, PWAs, iOS and Android apps. 20% below industry standards with negotiable pricing." />
-  <meta property="twitter:image" content="https://seantylerlee.com/images/logo.PNG" />
-  
-  <!-- PWA / iOS -->
-  <meta name="theme-color" content="#0a0a0f" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="icon" href="favicon.ico" />
-  
-  <link rel="stylesheet" href="style.css?v=2.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#fafafa" />
+  <title>seantylerlee</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    html, body {
+      min-height: 100%;
+      min-height: 100dvh;
+    }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      background: #fafafa;
+      color: #111;
+    }
+
+    .mobile-only {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100%;
+      min-height: 100dvh;
+      padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+    }
+
+    .mobile-only p {
+      font-size: clamp(1.75rem, 9vw, 2.75rem);
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .desktop-gate {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      min-height: 100%;
+      min-height: 100dvh;
+      padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+      text-align: center;
+    }
+
+    .desktop-gate p {
+      font-size: 1.05rem;
+      line-height: 1.55;
+      color: #333;
+      max-width: 22rem;
+    }
+
+    .desktop-gate p + p {
+      margin-top: 0.75rem;
+      font-size: 0.95rem;
+      color: #666;
+    }
+
+    /* Wider than typical phone (incl. landscape): show desktop notice */
+    @media (min-width: 1024px) {
+      .mobile-only { display: none; }
+      .desktop-gate { display: flex; flex-direction: column; gap: 0.5rem; }
+    }
+  </style>
 </head>
 <body>
-  <nav id="navbar">
-    <div class="nav-container">
-      <a href="index.html" class="nav-logo">SeanTylerLee</a>
-      <ul class="nav-links">
-        <li><a href="index.html">Home</a></li>
-        <li><a href="about.html">About</a></li>
-        <li><a href="pricing.html">Pricing</a></li>
-        <li><a href="soa.html">Apps</a></li>
-        <li><a href="quote.html" class="btn btn-primary" style="padding: 10px 24px; font-size: 14px;">Get Quote</a></li>
-      </ul>
-    </div>
-  </nav>
-
-  <header class="hero">
-    <div class="container">
-      <div class="hero-content">
-        <img src="images/logo.PNG" alt="SeanTylerLee.com" class="logo" />
-        <h1 class="tagline">Professional Development Services</h1>
-        <p class="subtitle">Custom websites, PWAs, mobile apps, and any digital solution you need. Built with cutting-edge technology and delivered at competitive prices.</p>
-        
-        <div class="cta-buttons">
-          <a href="quote.html" class="btn btn-primary">Get Instant Quote</a>
-          <a href="soa.html" class="btn btn-secondary">View Our Apps</a>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <main>
-    <section class="services">
-      <div class="container">
-        <h2>What We Build</h2>
-        <p class="services-subtitle">Transform your ideas into powerful digital experiences</p>
-        <div class="services-grid">
-          <div class="service-card">
-            <div class="service-icon">
-              <img src="images/website.PNG" alt="Website Development" class="service-icon-img" />
-            </div>
-            <h3>Websites</h3>
-            <p>Modern, responsive websites that convert visitors into customers</p>
-          </div>
-          <div class="service-card">
-            <div class="service-icon">
-              <img src="images/pwa.PNG" alt="PWA Development" class="service-icon-img" />
-            </div>
-            <h3>PWAs</h3>
-            <p>Progressive Web Apps that work like native apps on any device</p>
-          </div>
-          <div class="service-card">
-            <div class="service-icon">
-              <img src="images/apple.PNG" alt="iOS App Development" class="service-icon-img" />
-            </div>
-            <h3>iOS Apps</h3>
-            <p>Native iOS applications built with the latest technologies</p>
-          </div>
-          <div class="service-card">
-            <div class="service-icon">
-              <img src="images/android.PNG" alt="Android App Development" class="service-icon-img" />
-            </div>
-            <h3>Android Apps</h3>
-            <p>High-performance Android apps that users love</p>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="container">
-      <div class="footer-content">
-        <div class="contact-section">
-          <a href="about.html" class="btn btn-secondary">About Us</a>
-          <a href="mailto:seantylerlee@icloud.com" class="btn btn-primary">Contact Us</a>
-        </div>
-        <div class="footer-info">
-          <p>&copy; 2025 SeanTylerLee.com. All rights reserved.</p>
-          <p>Professional development services you can trust.</p>
-        </div>
-      </div>
-    </div>
-  </footer>
-
-  <script>
-    // Navbar scroll effect
-    const navbar = document.getElementById('navbar');
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 50) {
-        navbar.classList.add('scrolled');
-      } else {
-        navbar.classList.remove('scrolled');
-      }
-    });
-  </script>
+  <div class="mobile-only" aria-label="Home">
+    <p>seantylerlee</p>
+  </div>
+  <div class="desktop-gate" role="status" aria-live="polite">
+    <p>This site is meant to be used on a phone.</p>
+    <p>Open <strong>seantylerlee</strong> on your mobile device.</p>
+  </div>
 </body>
 </html>
