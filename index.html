@@ -191,7 +191,6 @@
 
   <script>
     (function () {
-      var STORAGE_KEY = 'stl_session_ok';
       var PIN_LEN = 4;
       var SALT = String.fromCharCode(115, 116, 108, 45, 112, 119, 45, 118, 49);
       var EXPECTED = '82b76144aae3667b77e2a95afc5e41b18a5860c5a29b57298f8d7599ed1b1f91';
@@ -230,9 +229,6 @@
       }
 
       function unlock() {
-        try {
-          sessionStorage.setItem(STORAGE_KEY, '1');
-        } catch (e) {}
         gate.classList.add('is-hiding');
         document.body.classList.remove('is-locked');
         app.hidden = false;
@@ -310,6 +306,10 @@
       }
 
       function init() {
+        try {
+          sessionStorage.removeItem('stl_session_ok');
+        } catch (e) {}
+
         if (!window.crypto || !crypto.subtle) {
           secureMsg.hidden = false;
           secureMsg.textContent =
@@ -318,17 +318,6 @@
           renderDots();
           return;
         }
-
-        try {
-          if (sessionStorage.getItem(STORAGE_KEY) === '1') {
-            gate.hidden = true;
-            gate.classList.add('is-hiding');
-            document.body.classList.remove('is-locked');
-            app.hidden = false;
-            metaTheme.setAttribute('content', '#fafafa');
-            return;
-          }
-        } catch (e) {}
 
         buildKeypad();
         renderDots();
