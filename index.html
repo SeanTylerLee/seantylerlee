@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#fafafa" />
+  <meta id="meta-theme" name="theme-color" content="#000000" />
   <title>seantylerlee</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -16,14 +16,16 @@
       min-height: 100dvh;
     }
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
       background: #fafafa;
       color: #111;
     }
 
-    .mobile-only {
+    body.is-locked { overflow: hidden; }
+
+    .wrap {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -32,49 +34,308 @@
       padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
     }
 
-    .mobile-only p {
-      font-size: clamp(1.75rem, 9vw, 2.75rem);
+    .wrap p {
+      font-size: clamp(1.75rem, 9vw, 3rem);
       font-weight: 500;
       text-align: center;
     }
 
-    .desktop-gate {
-      display: none;
+    /* Passcode gate (iOS-style) */
+    .gate {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      min-height: 100%;
-      min-height: 100dvh;
-      padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
-      text-align: center;
+      justify-content: flex-end;
+      padding: max(2rem, env(safe-area-inset-top)) 1.25rem max(2.5rem, env(safe-area-inset-bottom));
+      background: #000;
+      color: #fff;
+      transition: opacity 0.35s ease, visibility 0.35s ease;
     }
 
-    .desktop-gate p {
+    .gate[hidden] {
+      display: none;
+    }
+
+    .gate.is-hiding {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .gate.is-shake .gate-dots {
+      animation: shake 0.45s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-10px); }
+      40% { transform: translateX(10px); }
+      60% { transform: translateX(-8px); }
+      80% { transform: translateX(8px); }
+    }
+
+    .gate-title {
       font-size: 1.05rem;
-      line-height: 1.55;
-      color: #333;
-      max-width: 22rem;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      margin-bottom: 1.75rem;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      padding-top: 2rem;
     }
 
-    .desktop-gate p + p {
-      margin-top: 0.75rem;
-      font-size: 0.95rem;
-      color: #666;
+    .gate-dots {
+      display: flex;
+      gap: 0.65rem;
+      margin-bottom: 3.25rem;
+      min-height: 1rem;
     }
 
-    /* Wider than typical phone (incl. landscape): show desktop notice */
-    @media (min-width: 1024px) {
-      .mobile-only { display: none; }
-      .desktop-gate { display: flex; flex-direction: column; gap: 0.5rem; }
+    .gate-dot {
+      width: 0.85rem;
+      height: 0.85rem;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255, 255, 255, 0.55);
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }
+
+    .gate-dot.filled {
+      background: #fff;
+      border-color: #fff;
+    }
+
+    .gate-keypad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem 1.75rem;
+      width: 100%;
+      max-width: 16.5rem;
+      margin: 0 auto;
+    }
+
+    .gate-key {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      max-height: 4.25rem;
+      margin: 0 auto;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      font-size: 1.65rem;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+
+    .gate-key:active {
+      transform: scale(0.94);
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .gate-key.is-empty {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .gate-key.is-delete {
+      font-size: 0;
+      background: transparent;
+    }
+
+    .gate-key.is-delete:active {
+      transform: scale(0.92);
+      opacity: 0.7;
+    }
+
+    .gate-delete-icon {
+      width: 1.65rem;
+      height: 1.1rem;
+      margin: 0 auto;
+      opacity: 0.9;
+    }
+
+    .gate-secure-msg {
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.45);
+      text-align: center;
+      margin-top: 1.5rem;
+      max-width: 18rem;
+      line-height: 1.4;
     }
   </style>
 </head>
-<body>
-  <div class="mobile-only" aria-label="Home">
+<body class="is-locked">
+  <div
+    id="gate"
+    class="gate"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="gate-title"
+  >
+    <p id="gate-title" class="gate-title">Enter Passcode</p>
+    <div class="gate-dots" id="dots" aria-hidden="true"></div>
+    <div class="gate-keypad" id="keypad"></div>
+    <p id="gate-secure" class="gate-secure-msg" hidden></p>
+  </div>
+
+  <main class="wrap" id="app" hidden>
     <p>seantylerlee</p>
-  </div>
-  <div class="desktop-gate" role="status" aria-live="polite">
-    <p>This site is meant to be used on a phone.</p>
-    <p>Open <strong>seantylerlee</strong> on your mobile device.</p>
-  </div>
+  </main>
+
+  <script>
+    (function () {
+      var STORAGE_KEY = 'stl_session_ok';
+      var PIN_LEN = 4;
+      var SALT = String.fromCharCode(115, 116, 108, 45, 112, 119, 45, 118, 49);
+      var EXPECTED = '82b76144aae3667b77e2a95afc5e41b18a5860c5a29b57298f8d7599ed1b1f91';
+
+      var gate = document.getElementById('gate');
+      var app = document.getElementById('app');
+      var dotsEl = document.getElementById('dots');
+      var keypadEl = document.getElementById('keypad');
+      var secureMsg = document.getElementById('gate-secure');
+      var metaTheme = document.getElementById('meta-theme');
+
+      var digits = [];
+
+      function hexFromBuffer(buf) {
+        var a = new Uint8Array(buf);
+        var s = '';
+        for (var i = 0; i < a.length; i++) {
+          var h = a[i].toString(16);
+          s += h.length === 1 ? '0' + h : h;
+        }
+        return s;
+      }
+
+      function digest(pin) {
+        var enc = new TextEncoder();
+        return crypto.subtle.digest('SHA-256', enc.encode(pin + SALT)).then(hexFromBuffer);
+      }
+
+      function renderDots() {
+        dotsEl.innerHTML = '';
+        for (var i = 0; i < PIN_LEN; i++) {
+          var d = document.createElement('span');
+          d.className = 'gate-dot' + (i < digits.length ? ' filled' : '');
+          dotsEl.appendChild(d);
+        }
+      }
+
+      function unlock() {
+        try {
+          sessionStorage.setItem(STORAGE_KEY, '1');
+        } catch (e) {}
+        gate.classList.add('is-hiding');
+        document.body.classList.remove('is-locked');
+        app.hidden = false;
+        metaTheme.setAttribute('content', '#fafafa');
+        setTimeout(function () {
+          gate.hidden = true;
+        }, 380);
+      }
+
+      function reject() {
+        gate.classList.add('is-shake');
+        setTimeout(function () {
+          gate.classList.remove('is-shake');
+          digits = [];
+          renderDots();
+        }, 450);
+      }
+
+      function trySubmit() {
+        if (digits.length !== PIN_LEN) return;
+        var pin = digits.join('');
+        digest(pin).then(function (hash) {
+          if (hash === EXPECTED) unlock();
+          else reject();
+        }).catch(function () {
+          reject();
+        });
+      }
+
+      function press(num) {
+        if (digits.length >= PIN_LEN) return;
+        digits.push(String(num));
+        renderDots();
+        if (digits.length === PIN_LEN) trySubmit();
+      }
+
+      function backspace() {
+        digits.pop();
+        renderDots();
+      }
+
+      function buildKeypad() {
+        var order = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+        order.forEach(function (n) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'gate-key';
+          b.textContent = String(n);
+          b.addEventListener('click', function () { press(n); });
+          keypadEl.appendChild(b);
+        });
+        var empty = document.createElement('span');
+        empty.className = 'gate-key is-empty';
+        empty.setAttribute('aria-hidden', 'true');
+        keypadEl.appendChild(empty);
+
+        var zero = document.createElement('button');
+        zero.type = 'button';
+        zero.className = 'gate-key';
+        zero.textContent = '0';
+        zero.addEventListener('click', function () { press(0); });
+        keypadEl.appendChild(zero);
+
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'gate-key is-delete';
+        del.setAttribute('aria-label', 'Delete');
+        del.innerHTML =
+          '<svg class="gate-delete-icon" viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+          '<path d="M7 2L2 8l5 6h15V2H7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>' +
+          '<path d="M10 6l4 4m0-4l-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>' +
+          '</svg>';
+        del.addEventListener('click', backspace);
+        keypadEl.appendChild(del);
+      }
+
+      function init() {
+        if (!window.crypto || !crypto.subtle) {
+          secureMsg.hidden = false;
+          secureMsg.textContent =
+            'A secure connection (HTTPS) is required to verify your passcode. Open this page from your hosted site, not as a local file.';
+          buildKeypad();
+          renderDots();
+          return;
+        }
+
+        try {
+          if (sessionStorage.getItem(STORAGE_KEY) === '1') {
+            gate.hidden = true;
+            gate.classList.add('is-hiding');
+            document.body.classList.remove('is-locked');
+            app.hidden = false;
+            metaTheme.setAttribute('content', '#fafafa');
+            return;
+          }
+        } catch (e) {}
+
+        buildKeypad();
+        renderDots();
+      }
+
+      init();
+    })();
+  </script>
 </body>
 </html>
