@@ -68,13 +68,20 @@ async function parsePermitViaSupabase(file) {
     encodeURIComponent(String(window.SUPABASE_PARSE_FUNCTION));
   const fd = new FormData();
   fd.append("file", file, file.name || "permit.pdf");
+  const key = String(window.SUPABASE_ANON_KEY || "");
+  const headers = {
+    apikey: key,
+  };
+  // Supabase Edge Functions commonly require Authorization: Bearer <JWT>.
+  // Only attach Bearer when the configured key is JWT-like.
+  if (/^eyJ[A-Za-z0-9_-]+\./.test(key)) {
+    headers.Authorization = "Bearer " + key;
+  }
   let res;
   try {
     res = await fetch(fnUrl, {
       method: "POST",
-      headers: {
-        apikey: window.SUPABASE_ANON_KEY,
-      },
+      headers: headers,
       body: fd,
     });
   } catch (err) {
