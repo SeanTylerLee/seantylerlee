@@ -802,7 +802,17 @@ function parseTableRowStops(line, cumulativeBeforeRow, legMiles, cumulativeAfter
       ? " · ~" + Math.round(cumulativeAfterRow) + " mi from start (permit)"
       : "";
 
-  for (const hw of highways) {
+  /** Prefer the current-road token and the immediate "onto/on" road to avoid noisy bracket alternates. */
+  const preferred = [];
+  if (highways.length) preferred.push(highways[0]);
+  const ontoMatch = /\b(?:onto|on)\s+(.+)$/i.exec(work);
+  if (ontoMatch) {
+    const nextRoads = findHighwaysOnLine(ontoMatch[1]);
+    if (nextRoads.length) preferred.push(nextRoads[0]);
+  }
+  const chosen = preferred.length ? preferred : highways.slice(0, 2);
+
+  for (const hw of chosen) {
     const rk = normalizeRouteKey(hw.text);
     if (seenKey.has(rk)) continue;
     seenKey.add(rk);
@@ -893,6 +903,8 @@ function parseStructuredWaypoints(routeText) {
 
   let pendingDir = "";
   let tableCumulativeMi = 0;
+  let inTurnTable = false;
+  let sawTurnTable = false;
 
   for (let li = liStart; li < lines.length; li++) {
     const line = normalizeHyphensForMatching(lines[li]);
@@ -901,6 +913,20 @@ function parseStructuredWaypoints(routeText) {
       continue;
     }
     if (/^\s*Destination\s*:/i.test(line) && willAppendDest) {
+      continue;
+    }
+
+    if (/^\s*Miles\s+Route\s+To\b/i.test(line)) {
+      inTurnTable = true;
+      sawTurnTable = true;
+      continue;
+    }
+    if (/^\s*Final Destination\s*:/i.test(line)) {
+      inTurnTable = false;
+      continue;
+    }
+
+    if (sawTurnTable && !inTurnTable) {
       continue;
     }
 
@@ -919,6 +945,10 @@ function parseStructuredWaypoints(routeText) {
       for (let ri = 0; ri < rowStops.length; ri++) {
         stops.push(rowStops[ri]);
       }
+      continue;
+    }
+
+    if (sawTurnTable) {
       continue;
     }
 
