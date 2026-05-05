@@ -25,6 +25,75 @@ const MAX_WAYPOINTS_DIRECTIONS = 25;
 const GOOGLE_MAX_INTERMEDIATE_WAYPOINTS = 25;
 const SAMPLE_COORDS_CAP = 18;
 
+function hasSupabaseParserConfig() {
+  return Boolean(
+    typeof window !== "undefined" &&
+      window.SUPABASE_URL &&
+      window.SUPABASE_ANON_KEY &&
+      window.SUPABASE_PARSE_FUNCTION
+  );
+}
+
+function readSupabaseParsedSegments(obj) {
+  const segs = Array.isArray(obj?.segments)
+    ? obj.segments
+    : Array.isArray(obj?.route_segments)
+      ? obj.route_segments
+      : [];
+  return segs
+    .map(function (s) {
+      const text = (s.text || s.road || s.route || "").toString().trim();
+      const displayText = (s.displayText || s.display_text || text).toString().trim();
+      if (!text && !displayText) return null;
+      return {
+        label: s.label || "Route",
+        text: text || displayText.slice(0, 48),
+        displayText: displayText || text,
+        queries: Array.isArray(s.queries) ? s.queries : [],
+      };
+    })
+    .filter(Boolean);
+}
+
+async function parsePermitViaSupabase(file) {
+  if (!hasSupabaseParserConfig()) return null;
+  const fnUrl =
+    String(window.SUPABASE_URL).replace(/\/+$/, "") +
+    "/functions/v1/" +
+    encodeURIComponent(String(window.SUPABASE_PARSE_FUNCTION));
+  const fd = new FormData();
+  fd.append("file", file, file.name || "permit.pdf");
+  const res = await fetch(fnUrl, {
+    method: "POST",
+    headers: {
+      apikey: window.SUPABASE_ANON_KEY,
+      Authorization: "Bearer " + window.SUPABASE_ANON_KEY,
+    },
+    body: fd,
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(function () {
+      return "";
+    });
+    throw new Error("Supabase parser failed: " + (t || res.status));
+  }
+  const payload = await res.json();
+  const out = payload?.result || payload || {};
+  const parseText =
+    out.parse_text ||
+    out.route_text_clean ||
+    out.routeTextClean ||
+    out.extracted_text ||
+    "";
+  const segments = readSupabaseParsedSegments(out);
+  return {
+    parseText: parseText,
+    segments: segments,
+    permitNumber: out.permit_number || out.permitNumber || null,
+    parserVersion: out.parser_version || out.parserVersion || null,
+  };
+}
+
 /** Map Matching API allows up to 100 coordinates per request */
 const MAPBOX_MATCHING_MAX = 100;
 /** Chunk long traces; overlap keeps continuity between chunks */
@@ -2087,7 +2156,9 @@ function main() {
       return;
     }
 
-    statusEl.textContent = "Reading PDF…";
+    statusEl.textContent = hasSupabaseParserConfig()
+      ? "Uploading to parser…"
+      : "Reading PDF…";
     showRouteProgress("");
     rawPanel.textContent = "";
     hintsList.innerHTML = "";
@@ -2101,21 +2172,44 @@ function main() {
     updateDownloadGeoBtn();
 
     try {
-      const fullText = await extractPdfText(file);
-      if (myRun !== runGeneration) return;
+      let fullText = "";
+      let routeBlock = { routeText: "", routeSource: "server", sectionFound: false };
+      let parseText = "";
+      let hadTurnByTurn = false;
+      let serverHints = [];
+      let serverPermitNo = null;
+      let parserVersion = null;
 
-      const routeBlock = extractRouteSection(fullText);
-      const parseText = mergeParseTextWithTurnByTurn(
-        routeBlock.routeText || "",
-        fullText
-      );
-      const hadTurnByTurn = extractTxdmvTurnByTurnBlock(fullText).length > 0;
+      if (hasSupabaseParserConfig()) {
+        const remote = await parsePermitViaSupabase(file);
+        if (myRun !== runGeneration) return;
+        if (remote) {
+          parseText = (remote.parseText || "").trim();
+          serverHints = Array.isArray(remote.segments) ? remote.segments : [];
+          serverPermitNo = remote.permitNumber || null;
+          parserVersion = remote.parserVersion || null;
+        }
+      }
 
-      if (!fullText || fullText.length < 40) {
+      if (!parseText) {
+        fullText = await extractPdfText(file);
+        if (myRun !== runGeneration) return;
+        routeBlock = extractRouteSection(fullText);
+        parseText = mergeParseTextWithTurnByTurn(
+          routeBlock.routeText || "",
+          fullText
+        );
+        hadTurnByTurn = extractTxdmvTurnByTurnBlock(fullText).length > 0;
+      }
+
+      if (!parseText || parseText.length < 40) {
         confidence.textContent = "Low text (scan/OCR?)";
         statusEl.textContent = "Weak text";
       } else if (routeBlock.sectionFound) {
         confidence.textContent = "Route slice: " + routeSourceLabel(routeBlock.routeSource);
+        statusEl.textContent = "Geocoding…";
+      } else if (serverHints.length || parserVersion) {
+        confidence.textContent = "Supabase parser" + (parserVersion ? " · " + parserVersion : "");
         statusEl.textContent = "Geocoding…";
       } else {
         confidence.textContent = "No Origin/Route heading — using full text";
@@ -2125,29 +2219,30 @@ function main() {
       rawPanel.textContent = parseText || "(no text returned)";
 
       const structuredStops = parseStructuredWaypoints(parseText);
-      const hints =
-        structuredStops.length > 0
-          ? structuredStops.map(function (s) {
-              return {
-                label: s.label,
-                text: s.text,
-                displayText: s.displayText,
-                queries: s.queries,
-              };
-            })
-          : extractRouteHints(parseText).map(function (h) {
-              return { ...h, displayText: h.text };
-            });
+      const hints = serverHints.length
+        ? serverHints
+        : structuredStops.length > 0
+            ? structuredStops.map(function (s) {
+                return {
+                  label: s.label,
+                  text: s.text,
+                  displayText: s.displayText,
+                  queries: s.queries,
+                };
+              })
+            : extractRouteHints(parseText).map(function (h) {
+                return { ...h, displayText: h.text };
+              });
       const parsingMode =
         structuredStops.length > 0
           ? "structured (road + direction + miles)"
           : "regex (highway tokens only)";
-      const meta = guessPermitMeta(fullText);
+      const meta = fullText ? guessPermitMeta(fullText) : { permitNumber: serverPermitNo };
 
       metaPanel.innerHTML = [
         `<p><strong>Parse from:</strong> ${escapeHtml(routeSourceLabel(routeBlock.routeSource))}</p>`,
         `<p><strong>Turn-by-turn table:</strong> ${
-          hadTurnByTurn ? "merged (Miles Route To)" : "not found in text"
+          hadTurnByTurn ? "merged (Miles Route To)" : (serverHints.length ? "provided by Supabase parser" : "not found in text")
         }</p>`,
         `<p><strong>Waypoints:</strong> ${escapeHtml(parsingMode)}</p>`,
         meta.permitNumber
