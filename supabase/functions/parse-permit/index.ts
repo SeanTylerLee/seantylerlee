@@ -39,7 +39,7 @@ type ParseResult = {
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.1.0";
+const PARSER_VERSION = "tx-turntable-v2.2.0";
 
 const ROUTE_PATTERNS: Array<{ label: string; re: RegExp }> = [
   { label: "IH", re: /\bIH\s*[-–]?\s*0*(\d{1,3})(?:[A-Za-z]+)?\b/i },
@@ -81,6 +81,20 @@ function cleanLine(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+function normalizeCommonOcrTypos(s: string): string {
+  return cleanLine(s)
+    // Preserve true "of", but recover common OCR "0f"/"0F".
+    .replace(/\b0f\b/gi, "of")
+    // OCR often reads US0### / USO###.
+    .replace(/\bUS[O0]\s*(\d{2,4})\b/gi, "US $1")
+    // SHO### should be SH ###.
+    .replace(/\bSH[O0]\s*(\d{2,4})\b/gi, "SH $1")
+    // 1H20 / lH20 -> IH20
+    .replace(/\b[1lI]H\s*([0-9]{1,3})\b/g, "IH $1")
+    // Keep service-road variants parseable.
+    .replace(/\bIH\s*([0-9]{1,3})\s*SFR\b/gi, "IH $1 SFR");
+}
+
 function dedupeStrings(arr: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -96,7 +110,7 @@ function dedupeStrings(arr: string[]): string[] {
 }
 
 function normalizeRouteToken(raw: string): string {
-  let s = cleanLine(raw);
+  let s = normalizeCommonOcrTypos(raw);
   s = s.replace(/\bUS\s*[-–]?\s*0*(\d{1,3})([A-Za-z]?)\b/gi, (_, n, suf) => `US ${parseInt(n, 10)}${suf || ""}`);
   s = s.replace(/\b(?:SH|TX)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi, (_, n, suf) => `SH ${parseInt(n, 10)}${suf || ""}`);
   s = s.replace(/\bFM\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi, (_, n, suf) => `FM ${parseInt(n, 10)}${suf || ""}`);
@@ -116,10 +130,12 @@ function extractOrigin(text: string): string | null {
   const lines = text.split("\n");
   let best = "";
   for (const line of lines) {
-    const m = /\bOrigin\s*:\s*(.+)$/i.exec(line);
+    const m1 = /\bOrigin\s*:\s*(.+)$/i.exec(line);
+    const m2 = /^\s*\[Loaded Route Origin\s*:\s*(.+?)\s*[\]\)]?\s*$/i.exec(line);
+    const m = m1 || m2;
     if (m && m[1].trim().length > best.length) best = m[1].trim();
   }
-  return best || null;
+  return best ? normalizeCommonOcrTypos(best) : null;
 }
 
 function extractDestination(text: string): string | null {
@@ -128,12 +144,12 @@ function extractDestination(text: string): string | null {
   for (const line of lines) {
     const m1 = /^\s*Destination\s*:\s*(.+)$/i.exec(line);
     const m2 = /^\s*Final Destination\s*:\s*(.+)$/i.exec(line);
-    const m3 = /^\s*\[Loaded Route Destination\s*:\s*(.+?)\s*\]?\s*$/i.exec(line);
+    const m3 = /^\s*\[?Loaded\s+Route\s+Destination\s*:\s*(.+?)\s*[\]\)]?\s*$/i.exec(line);
     for (const m of [m1, m2, m3]) {
       if (m && m[1].trim().length > best.length) best = m[1].trim();
     }
   }
-  return best || null;
+  return best ? normalizeCommonOcrTypos(best) : null;
 }
 
 function isNoise(line: string): boolean {
@@ -247,7 +263,7 @@ function extractRoadsFromJunctionBlob(blob: string): string[] {
 
 /** Generic Tx permit origin: junction + mile offset, semicolon triples, or state-line phrasing. */
 function parseOriginStructured(origin: string): OriginStructured {
-  const o = cleanLine(origin);
+  const o = normalizeCommonOcrTypos(origin);
   if (!o) {
     return { mode: "unknown", offset_mi: null, bearing: null, roads: [] };
   }
@@ -334,26 +350,29 @@ function collectOriginWarnings(s: OriginStructured): string[] {
 }
 
 function parseFromRoadAndDir(body: string): { fromRoad: string | null; fromDir: string | null } {
+  const b = normalizeCommonOcrTypos(body);
   const m =
     /^\s*([A-Za-z0-9\s\-]+?)\s+([nsew]{1,2})\s+(?:Turn|Continue|Merge|Take|Bear|Arrive|DETOUR)\b/i.exec(
-      body,
+      b,
     );
   if (m) {
     return { fromRoad: normalizeRouteToken(m[1]), fromDir: parseDirectionAbbrev(m[2]) };
   }
-  return { fromRoad: findRoadToken(body), fromDir: null };
+  return { fromRoad: findRoadToken(b), fromDir: null };
 }
 
 function parseManeuver(body: string): string | null {
+  const b = normalizeCommonOcrTypos(body).replace(/\bTurn\s+leit\b/gi, "Turn left");
   const m =
     /\b(Turn left|Turn right|Continue straight|Merge|Take Exit|Take|Bear left|Bear right|Arrive at destination|DETOUR)\b/i.exec(
-      body,
+      b,
     );
   return m ? m[1] : null;
 }
 
 function parseToRoadAndDir(body: string): { toRoad: string | null; toDir: string | null } {
-  const m = /\b(?:onto|on|toward)\s+(.+)$/i.exec(body);
+  const b = normalizeCommonOcrTypos(body).replace(/\b(?:toward|towards)\b/gi, "toward");
+  const m = /\b(?:onto|on|toward)\s+(.+)$/i.exec(b);
   if (!m) return { toRoad: null, toDir: null };
   const tail = m[1];
   const toRoad = findRoadToken(tail);
@@ -366,7 +385,7 @@ function buildStepFromRow(
   cumulativeBefore: number,
 ): { step: ParsedStep; cumulativeAfter: number } {
   const leg = parseLeadingLegMiles(row);
-  const body = cleanLine(
+  const body = normalizeCommonOcrTypos(
     row.replace(/^\s*(?:<\s*[\d.]+|[\d.]+)\s+/, "").replace(/^\[[^\]]+\]\s*/, ""),
   );
   const { fromRoad, fromDir } = parseFromRoadAndDir(body);
@@ -436,7 +455,10 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
   const destination_text = extractDestination(fullText);
 
   const rows = extractTurnTableBlock(fullText)
-    .filter((line) => isTableRowStart(line) && /\b(Turn|Continue|Merge|Take|Bear|Arrive|DETOUR)\b/i.test(line));
+    .filter((line) => {
+      const norm = normalizeCommonOcrTypos(line).replace(/\bTurn\s+leit\b/gi, "Turn left");
+      return isTableRowStart(norm) && /\b(Turn|Continue|Merge|Take|Bear|Arrive|DETOUR)\b/i.test(norm);
+    });
 
   const steps: ParsedStep[] = [];
   const segments: SegmentOut[] = [];
@@ -451,12 +473,14 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
 
   if (origin_text) {
     const structuredQ = origin_structured ? structuredOriginQueries(origin_structured) : [];
+    const originRoad = findRoadToken(origin_text);
     segments.push({
       label: "Origin",
       text: origin_text.slice(0, 64),
       displayText: `Start · ${origin_text}`,
       queries: dedupeStrings([
         ...structuredQ,
+        ...(originRoad ? [`${originRoad} Texas`] : []),
         `${origin_text} Texas`,
         `${origin_text} TX`,
       ]),
@@ -471,11 +495,13 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
   }
 
   if (destination_text) {
+    const destinationRoad = findRoadToken(destination_text);
     segments.push({
       label: "Destination",
       text: destination_text.slice(0, 64),
       displayText: `End · ${destination_text}`,
       queries: dedupeStrings([
+        ...(destinationRoad ? [`${destinationRoad} Texas`] : []),
         `${destination_text} Texas`,
         `${destination_text} TX`,
       ]),
