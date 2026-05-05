@@ -34,6 +34,11 @@ function hasSupabaseParserConfig() {
   );
 }
 
+function supabaseParserConfigNote() {
+  if (!hasSupabaseParserConfig()) return "Supabase parser config: missing";
+  return "Supabase parser config: loaded (" + window.SUPABASE_PARSE_FUNCTION + ")";
+}
+
 function readSupabaseParsedSegments(obj) {
   const segs = Array.isArray(obj?.segments)
     ? obj.segments
@@ -2354,6 +2359,8 @@ function initApp() {
       bootStatus.textContent =
         "Supabase parser not configured. Set js/supabase-config.js values.";
     }
+  } else if (bootStatus && !bootStatus.textContent) {
+    bootStatus.textContent = supabaseParserConfigNote();
   }
 
   if (pdfjsLibRef) {
