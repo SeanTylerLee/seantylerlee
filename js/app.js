@@ -72,7 +72,6 @@ async function parsePermitViaSupabase(file) {
     method: "POST",
     headers: {
       apikey: window.SUPABASE_ANON_KEY,
-      Authorization: "Bearer " + window.SUPABASE_ANON_KEY,
     },
     body: fd,
   });
