@@ -2156,9 +2156,13 @@ function main() {
       return;
     }
 
-    statusEl.textContent = hasSupabaseParserConfig()
-      ? "Uploading to parser…"
-      : "Reading PDF…";
+    if (!hasSupabaseParserConfig()) {
+      statusEl.textContent = "Parser not configured. Connect Supabase parser settings.";
+      confidence.textContent = "Supabase parser required";
+      return;
+    }
+
+    statusEl.textContent = "Uploading to parser…";
     showRouteProgress("");
     rawPanel.textContent = "";
     hintsList.innerHTML = "";
@@ -2172,47 +2176,32 @@ function main() {
     updateDownloadGeoBtn();
 
     try {
-      let fullText = "";
-      let routeBlock = { routeText: "", routeSource: "server", sectionFound: false };
       let parseText = "";
-      let hadTurnByTurn = false;
       let serverHints = [];
       let serverPermitNo = null;
       let parserVersion = null;
 
-      if (hasSupabaseParserConfig()) {
-        const remote = await parsePermitViaSupabase(file);
-        if (myRun !== runGeneration) return;
-        if (remote) {
-          parseText = (remote.parseText || "").trim();
-          serverHints = Array.isArray(remote.segments) ? remote.segments : [];
-          serverPermitNo = remote.permitNumber || null;
-          parserVersion = remote.parserVersion || null;
-        }
+      const remote = await parsePermitViaSupabase(file);
+      if (myRun !== runGeneration) return;
+      if (remote) {
+        parseText = (remote.parseText || "").trim();
+        serverHints = Array.isArray(remote.segments) ? remote.segments : [];
+        serverPermitNo = remote.permitNumber || null;
+        parserVersion = remote.parserVersion || null;
       }
 
-      if (!parseText) {
-        fullText = await extractPdfText(file);
-        if (myRun !== runGeneration) return;
-        routeBlock = extractRouteSection(fullText);
-        parseText = mergeParseTextWithTurnByTurn(
-          routeBlock.routeText || "",
-          fullText
-        );
-        hadTurnByTurn = extractTxdmvTurnByTurnBlock(fullText).length > 0;
+      if (!parseText && !serverHints.length) {
+        throw new Error("Parser failed: Supabase returned no route output.");
       }
 
       if (!parseText || parseText.length < 40) {
         confidence.textContent = "Low text (scan/OCR?)";
         statusEl.textContent = "Weak text";
-      } else if (routeBlock.sectionFound) {
-        confidence.textContent = "Route slice: " + routeSourceLabel(routeBlock.routeSource);
-        statusEl.textContent = "Geocoding…";
       } else if (serverHints.length || parserVersion) {
         confidence.textContent = "Supabase parser" + (parserVersion ? " · " + parserVersion : "");
         statusEl.textContent = "Geocoding…";
       } else {
-        confidence.textContent = "No Origin/Route heading — using full text";
+        confidence.textContent = "Supabase parser";
         statusEl.textContent = "Geocoding…";
       }
 
@@ -2237,18 +2226,18 @@ function main() {
         structuredStops.length > 0
           ? "structured (road + direction + miles)"
           : "regex (highway tokens only)";
-      const meta = fullText ? guessPermitMeta(fullText) : { permitNumber: serverPermitNo };
+      const meta = { permitNumber: serverPermitNo };
 
       metaPanel.innerHTML = [
-        `<p><strong>Parse from:</strong> ${escapeHtml(routeSourceLabel(routeBlock.routeSource))}</p>`,
+        `<p><strong>Parse from:</strong> Supabase Edge Function</p>`,
         `<p><strong>Turn-by-turn table:</strong> ${
-          hadTurnByTurn ? "merged (Miles Route To)" : (serverHints.length ? "provided by Supabase parser" : "not found in text")
+          serverHints.length ? "provided by Supabase parser" : "not returned"
         }</p>`,
         `<p><strong>Waypoints:</strong> ${escapeHtml(parsingMode)}</p>`,
         meta.permitNumber
           ? `<p><strong>Guess permit ref:</strong> ${escapeHtml(meta.permitNumber)} <span class="badge">unverified</span></p>`
           : `<p><strong>Permit ID:</strong> not detected automatically.</p>`,
-        `<p><strong>PDF chars:</strong> ${fullText.length} · <strong>parse text:</strong> ${parseText.length}</p>`,
+        `<p><strong>Parse text chars:</strong> ${parseText.length}</p>`,
         `<p><strong>Segments:</strong> ${hints.length}</p>`,
       ].join("");
 
@@ -2303,8 +2292,8 @@ function main() {
       updateVerifyState();
     } catch (err) {
       console.error(err);
-      statusEl.textContent = "Could not read this PDF in the browser.";
-      confidence.textContent = String(err?.message || err);
+      statusEl.textContent = "Parser failed.";
+      confidence.textContent = String(err?.message || err || "Supabase parser failed");
       showRouteProgress("");
     }
   });
@@ -2330,15 +2319,16 @@ function initApp() {
     return;
   }
 
-  if (!pdfjsLibRef) {
+  if (!hasSupabaseParserConfig()) {
     if (bootStatus) {
       bootStatus.textContent =
-        "PDF engine failed to load. Connect to the internet, or open this site via http://localhost (see README), not as a raw file.";
+        "Supabase parser not configured. Set js/supabase-config.js values.";
     }
-    return;
   }
 
-  pdfjsLibRef.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
+  if (pdfjsLibRef) {
+    pdfjsLibRef.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
+  }
   main();
 }
 
