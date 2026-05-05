@@ -71,12 +71,8 @@ async function parsePermitViaSupabase(file) {
   const key = String(window.SUPABASE_ANON_KEY || "");
   const headers = {
     apikey: key,
+    Authorization: "Bearer " + key,
   };
-  // Supabase Edge Functions commonly require Authorization: Bearer <JWT>.
-  // Only attach Bearer when the configured key is JWT-like.
-  if (/^eyJ[A-Za-z0-9_-]+\./.test(key)) {
-    headers.Authorization = "Bearer " + key;
-  }
   let res;
   try {
     res = await fetch(fnUrl, {
