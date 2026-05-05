@@ -50,12 +50,30 @@ function readSupabaseParsedSegments(obj) {
       const text = (s.text || s.road || s.route || "").toString().trim();
       const displayText = (s.displayText || s.display_text || text).toString().trim();
       if (!text && !displayText) return null;
-      return {
+      const legRaw =
+        s.leg_miles_to_next ??
+        s.legMilesToNext ??
+        s.leg_miles ??
+        null;
+      const cumRaw =
+        s.cumulative_permit_mi ??
+        s.cumulativePermitMi ??
+        s.permit_odometer_mi ??
+        s.permitOdometerMi ??
+        null;
+      const leg =
+        legRaw != null && legRaw !== "" && !isNaN(Number(legRaw)) ? Number(legRaw) : null;
+      const cumulative =
+        cumRaw != null && cumRaw !== "" && !isNaN(Number(cumRaw)) ? Number(cumRaw) : null;
+      const row = {
         label: s.label || "Route",
         text: text || displayText.slice(0, 48),
         displayText: displayText || text,
         queries: Array.isArray(s.queries) ? s.queries : [],
       };
+      if (leg != null) row.legMilesToNext = leg;
+      if (cumulative != null) row.cumulativePermitMi = cumulative;
+      return row;
     })
     .filter(Boolean);
 }
@@ -1914,9 +1932,29 @@ function main() {
         `Geocoding ${i + 1}/${hints.length}: ${hintDisplay(h)}…`
       );
 
+      let geoHint = h;
+      if (
+        (h.legMilesToNext != null && Number.isFinite(h.legMilesToNext)) ||
+        (h.cumulativePermitMi != null && Number.isFinite(h.cumulativePermitMi))
+      ) {
+        geoHint = {
+          ...h,
+          queries: enrichQueriesForTxRow(
+            h.queries || [],
+            { text: h.text },
+            "",
+            h.displayText || h.text || "",
+            h.legMilesToNext != null && Number.isFinite(h.legMilesToNext) ? h.legMilesToNext : null,
+            h.cumulativePermitMi != null && Number.isFinite(h.cumulativePermitMi)
+              ? h.cumulativePermitMi
+              : null
+          ),
+        };
+      }
+
       let pt = null;
       try {
-        pt = await geocodeSegment(h, accessToken, proximityPrior);
+        pt = await geocodeSegment(geoHint, accessToken, proximityPrior);
       } catch (e) {
         console.warn(e);
       }

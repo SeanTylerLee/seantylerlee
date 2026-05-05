@@ -1,7 +1,12 @@
 import pdfParse from "npm:pdf-parse@1.1.1";
 
 type ParsedStep = {
+  /** Miles on the Route column road until this maneuver (Miles column). */
   leg_miles: number | null;
+  /** Running total from the loaded-route table (Distance column) when present. */
+  permit_odometer_mi: number | null;
+  estimated_time: string | null;
+  /** Sum of leg_miles through this row — for checking against permit_odometer_mi. */
   cumulative_mi: number | null;
   from_road: string | null;
   from_dir: string | null;
@@ -17,6 +22,7 @@ type SegmentOut = {
   displayText: string;
   queries: string[];
   leg_miles_to_next?: number | null;
+  /** Same as permit Distance column when parsed (odometer from start of loaded route). */
   cumulative_permit_mi?: number | null;
 };
 
@@ -39,7 +45,9 @@ type ParseResult = {
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.2.0";
+const PARSER_VERSION = "tx-turntable-v2.3.0";
+
+const ODOMETER_TOLERANCE_MI = 0.2;
 
 const ROUTE_PATTERNS: Array<{ label: string; re: RegExp }> = [
   { label: "IH", re: /\bIH\s*[-–]?\s*0*(\d{1,3})(?:[A-Za-z]+)?\b/i },
@@ -217,6 +225,34 @@ function parseLeadingLegMiles(line: string): number | null {
   return Number.isFinite(v) ? v : null;
 }
 
+/** Strip " … 4.60 00:05" style trailing odometer + est. time from a merged table row. */
+function stripTrailingOdometerTime(s: string): {
+  body: string;
+  odometer: number | null;
+  estTime: string | null;
+} {
+  const t = cleanLine(s);
+  const m = /\s+([\d.]+)\s+(\d{1,2}:\d{2})\s*$/i.exec(t);
+  if (!m) {
+    return { body: t, odometer: null, estTime: null };
+  }
+  const odom = parseFloat(m[1]);
+  return {
+    body: cleanLine(t.slice(0, m.index)),
+    odometer: Number.isFinite(odom) ? odom : null,
+    estTime: m[2],
+  };
+}
+
+function stripLeadingLegPrefix(line: string): { leg: number | null; rest: string } {
+  const leg = parseLeadingLegMiles(line);
+  if (leg == null) {
+    return { leg: null, rest: cleanLine(line) };
+  }
+  const rest = cleanLine(line.replace(/^\s*(?:<\s*[\d.]+|[\d.]+)\s+/, ""));
+  return { leg, rest };
+}
+
 function parseDirectionAbbrev(dir: string | null): string | null {
   if (!dir) return null;
   const k = dir.toLowerCase();
@@ -238,8 +274,9 @@ function parseDirectionAbbrev(dir: string | null): string | null {
 }
 
 function findRoadToken(str: string): string | null {
+  const hay = normalizeCommonOcrTypos(str);
   for (const p of ROUTE_PATTERNS) {
-    const m = p.re.exec(str);
+    const m = p.re.exec(hay);
     p.re.lastIndex = 0;
     if (m) return normalizeRouteToken(m[0]);
   }
@@ -364,7 +401,7 @@ function parseFromRoadAndDir(body: string): { fromRoad: string | null; fromDir: 
 function parseManeuver(body: string): string | null {
   const b = normalizeCommonOcrTypos(body).replace(/\bTurn\s+leit\b/gi, "Turn left");
   const m =
-    /\b(Turn left|Turn right|Continue straight|Merge|Take Exit|Take|Bear left|Bear right|Arrive at destination|DETOUR)\b/i.exec(
+    /\b(Turn left|Turn right|Continue straight|Continue Straight|Merge|Take Exit|Take|Bear left|Bear right|Arrive at destination|DETOUR)\b/i.exec(
       b,
     );
   return m ? m[1] : null;
@@ -383,21 +420,35 @@ function parseToRoadAndDir(body: string): { toRoad: string | null; toDir: string
 function buildStepFromRow(
   row: string,
   cumulativeBefore: number,
-): { step: ParsedStep; cumulativeAfter: number } {
-  const leg = parseLeadingLegMiles(row);
-  const body = normalizeCommonOcrTypos(
-    row.replace(/^\s*(?:<\s*[\d.]+|[\d.]+)\s+/, "").replace(/^\[[^\]]+\]\s*/, ""),
-  );
-  const { fromRoad, fromDir } = parseFromRoadAndDir(body);
-  const maneuver = parseManeuver(body);
-  const { toRoad, toDir } = parseToRoadAndDir(body);
+): { step: ParsedStep; cumulativeAfter: number; odometerWarn: string | null } {
+  const rawNorm = normalizeCommonOcrTypos(row);
+  const { leg, rest: afterLeg } = stripLeadingLegPrefix(rawNorm);
+  const afterBracket = cleanLine(afterLeg.replace(/^\[[^\]]+\]\s*/, ""));
+  const { body, odometer, estTime } = stripTrailingOdometerTime(afterBracket);
+  const normBody = normalizeCommonOcrTypos(body).replace(/\bTurn\s+leit\b/gi, "Turn left");
 
-  const cumulativeAfter = leg != null ? cumulativeBefore + leg : cumulativeBefore;
+  const { fromRoad, fromDir } = parseFromRoadAndDir(normBody);
+  const maneuver = parseManeuver(normBody);
+  const { toRoad, toDir } = parseToRoadAndDir(normBody);
+
+  const computedAfter = leg != null ? cumulativeBefore + leg : cumulativeBefore;
+
+  let odometerWarn: string | null = null;
+  if (
+    leg != null &&
+    odometer != null &&
+    Number.isFinite(cumulativeBefore + leg) &&
+    Math.abs(cumulativeBefore + leg - odometer) > ODOMETER_TOLERANCE_MI
+  ) {
+    odometerWarn = `odometer_mismatch expected ~${(cumulativeBefore + leg).toFixed(2)} mi got ${odometer.toFixed(2)} mi`;
+  }
 
   return {
     step: {
       leg_miles: leg,
-      cumulative_mi: leg != null ? cumulativeAfter : null,
+      permit_odometer_mi: odometer,
+      estimated_time: estTime,
+      cumulative_mi: leg != null ? computedAfter : null,
       from_road: fromRoad,
       from_dir: fromDir,
       maneuver,
@@ -405,25 +456,29 @@ function buildStepFromRow(
       to_dir: toDir,
       raw_row: row,
     },
-    cumulativeAfter,
+    cumulativeAfter: odometer != null ? odometer : computedAfter,
+    odometerWarn,
   };
 }
 
 function stepToSegments(step: ParsedStep): SegmentOut[] {
+  const odo = step.permit_odometer_mi ?? step.cumulative_mi;
+  const odoLabel =
+    odo != null && Number.isFinite(odo) ? ` · ~${odo.toFixed(1)} mi (permit odometer)` : "";
   const out: SegmentOut[] = [];
 
   if (step.from_road) {
     out.push({
       label: "Route",
       text: step.from_road,
-      displayText: step.raw_row,
+      displayText: cleanLine(`${step.from_road}${odoLabel} · ${step.raw_row}`.replace(/\s+·\s+·/g, " · ")),
       queries: dedupeStrings([
         `${step.from_road} ${step.from_dir || ""} Texas`.trim(),
         `${step.from_road} highway Texas`,
         `${step.from_road} Texas`,
       ]),
       leg_miles_to_next: step.leg_miles,
-      cumulative_permit_mi: step.cumulative_mi,
+      cumulative_permit_mi: odo,
     });
   }
 
@@ -431,14 +486,14 @@ function stepToSegments(step: ParsedStep): SegmentOut[] {
     out.push({
       label: "Route",
       text: step.to_road,
-      displayText: step.raw_row,
+      displayText: cleanLine(`${step.to_road}${odoLabel} · ${step.raw_row}`.replace(/\s+·\s+·/g, " · ")),
       queries: dedupeStrings([
         `${step.to_road} ${step.to_dir || ""} Texas`.trim(),
         `${step.to_road} highway Texas`,
         `${step.to_road} Texas`,
       ]),
       leg_miles_to_next: step.leg_miles,
-      cumulative_permit_mi: step.cumulative_mi,
+      cumulative_permit_mi: odo,
     });
   }
 
@@ -457,7 +512,10 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
   const rows = extractTurnTableBlock(fullText)
     .filter((line) => {
       const norm = normalizeCommonOcrTypos(line).replace(/\bTurn\s+leit\b/gi, "Turn left");
-      return isTableRowStart(norm) && /\b(Turn|Continue|Merge|Take|Bear|Arrive|DETOUR)\b/i.test(norm);
+      return (
+        isTableRowStart(norm) &&
+        /\b(Turn|Continue|Merge|Take|Bear|Arrive at destination|DETOUR)\b/i.test(norm)
+      );
     });
 
   const steps: ParsedStep[] = [];
@@ -488,7 +546,8 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
   }
 
   for (const row of rows) {
-    const { step, cumulativeAfter } = buildStepFromRow(row, cumulative);
+    const { step, cumulativeAfter, odometerWarn } = buildStepFromRow(row, cumulative);
+    if (odometerWarn) warnings.push(odometerWarn);
     cumulative = cumulativeAfter;
     steps.push(step);
     segments.push(...stepToSegments(step));
