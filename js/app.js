@@ -68,13 +68,24 @@ async function parsePermitViaSupabase(file) {
     encodeURIComponent(String(window.SUPABASE_PARSE_FUNCTION));
   const fd = new FormData();
   fd.append("file", file, file.name || "permit.pdf");
-  const res = await fetch(fnUrl, {
-    method: "POST",
-    headers: {
-      apikey: window.SUPABASE_ANON_KEY,
-    },
-    body: fd,
-  });
+  let res;
+  try {
+    res = await fetch(fnUrl, {
+      method: "POST",
+      headers: {
+        apikey: window.SUPABASE_ANON_KEY,
+      },
+      body: fd,
+    });
+  } catch (err) {
+    const why = err && err.message ? String(err.message) : "Network/CORS error";
+    throw new Error(
+      "Supabase parser request failed (" +
+        why +
+        "). Check function URL, deployment, and CORS on " +
+        fnUrl
+    );
+  }
   if (!res.ok) {
     const t = await res.text().catch(function () {
       return "";
