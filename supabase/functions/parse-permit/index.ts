@@ -1,64 +1,13 @@
-import pdfParse from "npm:pdf-parse@1.1.1";
+/**
+ * Supabase Edge Function: TXPROS official route proxy.
+ * Forwards permit ID to TxDMV RouteService (server-side, no browser CORS).
+ * No PDF parsing — clients send Permit ID from QR / permit details URL.
+ */
 
-type ParsedStep = {
-  /** Miles on the Route column road until this maneuver (Miles column). */
-  leg_miles: number | null;
-  /** Running total from the loaded-route table (Distance column) when present. */
-  permit_odometer_mi: number | null;
-  estimated_time: string | null;
-  /** Sum of leg_miles through this row — for checking against permit_odometer_mi. */
-  cumulative_mi: number | null;
-  from_road: string | null;
-  from_dir: string | null;
-  maneuver: string | null;
-  to_road: string | null;
-  to_dir: string | null;
-  raw_row: string;
-};
+const SERVICE_VERSION = "txpros-proxy-v1.0.0";
 
-type SegmentOut = {
-  label: string;
-  text: string;
-  displayText: string;
-  queries: string[];
-  leg_miles_to_next?: number | null;
-  /** Same as permit Distance column when parsed (odometer from start of loaded route). */
-  cumulative_permit_mi?: number | null;
-};
-
-type OriginStructured = {
-  mode: "junction_offset" | "semicolon" | "state_line" | "unknown";
-  offset_mi: number | null;
-  bearing: string | null;
-  roads: string[];
-};
-
-type ParseResult = {
-  parse_text: string;
-  permit_number: string | null;
-  origin_text: string | null;
-  destination_text: string | null;
-  parser_version: string;
-  steps: ParsedStep[];
-  segments: SegmentOut[];
-  origin_structured: OriginStructured | null;
-  warnings: string[];
-};
-
-const PARSER_VERSION = "tx-turntable-v2.3.0";
-
-const ODOMETER_TOLERANCE_MI = 0.2;
-
-const ROUTE_PATTERNS: Array<{ label: string; re: RegExp }> = [
-  { label: "IH", re: /\bIH\s*[-–]?\s*0*(\d{1,3})(?:[A-Za-z]+)?\b/i },
-  { label: "Interstate", re: /\bI\s*[-–]?\s*(\d{1,3})\b/i },
-  { label: "US Highway", re: /\bUS\s*[-–]?\s*0*(\d{1,3})([A-Za-z]?)\b/i },
-  { label: "State Hwy", re: /\b(?:SH|TX)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/i },
-  { label: "Farm / Ranch", re: /\b(?:FM|RM)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/i },
-  { label: "Loop", re: /\bLOOP\s*[-–]?\s*(\d{1,4}[A-Za-z]?)\b/i },
-  { label: "State Loop", re: /\bSL\s*[-–]?\s*(\d{1,4}[A-Za-z]?)\b/i },
-  { label: "Business US", re: /\b(?:BU|BUS)\s*[-–]?\s*(\d{1,3})\b/i },
-];
+const TXPROS_ROUTE_URL =
+  "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermitBody";
 
 function corsHeaders(extra: Record<string, string> = {}) {
   return {
@@ -76,506 +25,173 @@ function json(status: number, body: unknown) {
   });
 }
 
-function normalizeWs(s: string): string {
-  return s
-    .replace(/\r/g, "")
-    .split("\n")
-    .map((line) => line.replace(/[ \t\f\v]+/g, " ").trim())
-    .join("\n")
-    .trim();
-}
-
 function cleanLine(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
-function normalizeCommonOcrTypos(s: string): string {
-  return cleanLine(s)
-    // Preserve true "of", but recover common OCR "0f"/"0F".
-    .replace(/\b0f\b/gi, "of")
-    // OCR often reads US0### / USO###.
-    .replace(/\bUS[O0]\s*(\d{2,4})\b/gi, "US $1")
-    // SHO### should be SH ###.
-    .replace(/\bSH[O0]\s*(\d{2,4})\b/gi, "SH $1")
-    // 1H20 / lH20 -> IH20
-    .replace(/\b[1lI]H\s*([0-9]{1,3})\b/g, "IH $1")
-    // Keep service-road variants parseable.
-    .replace(/\bIH\s*([0-9]{1,3})\s*SFR\b/gi, "IH $1 SFR");
-}
-
-function dedupeStrings(arr: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const x of arr) {
-    const v = cleanLine(x);
-    if (!v) continue;
-    const k = v.toLowerCase();
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(v);
+/** Accept digits or URL containing PermitID= */
+function extractPermitId(input: string): string | null {
+  const s = cleanLine(input);
+  if (!s) return null;
+  if (/^\d{4,14}$/.test(s)) return s;
+  try {
+    const u = new URL(s, "https://txpros.txdmv.gov");
+    const id = u.searchParams.get("PermitID") || u.searchParams.get("permitID");
+    if (id && /^\d+$/.test(id)) return id;
+  } catch {
+    /* ignore */
   }
-  return out;
-}
-
-function normalizeRouteToken(raw: string): string {
-  let s = normalizeCommonOcrTypos(raw);
-  s = s.replace(/\bUS\s*[-–]?\s*0*(\d{1,3})([A-Za-z]?)\b/gi, (_, n, suf) => `US ${parseInt(n, 10)}${suf || ""}`);
-  s = s.replace(/\b(?:SH|TX)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi, (_, n, suf) => `SH ${parseInt(n, 10)}${suf || ""}`);
-  s = s.replace(/\bFM\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi, (_, n, suf) => `FM ${parseInt(n, 10)}${suf || ""}`);
-  s = s.replace(/\bRM\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi, (_, n, suf) => `RM ${parseInt(n, 10)}${suf || ""}`);
-  s = s.replace(/\bIH\s*[-–]?\s*0*(\d{1,3})(?:[A-Za-z]+)?\b/gi, (_, n) => `IH ${parseInt(n, 10)}`);
-  return s;
-}
-
-function extractPermitNumber(text: string): string | null {
-  const m =
-    text.match(/\bPermit Number:\s*([A-Z0-9-]{6,})\b/i) ||
-    text.match(/\bPermit Number\s+([A-Z0-9-]{6,})\b/i);
+  const m = s.match(/PermitID=(\d+)/i) || s.match(/permitID[=:]\s*(\d+)/i);
   return m ? m[1] : null;
 }
 
-function extractOrigin(text: string): string | null {
-  const lines = text.split("\n");
-  let best = "";
-  for (const line of lines) {
-    const m1 = /\bOrigin\s*:\s*(.+)$/i.exec(line);
-    const m2 = /^\s*\[Loaded Route Origin\s*:\s*(.+?)\s*[\]\)]?\s*$/i.exec(line);
-    const m = m1 || m2;
-    if (m && m[1].trim().length > best.length) best = m[1].trim();
-  }
-  return best ? normalizeCommonOcrTypos(best) : null;
-}
-
-function extractDestination(text: string): string | null {
-  const lines = text.split("\n");
-  let best = "";
-  for (const line of lines) {
-    const m1 = /^\s*Destination\s*:\s*(.+)$/i.exec(line);
-    const m2 = /^\s*Final Destination\s*:\s*(.+)$/i.exec(line);
-    const m3 = /^\s*\[?Loaded\s+Route\s+Destination\s*:\s*(.+?)\s*[\]\)]?\s*$/i.exec(line);
-    for (const m of [m1, m2, m3]) {
-      if (m && m[1].trim().length > best.length) best = m[1].trim();
-    }
-  }
-  return best ? normalizeCommonOcrTypos(best) : null;
-}
-
-function isNoise(line: string): boolean {
-  if (!line) return true;
-  if (/^\s*Texas\s+Oversize\/Overweight\b/i.test(line)) return true;
-  if (/^\s*PAGE\s+\d+\s+of\s+\d+\b/i.test(line)) return true;
-  if (/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/i.test(line)) return true;
-  if (/^\s*General Conditions(?:\(Continued\))?\s*:/i.test(line)) return true;
-  if (/^\s*Name:\s+.+Permit Number/i.test(line)) return true;
+function isHtmlErrorPage(text: string): boolean {
+  if (!text) return true;
+  if (/<!DOCTYPE/i.test(text) && /Error\s+Encountered/i.test(text)) return true;
+  if (/<form[^>]+action="[^"]*Error\.aspx"/i.test(text)) return true;
   return false;
 }
 
-function isTableHeader(line: string): boolean {
-  return /^\s*Miles\s+Route\s+To\b/i.test(line);
+type LatLon = { lat: number; lon: number };
+
+function scoreRow(o: unknown): LatLon | null {
+  if (!o || typeof o !== "object") return null;
+  const r = o as Record<string, unknown>;
+  const lat =
+    r.Lat ?? r.lat ?? r.Latitude ?? r.latitude ?? r.LAT ?? null;
+  const lon =
+    r.Lon ?? r.lng ?? r.Lng ?? r.Longitude ?? r.longitude ?? r.LNG ?? r.LON ?? null;
+  const la = typeof lat === "string" ? parseFloat(lat) : Number(lat);
+  const lo = typeof lon === "string" ? parseFloat(lon) : Number(lon);
+  if (!Number.isFinite(la) || !Number.isFinite(lo)) return null;
+  return { lat: la, lon: lo };
 }
 
-function isTableRowStart(line: string): boolean {
-  return /^\s*(?:<\s*[\d.]+|[\d.]+)\s+\S/.test(line);
-}
+/** Longest array of Lat/Lon objects inside TXPROS JSON. */
+function extractBreadcrumbs(data: unknown): LatLon[] {
+  let best: LatLon[] = [];
 
-function isLikelyTableContinuation(line: string): boolean {
-  if (!line) return false;
-  if (isNoise(line)) return false;
-  if (isTableHeader(line)) return false;
-  if (/^\s*(Origin|Destination|Final Destination)\s*:/i.test(line)) return false;
-  if (/^\s*\[Loaded Route/i.test(line)) return false;
-  if (/^\s*\*\*/.test(line)) return false;
-  if (isTableRowStart(line)) return false;
-  return true;
-}
-
-function extractTurnTableBlock(text: string): string[] {
-  const rawLines = normalizeWs(text).split("\n").map(cleanLine).filter(Boolean);
-
-  let inTable = false;
-  const out: string[] = [];
-
-  for (const line of rawLines) {
-    if (isTableHeader(line)) {
-      inTable = true;
-      continue;
+  function considerArray(arr: unknown[]) {
+    if (!Array.isArray(arr) || arr.length < 2) return;
+    const pts: LatLon[] = [];
+    for (const item of arr) {
+      const p = scoreRow(item);
+      if (p) pts.push(p);
     }
-    if (!inTable) continue;
-    if (/^\s*Final Destination\s*:/i.test(line)) break;
-    if (isNoise(line)) continue;
-    out.push(line);
+    if (pts.length > best.length) best = pts;
   }
 
-  const merged: string[] = [];
-  for (const line of out) {
-    if (isLikelyTableContinuation(line) && merged.length) {
-      merged[merged.length - 1] = cleanLine(`${merged[merged.length - 1]} ${line}`);
-    } else {
-      merged.push(line);
+  function walk(o: unknown, depth: number) {
+    if (depth > 20) return;
+    if (Array.isArray(o)) {
+      considerArray(o);
+      for (let i = 0; i < Math.min(o.length, 500); i++) walk(o[i], depth + 1);
+      return;
+    }
+    if (o && typeof o === "object") {
+      for (const k of Object.keys(o as object)) {
+        walk((o as Record<string, unknown>)[k], depth + 1);
+      }
     }
   }
 
-  return merged;
+  walk(data, 0);
+  return best;
 }
 
-function parseLeadingLegMiles(line: string): number | null {
-  const m = /^\s*(?:<\s*([\d.]+)|([\d.]+))\s+/.exec(line);
-  if (!m) return null;
-  const v = parseFloat(m[1] || m[2]);
-  return Number.isFinite(v) ? v : null;
-}
-
-/** Strip " … 4.60 00:05" style trailing odometer + est. time from a merged table row. */
-function stripTrailingOdometerTime(s: string): {
-  body: string;
-  odometer: number | null;
-  estTime: string | null;
-} {
-  const t = cleanLine(s);
-  const m = /\s+([\d.]+)\s+(\d{1,2}:\d{2})\s*$/i.exec(t);
-  if (!m) {
-    return { body: t, odometer: null, estTime: null };
-  }
-  const odom = parseFloat(m[1]);
-  return {
-    body: cleanLine(t.slice(0, m.index)),
-    odometer: Number.isFinite(odom) ? odom : null,
-    estTime: m[2],
-  };
-}
-
-function stripLeadingLegPrefix(line: string): { leg: number | null; rest: string } {
-  const leg = parseLeadingLegMiles(line);
-  if (leg == null) {
-    return { leg: null, rest: cleanLine(line) };
-  }
-  const rest = cleanLine(line.replace(/^\s*(?:<\s*[\d.]+|[\d.]+)\s+/, ""));
-  return { leg, rest };
-}
-
-function parseDirectionAbbrev(dir: string | null): string | null {
-  if (!dir) return null;
-  const k = dir.toLowerCase();
-  const map: Record<string, string> = {
-    n: "north",
-    s: "south",
-    e: "east",
-    w: "west",
-    ne: "northeast",
-    nw: "northwest",
-    se: "southeast",
-    sw: "southwest",
-    nb: "north",
-    sb: "south",
-    eb: "east",
-    wb: "west",
-  };
-  return map[k] || null;
-}
-
-function findRoadToken(str: string): string | null {
-  const hay = normalizeCommonOcrTypos(str);
-  for (const p of ROUTE_PATTERNS) {
-    const m = p.re.exec(hay);
-    p.re.lastIndex = 0;
-    if (m) return normalizeRouteToken(m[0]);
-  }
-  return null;
-}
-
-function extractRoadsFromJunctionBlob(blob: string): string[] {
-  const parts = blob.split(/\s*&\s*/).map((p) => cleanLine(p)).filter(Boolean);
-  const roads: string[] = [];
-  for (const p of parts) {
-    const t = findRoadToken(p);
-    if (t) roads.push(t);
-    else {
-      const n = normalizeRouteToken(p);
-      const t2 = findRoadToken(n);
-      if (t2) roads.push(t2);
-    }
-  }
-  return dedupeStrings(roads);
-}
-
-/** Generic Tx permit origin: junction + mile offset, semicolon triples, or state-line phrasing. */
-function parseOriginStructured(origin: string): OriginStructured {
-  const o = normalizeCommonOcrTypos(origin);
-  if (!o) {
-    return { mode: "unknown", offset_mi: null, bearing: null, roads: [] };
-  }
-
-  const reJunction =
-    /^(?:([^,]+?)\s*,\s*)?([\d.]+)\s*mi\s+([nsew]{1,2})\s+of\s+(.+)$/i;
-  const mj = reJunction.exec(o);
-  if (mj) {
-    const offset_mi = parseFloat(mj[2]);
-    const bearing = parseDirectionAbbrev(mj[3]);
-    const junctionBlob = cleanLine(mj[4]);
-    const roads = extractRoadsFromJunctionBlob(junctionBlob);
-    return {
-      mode: "junction_offset",
-      offset_mi: Number.isFinite(offset_mi) ? offset_mi : null,
-      bearing,
-      roads,
-    };
-  }
-
-  if (/;/.test(o)) {
-    const segs = o.split(/;/).map((s) => cleanLine(s)).filter(Boolean);
-    const roads: string[] = [];
-    for (const s of segs) {
-      const t = findRoadToken(s);
-      roads.push(t ? t : normalizeRouteToken(s));
-    }
-    return {
-      mode: "semicolon",
-      offset_mi: null,
-      bearing: null,
-      roads: dedupeStrings(roads),
-    };
-  }
-
-  const reLine =
-    /\b(?:IH|I|US|SH|FM)\s*[-–]?\s*0*(\d{1,4}[A-Za-z]?)\s+(OK|NM|LA|AR)\s+Line\b/i;
-  if (reLine.test(o)) {
-    const tok = findRoadToken(o);
-    return {
-      mode: "state_line",
-      offset_mi: null,
-      bearing: null,
-      roads: tok ? [tok] : [],
-    };
-  }
-
-  return { mode: "unknown", offset_mi: null, bearing: null, roads: [] };
-}
-
-function structuredOriginQueries(s: OriginStructured): string[] {
-  const q: string[] = [];
-  if (s.mode === "junction_offset" && s.roads.length >= 2) {
-    const [a, b] = [s.roads[0], s.roads[1]];
-    q.push(`${a} and ${b} intersection Texas`);
-    q.push(`${a} ${b} junction Texas`);
-    if (s.bearing && s.offset_mi != null && Number.isFinite(s.offset_mi)) {
-      q.push(`${a} ${s.bearing} ${s.offset_mi} miles from ${b} Texas`);
-      q.push(`${a} from ${b} ${s.bearing} Texas`);
-    }
-  }
-  if (s.mode === "semicolon" && s.roads.length) {
-    q.push(`${s.roads.join(" ")} Texas`);
-    if (s.roads.length >= 2) {
-      q.push(`${s.roads[0]} ${s.roads[s.roads.length - 1]} Texas`);
-    }
-  }
-  if (s.mode === "state_line" && s.roads.length) {
-    q.push(`${s.roads[0]} Texas state line`);
-    q.push(`${s.roads[0]} Texas border`);
-  }
-  return q;
-}
-
-function collectOriginWarnings(s: OriginStructured): string[] {
-  const w: string[] = [];
-  if (s.mode === "junction_offset" && s.roads.length < 2) {
-    w.push("origin_junction_incomplete");
-  }
-  if (s.mode === "state_line" && !s.roads.length) {
-    w.push("origin_state_line_no_road");
-  }
-  return w;
-}
-
-function parseFromRoadAndDir(body: string): { fromRoad: string | null; fromDir: string | null } {
-  const b = normalizeCommonOcrTypos(body);
-  const m =
-    /^\s*([A-Za-z0-9\s\-]+?)\s+([nsew]{1,2})\s+(?:Turn|Continue|Merge|Take|Bear|Arrive|DETOUR)\b/i.exec(
-      b,
+function parseRouteXml(xmlText: string): { coordinates: number[][]; pointCount: number } {
+  if (isHtmlErrorPage(xmlText)) {
+    throw new Error(
+      "TXPROS returned an error page (invalid permit, expired, or server declined the request).",
     );
-  if (m) {
-    return { fromRoad: normalizeRouteToken(m[1]), fromDir: parseDirectionAbbrev(m[2]) };
   }
-  return { fromRoad: findRoadToken(b), fromDir: null };
-}
 
-function parseManeuver(body: string): string | null {
-  const b = normalizeCommonOcrTypos(body).replace(/\bTurn\s+leit\b/gi, "Turn left");
-  const m =
-    /\b(Turn left|Turn right|Continue straight|Continue Straight|Merge|Take Exit|Take|Bear left|Bear right|Arrive at destination|DETOUR)\b/i.exec(
-      b,
+  let jsonText = "";
+  const cdata = xmlText.match(
+    /<GetLatLonForPermitResult[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/GetLatLonForPermitResult>/i,
+  );
+  if (cdata) jsonText = cdata[1].trim();
+  if (!jsonText) {
+    const m = xmlText.match(/<GetLatLonForPermitResult[^>]*>([\s\S]*?)<\/GetLatLonForPermitResult>/i);
+    if (m) jsonText = m[1].trim();
+  }
+  if (!jsonText) {
+    throw new Error("Response missing GetLatLonForPermitResult (unexpected TXPROS XML).");
+  }
+
+  let data: unknown;
+  try {
+    data = JSON.parse(jsonText);
+  } catch {
+    throw new Error("TXPROS JSON inside XML could not be parsed.");
+  }
+
+  const pts = extractBreadcrumbs(data);
+  if (pts.length < 2) {
+    throw new Error(
+      "TXPROS JSON contained fewer than 2 coordinate points (layout may have changed).",
     );
-  return m ? m[1] : null;
-}
-
-function parseToRoadAndDir(body: string): { toRoad: string | null; toDir: string | null } {
-  const b = normalizeCommonOcrTypos(body).replace(/\b(?:toward|towards)\b/gi, "toward");
-  const m = /\b(?:onto|on|toward)\s+(.+)$/i.exec(b);
-  if (!m) return { toRoad: null, toDir: null };
-  const tail = m[1];
-  const toRoad = findRoadToken(tail);
-  const d = /\b([nsew]{1,2})\b/i.exec(tail);
-  return { toRoad, toDir: d ? parseDirectionAbbrev(d[1]) : null };
-}
-
-function buildStepFromRow(
-  row: string,
-  cumulativeBefore: number,
-): { step: ParsedStep; cumulativeAfter: number; odometerWarn: string | null } {
-  const rawNorm = normalizeCommonOcrTypos(row);
-  const { leg, rest: afterLeg } = stripLeadingLegPrefix(rawNorm);
-  const afterBracket = cleanLine(afterLeg.replace(/^\[[^\]]+\]\s*/, ""));
-  const { body, odometer, estTime } = stripTrailingOdometerTime(afterBracket);
-  const normBody = normalizeCommonOcrTypos(body).replace(/\bTurn\s+leit\b/gi, "Turn left");
-
-  const { fromRoad, fromDir } = parseFromRoadAndDir(normBody);
-  const maneuver = parseManeuver(normBody);
-  const { toRoad, toDir } = parseToRoadAndDir(normBody);
-
-  const computedAfter = leg != null ? cumulativeBefore + leg : cumulativeBefore;
-
-  let odometerWarn: string | null = null;
-  if (
-    leg != null &&
-    odometer != null &&
-    Number.isFinite(cumulativeBefore + leg) &&
-    Math.abs(cumulativeBefore + leg - odometer) > ODOMETER_TOLERANCE_MI
-  ) {
-    odometerWarn = `odometer_mismatch expected ~${(cumulativeBefore + leg).toFixed(2)} mi got ${odometer.toFixed(2)} mi`;
   }
 
-  return {
-    step: {
-      leg_miles: leg,
-      permit_odometer_mi: odometer,
-      estimated_time: estTime,
-      cumulative_mi: leg != null ? computedAfter : null,
-      from_road: fromRoad,
-      from_dir: fromDir,
-      maneuver,
-      to_road: toRoad,
-      to_dir: toDir,
-      raw_row: row,
-    },
-    cumulativeAfter: odometer != null ? odometer : computedAfter,
-    odometerWarn,
-  };
+  const coordinates = pts.map((p) => [p.lon, p.lat] as number[]);
+  return { coordinates, pointCount: coordinates.length };
 }
 
-function stepToSegments(step: ParsedStep): SegmentOut[] {
-  const odo = step.permit_odometer_mi ?? step.cumulative_mi;
-  const odoLabel =
-    odo != null && Number.isFinite(odo) ? ` · ~${odo.toFixed(1)} mi (permit odometer)` : "";
-  const out: SegmentOut[] = [];
+async function fetchRouteFromTxpros(permitId: string): Promise<string> {
+  const attempts = [
+    new URLSearchParams({ permitID: permitId }),
+    new URLSearchParams({ PermitID: permitId }),
+  ];
 
-  if (step.from_road) {
-    out.push({
-      label: "Route",
-      text: step.from_road,
-      displayText: cleanLine(`${step.from_road}${odoLabel} · ${step.raw_row}`.replace(/\s+·\s+·/g, " · ")),
-      queries: dedupeStrings([
-        `${step.from_road} ${step.from_dir || ""} Texas`.trim(),
-        `${step.from_road} highway Texas`,
-        `${step.from_road} Texas`,
-      ]),
-      leg_miles_to_next: step.leg_miles,
-      cumulative_permit_mi: odo,
-    });
+  let lastErr: Error | null = null;
+  for (const body of attempts) {
+    try {
+      const res = await fetch(TXPROS_ROUTE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/xml, text/xml, */*",
+          "User-Agent":
+            "Mozilla/5.0 (compatible; TxPermitRouteAssistant/1.0; +https://seantylerlee.com)",
+        },
+        body,
+      });
+      const text = await res.text();
+      if (isHtmlErrorPage(text)) {
+        lastErr = new Error("txpros_html_error");
+        continue;
+      }
+      return text;
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e));
+    }
   }
 
-  if (step.to_road && step.to_road !== step.from_road) {
-    out.push({
-      label: "Route",
-      text: step.to_road,
-      displayText: cleanLine(`${step.to_road}${odoLabel} · ${step.raw_row}`.replace(/\s+·\s+·/g, " · ")),
-      queries: dedupeStrings([
-        `${step.to_road} ${step.to_dir || ""} Texas`.trim(),
-        `${step.to_road} highway Texas`,
-        `${step.to_road} Texas`,
-      ]),
-      leg_miles_to_next: step.leg_miles,
-      cumulative_permit_mi: odo,
-    });
+  if (lastErr?.message === "txpros_html_error") {
+    throw new Error(
+      "TXPROS rejected the request or returned an error page. Check Permit ID or try again later.",
+    );
   }
-
-  return out;
+  throw lastErr || new Error("Could not reach TXPROS RouteService.");
 }
 
-async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
-  const parsed = await pdfParse(pdfBytes);
-  const fullText = normalizeWs(parsed?.text || "");
-  const permit_number = extractPermitNumber(fullText);
+type TxprosResult = {
+  permit_id: string;
+  coordinates: number[][];
+  point_count: number;
+  parser_version: string;
+  warnings: string[];
+};
 
-  const parse_text = fullText;
-  const origin_text = extractOrigin(fullText);
-  const destination_text = extractDestination(fullText);
-
-  const rows = extractTurnTableBlock(fullText)
-    .filter((line) => {
-      const norm = normalizeCommonOcrTypos(line).replace(/\bTurn\s+leit\b/gi, "Turn left");
-      return (
-        isTableRowStart(norm) &&
-        /\b(Turn|Continue|Merge|Take|Bear|Arrive at destination|DETOUR)\b/i.test(norm)
-      );
-    });
-
-  const steps: ParsedStep[] = [];
-  const segments: SegmentOut[] = [];
+async function handlePermitId(permitId: string): Promise<TxprosResult> {
   const warnings: string[] = [];
-
-  let cumulative = 0;
-
-  const origin_structured = origin_text ? parseOriginStructured(origin_text) : null;
-  if (origin_structured) {
-    warnings.push(...collectOriginWarnings(origin_structured));
-  }
-
-  if (origin_text) {
-    const structuredQ = origin_structured ? structuredOriginQueries(origin_structured) : [];
-    const originRoad = findRoadToken(origin_text);
-    segments.push({
-      label: "Origin",
-      text: origin_text.slice(0, 64),
-      displayText: `Start · ${origin_text}`,
-      queries: dedupeStrings([
-        ...structuredQ,
-        ...(originRoad ? [`${originRoad} Texas`] : []),
-        `${origin_text} Texas`,
-        `${origin_text} TX`,
-      ]),
-    });
-  }
-
-  for (const row of rows) {
-    const { step, cumulativeAfter, odometerWarn } = buildStepFromRow(row, cumulative);
-    if (odometerWarn) warnings.push(odometerWarn);
-    cumulative = cumulativeAfter;
-    steps.push(step);
-    segments.push(...stepToSegments(step));
-  }
-
-  if (destination_text) {
-    const destinationRoad = findRoadToken(destination_text);
-    segments.push({
-      label: "Destination",
-      text: destination_text.slice(0, 64),
-      displayText: `End · ${destination_text}`,
-      queries: dedupeStrings([
-        ...(destinationRoad ? [`${destinationRoad} Texas`] : []),
-        `${destination_text} Texas`,
-        `${destination_text} TX`,
-      ]),
-    });
-  }
-
+  const xml = await fetchRouteFromTxpros(permitId);
+  const { coordinates, pointCount } = parseRouteXml(xml);
   return {
-    parse_text,
-    permit_number,
-    origin_text,
-    destination_text,
-    parser_version: PARSER_VERSION,
-    steps,
-    segments,
-    origin_structured: origin_structured ?? null,
+    permit_id: permitId,
+    coordinates,
+    point_count: pointCount,
+    parser_version: SERVICE_VERSION,
     warnings,
   };
 }
@@ -590,35 +206,52 @@ Deno.serve(async (req) => {
   }
 
   try {
+    let permitId: string | null = null;
+
     const contentType = req.headers.get("content-type") || "";
-    let bytes: Uint8Array | null = null;
-    let filename = "permit.pdf";
 
-    if (contentType.includes("multipart/form-data")) {
+    if (contentType.includes("application/json")) {
+      const body = await req.json().catch(() => null) as Record<string, unknown> | null;
+      const raw =
+        body?.permitID ?? body?.permitId ?? body?.PermitID ?? body?.permit_id ?? "";
+      permitId = extractPermitId(String(raw));
+    }
+
+    if (!permitId && contentType.includes("multipart/form-data")) {
       const form = await req.formData();
-      const file = form.get("file");
-      if (!(file instanceof File)) return json(400, { error: "Missing file field `file`" });
-      filename = file.name || filename;
-      bytes = new Uint8Array(await file.arrayBuffer());
-    } else if (contentType.includes("application/pdf")) {
-      bytes = new Uint8Array(await req.arrayBuffer());
-    } else {
-      return json(400, { error: "Unsupported content-type" });
+      const raw =
+        form.get("permitID") ?? form.get("PermitID") ?? form.get("permitId") ?? "";
+      permitId = extractPermitId(String(raw));
     }
 
-    if (!bytes || !bytes.length) {
-      return json(400, { error: "Empty PDF payload" });
+    if (!permitId && contentType.includes("application/x-www-form-urlencoded")) {
+      const text = await req.text();
+      const params = new URLSearchParams(text);
+      const raw = params.get("permitID") || params.get("PermitID") || "";
+      permitId = extractPermitId(raw || text);
     }
 
-    const result = await parsePermit(bytes);
+    if (!permitId) {
+      return json(400, {
+        ok: false,
+        error:
+          "Send permitID: JSON {\"permitID\":\"14925257\"}, form field permitID, or x-www-form-urlencoded permitID=…. PDF upload is no longer supported on this function.",
+        parser_version: SERVICE_VERSION,
+      });
+    }
+
+    const result = await handlePermitId(permitId);
 
     return json(200, {
       ok: true,
-      filename,
       result,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return json(500, { ok: false, error: msg, parser_version: PARSER_VERSION });
+    return json(500, {
+      ok: false,
+      error: msg,
+      parser_version: SERVICE_VERSION,
+    });
   }
 });

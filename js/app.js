@@ -1,10 +1,8 @@
 /**
- * Tx permit route assistant
- * PDF.js → heuristic segments → Mapbox Geocoding → Mapbox Map Matching (snap) → Directions/OSRM fallback.
- * Permit text is messy; waypoints are guesses — the line cannot equal TxPROS legal corridor.
+ * Tx permit route assistant — official route polyline from TXPROS (Permit ID / QR), Mapbox map.
+ * Optional Supabase Edge Function proxies TXPROS server-side (browser CORS). PDF upload is disabled.
  *
- * Loaded via pdf.min.js (global pdfjsLib) — not ES modules — so script runs when opened
- * from file:// or without module support.
+ * pdfjsLib is still loaded when present for legacy helpers — not ES modules.
  */
 
 /* global pdfjsLib */
@@ -12,8 +10,6 @@ var pdfjsLibRef = typeof window !== "undefined" ? window.pdfjsLib : undefined;
 
 const PDF_WORKER_SRC =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-
-const MAX_BYTES = 15 * 1024 * 1024;
 /** Texas bbox for Photon bias: minLon, minLat, maxLon, maxLat */
 /** Mapbox Geocoding bbox: minLon, minLat, maxLon, maxLat (Texas) */
 const MAPBOX_TX_BBOX = "-106.65,25.84,-93.51,36.5";
@@ -35,99 +31,8 @@ function hasSupabaseParserConfig() {
 }
 
 function supabaseParserConfigNote() {
-  if (!hasSupabaseParserConfig()) return "Supabase parser config: missing";
-  return "Supabase parser config: loaded (" + window.SUPABASE_PARSE_FUNCTION + ")";
-}
-
-function readSupabaseParsedSegments(obj) {
-  const segs = Array.isArray(obj?.segments)
-    ? obj.segments
-    : Array.isArray(obj?.route_segments)
-      ? obj.route_segments
-      : [];
-  return segs
-    .map(function (s) {
-      const text = (s.text || s.road || s.route || "").toString().trim();
-      const displayText = (s.displayText || s.display_text || text).toString().trim();
-      if (!text && !displayText) return null;
-      const legRaw =
-        s.leg_miles_to_next ??
-        s.legMilesToNext ??
-        s.leg_miles ??
-        null;
-      const cumRaw =
-        s.cumulative_permit_mi ??
-        s.cumulativePermitMi ??
-        s.permit_odometer_mi ??
-        s.permitOdometerMi ??
-        null;
-      const leg =
-        legRaw != null && legRaw !== "" && !isNaN(Number(legRaw)) ? Number(legRaw) : null;
-      const cumulative =
-        cumRaw != null && cumRaw !== "" && !isNaN(Number(cumRaw)) ? Number(cumRaw) : null;
-      const row = {
-        label: s.label || "Route",
-        text: text || displayText.slice(0, 48),
-        displayText: displayText || text,
-        queries: Array.isArray(s.queries) ? s.queries : [],
-      };
-      if (leg != null) row.legMilesToNext = leg;
-      if (cumulative != null) row.cumulativePermitMi = cumulative;
-      return row;
-    })
-    .filter(Boolean);
-}
-
-async function parsePermitViaSupabase(file) {
-  if (!hasSupabaseParserConfig()) return null;
-  const fnUrl =
-    String(window.SUPABASE_URL).replace(/\/+$/, "") +
-    "/functions/v1/" +
-    encodeURIComponent(String(window.SUPABASE_PARSE_FUNCTION));
-  const fd = new FormData();
-  fd.append("file", file, file.name || "permit.pdf");
-  const key = String(window.SUPABASE_ANON_KEY || "");
-  const headers = {
-    apikey: key,
-    Authorization: "Bearer " + key,
-  };
-  let res;
-  try {
-    res = await fetch(fnUrl, {
-      method: "POST",
-      headers: headers,
-      body: fd,
-    });
-  } catch (err) {
-    const why = err && err.message ? String(err.message) : "Network/CORS error";
-    throw new Error(
-      "Supabase parser request failed (" +
-        why +
-        "). Check function URL, deployment, and CORS on " +
-        fnUrl
-    );
-  }
-  if (!res.ok) {
-    const t = await res.text().catch(function () {
-      return "";
-    });
-    throw new Error("Supabase parser failed: " + (t || res.status));
-  }
-  const payload = await res.json();
-  const out = payload?.result || payload || {};
-  const parseText =
-    out.parse_text ||
-    out.route_text_clean ||
-    out.routeTextClean ||
-    out.extracted_text ||
-    "";
-  const segments = readSupabaseParsedSegments(out);
-  return {
-    parseText: parseText,
-    segments: segments,
-    permitNumber: out.permit_number || out.permitNumber || null,
-    parserVersion: out.parser_version || out.parserVersion || null,
-  };
+  if (!hasSupabaseParserConfig()) return "Supabase TXPROS proxy: not configured";
+  return "Supabase TXPROS proxy: " + window.SUPABASE_PARSE_FUNCTION;
 }
 
 /** TXPROS official route breadcrumbs (PermitDetails QR / map). */
@@ -268,13 +173,57 @@ function parseTxprosRouteXmlResponse(xmlText) {
 }
 
 /**
- * POST to TXPROS RouteService; tries url-encoded and FormData parameter names.
- * May fail from the browser due to CORS — then use a same-origin proxy.
+ * POST JSON { permitID } to Supabase Edge Function (txpros proxy); returns coordinates [lng,lat][].
+ */
+async function fetchTxprosRouteViaSupabase(permitId) {
+  const fnUrl =
+    String(window.SUPABASE_URL).replace(/\/+$/, "") +
+    "/functions/v1/" +
+    encodeURIComponent(String(window.SUPABASE_PARSE_FUNCTION));
+  const key = String(window.SUPABASE_ANON_KEY || "");
+  const res = await fetch(fnUrl, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: "Bearer " + key,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ permitID: permitId }),
+  });
+  const t = await res.text();
+  let payload;
+  try {
+    payload = JSON.parse(t);
+  } catch (_) {
+    throw new Error(
+      "Supabase TXPROS proxy returned non-JSON (" + res.status + "): " + (t || "").slice(0, 160)
+    );
+  }
+  if (!res.ok || !payload.ok) {
+    throw new Error(payload.error || "Supabase TXPROS proxy failed (" + res.status + ").");
+  }
+  const r = payload.result;
+  if (!r || !Array.isArray(r.coordinates) || r.coordinates.length < 2) {
+    throw new Error("Supabase response missing coordinates array.");
+  }
+  return {
+    coordinates: r.coordinates,
+    pointCount: r.point_count || r.coordinates.length,
+    rawJson: null,
+  };
+}
+
+/**
+ * Official route: prefer Supabase proxy (same origin to browser); else direct TXPROS (usually CORS-blocked).
  */
 async function fetchTxprosRoute(permitId) {
   const id = extractTxprosPermitId(permitId);
   if (!id) {
     throw new Error("Need a numeric Permit ID or a txpros.txdmv.gov link with PermitID=…. ");
+  }
+
+  if (hasSupabaseParserConfig()) {
+    return await fetchTxprosRouteViaSupabase(id);
   }
 
   const url = TXPROS_ROUTE_SERVICE_URL;
@@ -2754,173 +2703,19 @@ function main() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    runGeneration += 1;
-    const myRun = runGeneration;
-
     if (file.type !== "application/pdf") {
       statusEl.textContent = "Please choose a PDF file.";
       return;
     }
-    if (file.size > MAX_BYTES) {
-      statusEl.textContent = "File is too large (max 15 MB for this demo).";
-      return;
+
+    statusEl.textContent =
+      "PDF route parsing is disabled. Use “Import TXPROS permit” with your QR or Permit ID — Supabase loads official breadcrumbs.";
+    if (confidence) {
+      confidence.textContent = hasSupabaseParserConfig()
+        ? "Supabase · " + window.SUPABASE_PARSE_FUNCTION + " = TXPROS proxy"
+        : "Add js/supabase-config.js for the TXPROS proxy.";
     }
-
-    if (!hasSupabaseParserConfig()) {
-      statusEl.textContent = "Parser not configured. Connect Supabase parser settings.";
-      confidence.textContent = "Supabase parser required";
-      return;
-    }
-
-    statusEl.textContent = "Uploading to parser…";
-    showRouteProgress("");
-    if (txprosScanner) {
-      const sc = txprosScanner;
-      txprosScanner = null;
-      void sc
-        .stop()
-        .catch(function () {})
-        .then(function () {
-          try {
-            if (typeof sc.clear === "function") sc.clear();
-          } catch (_) {}
-        });
-      if (txprosQrRegion) txprosQrRegion.classList.add("is-hidden");
-      if (txprosStopScanBtn) txprosStopScanBtn.disabled = true;
-    }
-    rawPanel.textContent = "";
-    hintsList.innerHTML = "";
-    metaPanel.textContent = "";
-    verifyCb.checked = false;
-    updateVerifyState();
-    clearRouteOverlay();
-    showMapNotice("");
-    routeSession = null;
-    if (recalcBtn) recalcBtn.disabled = true;
-    updateDownloadGeoBtn();
-
-    try {
-      let parseText = "";
-      let serverHints = [];
-      let serverPermitNo = null;
-      let parserVersion = null;
-
-      const remote = await parsePermitViaSupabase(file);
-      if (myRun !== runGeneration) return;
-      if (remote) {
-        parseText = (remote.parseText || "").trim();
-        serverHints = Array.isArray(remote.segments) ? remote.segments : [];
-        serverPermitNo = remote.permitNumber || null;
-        parserVersion = remote.parserVersion || null;
-      }
-
-      if (!parseText && !serverHints.length) {
-        throw new Error("Parser failed: Supabase returned no route output.");
-      }
-
-      if (!parseText || parseText.length < 40) {
-        confidence.textContent = "Low text (scan/OCR?)";
-        statusEl.textContent = "Weak text";
-      } else if (serverHints.length || parserVersion) {
-        confidence.textContent = "Supabase parser" + (parserVersion ? " · " + parserVersion : "");
-        statusEl.textContent = "Geocoding…";
-      } else {
-        confidence.textContent = "Supabase parser";
-        statusEl.textContent = "Geocoding…";
-      }
-
-      rawPanel.textContent = parseText || "(no text returned)";
-
-      const structuredStops = parseStructuredWaypoints(parseText);
-      const hints = serverHints.length
-        ? serverHints
-        : structuredStops.length > 0
-            ? structuredStops.map(function (s) {
-                return {
-                  label: s.label,
-                  text: s.text,
-                  displayText: s.displayText,
-                  queries: s.queries,
-                };
-              })
-            : extractRouteHints(parseText).map(function (h) {
-                return { ...h, displayText: h.text };
-              });
-      const parsingMode =
-        structuredStops.length > 0
-          ? "structured (road + direction + miles)"
-          : "regex (highway tokens only)";
-      const meta = { permitNumber: serverPermitNo };
-
-      metaPanel.innerHTML = [
-        `<p><strong>Parse from:</strong> Supabase Edge Function</p>`,
-        `<p><strong>Turn-by-turn table:</strong> ${
-          serverHints.length ? "provided by Supabase parser" : "not returned"
-        }</p>`,
-        `<p><strong>Waypoints:</strong> ${escapeHtml(parsingMode)}</p>`,
-        meta.permitNumber
-          ? `<p><strong>Guess permit ref:</strong> ${escapeHtml(meta.permitNumber)} <span class="badge">unverified</span></p>`
-          : `<p><strong>Permit ID:</strong> not detected automatically.</p>`,
-        `<p><strong>Parse text chars:</strong> ${parseText.length}</p>`,
-        `<p><strong>Segments:</strong> ${hints.length}</p>`,
-      ].join("");
-
-      if (hints.length === 0) {
-        hintsList.innerHTML = '<li class="muted">No highway-style tokens found.</li>';
-        statusEl.textContent = "No route tokens to geocode.";
-        showRouteProgress("");
-        setExportLinks([], []);
-        updateVerifyState();
-        updateDownloadGeoBtn();
-        return;
-      }
-
-      const { coords, enriched, geometry, aborted, routeProvider } = await geocodeAndRoute(
-        hints,
-        myRun
-      );
-      if (aborted || myRun !== runGeneration) return;
-
-      routeSession = {
-        hints: hints.map(function (x) {
-          return { ...x };
-        }),
-        enriched: enriched.map(function (x) {
-          return { ...x };
-        }),
-        geometry: geometry || null,
-        routeProvider: routeProvider || null,
-        isTxprosOfficial: false,
-      };
-      if (recalcBtn) recalcBtn.disabled = coords.length < 2;
-      updateDownloadGeoBtn();
-
-      renderHintList(enriched);
-      drawMap(enriched, geometry);
-
-      const sampledForLinks =
-        coords.length > SAMPLE_COORDS_CAP ? sampleEvenly(coords, SAMPLE_COORDS_CAP) : coords;
-      setExportLinks(sampledForLinks.length >= 2 ? sampledForLinks : coords, hints);
-
-      const routeNote = formatRouteProviderNote(routeProvider);
-
-      if (coords.length >= 2 && geometry) {
-        showRouteProgress(`Done (${routeNote}). ${coords.length} pts`);
-        statusEl.textContent = "OK";
-      } else if (coords.length >= 2 && !geometry) {
-        showRouteProgress("Routing failed.");
-        statusEl.textContent = "Markers only";
-      } else {
-        statusEl.textContent = "Done";
-      }
-
-      updateVerifyState();
-    } catch (err) {
-      console.error(err);
-      statusEl.textContent = "Parser failed.";
-      confidence.textContent = String(err?.message || err || "Supabase parser failed");
-      showRouteProgress("");
-    }
+    e.target.value = "";
   });
 }
 
@@ -2947,7 +2742,7 @@ function initApp() {
   if (!hasSupabaseParserConfig()) {
     if (bootStatus) {
       bootStatus.textContent =
-        "PDF parser: set js/supabase-config.js. TXPROS link/QR import works without Supabase.";
+        "Add js/supabase-config.js for the Supabase TXPROS route proxy (recommended; direct TXPROS is often CORS-blocked in the browser).";
     }
   } else if (bootStatus && !bootStatus.textContent) {
     bootStatus.textContent = supabaseParserConfigNote();
