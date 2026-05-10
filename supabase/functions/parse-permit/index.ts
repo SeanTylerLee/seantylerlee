@@ -1,53 +1,13 @@
 /**
  * Supabase Edge Function: TXPROS official route for Mapbox.
  *
- * 1. Tries direct calls from this Edge (session + GetLatLon JSON + legacy body XML) — fast when TxDMV allows it.
- * 2. Browserless `/function`: applies cookies parsed from Edge Set-Cookie (incl. HttpOnly), allow-lists
- *    TxPROS + maps.googleapis.com + promiles.com (blocking those caused hangs to 408). Must navigate to the
- *    permit URL before same-origin fetch. v1.4.3: `commit` navigation first (fast), optional
- *    `domcontentloaded` fallback; API fetch budget is *remaining session time* after navigation (not a fixed
- *    worst-case nav), with a teardown reserve so 60s plans finish inside the cap; interception is opt-in via
- *    BROWSERLESS_BLOCK_TXPROS_MEDIA.
+ * Direct calls from Edge: session cookie + GetLatLon JSON + legacy GetLatLonForPermitBody XML.
+ * If TxDMV blocks datacenter IPs, the website loads the same endpoints from the visitor’s browser.
  *
  * Clients POST { permitID } with Supabase anon key. No PDF parsing.
  */
 
-const SERVICE_VERSION = "txpros-proxy-v1.4.3";
-
-/** Hosted browser API — https://www.browserless.io/ — set BROWSERLESS_TOKEN on this function. */
-const BROWSERLESS_TOKEN = Deno.env.get("BROWSERLESS_TOKEN") || "";
-const BROWSERLESS_URL =
-  (Deno.env.get("BROWSERLESS_URL") || "https://production-sfo.browserless.io").replace(/\/+$/, "");
-
-/**
- * Max duration (ms) for the entire Browserless `/function` run (query param `timeout`).
- * Starter plans often allow at most 60000 ms — larger values get HTTP 400 before any navigation.
- */
-function browserlessSessionTimeoutMs(): number {
-  const raw = parseInt(Deno.env.get("BROWSERLESS_SESSION_TIMEOUT_MS") || "60000", 10);
-  if (!Number.isFinite(raw) || raw < 1000) return 60000;
-  return Math.min(raw, 86_400_000);
-}
-
-/** Upper bound for a single page.goto inside Browserless (leave headroom for evaluate + worker overhead vs session cap). */
-function browserlessNavTimeoutMs(): number {
-  return Math.max(8000, browserlessSessionTimeoutMs() - 14_000);
-}
-
-function browserlessFunctionEndpoint(): string {
-  const qs = new URLSearchParams();
-  qs.set("token", BROWSERLESS_TOKEN);
-  qs.set("timeout", String(browserlessSessionTimeoutMs()));
-  const preset = (Deno.env.get("BROWSERLESS_PROXY_PRESET") || "").trim();
-  if (preset) qs.set("proxyPreset", preset);
-  if (Deno.env.get("BROWSERLESS_BLOCK_ADS") === "1" || Deno.env.get("BROWSERLESS_BLOCK_ADS") === "true") {
-    qs.set("blockAds", "true");
-  }
-  if (Deno.env.get("BROWSERLESS_STEALTH") === "1" || Deno.env.get("BROWSERLESS_STEALTH") === "true") {
-    qs.set("stealth", "true");
-  }
-  return `${BROWSERLESS_URL}/function?${qs}`;
-}
+const SERVICE_VERSION = "txpros-proxy-v1.5.0";
 
 /** Legacy HTTP POST target (often returns Error.aspx; kept as fallback). */
 const TXPROS_ROUTE_BODY_URL =
@@ -174,61 +134,22 @@ function cookieHeaderFromSetCookie(res: Response): string | null {
   return single.split(/,(?=[^;]+?=)/).map((p) => p.split(";")[0].trim()).join("; ");
 }
 
-/** Puppeteer/Browserless `page.setCookie` entries — derived from raw Set-Cookie (HttpOnly, Secure, etc.). */
-type BrowserlessCookieJar = Record<string, string | boolean | undefined>[];
-
-function cookiesForBrowserlessFromResponse(res: Response): BrowserlessCookieJar {
-  const any = res.headers as Headers & { getSetCookie?: () => string[] };
-  const lines = typeof any.getSetCookie === "function" ? any.getSetCookie() : [];
-  const out: BrowserlessCookieJar = [];
-  for (const line of lines) {
-    const segments = line.split(";").map((s) => s.trim()).filter(Boolean);
-    if (!segments.length) continue;
-    const nv = segments[0];
-    const eq = nv.indexOf("=");
-    if (eq < 1) continue;
-    const name = nv.slice(0, eq).trim();
-    const value = nv.slice(eq + 1).trim();
-    if (!name) continue;
-    let domain = "txpros.txdmv.gov";
-    let path = "/";
-    let secure = true;
-    let httpOnly = false;
-    let sameSite: string | undefined;
-    for (let i = 1; i < segments.length; i++) {
-      const p = segments[i];
-      const low = p.toLowerCase();
-      if (low.startsWith("domain=")) {
-        domain = p.slice(7).trim().replace(/^\./, "");
-      } else if (low.startsWith("path=")) {
-        path = p.slice(5).trim();
-      } else if (low === "secure") {
-        secure = true;
-      } else if (low === "httponly") {
-        httpOnly = true;
-      } else if (low.startsWith("samesite=")) {
-        const v = p.slice(9).trim();
-        if (v === "Strict" || v === "Lax" || v === "None") sameSite = v;
-      }
-    }
-    const c: Record<string, string | boolean | undefined> = {
-      name,
-      value,
-      domain,
-      path,
-      secure,
-      httpOnly,
-    };
-    if (sameSite) c.sameSite = sameSite;
-    out.push(c);
-  }
-  return out;
-}
-
 type TxprosPrimedSession = {
   cookieHeader: string | null;
-  puppetCookies: BrowserlessCookieJar;
 };
+
+/** Build Cookie header for follow-up TXPROS requests from Set-Cookie on the permit page. */
+function cookieHeaderForTxprosFollowUp(res: Response): string | null {
+  const any = res.headers as Headers & { getSetCookie?: () => string[] };
+  const lines = typeof any.getSetCookie === "function" ? any.getSetCookie() : [];
+  if (lines.length) {
+    return lines
+      .map((line) => line.split(";")[0].trim())
+      .filter(Boolean)
+      .join("; ");
+  }
+  return cookieHeaderFromSetCookie(res);
+}
 
 /** Load public permit details — sets ASP.NET session the same as opening the permit URL. */
 async function establishTxprosSession(permitId: string): Promise<TxprosPrimedSession> {
@@ -242,13 +163,9 @@ async function establishTxprosSession(permitId: string): Promise<TxprosPrimedSes
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       }),
     });
-    const puppetCookies = cookiesForBrowserlessFromResponse(res);
-    const cookieHeader = puppetCookies.length
-      ? puppetCookies.map((c) => `${String(c.name)}=${String(c.value)}`).join("; ")
-      : cookieHeaderFromSetCookie(res);
-    return { cookieHeader, puppetCookies };
+    return { cookieHeader: cookieHeaderForTxprosFollowUp(res) };
   } catch {
-    return { cookieHeader: null, puppetCookies: [] };
+    return { cookieHeader: null };
   }
 }
 
@@ -483,355 +400,12 @@ async function fetchRouteXmlFromBody(
   throw lastErr || new Error("Could not reach TXPROS RouteService.");
 }
 
-/** Runs in Browserless Node/Puppeteer worker — sent as JSON `code` to their REST API. */
-const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) => {
-  const permitId = context.permitId;
-  const cookieHeader = context.cookieHeader != null ? String(context.cookieHeader) : "";
-  const fromEdge = Array.isArray(context.puppetCookies) ? context.puppetCookies : [];
-  const blockMedia = context.blockMedia === true;
-  const sessionMs =
-    typeof context.sessionTimeoutMs === "number" && context.sessionTimeoutMs > 0
-      ? context.sessionTimeoutMs
-      : 60000;
-  const navTimeout =
-    typeof context.navTimeoutMs === "number" && context.navTimeoutMs > 0
-      ? context.navTimeoutMs
-      : Math.max(8000, sessionMs - 14000);
-
-  const commitMs = Math.min(12000, navTimeout);
-  const fallbackMs = Math.min(18000, Math.max(5000, navTimeout - commitMs));
-  // Reserve wall-clock for worker teardown so the run stays inside the Browserless session timeout.
-  const teardownReserveMs = Math.min(15000, Math.max(8000, Math.floor(sessionMs * 0.18)));
-
-  if (!permitId) {
-    return { data: { error: "missing_permitId" }, type: "application/json" };
-  }
-
-  const permitUrl =
-    "https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=" + encodeURIComponent(String(permitId));
-
-  function allowUrl(u) {
-    if (!u.startsWith("http")) return true;
-    try {
-      const h = new URL(u).hostname;
-      if (h === "txpros.txdmv.gov" || h.endsWith(".txdmv.gov")) return true;
-      if (h === "maps.googleapis.com" || h.endsWith(".googleapis.com")) return true;
-      if (h === "www.gstatic.com" || h.endsWith(".gstatic.com")) return true;
-      if (h.endsWith("promiles.com")) return true;
-      return false;
-    } catch (_) {
-      return true;
-    }
-  }
-
-  async function installMediaBlocker() {
-    await page.setRequestInterception(true);
-    page.on("request", (req) => {
-      const u = req.url();
-      if (!u.startsWith("http")) {
-        try {
-          req.continue();
-        } catch (_) {}
-        return;
-      }
-      if (!allowUrl(u)) {
-        try {
-          req.abort();
-        } catch (_) {}
-        return;
-      }
-      let host = "";
-      try {
-        host = new URL(u).hostname;
-      } catch (_) {
-        try {
-          req.continue();
-        } catch (_) {}
-        return;
-      }
-      const onTxpros = host === "txpros.txdmv.gov" || host.endsWith(".txdmv.gov");
-      const rt = req.resourceType();
-      if (onTxpros && (rt === "image" || rt === "font" || rt === "media")) {
-        try {
-          req.abort();
-        } catch (_) {}
-      } else {
-        try {
-          req.continue();
-        } catch (_) {}
-      }
-    });
-  }
-
-  try {
-    const sessionStarted = Date.now();
-    let hasPrimedCookies = false;
-    try {
-      if (fromEdge.length > 0) {
-        await page.setCookie(...fromEdge);
-        hasPrimedCookies = true;
-      }
-    } catch (_) {}
-    if (!hasPrimedCookies && cookieHeader.trim().length > 0) {
-      const legacy = [];
-      for (const segment of cookieHeader.split(";")) {
-        const seg = segment.trim();
-        const eq = seg.indexOf("=");
-        if (eq < 1) continue;
-        const name = seg.slice(0, eq).trim();
-        const value = seg.slice(eq + 1).trim();
-        if (!name) continue;
-        legacy.push({
-          name,
-          value,
-          domain: "txpros.txdmv.gov",
-          path: "/",
-          secure: true,
-        });
-      }
-      if (legacy.length) {
-        try {
-          await page.setCookie(...legacy);
-          hasPrimedCookies = true;
-        } catch (_) {}
-      }
-    }
-
-    if (blockMedia) {
-      await installMediaBlocker();
-    }
-
-    try {
-      await page.goto(permitUrl, { waitUntil: "commit", timeout: commitMs });
-    } catch (_) {
-      try {
-        await page.goto(permitUrl, {
-          waitUntil: "domcontentloaded",
-          timeout: fallbackMs,
-        });
-      } catch (navErr) {
-        const nm = navErr && navErr.message ? String(navErr.message) : String(navErr);
-        return {
-          data: { status: 0, body: "navigation_failed:" + nm },
-          type: "application/json",
-        };
-      }
-    }
-
-    const elapsedBeforeFetch = Date.now() - sessionStarted;
-    const fetchBudgetMs = Math.min(
-      18000,
-      Math.max(6000, sessionMs - elapsedBeforeFetch - teardownReserveMs),
-    );
-
-    await new Promise((r) => setTimeout(r, hasPrimedCookies ? 80 : 120));
-
-    const result = await page.evaluate(
-      async (pid, ms) => {
-        try {
-          const ac = new AbortController();
-          const timer = setTimeout(function () {
-            ac.abort();
-          }, ms);
-          try {
-            const r = await fetch(
-              "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit",
-              {
-                method: "POST",
-                credentials: "include",
-                signal: ac.signal,
-                headers: {
-                  "Content-Type": "application/json; charset=UTF-8",
-                  Accept: "application/json, text/javascript, */*;q=0.01",
-                  "X-Requested-With": "XMLHttpRequest",
-                  Referer: window.location.href,
-                },
-                body: JSON.stringify({
-                  PermitID: parseInt(String(pid), 10),
-                  UseHistoryDB: false,
-                  AuditPermitID: -1,
-                }),
-              }
-            );
-            const text = await r.text();
-            return { status: r.status, body: text.length > 600000 ? text.slice(0, 600000) : text };
-          } finally {
-            clearTimeout(timer);
-          }
-        } catch (e) {
-          const m = e && e.message ? String(e.message) : String(e);
-          return { status: 0, body: "fetch_exception:" + m };
-        }
-      },
-      permitId,
-      fetchBudgetMs,
-    );
-
-    return { data: result, type: "application/json" };
-  } catch (err) {
-    const msg = err && err.message ? String(err.message) : String(err);
-    return { data: { error: "browserless_exception", message: msg }, type: "application/json" };
-  }
-}`;
-
-function clip(s: string, n: number): string {
-  const t = s.replace(/\s+/g, " ").trim();
-  return t.length <= n ? t : t.slice(0, n) + "…";
-}
-
-/** null = Browserless not configured; ok false = ran but no coordinates; ok true = success */
-type BrowserlessRouteAttempt =
-  | null
-  | { ok: true; coordinates: number[][]; pointCount: number }
-  | { ok: false; detail: string };
-
-function normalizeBrowserlessDataNode(data: Record<string, unknown>): Record<string, unknown> {
-  const inner = data.data;
-  if (inner && typeof inner === "object" && !Array.isArray(inner)) {
-    const o = inner as Record<string, unknown>;
-    if (typeof o.status === "number" && typeof o.body === "string") {
-      return o;
-    }
-  }
-  return data;
-}
-
-function browserlessBlockTxprosMedia(): boolean {
-  const v = Deno.env.get("BROWSERLESS_BLOCK_TXPROS_MEDIA");
-  return v === "1" || v === "true";
-}
-
-async function fetchRouteViaBrowserless(
-  permitId: string,
-  primedCookieHeader: string | null,
-  puppetCookies: BrowserlessCookieJar,
-): Promise<BrowserlessRouteAttempt> {
-  if (!BROWSERLESS_TOKEN) return null;
-  /** Edge HTTP client waits slightly longer than the Browserless `timeout` query param (startup + response transfer). */
-  const edgeClientTimeoutMs = browserlessSessionTimeoutMs() + 25_000;
-  try {
-    const res = await fetch(browserlessFunctionEndpoint(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(edgeClientTimeoutMs),
-      body: JSON.stringify({
-        code: BROWSERLESS_TXPROS_FUNCTION,
-        context: {
-          permitId,
-          sessionTimeoutMs: browserlessSessionTimeoutMs(),
-          navTimeoutMs: browserlessNavTimeoutMs(),
-          cookieHeader: primedCookieHeader && primedCookieHeader.trim() ? primedCookieHeader : "",
-          puppetCookies: puppetCookies.length ? puppetCookies : [],
-          blockMedia: browserlessBlockTxprosMedia(),
-        },
-      }),
-    });
-    const text = await res.text();
-    if (!res.ok) {
-      return {
-        ok: false,
-        detail: `Browserless HTTP ${res.status}: ${clip(text, 400)}`,
-      };
-    }
-    let payload: Record<string, unknown>;
-    try {
-      payload = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      return {
-        ok: false,
-        detail: `Browserless response not JSON: ${clip(text, 400)}`,
-      };
-    }
-    let data = payload.data as Record<string, unknown> | undefined;
-    if (!data || typeof data !== "object") {
-      return {
-        ok: false,
-        detail: `Browserless payload missing data: ${clip(text, 400)}`,
-      };
-    }
-    data = normalizeBrowserlessDataNode(data);
-
-    if ("error" in data && data.error != null) {
-      const msg = data.message != null ? String(data.message) : "";
-      return {
-        ok: false,
-        detail: `Browserless worker: ${String(data.error)}${msg ? ` (${msg})` : ""}`,
-      };
-    }
-
-    const status = data.status;
-    const body = data.body;
-    if (typeof status !== "number" || typeof body !== "string") {
-      return {
-        ok: false,
-        detail: `Browserless worker returned unexpected shape: ${clip(JSON.stringify(data), 500)}`,
-      };
-    }
-    if (status === 0) {
-      return {
-        ok: false,
-        detail: `In-page fetch to TxPROS did not complete: ${clip(body, 400)}`,
-      };
-    }
-    if (status !== 200) {
-      return {
-        ok: false,
-        detail: `TxPROS GetLatLon HTTP ${status} from browser: ${clip(body, 320)}`,
-      };
-    }
-
-    const parsed = parseCoordsFromJsonResponse(body);
-    if (!parsed) {
-      return {
-        ok: false,
-        detail: `Could not parse route JSON from browser (invalid permit or empty route): ${clip(body, 320)}`,
-      };
-    }
-    return { ok: true, ...parsed };
-  } catch (e) {
-    if (
-      e instanceof DOMException &&
-      (e.name === "TimeoutError" || e.name === "AbortError")
-    ) {
-      return {
-        ok: false,
-        detail:
-          `Edge waited ${edgeClientTimeoutMs} ms for Browserless (no HTTP response in time). ` +
-          "If Browserless returns HTTP 408, your worker exceeded the session `timeout` plan cap — lower navigation cost (do not block Maps/ProMiles), try BROWSERLESS_PROXY_PRESET=px_gov01, or raise the cap on your Browserless tier.",
-      };
-    }
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, detail: `Browserless fetch error: ${msg}` };
-  }
-}
-
-function isLikelyBrowserlessTimeout(detail: string): boolean {
-  return /\b408\b|Request timed out|request timed out|session.*timed|ETIMEDOUT/i.test(detail);
-}
-
-function augmentBrowserlessFailureDetail(detail: string): string {
-  if (/Timeout must be an integer/i.test(detail)) {
-    return (
-      detail +
-      " Many Browserless plans cap `timeout` at 60000 ms; remove BROWSERLESS_SESSION_TIMEOUT_MS or set it ≤ your plan max (see Browserless dashboard)."
-    );
-  }
-  if (isLikelyBrowserlessTimeout(detail)) {
-    return (
-      `${detail} ` +
-      "HTTP 408: Browserless session expired before the script finished. v1.4.3 sizes the in-page fetch from *remaining* session time after navigation (plus a teardown reserve); interception off by default. " +
-      "Optional: BROWSERLESS_STEALTH=true, BROWSERLESS_PROXY_PRESET=px_gov01 (if your plan supports it), or raise BROWSERLESS_SESSION_TIMEOUT_MS within plan limits."
-    );
-  }
-  return detail;
-}
-
 async function fetchRouteFromTxpros(permitId: string): Promise<{
   coordinates: number[][];
   pointCount: number;
-  via: "browserless" | "json" | "body_xml";
+  via: "json" | "body_xml";
 }> {
-  const { cookieHeader: sessionCookie, puppetCookies } = await establishTxprosSession(permitId);
+  const { cookieHeader: sessionCookie } = await establishTxprosSession(permitId);
 
   const jsonResult = await tryFetchJsonLatLon(permitId, sessionCookie);
   if (jsonResult) {
@@ -847,34 +421,12 @@ async function fetchRouteFromTxpros(permitId: string): Promise<{
     lastError = e instanceof Error ? e : new Error(String(e));
   }
 
-  let blAttempt: BrowserlessRouteAttempt = null;
-  if (BROWSERLESS_TOKEN) {
-    blAttempt = await fetchRouteViaBrowserless(permitId, sessionCookie, puppetCookies);
-    if (blAttempt?.ok) {
-      const { coordinates, pointCount } = blAttempt;
-      return { coordinates, pointCount, via: "browserless" };
-    }
-  }
-
   if (lastError?.message === "txpros_html_error") {
-    const rawDetail = blAttempt && !blAttempt.ok ? blAttempt.detail : "";
-    const blDetail = rawDetail ? augmentBrowserlessFailureDetail(rawDetail) : "";
-    const timeoutOrPlanIssue =
-      /Timeout must be an integer/i.test(blDetail || rawDetail) ||
-      isLikelyBrowserlessTimeout(blDetail || rawDetail);
-    const permitHint = timeoutOrPlanIssue
-      ? "If the permit opens in your browser, the ID is probably fine — focus on Browserless time/plan limits above."
-      : "Use the Permit ID from the QR link (?PermitID=…) — same label as on the printed permit (not the permit number when they differ). If that TxPROS URL fails in a normal browser, the ID is wrong.";
-    const hint = BROWSERLESS_TOKEN
-      ? (blDetail
-        ? `Direct TXPROS from Edge failed; Browserless: ${blDetail}`
-        : "Direct TXPROS failed; Browserless did not return a route. Check BROWSERLESS_URL, quota, redeploy parse-permit.")
-      : "TxDMV often blocks server-side calls. Add Edge Function secret BROWSERLESS_TOKEN (Browserless.io), optionally BROWSERLESS_URL (default https://production-sfo.browserless.io), redeploy parse-permit.";
     throw new Error(
       [
         `Could not load TXPROS route for permit ${permitId}.`,
-        permitHint,
-        hint,
+        "TxDMV returned an error page to the Edge proxy (often a datacenter block or session gate).",
+        "Use the Permit ID from the QR link (?PermitID=…). If that URL works in your browser, use Load route on the site — it calls TXPROS from your device when Edge is blocked.",
       ].join(" "),
     );
   }
@@ -893,9 +445,6 @@ type TxprosResult = {
 async function handlePermitId(permitId: string): Promise<TxprosResult> {
   const warnings: string[] = [];
   const { coordinates, pointCount, via } = await fetchRouteFromTxpros(permitId);
-  if (via === "browserless") {
-    warnings.push("route_via_browserless");
-  }
   if (via === "body_xml") {
     warnings.push("route_via_legacy_GetLatLonForPermitBody");
   }

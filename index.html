@@ -26,10 +26,8 @@
       <p class="txpros-lede">
         Scan the <strong>TxDMV QR</strong> (it encodes a permit link). We read the <strong>Permit ID</strong>
         from that link—the same number labeled <strong>Permit ID</strong> on the permit (often just below
-        <strong>Permit Number</strong>). You do <em>not</em> need to open TxPROS and tap Route → Show Map:
-        our server opens the permit page and calls the same route service the site uses for the map. Uses
-        <code>parse-permit</code> on Supabase plus <a href="https://www.browserless.io/" target="_blank" rel="noopener">Browserless</a>
-        (<code>BROWSERLESS_TOKEN</code>).
+        <strong>Permit Number</strong>). The app tries Supabase Edge (<code>parse-permit</code>) first; if
+        TxDMV blocks that, it loads the same route API from <strong>your browser</strong> (hidden permit iframe + session cookies).
       </p>
       <p class="txpros-toolbar">
         <button type="button" id="txpros-scan-btn" class="btn secondary">Scan QR code</button>

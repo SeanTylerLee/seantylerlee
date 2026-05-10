@@ -1,8 +1,7 @@
 /**
  * Tx permit route assistant — official route polyline from TXPROS (Permit ID / QR), Mapbox map.
- * Optional Supabase Edge Function proxies TXPROS server-side (browser CORS). PDF upload is disabled.
- *
- * pdfjsLib is still loaded when present for legacy helpers — not ES modules.
+ * Supabase Edge (`parse-permit`) tries server-side first; if that fails, we load the same TXPROS
+ * APIs from **your browser** (avoids datacenter IP blocks; needs TxDMV CORS/cookies).
  */
 
 /* global pdfjsLib */
@@ -35,7 +34,10 @@ function supabaseParserConfigNote() {
   return "Supabase TXPROS proxy: " + window.SUPABASE_PARSE_FUNCTION;
 }
 
-/** TXPROS official route breadcrumbs (PermitDetails QR / map). */
+/** TXPROS map AJAX (JSON) — same as PermitDetails02 showMap / handleGetMapPoints. */
+const TXPROS_JSON_ROUTE_URL =
+  "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit";
+/** Legacy SOAP-style body endpoint (form POST → XML wrapping JSON). */
 const TXPROS_ROUTE_SERVICE_URL =
   "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermitBody";
 
@@ -222,6 +224,197 @@ function parseTxprosRouteXmlResponse(xmlText) {
 }
 
 /**
+ * ASP.NET AJAX wraps payload in `{ d: ... }` where `d` may be a JSON string.
+ * @param {unknown} data
+ */
+function unwrapTxprosAjaxD(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+  if (!("d" in data)) return data;
+  let inner = /** @type {{ d: unknown }} */ (data).d;
+  if (typeof inner === "string") {
+    try {
+      inner = JSON.parse(inner);
+    } catch (_) {
+      return data;
+    }
+  }
+  return inner;
+}
+
+/**
+ * @param {string} text
+ * @returns {{ coordinates: number[][], pointCount: number, rawJson: unknown } | null}
+ */
+function coordsFromTxprosJsonResponseText(text) {
+  const t = (text || "").trim();
+  if (!t.startsWith("{")) return null;
+  let data;
+  try {
+    data = JSON.parse(t);
+  } catch (_) {
+    return null;
+  }
+  const inner = unwrapTxprosAjaxD(data);
+  const pts = extractBreadcrumbsFromTxprosJson(inner);
+  if (pts.length < 2) return null;
+  return {
+    coordinates: pts.map(function (p) {
+      return [p.lon, p.lat];
+    }),
+    pointCount: pts.length,
+    rawJson: data,
+  };
+}
+
+/**
+ * Hidden iframe loads the permit page on txpros.txdmv.gov so first-party cookies exist before we
+ * POST from the parent (same flow as a user opening the QR link).
+ * @param {string} permitId
+ * @param {number} timeoutMs
+ * @returns {Promise<void>}
+ */
+function primeTxprosSessionViaIframe(permitId, timeoutMs) {
+  return new Promise(function (resolve) {
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("title", "TXPROS session");
+    iframe.setAttribute("sandbox", "allow-same-origin allow-scripts allow-forms");
+    iframe.style.cssText =
+      "position:fixed;width:1px;height:1px;left:-100px;top:-100px;opacity:0;pointer-events:none;border:0";
+    const url =
+      "https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=" +
+      encodeURIComponent(String(permitId));
+    let done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+      clearTimeout(tid);
+      try {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      } catch (_) {}
+      resolve();
+    }
+    const tid = window.setTimeout(finish, timeoutMs);
+    iframe.onload = function () {
+      window.setTimeout(finish, 380);
+    };
+    iframe.onerror = finish;
+    iframe.src = url;
+    document.body.appendChild(iframe);
+  });
+}
+
+/**
+ * Open TXPROS route endpoints from the visitor's browser (session + GetLatLon JSON / XML).
+ * @returns {Promise<{ coordinates: number[][], pointCount: number, rawJson: unknown | null }>}
+ */
+async function fetchTxprosRouteFromBrowser(permitId) {
+  const idNum = parseInt(String(permitId), 10);
+  if (!Number.isFinite(idNum)) {
+    throw new Error("Permit ID must be numeric.");
+  }
+
+  await primeTxprosSessionViaIframe(permitId, 12000);
+
+  const ref =
+    "https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=" +
+    encodeURIComponent(String(permitId));
+
+  try {
+    const res = await fetch(TXPROS_JSON_ROUTE_URL, {
+      method: "POST",
+      credentials: "include",
+      mode: "cors",
+      headers: {
+        "Content-Type": "application/json; charset=UTF-8",
+        Accept: "application/json, text/javascript, */*;q=0.01",
+        "X-Requested-With": "XMLHttpRequest",
+        Referer: ref,
+      },
+      body: JSON.stringify({
+        PermitID: idNum,
+        UseHistoryDB: false,
+        AuditPermitID: -1,
+      }),
+    });
+    const text = await res.text();
+    if (!isTxprosHtmlErrorResponse(text)) {
+      const fromJson = coordsFromTxprosJsonResponseText(text);
+      if (fromJson) {
+        return {
+          coordinates: fromJson.coordinates,
+          pointCount: fromJson.pointCount,
+          rawJson: fromJson.rawJson,
+        };
+      }
+    }
+  } catch (_) {
+    /* fall through to XML endpoint */
+  }
+
+  const url = TXPROS_ROUTE_SERVICE_URL;
+  const attempts = [];
+
+  const up1 = new URLSearchParams();
+  up1.set("permitID", String(permitId));
+  attempts.push({ body: up1, headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+
+  const up2 = new URLSearchParams();
+  up2.set("PermitID", String(permitId));
+  attempts.push({ body: up2, headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+
+  const fd = new FormData();
+  fd.append("permitID", String(permitId));
+  attempts.push({ body: fd, headers: {} });
+
+  const fd2 = new FormData();
+  fd2.append("PermitID", String(permitId));
+  attempts.push({ body: fd2, headers: {} });
+
+  let lastProblem = null;
+  for (let a = 0; a < attempts.length; a++) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        mode: "cors",
+        headers: Object.assign(
+          { Accept: "application/xml, text/xml, text/plain, */*", Referer: ref },
+          attempts[a].headers
+        ),
+        body: attempts[a].body,
+      });
+      const text = await res.text();
+      if (isTxprosHtmlErrorResponse(text)) {
+        lastProblem = new Error("txpros_error_page");
+        continue;
+      }
+      try {
+        return parseTxprosRouteXmlResponse(text);
+      } catch (parseErr) {
+        lastProblem = parseErr;
+      }
+    } catch (e) {
+      lastProblem = e;
+      const msg = e && e.message ? String(e.message) : String(e);
+      if (/NetworkError|Failed to fetch|Load failed|network/i.test(msg)) {
+        throw new Error(
+          "Browser could not reach TXPROS (CORS or network). Try opening the permit link in another tab, or use a host that TxDMV allows for cross-origin requests."
+        );
+      }
+    }
+  }
+
+  if (lastProblem && lastProblem.message === "txpros_error_page") {
+    throw new Error(
+      "TXPROS declined the route request (error page). Open the QR permit link in this tab once, confirm the map loads, then try again here."
+    );
+  }
+  throw lastProblem instanceof Error
+    ? lastProblem
+    : new Error("Could not load official route from TXPROS in the browser.");
+}
+
+/**
  * POST JSON { permitID } to Supabase Edge Function (txpros proxy); returns coordinates [lng,lat][].
  */
 async function fetchTxprosRouteViaSupabase(permitId) {
@@ -263,7 +456,7 @@ async function fetchTxprosRouteViaSupabase(permitId) {
 }
 
 /**
- * Official route: prefer Supabase proxy (same origin to browser); else direct TXPROS (usually CORS-blocked).
+ * Official route: Supabase Edge first when configured; otherwise (or if Edge fails) same TXPROS calls from this browser.
  */
 async function fetchTxprosRoute(permitId) {
   const id = extractTxprosPermitId(permitId);
@@ -272,71 +465,34 @@ async function fetchTxprosRoute(permitId) {
   }
 
   if (hasSupabaseParserConfig()) {
-    return await fetchTxprosRouteViaSupabase(id);
-  }
-
-  const url = TXPROS_ROUTE_SERVICE_URL;
-  /** @type {{ body: BodyInit | null; headers: Record<string, string> }[]} */
-  const attempts = [];
-
-  const up1 = new URLSearchParams();
-  up1.set("permitID", id);
-  attempts.push({ body: up1, headers: { "Content-Type": "application/x-www-form-urlencoded" } });
-
-  const up2 = new URLSearchParams();
-  up2.set("PermitID", id);
-  attempts.push({ body: up2, headers: { "Content-Type": "application/x-www-form-urlencoded" } });
-
-  const fd = new FormData();
-  fd.append("permitID", id);
-  attempts.push({ body: fd, headers: {} });
-
-  const fd2 = new FormData();
-  fd2.append("PermitID", id);
-  attempts.push({ body: fd2, headers: {} });
-
-  let lastProblem = null;
-  for (let a = 0; a < attempts.length; a++) {
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        credentials: "omit",
-        mode: "cors",
-        headers: Object.assign(
-          { Accept: "application/xml, text/xml, text/plain, */*" },
-          attempts[a].headers
-        ),
-        body: attempts[a].body,
-      });
-      const text = await res.text();
-      if (isTxprosHtmlErrorResponse(text)) {
-        lastProblem = new Error("txpros_error_page");
-        continue;
-      }
-      try {
-        return parseTxprosRouteXmlResponse(text);
-      } catch (parseErr) {
-        lastProblem = parseErr;
-      }
+      const r = await fetchTxprosRouteViaSupabase(id);
+      return {
+        coordinates: r.coordinates,
+        pointCount: r.pointCount,
+        rawJson: r.rawJson,
+        routeSource: "supabase",
+      };
     } catch (e) {
-      lastProblem = e;
-      const msg = e && e.message ? String(e.message) : String(e);
-      if (/NetworkError|Failed to fetch|Load failed|network/i.test(msg)) {
-        throw new Error(
-          "Browser blocked the TXPROS request (often CORS). Add a small proxy on your own origin (e.g. Supabase Edge Function) that POSTs to RouteService.asmx and returns the XML body."
-        );
-      }
+      console.warn("[TXPROS] Supabase parse-permit failed; using browser session:", e);
+      const r = await fetchTxprosRouteFromBrowser(id);
+      return {
+        coordinates: r.coordinates,
+        pointCount: r.pointCount,
+        rawJson: r.rawJson,
+        routeSource: "browser",
+        proxyNote: e && e.message ? String(e.message) : String(e),
+      };
     }
   }
 
-  if (lastProblem && lastProblem.message === "txpros_error_page") {
-    throw new Error(
-      "TXPROS declined the request (error page). The permit ID may be wrong, expired, or the service may require cookies from opening the QR page first."
-    );
-  }
-  throw lastProblem instanceof Error
-    ? lastProblem
-    : new Error("Could not load official route from TXPROS.");
+  const r = await fetchTxprosRouteFromBrowser(id);
+  return {
+    coordinates: r.coordinates,
+    pointCount: r.pointCount,
+    rawJson: r.rawJson,
+    routeSource: "browser",
+  };
 }
 
 /** Map Matching API allows up to 100 coordinates per request */
@@ -2579,7 +2735,7 @@ function main() {
     if (confidence) confidence.textContent = "";
 
     try {
-      const { coordinates, pointCount, rawJson } = await fetchTxprosRoute(permitId);
+      const { coordinates, pointCount, rawJson, routeSource, proxyNote } = await fetchTxprosRoute(permitId);
       if (myRun !== runGeneration) return;
 
       const geom = { type: "LineString", coordinates: coordinates };
@@ -2623,11 +2779,22 @@ function main() {
 
       if (recalcBtn) recalcBtn.disabled = true;
 
-      metaPanel.innerHTML = [
+      const metaBits = [
         `<p><strong>Source:</strong> TXPROS (txpros.txdmv.gov)</p>`,
         `<p><strong>Permit ID:</strong> ${escapeHtml(permitId)}</p>`,
         `<p><strong>Breadcrumbs:</strong> ${pointCount} points</p>`,
-      ].join("");
+      ];
+      if (routeSource === "browser") {
+        metaBits.push(
+          `<p><strong>Load path:</strong> Your browser (same APIs as the official permit map).</p>`
+        );
+      }
+      if (proxyNote) {
+        metaBits.push(
+          `<p><strong>Supabase note:</strong> ${escapeHtml(String(proxyNote).slice(0, 280))}</p>`
+        );
+      }
+      metaPanel.innerHTML = metaBits.join("");
 
       rawPanel.textContent =
         "TXPROS import · Permit " + permitId + " · " + pointCount + " coordinates (see GeoJSON export for full line).";
