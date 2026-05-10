@@ -11,7 +11,7 @@
 <body>
   <main id="main" class="layout layout--test">
     <section class="panel upload-panel">
-      <p>Test v11</p>
+      <p>Test v12</p>
       <h1 class="upload-title">Upload PDF</h1>
       <input type="file" id="pdf-upload" class="sr-only-input" accept="application/pdf,.pdf" />
       <label for="pdf-upload" class="file-label">
@@ -24,9 +24,10 @@
     <section class="panel txpros-panel" aria-label="Import official TXPROS route">
       <h2 class="section-label">Import TXPROS permit (official route)</h2>
       <p class="txpros-lede">
-        Scan the QR on your permit or paste the TXPROS link / Permit ID. Loads state-issued breadcrumbs
-        (same data as “Show Map” on txpros.txdmv.gov). If the browser blocks the request (CORS), use a
-        same-origin proxy later.
+        Scan the <strong>TxDMV QR</strong> on your permit (it encodes a link with <code>PermitID=…</code>) or paste
+        that link. Use the numeric ID from the URL — not the separate printed permit number. Loads state-issued
+        breadcrumbs (same geometry as “Show Map” on txpros.txdmv.gov). Uses a Supabase proxy when configured to
+        avoid browser CORS blocks.
       </p>
       <p class="txpros-toolbar">
         <button type="button" id="txpros-scan-btn" class="btn secondary">Scan QR code</button>
@@ -98,7 +99,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="js/mapbox-config.js"></script>
   <script src="js/google-maps-config.js"></script>
-  <script src="js/supabase-config.js?v=11"></script>
-  <script src="js/app.js?v=11"></script>
+  <script src="js/supabase-config.js?v=12"></script>
+  <script src="js/app.js?v=12"></script>
 </body>
 </html>

@@ -47,20 +47,69 @@ function isTxprosHtmlErrorResponse(text) {
 }
 
 /**
- * @param {string} input — digits, full TXPROS URL, or text containing PermitID=
+ * Numeric PermitID from TxDMV (URL/QR), not the printed permit number on the PDF.
+ * Handles typical QR payloads: full URL, path+query, hash (#PermitID=), JSON, optional wrapping/encoding.
+ * @param {string} input — digits, full/partial TXPROS URL, or text containing PermitID=
  * @returns {string | null}
  */
 function extractTxprosPermitId(input) {
-  const s = String(input || "").trim();
+  let s = String(input || "")
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
+    .replace(/^["']|["']$/g, "");
   if (!s) return null;
-  if (/^\d{4,14}$/.test(s)) return s;
+  try {
+    s = decodeURIComponent(s);
+  } catch (_) {
+    /* ignore */
+  }
+
+  /** @param {string} str */
+  function permitIdFromQueryLike(str) {
+    const patterns = [
+      /PermitID[=:](\d+)/i,
+      /permitID[=:]\s*(\d+)/i,
+      /permit_id[=:]\s*(\d+)/i,
+      /[?&#]PermitID=(\d+)/i,
+      /[?&#]permitID=(\d+)/i,
+    ];
+    for (let p = 0; p < patterns.length; p++) {
+      const m = str.match(patterns[p]);
+      if (m && /^\d+$/.test(m[1])) return m[1];
+    }
+    return null;
+  }
+
+  if (/^\d{3,18}$/.test(s)) return s;
+
+  let id = permitIdFromQueryLike(s);
+  if (id) return id;
+
   try {
     const u = new URL(s, "https://txpros.txdmv.gov");
-    const id = u.searchParams.get("PermitID") || u.searchParams.get("permitID");
-    if (id && /^\d+$/.test(String(id))) return String(id);
+    const q =
+      u.searchParams.get("PermitID") ||
+      u.searchParams.get("permitID") ||
+      u.searchParams.get("permit_id");
+    if (q && /^\d+$/.test(String(q))) return String(q);
+    if (u.hash && u.hash.length > 1) {
+      const h = u.hash.slice(1);
+      id = permitIdFromQueryLike(h) || permitIdFromQueryLike("?" + h);
+      if (id) return id;
+    }
   } catch (_) {}
-  const m = s.match(/PermitID=(\d+)/i) || s.match(/permitID[=:]\s*(\d+)/i);
-  return m ? m[1] : null;
+
+  if (/^\s*\{/.test(s)) {
+    try {
+      const j = JSON.parse(s);
+      const raw =
+        j.PermitID ?? j.permitID ?? j.permitId ?? j.PermitId ?? j.permit_id;
+      if (raw != null && /^\d+$/.test(String(raw))) return String(raw);
+    } catch (_) {}
+  }
+
+  return null;
 }
 
 /**
@@ -2506,7 +2555,8 @@ function main() {
     const permitId = extractTxprosPermitId(rawInput);
     if (!permitId) {
       if (txprosStatusEl) {
-        txprosStatusEl.textContent = "Enter a numeric Permit ID or paste the full TXPROS URL.";
+        txprosStatusEl.textContent =
+          "No Permit ID found. Use the TxDMV QR/link (contains PermitID=…), not the printed permit number.";
       }
       return;
     }
@@ -2660,7 +2710,11 @@ function main() {
                 if (txprosStopScanBtn) txprosStopScanBtn.disabled = true;
                 const id = extractTxprosPermitId(decodedText);
                 if (txprosInput) txprosInput.value = id || decodedText.trim();
-                if (txprosStatusEl) txprosStatusEl.textContent = "QR read — loading route…";
+                if (txprosStatusEl) {
+                  txprosStatusEl.textContent = id
+                    ? "QR read · Permit ID " + id + " — loading route…"
+                    : "QR read — could not find PermitID in payload. Paste the TxDMV link.";
+                }
                 await runTxprosImport(decodedText);
               })();
             },

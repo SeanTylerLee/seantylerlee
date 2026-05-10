@@ -29,20 +29,68 @@ function cleanLine(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
-/** Accept digits or URL containing PermitID= */
+/** Accept digits or URL / QR payload containing PermitID */
 function extractPermitId(input: string): string | null {
-  const s = cleanLine(input);
+  let s = cleanLine(input)
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
+    .replace(/^["']|["']$/g, "");
   if (!s) return null;
-  if (/^\d{4,14}$/.test(s)) return s;
   try {
-    const u = new URL(s, "https://txpros.txdmv.gov");
-    const id = u.searchParams.get("PermitID") || u.searchParams.get("permitID");
-    if (id && /^\d+$/.test(id)) return id;
+    s = decodeURIComponent(s);
   } catch {
     /* ignore */
   }
-  const m = s.match(/PermitID=(\d+)/i) || s.match(/permitID[=:]\s*(\d+)/i);
-  return m ? m[1] : null;
+
+  function permitIdFromQueryLike(str: string): string | null {
+    const patterns = [
+      /PermitID[=:](\d+)/i,
+      /permitID[=:]\s*(\d+)/i,
+      /permit_id[=:]\s*(\d+)/i,
+      /[?&#]PermitID=(\d+)/i,
+      /[?&#]permitID=(\d+)/i,
+    ];
+    for (const p of patterns) {
+      const m = str.match(p);
+      if (m && /^\d+$/.test(m[1])) return m[1];
+    }
+    return null;
+  }
+
+  if (/^\d{3,18}$/.test(s)) return s;
+
+  let id = permitIdFromQueryLike(s);
+  if (id) return id;
+
+  try {
+    const u = new URL(s, "https://txpros.txdmv.gov");
+    const q =
+      u.searchParams.get("PermitID") ||
+      u.searchParams.get("permitID") ||
+      u.searchParams.get("permit_id");
+    if (q && /^\d+$/.test(String(q))) return String(q);
+    if (u.hash && u.hash.length > 1) {
+      const h = u.hash.slice(1);
+      id = permitIdFromQueryLike(h) || permitIdFromQueryLike("?" + h);
+      if (id) return id;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (/^\s*\{/.test(s)) {
+    try {
+      const j = JSON.parse(s) as Record<string, unknown>;
+      const raw =
+        j.PermitID ?? j.permitID ?? j.permitId ?? j.PermitId ?? j.permit_id;
+      if (raw != null && /^\d+$/.test(String(raw))) return String(raw);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return null;
 }
 
 function isHtmlErrorPage(text: string): boolean {
