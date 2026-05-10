@@ -52,6 +52,45 @@ function isHtmlErrorPage(text: string): boolean {
   return false;
 }
 
+/** Match browser calls — TXPROS often returns Error.aspx for bots or missing context. */
+const TXPROS_BROWSER_HEADERS: Record<string, string> = {
+  Accept: "application/xml, text/xml, text/plain, */*",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Cache-Control": "no-cache",
+  Referer: "https://txpros.txdmv.gov/",
+  Origin: "https://txpros.txdmv.gov/",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+};
+
+/** Collect Set-Cookie lines for a follow-up request (Deno has no shared cookie jar). */
+function cookieHeaderFromSetCookie(res: Response): string | null {
+  const any = res.headers as Headers & { getSetCookie?: () => string[] };
+  const list = typeof any.getSetCookie === "function" ? any.getSetCookie() : [];
+  if (list.length) {
+    return list.map((c) => c.split(";")[0]).join("; ");
+  }
+  const single = res.headers.get("set-cookie");
+  if (!single) return null;
+  return single.split(/,(?=[^;]+?=)/).map((p) => p.split(";")[0].trim()).join("; ");
+}
+
+async function warmTxprosSessionCookie(): Promise<string | null> {
+  try {
+    const res = await fetch("https://txpros.txdmv.gov/", {
+      method: "GET",
+      redirect: "follow",
+      headers: {
+        Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+        ...TXPROS_BROWSER_HEADERS,
+      },
+    });
+    return cookieHeaderFromSetCookie(res);
+  } catch {
+    return null;
+  }
+}
+
 type LatLon = { lat: number; lon: number };
 
 function scoreRow(o: unknown): LatLon | null {
@@ -138,6 +177,8 @@ function parseRouteXml(xmlText: string): { coordinates: number[][]; pointCount: 
 }
 
 async function fetchRouteFromTxpros(permitId: string): Promise<string> {
+  const sessionCookie = await warmTxprosSessionCookie();
+
   const attempts = [
     new URLSearchParams({ permitID: permitId }),
     new URLSearchParams({ PermitID: permitId }),
@@ -146,17 +187,23 @@ async function fetchRouteFromTxpros(permitId: string): Promise<string> {
   let lastErr: Error | null = null;
   for (const body of attempts) {
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        ...TXPROS_BROWSER_HEADERS,
+      };
+      if (sessionCookie) headers.Cookie = sessionCookie;
+
       const res = await fetch(TXPROS_ROUTE_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Accept: "application/xml, text/xml, */*",
-          "User-Agent":
-            "Mozilla/5.0 (compatible; TxPermitRouteAssistant/1.0; +https://seantylerlee.com)",
-        },
+        headers,
         body,
       });
       const text = await res.text();
+
+      if (!res.ok) {
+        lastErr = new Error(`txpros_http_${res.status}`);
+        continue;
+      }
       if (isHtmlErrorPage(text)) {
         lastErr = new Error("txpros_html_error");
         continue;
@@ -169,7 +216,16 @@ async function fetchRouteFromTxpros(permitId: string): Promise<string> {
 
   if (lastErr?.message === "txpros_html_error") {
     throw new Error(
-      "TXPROS rejected the request or returned an error page. Check Permit ID or try again later.",
+      [
+        `TXPROS returned its HTML error page for permit ID ${permitId}.`,
+        "Common causes: (1) Use the numeric PermitID from the TXPROS link or QR (…PermitID=12345678), not the printed permit number.",
+        "(2) Permit expired or not yet active. (3) Try again later if TxDMV is busy.",
+      ].join(" "),
+    );
+  }
+  if (lastErr?.message?.startsWith("txpros_http_")) {
+    throw new Error(
+      `TXPROS HTTP error ${lastErr.message.replace("txpros_http_", "")} for permit ${permitId}.`,
     );
   }
   throw lastErr || new Error("Could not reach TXPROS RouteService.");
