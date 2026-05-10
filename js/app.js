@@ -47,7 +47,7 @@ function isTxprosHtmlErrorResponse(text) {
 }
 
 /**
- * Numeric PermitID from TxDMV (URL/QR), not the printed permit number on the PDF.
+ * Numeric Permit ID from the TxDMV link or QR (the “Permit ID” field on the permit), not the printed permit number when those differ.
  * Handles typical QR payloads: full URL, path+query, hash (#PermitID=), JSON, optional wrapping/encoding.
  * @param {string} input — digits, full/partial TXPROS URL, or text containing PermitID=
  * @returns {string | null}
@@ -2556,7 +2556,7 @@ function main() {
     if (!permitId) {
       if (txprosStatusEl) {
         txprosStatusEl.textContent =
-          "Paste your TxDMV permit link (with PermitID=…) or the numeric Permit ID from that link.";
+          "Paste the TxDMV link from the QR or the Permit ID number from that link (labeled Permit ID on the permit).";
       }
       return;
     }
@@ -2712,8 +2712,8 @@ function main() {
                 if (txprosInput) txprosInput.value = id || decodedText.trim();
                 if (txprosStatusEl) {
                   txprosStatusEl.textContent = id
-                    ? "QR read · Permit ID " + id + " — loading route…"
-                    : "QR read — could not find PermitID in payload. Paste the TxDMV link.";
+                    ? "QR read — Permit ID " + id + " (same as on permit if URL matches). Loading route…"
+                    : "QR read — no PermitID= in the payload. Open the link in a browser and paste the full URL.";
                 }
                 await runTxprosImport(decodedText);
               })();

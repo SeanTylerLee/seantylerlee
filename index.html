@@ -11,7 +11,7 @@
 <body>
   <main id="main" class="layout layout--test">
     <section class="panel upload-panel">
-      <p>Test v15</p>
+      <p>Test v16</p>
       <h1 class="upload-title">Upload PDF</h1>
       <input type="file" id="pdf-upload" class="sr-only-input" accept="application/pdf,.pdf" />
       <label for="pdf-upload" class="file-label">
@@ -24,9 +24,12 @@
     <section class="panel txpros-panel" aria-label="Import official TXPROS route">
       <h2 class="section-label">Import TXPROS permit (official route)</h2>
       <p class="txpros-lede">
-        Scan the <strong>TxDMV QR</strong> or paste the permit link (<code>PermitID=…</code> in the URL). The
-        <code>parse-permit</code> Edge Function uses <a href="https://www.browserless.io/" target="_blank" rel="noopener">Browserless</a>
-        (secret <code>BROWSERLESS_TOKEN</code>) so a hosted Chromium can call the same TxPROS API as the live site — no extra server in your stack beyond Supabase.
+        Scan the <strong>TxDMV QR</strong> (it encodes a permit link). We read the <strong>Permit ID</strong>
+        from that link—the same number labeled <strong>Permit ID</strong> on the permit (often just below
+        <strong>Permit Number</strong>). You do <em>not</em> need to open TxPROS and tap Route → Show Map:
+        our server opens the permit page and calls the same route service the site uses for the map. Uses
+        <code>parse-permit</code> on Supabase plus <a href="https://www.browserless.io/" target="_blank" rel="noopener">Browserless</a>
+        (<code>BROWSERLESS_TOKEN</code>).
       </p>
       <p class="txpros-toolbar">
         <button type="button" id="txpros-scan-btn" class="btn secondary">Scan QR code</button>
@@ -35,7 +38,7 @@
         </button>
       </p>
       <div id="txpros-qr-reader" class="txpros-qr-reader is-hidden" aria-live="polite"></div>
-      <p class="txpros-or">Or paste link / Permit ID</p>
+      <p class="txpros-or">Or paste link / Permit ID (not the permit number if it differs)</p>
       <div class="txpros-row">
         <input
           type="text"
@@ -98,7 +101,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="js/mapbox-config.js"></script>
   <script src="js/google-maps-config.js"></script>
-  <script src="js/supabase-config.js?v=15"></script>
-  <script src="js/app.js?v=15"></script>
+  <script src="js/supabase-config.js?v=16"></script>
+  <script src="js/app.js?v=16"></script>
 </body>
 </html>
