@@ -3,12 +3,13 @@
  *
  * 1. Tries direct calls from this Edge (session + GetLatLon JSON + legacy body XML) — fast when TxDMV allows it.
  * 2. Browserless `/function`: applies cookies parsed from Edge Set-Cookie (incl. HttpOnly), allow-lists
- *    TxPROS + maps.googleapis.com + promiles.com (blocking those caused hangs to 408), then GetLatLon.
+ *    TxPROS + maps.googleapis.com + promiles.com (blocking those caused hangs to 408). Must navigate to the
+ *    permit URL before same-origin fetch; calling GetLatLon from about:blank causes "Failed to fetch".
  *
  * Clients POST { permitID } with Supabase anon key. No PDF parsing.
  */
 
-const SERVICE_VERSION = "txpros-proxy-v1.4.0";
+const SERVICE_VERSION = "txpros-proxy-v1.4.1";
 
 /** Hosted browser API — https://www.browserless.io/ — set BROWSERLESS_TOKEN on this function. */
 const BROWSERLESS_TOKEN = Deno.env.get("BROWSERLESS_TOKEN") || "";
@@ -511,26 +512,17 @@ const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) =>
     }
   }
 
-  function looksLikeRoutePayload(body) {
-    if (typeof body !== "string") return false;
-    const s = body.trim();
-    if (!s.startsWith("{")) return false;
-    if (s.indexOf('"jsonerror":true') >= 0 || s.indexOf("'jsonerror':true") >= 0) return false;
-    const low = s.toLowerCase();
-    return (
-      low.includes("latlons") ||
-      low.includes('"lat"') ||
-      low.includes("'lat'") ||
-      low.includes("breadcrumb")
-    );
-  }
-
   try {
     let hasPrimedCookies = false;
-    if (fromEdge.length > 0) {
-      await page.setCookie(...fromEdge);
-      hasPrimedCookies = true;
-    } else if (cookieHeader.trim().length > 0) {
+    try {
+      if (fromEdge.length > 0) {
+        await page.setCookie(...fromEdge);
+        hasPrimedCookies = true;
+      }
+    } catch (_) {
+      /* invalid cookie payload from Edge; fall back to legacy string or cold session */
+    }
+    if (!hasPrimedCookies && cookieHeader.trim().length > 0) {
       const legacy = [];
       for (const segment of cookieHeader.split(";")) {
         const seg = segment.trim();
@@ -548,45 +540,10 @@ const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) =>
         });
       }
       if (legacy.length) {
-        await page.setCookie(...legacy);
-        hasPrimedCookies = true;
-      }
-    }
-
-    if (hasPrimedCookies) {
-      const early = await page.evaluate(async (pid, refererUrl) => {
-        const ac = new AbortController();
-        const timer = setTimeout(function () {
-          ac.abort();
-        }, 28000);
         try {
-          const r = await fetch(
-            "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit",
-            {
-              method: "POST",
-              credentials: "include",
-              signal: ac.signal,
-              headers: {
-                "Content-Type": "application/json; charset=UTF-8",
-                Accept: "application/json, text/javascript, */*;q=0.01",
-                "X-Requested-With": "XMLHttpRequest",
-                Referer: refererUrl,
-              },
-              body: JSON.stringify({
-                PermitID: parseInt(String(pid), 10),
-                UseHistoryDB: false,
-                AuditPermitID: -1,
-              }),
-            }
-          );
-          const text = await r.text();
-          return { status: r.status, body: text.length > 600000 ? text.slice(0, 600000) : text };
-        } finally {
-          clearTimeout(timer);
-        }
-      }, permitId, permitUrl);
-      if (early && early.status === 200 && looksLikeRoutePayload(early.body)) {
-        return { data: early, type: "application/json" };
+          await page.setCookie(...legacy);
+          hasPrimedCookies = true;
+        } catch (_) {}
       }
     }
 
@@ -627,38 +584,51 @@ const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) =>
       }
     });
 
-    await page.goto(permitUrl, { waitUntil: "domcontentloaded", timeout: navTimeout });
+    try {
+      await page.goto(permitUrl, { waitUntil: "domcontentloaded", timeout: navTimeout });
+    } catch (navErr) {
+      const nm = navErr && navErr.message ? String(navErr.message) : String(navErr);
+      return {
+        data: { status: 0, body: "navigation_failed:" + nm },
+        type: "application/json",
+      };
+    }
     await new Promise((r) => setTimeout(r, hasPrimedCookies ? 150 : 300));
 
     const result = await page.evaluate(async (pid) => {
-      const ac = new AbortController();
-      const timer = setTimeout(function () {
-        ac.abort();
-      }, 28000);
       try {
-        const r = await fetch(
-          "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit",
-          {
-            method: "POST",
-            credentials: "include",
-            signal: ac.signal,
-            headers: {
-              "Content-Type": "application/json; charset=UTF-8",
-              Accept: "application/json, text/javascript, */*;q=0.01",
-              "X-Requested-With": "XMLHttpRequest",
-              Referer: window.location.href,
-            },
-            body: JSON.stringify({
-              PermitID: parseInt(String(pid), 10),
-              UseHistoryDB: false,
-              AuditPermitID: -1,
-            }),
-          }
-        );
-        const text = await r.text();
-        return { status: r.status, body: text.length > 600000 ? text.slice(0, 600000) : text };
-      } finally {
-        clearTimeout(timer);
+        const ac = new AbortController();
+        const timer = setTimeout(function () {
+          ac.abort();
+        }, 28000);
+        try {
+          const r = await fetch(
+            "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit",
+            {
+              method: "POST",
+              credentials: "include",
+              signal: ac.signal,
+              headers: {
+                "Content-Type": "application/json; charset=UTF-8",
+                Accept: "application/json, text/javascript, */*;q=0.01",
+                "X-Requested-With": "XMLHttpRequest",
+                Referer: window.location.href,
+              },
+              body: JSON.stringify({
+                PermitID: parseInt(String(pid), 10),
+                UseHistoryDB: false,
+                AuditPermitID: -1,
+              }),
+            }
+          );
+          const text = await r.text();
+          return { status: r.status, body: text.length > 600000 ? text.slice(0, 600000) : text };
+        } finally {
+          clearTimeout(timer);
+        }
+      } catch (e) {
+        const m = e && e.message ? String(e.message) : String(e);
+        return { status: 0, body: "fetch_exception:" + m };
       }
     }, permitId);
 
@@ -753,6 +723,12 @@ async function fetchRouteViaBrowserless(
         detail: `Browserless worker returned unexpected shape: ${clip(JSON.stringify(data), 500)}`,
       };
     }
+    if (status === 0) {
+      return {
+        ok: false,
+        detail: `In-page fetch to TxPROS did not complete: ${clip(body, 400)}`,
+      };
+    }
     if (status !== 200) {
       return {
         ok: false,
@@ -789,7 +765,7 @@ function augmentBrowserlessFailureDetail(detail: string): string {
     return (
       `${detail} ` +
       "HTTP 408: Browserless session expired before the script finished (plan cap often 60s). " +
-      "v1.4.0 allow-lists Google Maps + ProMiles (blocking them could hang the permit page) and forwards HttpOnly cookies from Edge. " +
+      "v1.4.x allow-lists Google Maps + ProMiles; v1.4.1 drops pre-navigation fetch (about:blank caused 'Failed to fetch'). " +
       "Set BROWSERLESS_PROXY_PRESET=px_gov01 if supported, or upgrade Browserless timeout."
     );
   }
