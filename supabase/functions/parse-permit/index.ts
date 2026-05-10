@@ -1,17 +1,14 @@
 /**
  * Supabase Edge Function: TXPROS official route for Mapbox.
  *
- * 1. If BROWSERLESS_TOKEN is set, calls Browserless `/function` (hosted Chromium) to load the permit page
- *    and run the same GetLatLonForPermit call the live site uses (TxDMV often blocks non-browser callers).
- *    Optional BROWSERLESS_SESSION_TIMEOUT_MS — each Browserless **plan** caps the max (many tiers: 60000 ms).
- *    Default here is 60000 so the request is not rejected with HTTP 400; raise only if your plan allows it.
- *    Slow TxPROS + low cap can still yield HTTP 408; then upgrade Browserless or retry.
- * 2. Otherwise falls back to direct fetch from the Edge network (often fails).
+ * 1. Tries direct calls from this Edge (session + GetLatLon JSON + legacy body XML) — fast when TxDMV allows it.
+ * 2. If BROWSERLESS_TOKEN is set, runs Browserless `/function`: blocks heavy assets, opens the permit page,
+ *    then calls GetLatLonForPermit like the live map. BROWSERLESS_SESSION_TIMEOUT_MS defaults to 60000 (plan caps).
  *
  * Clients POST { permitID } with Supabase anon key. No PDF parsing.
  */
 
-const SERVICE_VERSION = "txpros-proxy-v1.3.3";
+const SERVICE_VERSION = "txpros-proxy-v1.3.4";
 
 /** Hosted browser API — https://www.browserless.io/ — set BROWSERLESS_TOKEN on this function. */
 const BROWSERLESS_TOKEN = Deno.env.get("BROWSERLESS_TOKEN") || "";
@@ -427,10 +424,23 @@ const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) =>
     return { data: { error: "missing_permitId" }, type: "application/json" };
   }
   try {
+    await page.setRequestInterception(true);
+    page.on("request", (req) => {
+      const t = req.resourceType();
+      if (t === "image" || t === "font" || t === "media" || t === "stylesheet") {
+        try {
+          req.abort();
+        } catch (_) {}
+      } else {
+        try {
+          req.continue();
+        } catch (_) {}
+      }
+    });
     const url =
       "https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=" + encodeURIComponent(String(permitId));
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: gotoTimeout });
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 200));
     const result = await page.evaluate(async (pid) => {
       const r = await fetch("https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit", {
         method: "POST",
@@ -484,10 +494,10 @@ async function fetchRouteViaBrowserless(permitId: string): Promise<BrowserlessRo
     const res = await fetch(browserlessFunctionEndpoint(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: BROWSERLESS_TXPROS_FUNCTION,
-          context: { permitId, gotoTimeoutMs: browserlessGotoTimeoutMs() },
-        }),
+      body: JSON.stringify({
+        code: BROWSERLESS_TXPROS_FUNCTION,
+        context: { permitId, gotoTimeoutMs: browserlessGotoTimeoutMs() },
+      }),
     });
     const text = await res.text();
     if (!res.ok) {
@@ -565,7 +575,9 @@ function augmentBrowserlessFailureDetail(detail: string): string {
   if (isLikelyBrowserlessTimeout(detail)) {
     return (
       `${detail} ` +
-      "HTTP 408: the run hit Browserless’s session time limit before TxPROS finished. Default is 60000 ms; higher values require a Browserless plan that allows them."
+      "HTTP 408: Browserless session expired before the script finished (plan cap often 60s). " +
+      "This deployment tries direct TXPROS first, then Browserless with heavy assets blocked. " +
+      "Upgrade Browserless for a longer timeout, or set BROWSERLESS_PROXY_PRESET=px_gov01 if your plan supports it for .gov."
     );
   }
   return detail;
@@ -576,12 +588,6 @@ async function fetchRouteFromTxpros(permitId: string): Promise<{
   pointCount: number;
   via: "browserless" | "json" | "body_xml";
 }> {
-  const bl = await fetchRouteViaBrowserless(permitId);
-  if (bl?.ok) {
-    const { coordinates, pointCount } = bl;
-    return { coordinates, pointCount, via: "browserless" };
-  }
-
   const sessionCookie = await establishTxprosSession(permitId);
 
   const jsonResult = await tryFetchJsonLatLon(permitId, sessionCookie);
@@ -589,35 +595,48 @@ async function fetchRouteFromTxpros(permitId: string): Promise<{
     return { ...jsonResult, via: "json" };
   }
 
+  let lastError: Error | null = null;
   try {
     const xml = await fetchRouteXmlFromBody(permitId, sessionCookie);
     const { coordinates, pointCount } = parseRouteXml(xml);
     return { coordinates, pointCount, via: "body_xml" };
   } catch (e) {
-    if (e instanceof Error && e.message === "txpros_html_error") {
-      const rawDetail = bl && !bl.ok ? bl.detail : "";
-      const blDetail = rawDetail ? augmentBrowserlessFailureDetail(rawDetail) : "";
-      const timeoutOrPlanIssue =
-        /Timeout must be an integer/i.test(blDetail || rawDetail) ||
-        isLikelyBrowserlessTimeout(blDetail || rawDetail);
-      const permitHint = timeoutOrPlanIssue
-        ? "If the permit opens in your browser, the ID is probably fine — focus on Browserless time/plan limits above."
-        : "Use the Permit ID from the QR link (?PermitID=…) — same label as on the printed permit (not the permit number when they differ). If that TxPROS URL fails in a normal browser, the ID is wrong.";
-      const hint = BROWSERLESS_TOKEN
-        ? (blDetail
-          ? `Browserless attempt failed first: ${blDetail}`
-          : "Browserless was not invoked or returned no detail; check BROWSERLESS_URL matches your Browserless region, token quota, and redeploy parse-permit.")
-        : "TxDMV often blocks server-side calls. Add Edge Function secret BROWSERLESS_TOKEN (Browserless.io), optionally BROWSERLESS_URL (default https://production-sfo.browserless.io), redeploy parse-permit.";
-      throw new Error(
-        [
-          `Could not load TXPROS route for permit ${permitId}.`,
-          permitHint,
-          hint,
-        ].join(" "),
-      );
-    }
-    throw e;
+    lastError = e instanceof Error ? e : new Error(String(e));
   }
+
+  let blAttempt: BrowserlessRouteAttempt = null;
+  if (BROWSERLESS_TOKEN) {
+    blAttempt = await fetchRouteViaBrowserless(permitId);
+    if (blAttempt?.ok) {
+      const { coordinates, pointCount } = blAttempt;
+      return { coordinates, pointCount, via: "browserless" };
+    }
+  }
+
+  if (lastError?.message === "txpros_html_error") {
+    const rawDetail = blAttempt && !blAttempt.ok ? blAttempt.detail : "";
+    const blDetail = rawDetail ? augmentBrowserlessFailureDetail(rawDetail) : "";
+    const timeoutOrPlanIssue =
+      /Timeout must be an integer/i.test(blDetail || rawDetail) ||
+      isLikelyBrowserlessTimeout(blDetail || rawDetail);
+    const permitHint = timeoutOrPlanIssue
+      ? "If the permit opens in your browser, the ID is probably fine — focus on Browserless time/plan limits above."
+      : "Use the Permit ID from the QR link (?PermitID=…) — same label as on the printed permit (not the permit number when they differ). If that TxPROS URL fails in a normal browser, the ID is wrong.";
+    const hint = BROWSERLESS_TOKEN
+      ? (blDetail
+        ? `Direct TXPROS from Edge failed; Browserless: ${blDetail}`
+        : "Direct TXPROS failed; Browserless did not return a route. Check BROWSERLESS_URL, quota, redeploy parse-permit.")
+      : "TxDMV often blocks server-side calls. Add Edge Function secret BROWSERLESS_TOKEN (Browserless.io), optionally BROWSERLESS_URL (default https://production-sfo.browserless.io), redeploy parse-permit.";
+    throw new Error(
+      [
+        `Could not load TXPROS route for permit ${permitId}.`,
+        permitHint,
+        hint,
+      ].join(" "),
+    );
+  }
+
+  throw lastError || new Error(`Could not load TXPROS route for permit ${permitId}.`);
 }
 
 type TxprosResult = {
