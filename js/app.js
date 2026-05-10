@@ -277,7 +277,7 @@ function primeTxprosSessionViaIframe(permitId, timeoutMs) {
   return new Promise(function (resolve) {
     const iframe = document.createElement("iframe");
     iframe.setAttribute("title", "TXPROS session");
-    iframe.setAttribute("sandbox", "allow-same-origin allow-scripts allow-forms");
+    /** No sandbox — TxPROS must run as a normal document so ASP.NET session cookies stick (sandbox can break that). */
     iframe.style.cssText =
       "position:fixed;width:1px;height:1px;left:-100px;top:-100px;opacity:0;pointer-events:none;border:0";
     const url =
@@ -313,7 +313,7 @@ async function fetchTxprosRouteFromBrowser(permitId) {
     throw new Error("Permit ID must be numeric.");
   }
 
-  await primeTxprosSessionViaIframe(permitId, 12000);
+  await primeTxprosSessionViaIframe(permitId, 6500);
 
   const ref =
     "https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=" +
@@ -456,7 +456,7 @@ async function fetchTxprosRouteViaSupabase(permitId) {
 }
 
 /**
- * Official route: Supabase Edge first when configured; otherwise (or if Edge fails) same TXPROS calls from this browser.
+ * Official route: **browser first** (visitor IP + cookies; TxDMV often blocks Supabase Edge), then Edge when configured.
  */
 async function fetchTxprosRoute(permitId) {
   const id = extractTxprosPermitId(permitId);
@@ -466,23 +466,35 @@ async function fetchTxprosRoute(permitId) {
 
   if (hasSupabaseParserConfig()) {
     try {
-      const r = await fetchTxprosRouteViaSupabase(id);
-      return {
-        coordinates: r.coordinates,
-        pointCount: r.pointCount,
-        rawJson: r.rawJson,
-        routeSource: "supabase",
-      };
-    } catch (e) {
-      console.warn("[TXPROS] Supabase parse-permit failed; using browser session:", e);
       const r = await fetchTxprosRouteFromBrowser(id);
       return {
         coordinates: r.coordinates,
         pointCount: r.pointCount,
         rawJson: r.rawJson,
         routeSource: "browser",
-        proxyNote: e && e.message ? String(e.message) : String(e),
       };
+    } catch (browserErr) {
+      const bMsg = browserErr && browserErr.message ? String(browserErr.message) : String(browserErr);
+      console.warn("[TXPROS] Browser session failed; trying Supabase Edge:", browserErr);
+      try {
+        const r = await fetchTxprosRouteViaSupabase(id);
+        return {
+          coordinates: r.coordinates,
+          pointCount: r.pointCount,
+          rawJson: r.rawJson,
+          routeSource: "supabase",
+          proxyNote: "Loaded via Supabase after browser failed: " + bMsg.slice(0, 220),
+        };
+      } catch (supErr) {
+        const sMsg = supErr && supErr.message ? String(supErr.message) : String(supErr);
+        throw new Error(
+          "Could not load TXPROS route. From your browser: " +
+            bMsg +
+            " — From Supabase Edge: " +
+            sMsg +
+            " If the permit opens on txpros.txdmv.gov, open that link in this browser tab once, then tap Load route again."
+        );
+      }
     }
   }
 

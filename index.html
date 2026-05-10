@@ -26,8 +26,8 @@
       <p class="txpros-lede">
         Scan the <strong>TxDMV QR</strong> (it encodes a permit link). We read the <strong>Permit ID</strong>
         from that link—the same number labeled <strong>Permit ID</strong> on the permit (often just below
-        <strong>Permit Number</strong>). The app tries Supabase Edge (<code>parse-permit</code>) first; if
-        TxDMV blocks that, it loads the same route API from <strong>your browser</strong> (hidden permit iframe + session cookies).
+        <strong>Permit Number</strong>). The app loads the route API from <strong>your browser</strong> first
+        (your IP + session cookies). Supabase Edge (<code>parse-permit</code>) runs only if the browser call fails.
       </p>
       <p class="txpros-toolbar">
         <button type="button" id="txpros-scan-btn" class="btn secondary">Scan QR code</button>
