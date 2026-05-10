@@ -148,19 +148,32 @@ const MAPBOX_MATCH_RADIUS_METERS = 56;
  * drop the Miles Route To turn-by-turn table on later pages (extracted separately).
  */
 const ROUTE_SECTION_STOP_RE =
-  /^\s*(Route\s+Conditions|Dimension|Dimensions|Vehicle|Load\s+description|Escort|Special\s+condition|Certification|Fee|Billing|Comments|General\s+information|Permit\s+number|Permit\s+no\.?|Effective\s+date|Expiration|Operating\s+time|Weight|Height|Width|Length)\b/i;
+  /^\s*(Route\s+Conditions|General\s+Conditions|Dimension|Dimensions|Vehicle|Load\s+description|Escort|Special\s+condition|Certification|Fee|Billing|Comments|General\s+information|Permit\s+number|Permit\s+no\.?|Effective\s+date|Expiration|Operating\s+time|Weight|Height|Width|Length)\b/i;
 
 const ROUTE_PATTERNS = [
-  { label: "Interstate", re: /\bI\s*[-–]?\s*(\d{1,3})\b/gi },
-  /** IH20SFR-style frontage / ramp tokens */
-  { label: "IH", re: /\bIH\s*[-–]?\s*(\d{1,3})(?:[A-Za-z]+)?\b/gi },
-  /** TxDMV PDFs often use US0385 / SH0115 (leading zeros) */
-  { label: "US Highway", re: /\bUS\s*[-–]?\s*0*(\d{1,3})([A-Za-z]?)\b/gi },
-  { label: "State Hwy", re: /\b(?:SH|TX|State\s+Hwy\.?)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi },
-  { label: "Farm / Ranch", re: /\b(?:FM|RM)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi },
+  /** Leading zeros in narratives, e.g. I-0410 */
+  { label: "Interstate", re: /\bI\s*[-–]?\s*0*(\d{1,3})\b/gi },
+  /** IH0410 vs IH410; IH20SFR, IH10NFR — optional letter suffix */
+  { label: "IH", re: /\bIH\s*[-–]?\s*0*(\d{1,3})(?:[A-Za-z]+)?\b/gi },
+  /** Business interstate frontage, e.g. BI35B, BI020J */
+  { label: "Business IH", re: /\bBI\s*[-–]?\s*0*(\d{1,3})(?:[A-Za-z]+)?\b/gi },
+  /** TxDMV PDFs: US0084, US90A, US69EFR (US + digits + optional letter) */
+  { label: "US Highway", re: /\bUS\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi },
+  /** State hwy / TX; glued SH0132 in narratives */
+  { label: "State Hwy", re: /\b(?:SH|TX|State\s+Hwy\.?)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
+  /** Farm / ranch; PDFs use fm1472 with no space */
+  { label: "Farm / Ranch", re: /\b(?:FM|RM)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
+  /** County road, e.g. CR2034 */
+  { label: "County Road", re: /\bCR\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
   { label: "Loop", re: /\bLOOP\s*[-–]?\s*(\d{1,4}[A-Za-z]?)\b/gi },
-  { label: "State Loop", re: /\bSL\s*[-–]?\s*(\d{1,4}[A-Za-z]?)\b/gi },
-  { label: "Business US", re: /\b(?:BU|BUS)\s*[-–]?\s*(\d{1,3})\b/gi },
+  /** Spur / loop numeric, e.g. SL480, SL79 — match before generic Loop */
+  { label: "State Loop", re: /\bSL\s*[-–]?\s*(\d{1,4})([A-Za-z]*)\b/gi },
+  /** State spur, e.g. SS0422, SS216 */
+  { label: "State Spur", re: /\bSS\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
+  /** Spur markers in detours, e.g. SP317 */
+  { label: "Spur", re: /\bSP\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi },
+  /** Business US / business route, e.g. BU0287P */
+  { label: "Business US", re: /\b(?:BU|BUS)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
 ];
 
 /** Collapse spaces within a line but keep newlines (helps route lists in PDFs). */
@@ -289,10 +302,16 @@ function extractTxdmvTurnByTurnBlock(fullText) {
     start = hdrIdx - 1;
   }
   const out = [];
+  let milesHeaderSeen = false;
   for (let j = start; j < lines.length; j++) {
     const line = lines[j];
     if (/^\s*Texas\s+Oversize\b/i.test(line)) continue;
     if (/PAGE\s+\d+\s+of\s+\d+/i.test(line)) continue;
+    if (/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/i.test(line)) continue;
+    if (/^\s*Miles\s+Route\s+To\b/i.test(line)) {
+      if (milesHeaderSeen) continue;
+      milesHeaderSeen = true;
+    }
     out.push(line);
     if (/Arrive at destination/i.test(line)) break;
     if (/^\s*Final Destination\s*:/i.test(line)) break;
@@ -430,19 +449,40 @@ function extractCityHints(line) {
 function normalizePrintedRouteToken(raw) {
   if (!raw) return raw;
   let s = raw.replace(/\s+/g, " ").trim();
-  s = s.replace(/\bUS\s*[-–]?\s*0*(\d{1,3})([A-Za-z]?)\b/gi, function (_, n, suf) {
-    return "US " + String(parseInt(n, 10)) + (suf || "");
+  s = s.replace(/\bBU(?:S)?\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, function (_, n, suf) {
+    const sufSp = suf ? String(suf).replace(/\s+/g, "").toUpperCase() : "";
+    return "BU " + String(parseInt(n, 10)) + (sufSp || "");
   });
-  s = s.replace(/\b(?:SH|TX)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi, function (_, n, suf) {
-    return "SH " + String(parseInt(n, 10)) + (suf || "");
+  s = s.replace(/\bBI\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi, function (_, n, suf) {
+    return "BI " + String(parseInt(n, 10)) + (suf || "").replace(/\s+/g, "");
   });
-  s = s.replace(/\bFM\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi, function (_, n, suf) {
+  s = s.replace(/\bSS\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, function (_, n, suf) {
+    return "SS " + String(parseInt(n, 10)) + (suf || "").replace(/\s+/g, "");
+  });
+  s = s.replace(/\bSP\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi, function (_, n, suf) {
+    return "SP " + String(parseInt(n, 10)) + (suf || "").replace(/\s+/g, "");
+  });
+  s = s.replace(/\bCR\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, function (_, n, suf) {
+    return "CR " + String(parseInt(n, 10)) + (suf || "");
+  });
+  s = s.replace(/\bUS\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi, function (_, n, suf) {
+    const sufClean = (suf || "").replace(/\s+/g, "");
+    return "US " + String(parseInt(n, 10)) + sufClean;
+  });
+  s = s.replace(/\b(?:SH|TX)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, function (_, n, suf) {
+    const sufClean = (suf || "").replace(/\s+/g, "");
+    return "SH " + String(parseInt(n, 10)) + sufClean;
+  });
+  s = s.replace(/\bFM\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, function (_, n, suf) {
     return "FM " + String(parseInt(n, 10)) + (suf || "");
   });
-  s = s.replace(/\bRM\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi, function (_, n, suf) {
+  s = s.replace(/\bRM\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, function (_, n, suf) {
     return "RM " + String(parseInt(n, 10)) + (suf || "");
   });
-  s = s.replace(/\bIH\s*[-–]?\s*(\d{1,3})([A-Za-z]*)\b/gi, function (_, n) {
+  s = s.replace(/\bSL\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, function (_, n, suf) {
+    return "SL " + String(parseInt(n, 10)) + (suf || "").replace(/\s+/g, "");
+  });
+  s = s.replace(/\bIH\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi, function (_, n) {
     return "IH " + String(parseInt(n, 10));
   });
   return s;
@@ -477,6 +517,8 @@ function findHighwaysOnLine(line) {
 function interstateSpoken(highwayText) {
   const ih = highwayText.match(/\b(?:IH|I)\s*[-–]?\s*(\d{1,3})(?:[A-Za-z]+)?\b/i);
   if (ih) return "Interstate " + String(parseInt(ih[1], 10));
+  const bi = highwayText.match(/\bBI\s*[-–]?\s*(\d{1,3})(?:[A-Za-z]+)?\b/i);
+  if (bi) return "Business Interstate " + String(parseInt(bi[1], 10));
   return highwayText;
 }
 
@@ -534,9 +576,13 @@ function formatStopSummary(hw, direction, mileRange, city, extraMiles) {
   return bits.join(" ");
 }
 
-/** FM-51 / TX-171 style → spaced tokens for regex */
+/** FM-51 / TX-171 / BU-287 style; fm1472 → FM 1472 */
 function normalizeHyphensForMatching(line) {
-  return line.replace(/\b(FM|RM|SH|US|TX)-(\d+)\b/gi, "$1 $2");
+  return line
+    .replace(/\b(FM|RM|SH|US|TX|BU|BI|SS|SP|CR)-(\d+)\b/gi, "$1 $2")
+    .replace(/\b(fm|rm|sh|us)(\d{2,4})([a-z]*)\b/gi, function (_, abbr, n, suf) {
+      return String(abbr).toUpperCase() + " " + n + (suf || "");
+    });
 }
 
 /** Canonical key so we can merge repeated IH 20 / US 385 rows */
@@ -545,12 +591,22 @@ function normalizeRouteKey(text) {
   const s = normalizePrintedRouteToken(text).replace(/\s+/g, " ").trim().toLowerCase();
   const ih = s.match(/\b(?:ih|i)\s*[-–]?\s*(\d{1,3})\b/);
   if (ih) return "ih:" + parseInt(ih[1], 10);
+  const bi = s.match(/\bbi\s*[-–]?\s*(\d{1,3})\b/);
+  if (bi) return "bi:" + parseInt(bi[1], 10);
   const us = s.match(/\bus\s*[-–]?\s*(\d{1,3})\b/);
   if (us) return "us:" + parseInt(us[1], 10);
+  const bu = s.match(/\bbu\s*[-–]?\s*(\d{1,4})\b/);
+  if (bu) return "bu:" + parseInt(bu[1], 10);
   const sh = s.match(/\bsh\s*[-–]?\s*(\d{1,4})\b/);
   if (sh) return "sh:" + parseInt(sh[1], 10);
   const fm = s.match(/\bfm\s*[-–]?\s*(\d{1,4})\b/);
   if (fm) return "fm:" + parseInt(fm[1], 10);
+  const cr = s.match(/\bcr\s*[-–]?\s*(\d{1,4})\b/);
+  if (cr) return "cr:" + parseInt(cr[1], 10);
+  const ss = s.match(/\bss\s*[-–]?\s*(\d{1,4})\b/);
+  if (ss) return "ss:" + parseInt(ss[1], 10);
+  const sp = s.match(/\bsp\s*[-–]?\s*(\d{1,3})\b/);
+  if (sp) return "sp:" + parseInt(sp[1], 10);
   const lp = s.match(/\bloop\s*[-–]?\s*(\d{1,4})\b/);
   if (lp) return "loop:" + lp[1];
   const sl = s.match(/\bsl\s*[-–]?\s*(\d{1,4})\b/);
@@ -590,8 +646,10 @@ function enrichQueriesForTxRow(queries, hw, dir, line, legMiles, _cumulativeMi) 
   const spoken = interstateSpoken(hw.text);
   const isIH =
     /\bIH\b/i.test(hw.text) ||
+    /\bBI\b/i.test(hw.text) ||
     /\bI\s*[-–]?\s*\d{1,3}\b/i.test(hw.text) ||
-    spoken.indexOf("Interstate ") === 0;
+    spoken.indexOf("Interstate ") === 0 ||
+    spoken.indexOf("Business Interstate ") === 0;
   let out = queries.slice();
   const exitNum = extractExitNumber(line);
   if (isIH && exitNum) {
@@ -754,7 +812,7 @@ function shouldParseAsTxdmvTableRow(line) {
   if (/^\s*Texas\s+Oversize\b/i.test(line)) return false;
   return (
     /^\s*(?:<[\s]*[\d.]+|[\d.]+\s+)\S/.test(line) &&
-    /\b(Turn|Continue|Merge|Take|Bear|Arrive)\b/i.test(line)
+    /\b(Turn|Continue|Merge|Take|Bear|Arrive|DETOUR)\b/i.test(line)
   );
 }
 

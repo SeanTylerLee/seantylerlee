@@ -45,19 +45,24 @@ type ParseResult = {
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.3.0";
+const PARSER_VERSION = "tx-turntable-v2.4.0";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
+/** Keep in sync with client `js/app.js` ROUTE_PATTERNS (TxDMV PDF tokens). */
 const ROUTE_PATTERNS: Array<{ label: string; re: RegExp }> = [
-  { label: "IH", re: /\bIH\s*[-–]?\s*0*(\d{1,3})(?:[A-Za-z]+)?\b/i },
-  { label: "Interstate", re: /\bI\s*[-–]?\s*(\d{1,3})\b/i },
-  { label: "US Highway", re: /\bUS\s*[-–]?\s*0*(\d{1,3})([A-Za-z]?)\b/i },
-  { label: "State Hwy", re: /\b(?:SH|TX)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/i },
-  { label: "Farm / Ranch", re: /\b(?:FM|RM)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/i },
-  { label: "Loop", re: /\bLOOP\s*[-–]?\s*(\d{1,4}[A-Za-z]?)\b/i },
-  { label: "State Loop", re: /\bSL\s*[-–]?\s*(\d{1,4}[A-Za-z]?)\b/i },
-  { label: "Business US", re: /\b(?:BU|BUS)\s*[-–]?\s*(\d{1,3})\b/i },
+  { label: "Interstate", re: /\bI\s*[-–]?\s*0*(\d{1,3})\b/gi },
+  { label: "IH", re: /\bIH\s*[-–]?\s*0*(\d{1,3})(?:[A-Za-z]+)?\b/gi },
+  { label: "Business IH", re: /\bBI\s*[-–]?\s*0*(\d{1,3})(?:[A-Za-z]+)?\b/gi },
+  { label: "US Highway", re: /\bUS\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi },
+  { label: "State Hwy", re: /\b(?:SH|TX|State\s+Hwy\.?)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
+  { label: "Farm / Ranch", re: /\b(?:FM|RM)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
+  { label: "County Road", re: /\bCR\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
+  { label: "Loop", re: /\bLOOP\s*[-–]?\s*(\d{1,4}[A-Za-z]?)\b/gi },
+  { label: "State Loop", re: /\bSL\s*[-–]?\s*(\d{1,4})([A-Za-z]*)\b/gi },
+  { label: "State Spur", re: /\bSS\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
+  { label: "Spur", re: /\bSP\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi },
+  { label: "Business US", re: /\b(?:BU|BUS)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
 ];
 
 function corsHeaders(extra: Record<string, string> = {}) {
@@ -117,14 +122,135 @@ function dedupeStrings(arr: string[]): string[] {
   return out;
 }
 
-function normalizeRouteToken(raw: string): string {
-  let s = normalizeCommonOcrTypos(raw);
-  s = s.replace(/\bUS\s*[-–]?\s*0*(\d{1,3})([A-Za-z]?)\b/gi, (_, n, suf) => `US ${parseInt(n, 10)}${suf || ""}`);
-  s = s.replace(/\b(?:SH|TX)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi, (_, n, suf) => `SH ${parseInt(n, 10)}${suf || ""}`);
-  s = s.replace(/\bFM\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi, (_, n, suf) => `FM ${parseInt(n, 10)}${suf || ""}`);
-  s = s.replace(/\bRM\s*[-–]?\s*0*(\d{1,4})([A-Za-z]?)\b/gi, (_, n, suf) => `RM ${parseInt(n, 10)}${suf || ""}`);
-  s = s.replace(/\bIH\s*[-–]?\s*0*(\d{1,3})(?:[A-Za-z]+)?\b/gi, (_, n) => `IH ${parseInt(n, 10)}`);
+/** Normalize TxDMV-style tokens (US69EFR, BU0287P, fm1472, IH0410) — parity with `js/app.js`. */
+function normalizePrintedRouteToken(raw: string): string {
+  if (!raw) return raw;
+  let s = raw.replace(/\s+/g, " ").trim();
+  s = s.replace(/\bBU(?:S)?\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, (_, n, suf) => {
+    const sufSp = suf ? String(suf).replace(/\s+/g, "").toUpperCase() : "";
+    return `BU ${parseInt(n, 10)}${sufSp || ""}`;
+  });
+  s = s.replace(/\bBI\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi, (_, n, suf) =>
+    `BI ${parseInt(n, 10)}${(suf || "").replace(/\s+/g, "")}`);
+  s = s.replace(/\bSS\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, (_, n, suf) =>
+    `SS ${parseInt(n, 10)}${(suf || "").replace(/\s+/g, "")}`);
+  s = s.replace(/\bSP\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi, (_, n, suf) =>
+    `SP ${parseInt(n, 10)}${(suf || "").replace(/\s+/g, "")}`);
+  s = s.replace(/\bCR\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, (_, n, suf) =>
+    `CR ${parseInt(n, 10)}${suf || ""}`);
+  s = s.replace(/\bUS\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi, (_, n, suf) => {
+    const sufClean = (suf || "").replace(/\s+/g, "");
+    return `US ${parseInt(n, 10)}${sufClean}`;
+  });
+  s = s.replace(/\b(?:SH|TX)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, (_, n, suf) => {
+    const sufClean = (suf || "").replace(/\s+/g, "");
+    return `SH ${parseInt(n, 10)}${sufClean}`;
+  });
+  s = s.replace(/\bFM\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, (_, n, suf) =>
+    `FM ${parseInt(n, 10)}${suf || ""}`);
+  s = s.replace(/\bRM\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, (_, n, suf) =>
+    `RM ${parseInt(n, 10)}${suf || ""}`);
+  s = s.replace(/\bSL\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi, (_, n, suf) =>
+    `SL ${parseInt(n, 10)}${(suf || "").replace(/\s+/g, "")}`);
+  s = s.replace(/\bIH\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi, (_, n) => `IH ${parseInt(n, 10)}`);
   return s;
+}
+
+function normalizeRouteToken(raw: string): string {
+  return normalizePrintedRouteToken(normalizeCommonOcrTypos(raw));
+}
+
+function normalizeHyphensForMatching(line: string): string {
+  return line
+    .replace(/\b(FM|RM|SH|US|TX|BU|BI|SS|SP|CR)-(\d+)\b/gi, "$1 $2")
+    .replace(/\b(fm|rm|sh|us)(\d{2,4})([a-z]*)\b/gi, (_, abbr, n, suf) =>
+      `${String(abbr).toUpperCase()} ${n}${suf || ""}`);
+}
+
+type HighwayHit = { label: string; text: string; start: number; end: number };
+
+function findHighwaysOnLine(line: string): HighwayHit[] {
+  const raw: HighwayHit[] = [];
+  for (const p of ROUTE_PATTERNS) {
+    const rx = new RegExp(p.re.source, p.re.flags.includes("g") ? p.re.flags : `${p.re.flags}g`);
+    let m: RegExpExecArray | null;
+    while ((m = rx.exec(line)) !== null) {
+      const token = normalizePrintedRouteToken(m[0].replace(/\s+/g, " ").trim());
+      raw.push({ label: p.label, text: token, start: m.index, end: m.index + m[0].length });
+    }
+  }
+  raw.sort((a, b) => a.start - b.start || b.end - a.end);
+  const nonOverlap: HighwayHit[] = [];
+  let lastEnd = -1;
+  for (const r of raw) {
+    if (r.start < lastEnd) continue;
+    nonOverlap.push(r);
+    lastEnd = r.end;
+  }
+  return nonOverlap;
+}
+
+function interstateSpoken(highwayText: string): string {
+  const ih = highwayText.match(/\b(?:IH|I)\s*[-–]?\s*(\d{1,3})(?:[A-Za-z]+)?\b/i);
+  if (ih) return `Interstate ${parseInt(ih[1], 10)}`;
+  const bi = highwayText.match(/\bBI\s*[-–]?\s*(\d{1,3})(?:[A-Za-z]+)?\b/i);
+  if (bi) return `Business Interstate ${parseInt(bi[1], 10)}`;
+  return highwayText;
+}
+
+function extractExitNumber(line: string): string {
+  const m = /\bExit\s+(\d+)\b/i.exec(line);
+  return m ? m[1] : "";
+}
+
+function extractTowardCityFromLine(line: string): string {
+  const m = /\btoward\s+([^[\n]+)/i.exec(line);
+  if (!m) return "";
+  let chunk = m[1].trim();
+  chunk = chunk.replace(/\s+\d+\.\d+\s+\d{1,2}:\d{2}\s*$/, "").trim();
+  const parts = chunk
+    .split("/")
+    .map((p) => p.replace(/\[[^\]]*\]/g, "").trim())
+    .filter(Boolean);
+  if (!parts.length) return "";
+  const last = parts[parts.length - 1];
+  if (/^[A-Za-z]/.test(last) && last.length > 2 && !/^\d/.test(last)) {
+    return last.replace(/\s+/g, " ").trim();
+  }
+  return "";
+}
+
+function enrichQueriesForTxRow(
+  queries: string[],
+  road: string,
+  dir: string | null,
+  line: string,
+  legMiles: number | null,
+): string[] {
+  const spoken = interstateSpoken(road);
+  const isIH =
+    /\bIH\b/i.test(road) ||
+    /\bBI\b/i.test(road) ||
+    /\bI\s*[-–]?\s*\d{1,3}\b/i.test(road) ||
+    spoken.startsWith("Interstate ") ||
+    spoken.startsWith("Business Interstate ");
+  let out = [...queries];
+  const exitNum = extractExitNumber(line);
+  if (isIH && exitNum) {
+    out = dedupeStrings(
+      [`${spoken} Exit ${exitNum} Texas`, `${spoken} Exit ${exitNum} ${dir || ""} Texas`.replace(/\s+/g, " ").trim()]
+        .concat(out),
+    );
+  }
+  const toward = extractTowardCityFromLine(line);
+  if (isIH && toward) {
+    out = dedupeStrings([`${spoken} near ${toward} Texas`, `${spoken} ${toward} Texas`].concat(out));
+  }
+  const dirWord = dir || "";
+  if (dirWord && legMiles != null && legMiles > 0 && legMiles < 500) {
+    out = dedupeStrings([`${road} ${dirWord} Texas highway`, `${spoken} ${dirWord} Texas`].concat(out));
+  }
+  return dedupeStrings(out);
 }
 
 function extractPermitNumber(text: string): string | null {
@@ -190,20 +316,43 @@ function isLikelyTableContinuation(line: string): boolean {
 }
 
 function extractTurnTableBlock(text: string): string[] {
-  const rawLines = normalizeWs(text).split("\n").map(cleanLine).filter(Boolean);
+  const lines = normalizeWs(text).split("\n").map(cleanLine);
 
-  let inTable = false;
-  const out: string[] = [];
-
-  for (const line of rawLines) {
-    if (isTableHeader(line)) {
-      inTable = true;
-      continue;
+  let hdrIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*Miles\s+Route\s+To\b/i.test(lines[i] || "")) {
+      hdrIdx = i;
+      break;
     }
-    if (!inTable) continue;
-    if (/^\s*Final Destination\s*:/i.test(line)) break;
+  }
+  if (hdrIdx < 0) return [];
+
+  let start = hdrIdx;
+  if (hdrIdx > 0 && /^\s*Origin\s*:/i.test(lines[hdrIdx - 1] || "")) {
+    start = hdrIdx - 1;
+  }
+
+  const out: string[] = [];
+  let milesHeaderSeen = false;
+
+  for (let j = start; j < lines.length; j++) {
+    const line = lines[j];
+    if (!line) continue;
+    if (/^\s*Texas\s+Oversize\b/i.test(line)) continue;
+    if (/PAGE\s+\d+\s+of\s+\d+/i.test(line)) continue;
+    if (/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/i.test(line)) continue;
+
+    if (/^\s*Miles\s+Route\s+To\b/i.test(line)) {
+      if (milesHeaderSeen) continue;
+      milesHeaderSeen = true;
+    }
+
     if (isNoise(line)) continue;
+
     out.push(line);
+
+    if (/Arrive at destination/i.test(line)) break;
+    if (/^\s*Final Destination\s*:/i.test(line)) break;
   }
 
   const merged: string[] = [];
@@ -274,13 +423,9 @@ function parseDirectionAbbrev(dir: string | null): string | null {
 }
 
 function findRoadToken(str: string): string | null {
-  const hay = normalizeCommonOcrTypos(str);
-  for (const p of ROUTE_PATTERNS) {
-    const m = p.re.exec(hay);
-    p.re.lastIndex = 0;
-    if (m) return normalizeRouteToken(m[0]);
-  }
-  return null;
+  const hay = normalizeHyphensForMatching(normalizeCommonOcrTypos(str));
+  const hws = findHighwaysOnLine(hay);
+  return hws.length ? hws[0].text : null;
 }
 
 function extractRoadsFromJunctionBlob(blob: string): string[] {
@@ -337,7 +482,7 @@ function parseOriginStructured(origin: string): OriginStructured {
   }
 
   const reLine =
-    /\b(?:IH|I|US|SH|FM)\s*[-–]?\s*0*(\d{1,4}[A-Za-z]?)\s+(OK|NM|LA|AR)\s+Line\b/i;
+    /\b(?:IH|I|BI|BU|US|SH|FM)\s*[-–]?\s*0*(\d{1,4}[A-Za-z]?)\s+(OK|NM|LA|AR)\s+Line\b/i;
   if (reLine.test(o)) {
     const tok = findRoadToken(o);
     return {
@@ -468,30 +613,34 @@ function stepToSegments(step: ParsedStep): SegmentOut[] {
   const out: SegmentOut[] = [];
 
   if (step.from_road) {
+    let queries = dedupeStrings([
+      `${step.from_road} ${step.from_dir || ""} Texas`.trim(),
+      `${step.from_road} highway Texas`,
+      `${step.from_road} Texas`,
+    ]);
+    queries = enrichQueriesForTxRow(queries, step.from_road, step.from_dir, step.raw_row, step.leg_miles);
     out.push({
       label: "Route",
       text: step.from_road,
       displayText: cleanLine(`${step.from_road}${odoLabel} · ${step.raw_row}`.replace(/\s+·\s+·/g, " · ")),
-      queries: dedupeStrings([
-        `${step.from_road} ${step.from_dir || ""} Texas`.trim(),
-        `${step.from_road} highway Texas`,
-        `${step.from_road} Texas`,
-      ]),
+      queries,
       leg_miles_to_next: step.leg_miles,
       cumulative_permit_mi: odo,
     });
   }
 
   if (step.to_road && step.to_road !== step.from_road) {
+    let queries = dedupeStrings([
+      `${step.to_road} ${step.to_dir || ""} Texas`.trim(),
+      `${step.to_road} highway Texas`,
+      `${step.to_road} Texas`,
+    ]);
+    queries = enrichQueriesForTxRow(queries, step.to_road, step.to_dir, step.raw_row, step.leg_miles);
     out.push({
       label: "Route",
       text: step.to_road,
       displayText: cleanLine(`${step.to_road}${odoLabel} · ${step.raw_row}`.replace(/\s+·\s+·/g, " · ")),
-      queries: dedupeStrings([
-        `${step.to_road} ${step.to_dir || ""} Texas`.trim(),
-        `${step.to_road} highway Texas`,
-        `${step.to_road} Texas`,
-      ]),
+      queries,
       leg_miles_to_next: step.leg_miles,
       cumulative_permit_mi: odo,
     });
@@ -511,7 +660,12 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
 
   const rows = extractTurnTableBlock(fullText)
     .filter((line) => {
-      const norm = normalizeCommonOcrTypos(line).replace(/\bTurn\s+leit\b/gi, "Turn left");
+      if (/^\s*Miles\s+Route\s+To\b/i.test(line)) return false;
+      if (/^\s*Origin\s*:/i.test(line)) return false;
+      const norm = normalizeHyphensForMatching(normalizeCommonOcrTypos(line)).replace(
+        /\bTurn\s+leit\b/gi,
+        "Turn left",
+      );
       return (
         isTableRowStart(norm) &&
         /\b(Turn|Continue|Merge|Take|Bear|Arrive at destination|DETOUR)\b/i.test(norm)
