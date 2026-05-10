@@ -4,10 +4,15 @@
  * No PDF parsing — clients send Permit ID from QR / permit details URL.
  */
 
-const SERVICE_VERSION = "txpros-proxy-v1.0.0";
+const SERVICE_VERSION = "txpros-proxy-v1.1.0";
 
-const TXPROS_ROUTE_URL =
+/** Legacy HTTP POST target (often returns Error.aspx; kept as fallback). */
+const TXPROS_ROUTE_BODY_URL =
   "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermitBody";
+
+/** What the live permit page calls (see RouteService.asmx/js + PermitDetails02 showMap). */
+const TXPROS_ROUTE_JSON_URL =
+  "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit";
 
 function corsHeaders(extra: Record<string, string> = {}) {
   return {
@@ -100,16 +105,19 @@ function isHtmlErrorPage(text: string): boolean {
   return false;
 }
 
-/** Match browser calls — TXPROS often returns Error.aspx for bots or missing context. */
-const TXPROS_BROWSER_HEADERS: Record<string, string> = {
-  Accept: "application/xml, text/xml, text/plain, */*",
-  "Accept-Language": "en-US,en;q=0.9",
-  "Cache-Control": "no-cache",
-  Referer: "https://txpros.txdmv.gov/",
-  Origin: "https://txpros.txdmv.gov/",
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-};
+/** Match browser calls — referer should be the permit page for RouteService. */
+function txprosHeadersForPermit(permitId: string, extra: Record<string, string> = {}): Record<string, string> {
+  const ref = `https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=${encodeURIComponent(permitId)}`;
+  return {
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+    Referer: ref,
+    Origin: "https://txpros.txdmv.gov",
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    ...extra,
+  };
+}
 
 /** Collect Set-Cookie lines for a follow-up request (Deno has no shared cookie jar). */
 function cookieHeaderFromSetCookie(res: Response): string | null {
@@ -123,15 +131,17 @@ function cookieHeaderFromSetCookie(res: Response): string | null {
   return single.split(/,(?=[^;]+?=)/).map((p) => p.split(";")[0].trim()).join("; ");
 }
 
-async function warmTxprosSessionCookie(): Promise<string | null> {
+/** Load public permit details — sets ASP.NET_SessionId same as clicking a QR link. */
+async function establishTxprosSession(permitId: string): Promise<string | null> {
   try {
-    const res = await fetch("https://txpros.txdmv.gov/", {
+    const url =
+      `https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=${encodeURIComponent(permitId)}`;
+    const res = await fetch(url, {
       method: "GET",
       redirect: "follow",
-      headers: {
-        Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
-        ...TXPROS_BROWSER_HEADERS,
-      },
+      headers: txprosHeadersForPermit(permitId, {
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      }),
     });
     return cookieHeaderFromSetCookie(res);
   } catch {
@@ -140,6 +150,43 @@ async function warmTxprosSessionCookie(): Promise<string | null> {
 }
 
 type LatLon = { lat: number; lon: number };
+
+/** Points from GetLatLonForPermit JSON use Lat / Lon (see PermitDetails02 handleGetMapPoints). */
+function latLonsFromTxprosMapPayload(o: unknown): LatLon[] {
+  if (!o || typeof o !== "object") return [];
+  const root = o as Record<string, unknown>;
+  const list = root.LatLons ?? root.latLons;
+  if (!Array.isArray(list)) return [];
+  const pts: LatLon[] = [];
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as Record<string, unknown>;
+    const laRaw = r.Lat ?? r.lat ?? r.Latitude ?? null;
+    const loRaw = r.Lon ?? r.lng ?? r.Lng ?? r.Longitude ?? null;
+    const la = typeof laRaw === "string" ? parseFloat(laRaw) : Number(laRaw);
+    const lo = typeof loRaw === "string" ? parseFloat(loRaw) : Number(loRaw);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) continue;
+    if (la === -1 && lo === -1) continue;
+    if (la <= 0) continue;
+    pts.push({ lat: la, lon: lo });
+  }
+  return pts;
+}
+
+function unwrapAspNetAjaxJson(raw: unknown): unknown {
+  if (raw && typeof raw === "object" && "d" in (raw as object)) {
+    let inner = (raw as { d: unknown }).d;
+    if (typeof inner === "string") {
+      try {
+        inner = JSON.parse(inner);
+      } catch {
+        return inner;
+      }
+    }
+    return inner;
+  }
+  return raw;
+}
 
 function scoreRow(o: unknown): LatLon | null {
   if (!o || typeof o !== "object") return null;
@@ -224,9 +271,70 @@ function parseRouteXml(xmlText: string): { coordinates: number[][]; pointCount: 
   return { coordinates, pointCount: coordinates.length };
 }
 
-async function fetchRouteFromTxpros(permitId: string): Promise<string> {
-  const sessionCookie = await warmTxprosSessionCookie();
+function parseCoordsFromJsonResponse(text: string): { coordinates: number[][]; pointCount: number } | null {
+  const t = text.trim();
+  if (!t.startsWith("{")) return null;
+  let data: unknown;
+  try {
+    data = JSON.parse(t);
+  } catch {
+    return null;
+  }
+  const inner = unwrapAspNetAjaxJson(data);
+  let pts = latLonsFromTxprosMapPayload(inner);
+  if (pts.length < 2) {
+    pts = extractBreadcrumbs(inner);
+  }
+  if (pts.length < 2) return null;
+  return {
+    coordinates: pts.map((p) => [p.lon, p.lat]),
+    pointCount: pts.length,
+  };
+}
 
+async function tryFetchJsonLatLon(
+  permitId: string,
+  cookie: string | null,
+): Promise<{ coordinates: number[][]; pointCount: number } | null> {
+  const idNum = parseInt(permitId, 10);
+  if (!Number.isFinite(idNum)) return null;
+
+  const payload = JSON.stringify({
+    PermitID: idNum,
+    UseHistoryDB: false,
+    AuditPermitID: -1,
+  });
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json; charset=UTF-8",
+        Accept: "application/json, text/javascript, */*;q=0.01",
+        "X-Requested-With": "XMLHttpRequest",
+        ...txprosHeadersForPermit(permitId),
+      };
+      if (cookie) headers.Cookie = cookie;
+
+      const res = await fetch(TXPROS_ROUTE_JSON_URL, {
+        method: "POST",
+        headers,
+        body: payload,
+      });
+      const text = await res.text();
+      const parsed = parseCoordsFromJsonResponse(text);
+      if (parsed) return parsed;
+    } catch {
+      /* next attempt */
+    }
+    await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+  }
+  return null;
+}
+
+async function fetchRouteXmlFromBody(
+  permitId: string,
+  cookie: string | null,
+): Promise<string> {
   const attempts = [
     new URLSearchParams({ permitID: permitId }),
     new URLSearchParams({ PermitID: permitId }),
@@ -237,11 +345,12 @@ async function fetchRouteFromTxpros(permitId: string): Promise<string> {
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/x-www-form-urlencoded",
-        ...TXPROS_BROWSER_HEADERS,
+        Accept: "application/xml, text/xml, text/plain, */*",
+        ...txprosHeadersForPermit(permitId),
       };
-      if (sessionCookie) headers.Cookie = sessionCookie;
+      if (cookie) headers.Cookie = cookie;
 
-      const res = await fetch(TXPROS_ROUTE_URL, {
+      const res = await fetch(TXPROS_ROUTE_BODY_URL, {
         method: "POST",
         headers,
         body,
@@ -263,20 +372,43 @@ async function fetchRouteFromTxpros(permitId: string): Promise<string> {
   }
 
   if (lastErr?.message === "txpros_html_error") {
-    throw new Error(
-      [
-        `TXPROS returned its HTML error page for permit ID ${permitId}.`,
-        "Common causes: (1) Use the numeric PermitID from the TXPROS link or QR (…PermitID=12345678), not the printed permit number.",
-        "(2) Permit expired or not yet active. (3) Try again later if TxDMV is busy.",
-      ].join(" "),
-    );
+    throw new Error("txpros_html_error");
   }
   if (lastErr?.message?.startsWith("txpros_http_")) {
-    throw new Error(
-      `TXPROS HTTP error ${lastErr.message.replace("txpros_http_", "")} for permit ${permitId}.`,
-    );
+    throw lastErr;
   }
   throw lastErr || new Error("Could not reach TXPROS RouteService.");
+}
+
+async function fetchRouteFromTxpros(permitId: string): Promise<{
+  coordinates: number[][];
+  pointCount: number;
+  via: "json" | "body_xml";
+}> {
+  const sessionCookie = await establishTxprosSession(permitId);
+
+  const jsonResult = await tryFetchJsonLatLon(permitId, sessionCookie);
+  if (jsonResult) {
+    return { ...jsonResult, via: "json" };
+  }
+
+  try {
+    const xml = await fetchRouteXmlFromBody(permitId, sessionCookie);
+    const { coordinates, pointCount } = parseRouteXml(xml);
+    return { coordinates, pointCount, via: "body_xml" };
+  } catch (e) {
+    if (e instanceof Error && e.message === "txpros_html_error") {
+      throw new Error(
+        [
+          `TXPROS did not return route data for permit ${permitId}.`,
+          "Confirm the permit opens on txpros.txdmv.gov and “Show Map” loads the route.",
+          "Use the numeric PermitID from the QR URL (?PermitID=…), not the printed permit number.",
+          "If the map works in your browser but this still fails, TxDMV may be limiting automated requests—try again later.",
+        ].join(" "),
+      );
+    }
+    throw e;
+  }
 }
 
 type TxprosResult = {
@@ -289,8 +421,10 @@ type TxprosResult = {
 
 async function handlePermitId(permitId: string): Promise<TxprosResult> {
   const warnings: string[] = [];
-  const xml = await fetchRouteFromTxpros(permitId);
-  const { coordinates, pointCount } = parseRouteXml(xml);
+  const { coordinates, pointCount, via } = await fetchRouteFromTxpros(permitId);
+  if (via === "body_xml") {
+    warnings.push("route_via_legacy_GetLatLonForPermitBody");
+  }
   return {
     permit_id: permitId,
     coordinates,
