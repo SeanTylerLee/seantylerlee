@@ -61,6 +61,7 @@ function readSupabaseParsedSegments(obj) {
         s.permit_odometer_mi ??
         s.permitOdometerMi ??
         null;
+      const dh = (s.dir_hint || s.dirHint || "").toString().trim();
       const leg =
         legRaw != null && legRaw !== "" && !isNaN(Number(legRaw)) ? Number(legRaw) : null;
       const cumulative =
@@ -71,6 +72,7 @@ function readSupabaseParsedSegments(obj) {
         displayText: displayText || text,
         queries: Array.isArray(s.queries) ? s.queries : [],
       };
+      if (dh) row.dirHint = dh;
       if (leg != null) row.legMilesToNext = leg;
       if (cumulative != null) row.cumulativePermitMi = cumulative;
       return row;
@@ -929,6 +931,7 @@ function parseTableRowStops(line, cumulativeBeforeRow, legMiles, cumulativeAfter
       queries: queries,
       legMilesToNext: legMiles != null ? legMiles : null,
       cumulativePermitMi: cumulativeAfterRow != null ? cumulativeAfterRow : null,
+      dirHint: dir || "",
     });
   }
   return stops;
@@ -1088,6 +1091,7 @@ function parseStructuredWaypoints(routeText) {
           displayText:
             hw.text + " mi " + mileRange.from + (city ? " @" + city : ""),
           queries: qFrom,
+          dirHint: dir || "",
         });
         stops.push({
           label: hw.label,
@@ -1095,6 +1099,7 @@ function parseStructuredWaypoints(routeText) {
           displayText:
             hw.text + " mi " + mileRange.to + (city ? " @" + city : ""),
           queries: qTo,
+          dirHint: dir || "",
         });
         continue;
       }
@@ -1126,6 +1131,7 @@ function parseStructuredWaypoints(routeText) {
         text: hw.text,
         displayText: displayText,
         queries: queries,
+        dirHint: dirUse || "",
       });
     }
   }
@@ -1197,8 +1203,88 @@ function photonQuery(h) {
  * @param {{ lon: number, lat: number } | null} proximityPrior — bias toward previous waypoint so
  *   sequential “IH 20 …” rows land farther east/west along the corridor instead of the same marker.
  */
-async function geocodeMapboxPlaces(query, accessToken, proximityPrior) {
-  if (!accessToken || !query) return null;
+function haversineMi(lat1, lon1, lat2, lon2) {
+  const R = 3958.8;
+  const toRad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * toRad;
+  const dLon = (lon2 - lon1) * toRad;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function bearingBetweenDeg(lat1, lon1, lat2, lon2) {
+  const toRad = Math.PI / 180;
+  const y = Math.sin((lon2 - lon1) * toRad) * Math.cos(lat2 * toRad);
+  const x =
+    Math.cos(lat1 * toRad) * Math.sin(lat2 * toRad) -
+    Math.sin(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.cos((lon2 - lon1) * toRad);
+  const br = (Math.atan2(y, x) * 180) / Math.PI;
+  return (br + 360) % 360;
+}
+
+function smallestAngleDiffDeg(a, b) {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+/** Match expanded travel dir from the permit (north, southeast, …) to ideal compass bearing */
+function idealBearingFromTravelDir(dirWord) {
+  const w = (dirWord || "").toLowerCase();
+  const map = {
+    north: 0,
+    northeast: 45,
+    east: 90,
+    southeast: 135,
+    south: 180,
+    southwest: 225,
+    west: 270,
+    northwest: 315,
+  };
+  return map[w] !== undefined ? map[w] : null;
+}
+
+/**
+ * When Mapbox returns several Features for a highway query, re-rank using prior waypoint +
+ * permit travel direction so the pin advances along the corridor instead of snapping backward.
+ */
+function pickBestGeocodeFeature(features, proximityPrior, dirHint) {
+  if (!features || !features.length) return null;
+  const first = features[0];
+  if (
+    !proximityPrior ||
+    typeof proximityPrior.lat !== "number" ||
+    typeof proximityPrior.lon !== "number"
+  ) {
+    return first;
+  }
+  const ideal = idealBearingFromTravelDir(dirHint);
+  if (ideal == null) {
+    return first;
+  }
+  let best = first;
+  let bestScore = Infinity;
+  for (let i = 0; i < features.length; i++) {
+    const f = features[i];
+    if (!f || typeof f.lat !== "number" || typeof f.lon !== "number") continue;
+    const distMi = haversineMi(proximityPrior.lat, proximityPrior.lon, f.lat, f.lon);
+    if (distMi < 0.04) continue;
+    const br = bearingBetweenDeg(proximityPrior.lat, proximityPrior.lon, f.lat, f.lon);
+    let score = smallestAngleDiffDeg(br, ideal);
+    if (distMi < 2) score += (2 - distMi) * 2;
+    if (distMi > 100) score += (distMi - 100) * 0.02;
+    if (score < bestScore) {
+      bestScore = score;
+      best = f;
+    }
+  }
+  return best || first;
+}
+
+async function geocodeMapboxPlacesFeatures(query, accessToken, proximityPrior) {
+  if (!accessToken || !query) return [];
   const base =
     "https://api.mapbox.com/geocoding/v5/mapbox.places/" +
     encodeURIComponent(query) +
@@ -1212,18 +1298,28 @@ async function geocodeMapboxPlaces(query, accessToken, proximityPrior) {
   const params = new URLSearchParams({
     access_token: accessToken,
     country: "us",
-    limit: "1",
+    limit: "10",
     proximity: prox,
     bbox: MAPBOX_TX_BBOX,
   });
   const res = await fetch(base + "?" + params.toString());
-  if (!res.ok) return null;
+  if (!res.ok) return [];
   const data = await res.json();
-  const f = data.features?.[0];
-  if (!f?.center || f.center.length < 2) return null;
-  const [lon, lat] = f.center;
-  const label = f.place_name || f.text || query;
-  return { lat, lon, label };
+  const fs = data.features || [];
+  const out = [];
+  for (let i = 0; i < fs.length; i++) {
+    const f = fs[i];
+    if (!f?.center || f.center.length < 2) continue;
+    const [lon, lat] = f.center;
+    const label = f.place_name || f.text || query;
+    out.push({ lat, lon, label });
+  }
+  return out;
+}
+
+async function geocodeMapboxPlaces(query, accessToken, proximityPrior) {
+  const fs = await geocodeMapboxPlacesFeatures(query, accessToken, proximityPrior);
+  return fs.length ? fs[0] : null;
 }
 
 /**
@@ -1242,12 +1338,18 @@ async function geocodeSegment(h, accessToken, proximityPrior) {
       ? h.queries.concat(legacy)
       : legacy;
 
+  const dirHint =
+    (h.dirHint && String(h.dirHint).trim()) ||
+    extractPrimaryDirection(h.displayText || h.text || "") ||
+    "";
+
   if (accessToken) {
     for (let i = 0; i < attempts.length; i++) {
       const q = attempts[i];
       if (!q) continue;
-      const r = await geocodeMapboxPlaces(q, accessToken, proximityPrior);
-      if (r) return { ...r, source: "mapbox", matchedQuery: q };
+      const feats = await geocodeMapboxPlacesFeatures(q, accessToken, proximityPrior);
+      const pick = pickBestGeocodeFeature(feats, proximityPrior, dirHint);
+      if (pick) return { ...pick, source: "mapbox", matchedQuery: q };
       if (i < 4) await sleep(40);
     }
   }
@@ -1268,14 +1370,21 @@ async function geocodeSegment(h, accessToken, proximityPrior) {
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
-    const f = data.features?.[0];
-    if (!f?.geometry?.coordinates) return null;
-    const [lon, lat] = f.geometry.coordinates;
-    const name = f.properties?.name || f.properties?.street || fallbackQ;
-    return { lat, lon, label: name, source: "photon", matchedQuery: fallbackQ };
+    const list = [];
+    const feats = data.features || [];
+    for (let fi = 0; fi < feats.length; fi++) {
+      const f = feats[fi];
+      if (!f?.geometry?.coordinates) continue;
+      const [lon, lat] = f.geometry.coordinates;
+      const name = f.properties?.name || f.properties?.street || fallbackQ;
+      list.push({ lat, lon, label: name });
+    }
+    const pick = pickBestGeocodeFeature(list, proximityPrior, dirHint);
+    if (pick) return { ...pick, source: "photon", matchedQuery: fallbackQ };
   } catch (_) {
     return null;
   }
+  return null;
 }
 
 function sampleEvenly(coords, max) {
@@ -1991,16 +2100,21 @@ function main() {
       );
 
       let geoHint = h;
-      if (
-        (h.legMilesToNext != null && Number.isFinite(h.legMilesToNext)) ||
-        (h.cumulativePermitMi != null && Number.isFinite(h.cumulativePermitMi))
-      ) {
+      const dirWord =
+        (h.dirHint && String(h.dirHint).trim()) ||
+        extractPrimaryDirection(h.displayText || h.text || "") ||
+        "";
+      const isRouteSeg = String(h.label || "")
+        .toLowerCase()
+        .includes("route");
+      if (isRouteSeg) {
         geoHint = {
           ...h,
+          dirHint: dirWord || h.dirHint,
           queries: enrichQueriesForTxRow(
             h.queries || [],
             { text: h.text },
-            "",
+            dirWord,
             h.displayText || h.text || "",
             h.legMilesToNext != null && Number.isFinite(h.legMilesToNext) ? h.legMilesToNext : null,
             h.cumulativePermitMi != null && Number.isFinite(h.cumulativePermitMi)

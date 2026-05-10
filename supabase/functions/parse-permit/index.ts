@@ -21,6 +21,8 @@ type SegmentOut = {
   text: string;
   displayText: string;
   queries: string[];
+  /** Expanded travel direction (north, west, …) for downstream geocode scoring */
+  dir_hint?: string | null;
   leg_miles_to_next?: number | null;
   /** Same as permit Distance column when parsed (odometer from start of loaded route). */
   cumulative_permit_mi?: number | null;
@@ -45,7 +47,7 @@ type ParseResult = {
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.4.0";
+const PARSER_VERSION = "tx-turntable-v2.5.0";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
@@ -538,7 +540,24 @@ function parseFromRoadAndDir(body: string): { fromRoad: string | null; fromDir: 
       b,
     );
   if (m) {
-    return { fromRoad: normalizeRouteToken(m[1]), fromDir: parseDirectionAbbrev(m[2]) };
+    return { fromRoad: normalizeRouteToken(m[1].trim()), fromDir: parseDirectionAbbrev(m[2]) };
+  }
+  const m2 =
+    /^\s*((?:[A-Za-z0-9\-]|\/)+)\s+(nb|sb|eb|wb|[nsew]{1,2})\s+(?:Turn|Continue|Merge|Take|Bear|Arrive|DETOUR)\b/i.exec(
+      b,
+    );
+  if (m2) {
+    return { fromRoad: normalizeRouteToken(m2[1].trim()), fromDir: parseDirectionAbbrev(m2[2]) };
+  }
+  const hay = normalizeHyphensForMatching(b);
+  const hits = findHighwaysOnLine(hay);
+  if (hits.length) {
+    const tail = hay.slice(hits[0].end);
+    const dm = /^\s*(nb|sb|eb|wb|[nsew]{1,2})\b/i.exec(tail);
+    if (dm) {
+      return { fromRoad: hits[0].text, fromDir: parseDirectionAbbrev(dm[1]) };
+    }
+    return { fromRoad: hits[0].text, fromDir: null };
   }
   return { fromRoad: findRoadToken(b), fromDir: null };
 }
@@ -618,11 +637,20 @@ function stepToSegments(step: ParsedStep): SegmentOut[] {
       `${step.from_road} highway Texas`,
       `${step.from_road} Texas`,
     ]);
+    if (odo != null && Number.isFinite(odo) && odo > 1) {
+      const mi = Math.round(odo * 10) / 10;
+      const spoken = interstateSpoken(step.from_road);
+      queries = dedupeStrings([
+        `${spoken} Texas around mile ${mi}`,
+        `${step.from_road} Texas approximately mile ${mi}`,
+      ]).concat(queries);
+    }
     queries = enrichQueriesForTxRow(queries, step.from_road, step.from_dir, step.raw_row, step.leg_miles);
     out.push({
       label: "Route",
       text: step.from_road,
       displayText: cleanLine(`${step.from_road}${odoLabel} · ${step.raw_row}`.replace(/\s+·\s+·/g, " · ")),
+      dir_hint: step.from_dir || null,
       queries,
       leg_miles_to_next: step.leg_miles,
       cumulative_permit_mi: odo,
@@ -635,11 +663,21 @@ function stepToSegments(step: ParsedStep): SegmentOut[] {
       `${step.to_road} highway Texas`,
       `${step.to_road} Texas`,
     ]);
-    queries = enrichQueriesForTxRow(queries, step.to_road, step.to_dir, step.raw_row, step.leg_miles);
+    if (odo != null && Number.isFinite(odo) && odo > 1) {
+      const mi = Math.round(odo * 10) / 10;
+      const spoken = interstateSpoken(step.to_road);
+      queries = dedupeStrings([
+        `${spoken} Texas around mile ${mi}`,
+        `${step.to_road} Texas approximately mile ${mi}`,
+      ]).concat(queries);
+    }
+    const dirUse = step.to_dir || step.from_dir || null;
+    queries = enrichQueriesForTxRow(queries, step.to_road, dirUse, step.raw_row, step.leg_miles);
     out.push({
       label: "Route",
       text: step.to_road,
       displayText: cleanLine(`${step.to_road}${odoLabel} · ${step.raw_row}`.replace(/\s+·\s+·/g, " · ")),
+      dir_hint: dirUse,
       queries,
       leg_miles_to_next: step.leg_miles,
       cumulative_permit_mi: odo,
