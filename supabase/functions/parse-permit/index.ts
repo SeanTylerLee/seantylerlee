@@ -2,13 +2,14 @@
  * Supabase Edge Function: TXPROS official route for Mapbox.
  *
  * 1. Tries direct calls from this Edge (session + GetLatLon JSON + legacy body XML) — fast when TxDMV allows it.
- * 2. If BROWSERLESS_TOKEN is set, runs Browserless `/function`: blocks heavy assets, opens the permit page,
- *    then calls GetLatLonForPermit like the live map. BROWSERLESS_SESSION_TIMEOUT_MS defaults to 60000 (plan caps).
+ * 2. If BROWSERLESS_TOKEN is set, runs Browserless `/function`: injects TxPROS cookies from the Edge worker,
+ *    blocks heavy assets, uses fast navigation (`commit` then fallback), then calls GetLatLonForPermit.
+ *    BROWSERLESS_SESSION_TIMEOUT_MS defaults to 60000 (plan caps).
  *
  * Clients POST { permitID } with Supabase anon key. No PDF parsing.
  */
 
-const SERVICE_VERSION = "txpros-proxy-v1.3.4";
+const SERVICE_VERSION = "txpros-proxy-v1.3.5";
 
 /** Hosted browser API — https://www.browserless.io/ — set BROWSERLESS_TOKEN on this function. */
 const BROWSERLESS_TOKEN = Deno.env.get("BROWSERLESS_TOKEN") || "";
@@ -420,10 +421,32 @@ const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) =>
     typeof context.gotoTimeoutMs === "number" && context.gotoTimeoutMs > 0
       ? context.gotoTimeoutMs
       : 52000;
+  const cookieHeader = context.cookieHeader != null ? String(context.cookieHeader) : "";
   if (!permitId) {
     return { data: { error: "missing_permitId" }, type: "application/json" };
   }
   try {
+    const jar = [];
+    if (cookieHeader.trim().length > 0) {
+      for (const segment of cookieHeader.split(";")) {
+        const t = segment.trim();
+        const eq = t.indexOf("=");
+        if (eq < 1) continue;
+        const name = t.slice(0, eq).trim();
+        const value = t.slice(eq + 1).trim();
+        if (!name) continue;
+        jar.push({
+          name,
+          value,
+          domain: "txpros.txdmv.gov",
+          path: "/",
+          secure: true,
+        });
+      }
+      if (jar.length) await page.setCookie(...jar);
+    }
+    const hasPrimedCookies = jar.length > 0;
+
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       const t = req.resourceType();
@@ -437,10 +460,26 @@ const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) =>
         } catch (_) {}
       }
     });
+
     const url =
       "https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=" + encodeURIComponent(String(permitId));
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: gotoTimeout });
-    await new Promise((r) => setTimeout(r, 200));
+
+    let okNav = false;
+    try {
+      await page.goto(url, {
+        waitUntil: "commit",
+        timeout: hasPrimedCookies ? 12000 : 15000,
+      });
+      okNav = true;
+    } catch (_) {}
+    if (!okNav) {
+      await page.goto(url, {
+        waitUntil: "domcontentloaded",
+        timeout: hasPrimedCookies ? Math.min(gotoTimeout, 20000) : gotoTimeout,
+      });
+    }
+    await new Promise((r) => setTimeout(r, hasPrimedCookies ? 150 : 350));
+
     const result = await page.evaluate(async (pid) => {
       const r = await fetch("https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit", {
         method: "POST",
@@ -488,7 +527,10 @@ function normalizeBrowserlessDataNode(data: Record<string, unknown>): Record<str
   return data;
 }
 
-async function fetchRouteViaBrowserless(permitId: string): Promise<BrowserlessRouteAttempt> {
+async function fetchRouteViaBrowserless(
+  permitId: string,
+  primedCookieHeader: string | null,
+): Promise<BrowserlessRouteAttempt> {
   if (!BROWSERLESS_TOKEN) return null;
   try {
     const res = await fetch(browserlessFunctionEndpoint(), {
@@ -496,7 +538,11 @@ async function fetchRouteViaBrowserless(permitId: string): Promise<BrowserlessRo
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         code: BROWSERLESS_TXPROS_FUNCTION,
-        context: { permitId, gotoTimeoutMs: browserlessGotoTimeoutMs() },
+        context: {
+          permitId,
+          gotoTimeoutMs: browserlessGotoTimeoutMs(),
+          cookieHeader: primedCookieHeader && primedCookieHeader.trim() ? primedCookieHeader : "",
+        },
       }),
     });
     const text = await res.text();
@@ -576,8 +622,8 @@ function augmentBrowserlessFailureDetail(detail: string): string {
     return (
       `${detail} ` +
       "HTTP 408: Browserless session expired before the script finished (plan cap often 60s). " +
-      "This deployment tries direct TXPROS first, then Browserless with heavy assets blocked. " +
-      "Upgrade Browserless for a longer timeout, or set BROWSERLESS_PROXY_PRESET=px_gov01 if your plan supports it for .gov."
+      "v1.3.5+ injects the same TxPROS cookies Edge already obtained and uses a fast navigation (commit) to finish sooner. " +
+      "Upgrade Browserless for a longer timeout, or set BROWSERLESS_PROXY_PRESET=px_gov01 if your plan supports it."
     );
   }
   return detail;
@@ -606,7 +652,7 @@ async function fetchRouteFromTxpros(permitId: string): Promise<{
 
   let blAttempt: BrowserlessRouteAttempt = null;
   if (BROWSERLESS_TOKEN) {
-    blAttempt = await fetchRouteViaBrowserless(permitId);
+    blAttempt = await fetchRouteViaBrowserless(permitId, sessionCookie);
     if (blAttempt?.ok) {
       const { coordinates, pointCount } = blAttempt;
       return { coordinates, pointCount, via: "browserless" };
