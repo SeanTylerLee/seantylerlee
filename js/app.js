@@ -130,6 +130,217 @@ async function parsePermitViaSupabase(file) {
   };
 }
 
+/** TXPROS official route breadcrumbs (PermitDetails QR / map). */
+const TXPROS_ROUTE_SERVICE_URL =
+  "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermitBody";
+
+function isTxprosHtmlErrorResponse(text) {
+  if (!text || typeof text !== "string") return true;
+  if (/<!DOCTYPE/i.test(text) && /Error\s+Encountered/i.test(text)) return true;
+  if (/<form[^>]+action="[^"]*Error\.aspx"/i.test(text)) return true;
+  return false;
+}
+
+/**
+ * @param {string} input — digits, full TXPROS URL, or text containing PermitID=
+ * @returns {string | null}
+ */
+function extractTxprosPermitId(input) {
+  const s = String(input || "").trim();
+  if (!s) return null;
+  if (/^\d{4,14}$/.test(s)) return s;
+  try {
+    const u = new URL(s, "https://txpros.txdmv.gov");
+    const id = u.searchParams.get("PermitID") || u.searchParams.get("permitID");
+    if (id && /^\d+$/.test(String(id))) return String(id);
+  } catch (_) {}
+  const m = s.match(/PermitID=(\d+)/i) || s.match(/permitID[=:]\s*(\d+)/i);
+  return m ? m[1] : null;
+}
+
+/**
+ * Walk parsed JSON for the largest array of { Lat, Lon }-style points.
+ * @returns {{ lat: number, lon: number }[]}
+ */
+function extractBreadcrumbsFromTxprosJson(data) {
+  /** @type {{ lat: number, lon: number }[]} */
+  let best = [];
+
+  function scoreRow(o) {
+    if (!o || typeof o !== "object") return null;
+    const lat =
+      o.Lat ?? o.lat ?? o.Latitude ?? o.latitude ?? o.LAT ?? null;
+    const lon =
+      o.Lon ?? o.lng ?? o.Lng ?? o.Longitude ?? o.longitude ?? o.LNG ?? o.LON ?? null;
+    const la = typeof lat === "string" ? parseFloat(lat) : Number(lat);
+    const lo = typeof lon === "string" ? parseFloat(lon) : Number(lon);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) return null;
+    return { lat: la, lon: lo };
+  }
+
+  function considerArray(arr) {
+    if (!Array.isArray(arr) || arr.length < 2) return;
+    const row0 = scoreRow(arr[0]);
+    if (!row0) return;
+    const pts = [];
+    for (let i = 0; i < arr.length; i++) {
+      const p = scoreRow(arr[i]);
+      if (p) pts.push(p);
+    }
+    if (pts.length > best.length) best = pts;
+  }
+
+  function walk(o, depth) {
+    if (depth > 20) return;
+    if (Array.isArray(o)) {
+      considerArray(o);
+      for (let i = 0; i < Math.min(o.length, 400); i++) {
+        if (o[i] && typeof o[i] === "object") walk(o[i], depth + 1);
+      }
+      return;
+    }
+    if (o && typeof o === "object") {
+      for (const k of Object.keys(o)) walk(o[k], depth + 1);
+    }
+  }
+
+  walk(data, 0);
+  return best;
+}
+
+/**
+ * @param {string} xmlText — SOAP/XML body from RouteService
+ * @returns {{ coordinates: number[][], pointCount: number, rawJson: unknown }}
+ */
+function parseTxprosRouteXmlResponse(xmlText) {
+  if (isTxprosHtmlErrorResponse(xmlText)) {
+    throw new Error(
+      "TXPROS returned an HTML error page (invalid permit, server issue, or session required). Open the QR link in a tab and try again."
+    );
+  }
+
+  let jsonText = "";
+  const cdata = xmlText.match(/<GetLatLonForPermitResult[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/GetLatLonForPermitResult>/i);
+  if (cdata) jsonText = cdata[1].trim();
+  if (!jsonText) {
+    const m = xmlText.match(/<GetLatLonForPermitResult[^>]*>([\s\S]*?)<\/GetLatLonForPermitResult>/i);
+    if (m) jsonText = m[1].trim();
+  }
+  if (!jsonText) {
+    try {
+      const doc = new DOMParser().parseFromString(xmlText, "text/xml");
+      const all = doc.getElementsByTagName("*");
+      for (let i = 0; i < all.length; i++) {
+        const loc = all[i].localName || "";
+        if (loc === "GetLatLonForPermitResult") {
+          jsonText = (all[i].textContent || "").trim();
+          break;
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (!jsonText) {
+    throw new Error(
+      "Could not find GetLatLonForPermitResult in TXPROS response. Response may be an unexpected format."
+    );
+  }
+
+  let data;
+  try {
+    data = JSON.parse(jsonText);
+  } catch (e) {
+    throw new Error("TXPROS JSON inside XML could not be parsed.");
+  }
+
+  const pts = extractBreadcrumbsFromTxprosJson(data);
+  if (pts.length < 2) {
+    console.warn("TXPROS JSON (unrecognized shape):", data);
+    throw new Error(
+      "TXPROS JSON had fewer than 2 Lat/Lon breadcrumbs. Check console for logged payload shape."
+    );
+  }
+
+  const coordinates = pts.map(function (p) {
+    return [p.lon, p.lat];
+  });
+  return { coordinates: coordinates, pointCount: coordinates.length, rawJson: data };
+}
+
+/**
+ * POST to TXPROS RouteService; tries url-encoded and FormData parameter names.
+ * May fail from the browser due to CORS — then use a same-origin proxy.
+ */
+async function fetchTxprosRoute(permitId) {
+  const id = extractTxprosPermitId(permitId);
+  if (!id) {
+    throw new Error("Need a numeric Permit ID or a txpros.txdmv.gov link with PermitID=…. ");
+  }
+
+  const url = TXPROS_ROUTE_SERVICE_URL;
+  /** @type {{ body: BodyInit | null; headers: Record<string, string> }[]} */
+  const attempts = [];
+
+  const up1 = new URLSearchParams();
+  up1.set("permitID", id);
+  attempts.push({ body: up1, headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+
+  const up2 = new URLSearchParams();
+  up2.set("PermitID", id);
+  attempts.push({ body: up2, headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+
+  const fd = new FormData();
+  fd.append("permitID", id);
+  attempts.push({ body: fd, headers: {} });
+
+  const fd2 = new FormData();
+  fd2.append("PermitID", id);
+  attempts.push({ body: fd2, headers: {} });
+
+  let lastProblem = null;
+  for (let a = 0; a < attempts.length; a++) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        credentials: "omit",
+        mode: "cors",
+        headers: Object.assign(
+          { Accept: "application/xml, text/xml, text/plain, */*" },
+          attempts[a].headers
+        ),
+        body: attempts[a].body,
+      });
+      const text = await res.text();
+      if (isTxprosHtmlErrorResponse(text)) {
+        lastProblem = new Error("txpros_error_page");
+        continue;
+      }
+      try {
+        return parseTxprosRouteXmlResponse(text);
+      } catch (parseErr) {
+        lastProblem = parseErr;
+      }
+    } catch (e) {
+      lastProblem = e;
+      const msg = e && e.message ? String(e.message) : String(e);
+      if (/NetworkError|Failed to fetch|Load failed|network/i.test(msg)) {
+        throw new Error(
+          "Browser blocked the TXPROS request (often CORS). Add a small proxy on your own origin (e.g. Supabase Edge Function) that POSTs to RouteService.asmx and returns the XML body."
+        );
+      }
+    }
+  }
+
+  if (lastProblem && lastProblem.message === "txpros_error_page") {
+    throw new Error(
+      "TXPROS declined the request (error page). The permit ID may be wrong, expired, or the service may require cookies from opening the QR page first."
+    );
+  }
+  throw lastProblem instanceof Error
+    ? lastProblem
+    : new Error("Could not load official route from TXPROS.");
+}
+
 /** Map Matching API allows up to 100 coordinates per request */
 const MAPBOX_MATCHING_MAX = 100;
 /** Chunk long traces; overlap keeps continuity between chunks */
@@ -1634,7 +1845,11 @@ function hintDisplay(h) {
  * GeoJSON for external tools (QGIS, your own DB `points_json` column, etc.).
  * Line is optional when routing failed; waypoints use current Route checkboxes / coords.
  */
-function buildRouteGeoJSON(lineGeometry, waypointRows) {
+function buildRouteGeoJSON(lineGeometry, waypointRows, geoOpts) {
+  geoOpts = geoOpts || {};
+  const lineNote =
+    geoOpts.lineNote ||
+    "Approximate driving geometry from geocoded waypoints — not an official TxDOT corridor.";
   const features = [];
   if (
     lineGeometry &&
@@ -1646,8 +1861,7 @@ function buildRouteGeoJSON(lineGeometry, waypointRows) {
       type: "Feature",
       properties: {
         kind: "route_line",
-        note:
-          "Approximate driving geometry from geocoded waypoints — not an official TxDOT corridor.",
+        note: lineNote,
       },
       geometry: lineGeometry,
     });
@@ -1734,6 +1948,18 @@ function initMap() {
 let mapInstance = null;
 /** @type {mapboxgl.Marker[]} */
 let mapMarkers = [];
+/** Start/end markers for official TXPROS polyline */
+let txprosMarkers = [];
+
+function clearTxprosOverlay() {
+  txprosMarkers.forEach(function (m) {
+    m.remove();
+  });
+  txprosMarkers = [];
+  if (!mapInstance) return;
+  if (mapInstance.getLayer("txpros-line")) mapInstance.removeLayer("txpros-line");
+  if (mapInstance.getSource("txpros-line-src")) mapInstance.removeSource("txpros-line-src");
+}
 
 function clearRouteOverlay() {
   mapMarkers.forEach(function (m) {
@@ -1741,10 +1967,88 @@ function clearRouteOverlay() {
   });
   mapMarkers = [];
 
+  clearTxprosOverlay();
+
   if (!mapInstance) return;
 
   if (mapInstance.getLayer("route-line")) mapInstance.removeLayer("route-line");
   if (mapInstance.getSource("route-line-src")) mapInstance.removeSource("route-line-src");
+}
+
+/**
+ * Official TXPROS breadcrumbs: blue line, green start / red end, fit bounds.
+ * @param {number[][]} lngLatCoords — [lng, lat] pairs
+ * @param {string} permitId
+ */
+function drawTxprosOfficialRoute(lngLatCoords, permitId) {
+  if (!mapInstance || !lngLatCoords || lngLatCoords.length < 2) return;
+
+  const paint = function () {
+    try {
+      if (mapInstance.getLayer("txpros-line")) mapInstance.removeLayer("txpros-line");
+      if (mapInstance.getSource("txpros-line-src")) mapInstance.removeSource("txpros-line-src");
+    } catch (_) {}
+
+    mapInstance.addSource("txpros-line-src", {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        properties: { permitId: permitId, source: "txpros.txdmv.gov" },
+        geometry: { type: "LineString", coordinates: lngLatCoords },
+      },
+    });
+    mapInstance.addLayer({
+      id: "txpros-line",
+      type: "line",
+      source: "txpros-line-src",
+      layout: {
+        "line-join": "round",
+        "line-cap": "round",
+      },
+      paint: {
+        "line-color": "#0066ff",
+        "line-width": 8,
+        "line-opacity": 0.85,
+      },
+    });
+
+    const startEl = document.createElement("div");
+    startEl.className = "map-marker-txpros map-marker-txpros--start";
+    startEl.title = "TXPROS route start";
+    const endEl = document.createElement("div");
+    endEl.className = "map-marker-txpros map-marker-txpros--end";
+    endEl.title = "TXPROS route end";
+
+    const first = lngLatCoords[0];
+    const last = lngLatCoords[lngLatCoords.length - 1];
+    txprosMarkers.push(
+      new mapboxgl.Marker({ element: startEl, anchor: "center" })
+        .setLngLat(first)
+        .addTo(mapInstance)
+    );
+    txprosMarkers.push(
+      new mapboxgl.Marker({ element: endEl, anchor: "center" })
+        .setLngLat(last)
+        .addTo(mapInstance)
+    );
+
+    const bounds = new mapboxgl.LngLatBounds();
+    lngLatCoords.forEach(function (c) {
+      bounds.extend(c);
+    });
+    try {
+      if (!bounds.isEmpty()) {
+        mapInstance.fitBounds(bounds, { padding: 64, maxZoom: 12, duration: 900 });
+      }
+    } catch (_) {
+      mapInstance.setCenter(first);
+      mapInstance.setZoom(8);
+    }
+    mapInstance.resize();
+  };
+
+  if (mapInstance.loaded()) paint();
+  else mapInstance.once("load", paint);
 }
 
 function showMapNotice(message) {
@@ -1764,6 +2068,7 @@ function escapeHtml(s) {
 }
 
 function formatRouteProviderNote(routeProvider) {
+  if (routeProvider === "txpros-official") return "TXPROS official breadcrumbs";
   if (routeProvider === "mapbox-match") return "Mapbox Map Matching";
   if (routeProvider === "google") return "Google Directions";
   if (routeProvider === "mapbox") return "Mapbox Directions";
@@ -1783,6 +2088,14 @@ function main() {
   const recalcBtn = document.getElementById("recalc-route");
   const downloadGeoBtn = document.getElementById("download-geojson");
   const recalcHintEl = document.getElementById("recalc-hint");
+  const txprosInput = document.getElementById("txpros-permit-input");
+  const txprosLoadBtn = document.getElementById("txpros-load-btn");
+  const txprosScanBtn = document.getElementById("txpros-scan-btn");
+  const txprosStopScanBtn = document.getElementById("txpros-stop-scan-btn");
+  const txprosStatusEl = document.getElementById("txpros-import-status");
+  const txprosQrRegion = document.getElementById("txpros-qr-reader");
+  /** @type {unknown} */
+  let txprosScanner = null;
 
   let runGeneration = 0;
   /** Last successful parse — used for “Recalculate route” / GeoJSON export */
@@ -1835,6 +2148,13 @@ function main() {
   });
 
   async function recalculateRouteFromSegments() {
+    if (routeSession && routeSession.isTxprosOfficial) {
+      if (statusEl) {
+        statusEl.textContent =
+          "Recalculate is for PDF routes. Load TXPROS again to change the official line.";
+      }
+      return;
+    }
     if (!routeSession?.enriched?.length) return;
     runGeneration += 1;
     const myRun = runGeneration;
@@ -1898,7 +2218,14 @@ function main() {
         }
         return;
       }
-      const fc = buildRouteGeoJSON(routeSession.geometry, displayEnriched);
+      const geoOpts =
+        routeSession && routeSession.isTxprosOfficial
+          ? {
+              lineNote:
+                "Official TXPROS breadcrumb polyline from txpros.txdmv.gov (state-issued route geometry).",
+            }
+          : {};
+      const fc = buildRouteGeoJSON(routeSession.geometry, displayEnriched, geoOpts);
       if (!fc.features.length) return;
       const stamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, "");
       triggerDownloadJson(`permit-route-${stamp}.geojson`, fc);
@@ -2226,6 +2553,203 @@ function main() {
     }
   }
 
+  async function runTxprosImport(rawInput) {
+    const permitId = extractTxprosPermitId(rawInput);
+    if (!permitId) {
+      if (txprosStatusEl) {
+        txprosStatusEl.textContent = "Enter a numeric Permit ID or paste the full TXPROS URL.";
+      }
+      return;
+    }
+
+    runGeneration += 1;
+    const myRun = runGeneration;
+
+    if (txprosStatusEl) txprosStatusEl.textContent = "Loading official route from TXPROS…";
+    showRouteProgress("Fetching TXPROS breadcrumbs…");
+    rawPanel.textContent = "";
+    hintsList.innerHTML = "";
+    metaPanel.innerHTML = "";
+    verifyCb.checked = false;
+    updateVerifyState();
+    clearRouteOverlay();
+    showMapNotice("Official TXPROS route (state-issued breadcrumbs).");
+    routeSession = null;
+    if (recalcBtn) recalcBtn.disabled = true;
+    updateDownloadGeoBtn();
+    if (confidence) confidence.textContent = "";
+
+    try {
+      const { coordinates, pointCount, rawJson } = await fetchTxprosRoute(permitId);
+      if (myRun !== runGeneration) return;
+
+      const geom = { type: "LineString", coordinates: coordinates };
+      const first = coordinates[0];
+      const last = coordinates[coordinates.length - 1];
+      const enriched = [
+        {
+          label: "Origin",
+          text: "TXPROS start",
+          displayText: "TXPROS route start · Permit " + permitId,
+          geocodeOk: true,
+          includeInRoute: true,
+          lat: first[1],
+          lon: first[0],
+          geocodeSource: "txpros",
+          geocodeQuery: null,
+        },
+        {
+          label: "Destination",
+          text: "TXPROS end",
+          displayText: "TXPROS route end · Permit " + permitId,
+          geocodeOk: true,
+          includeInRoute: true,
+          lat: last[1],
+          lon: last[0],
+          geocodeSource: "txpros",
+          geocodeQuery: null,
+        },
+      ];
+
+      routeSession = {
+        hints: [],
+        enriched: enriched,
+        geometry: geom,
+        routeProvider: "txpros-official",
+        isTxprosOfficial: true,
+        txprosPermitId: permitId,
+        txprosBreadcrumbCount: pointCount,
+        txprosRawJson: rawJson,
+      };
+
+      if (recalcBtn) recalcBtn.disabled = true;
+
+      metaPanel.innerHTML = [
+        `<p><strong>Source:</strong> TXPROS (txpros.txdmv.gov)</p>`,
+        `<p><strong>Permit ID:</strong> ${escapeHtml(permitId)}</p>`,
+        `<p><strong>Breadcrumbs:</strong> ${pointCount} points</p>`,
+      ].join("");
+
+      rawPanel.textContent =
+        "TXPROS import · Permit " + permitId + " · " + pointCount + " coordinates (see GeoJSON export for full line).";
+
+      renderHintList(enriched);
+      drawTxprosOfficialRoute(coordinates, permitId);
+
+      const linkCoords = coordinates.map(function (c) {
+        return { lat: c[1], lon: c[0] };
+      });
+      const sampledForLinks =
+        linkCoords.length > SAMPLE_COORDS_CAP ? sampleEvenly(linkCoords, SAMPLE_COORDS_CAP) : linkCoords;
+      setExportLinks(sampledForLinks.length >= 2 ? sampledForLinks : linkCoords, []);
+
+      updateDownloadGeoBtn();
+      if (txprosStatusEl) {
+        txprosStatusEl.textContent = "Loaded " + pointCount + " breadcrumb points.";
+      }
+      showRouteProgress("TXPROS route on map (" + pointCount + " pts).");
+      if (statusEl) statusEl.textContent = "OK (TXPROS)";
+      updateVerifyState();
+    } catch (err) {
+      console.error(err);
+      if (myRun !== runGeneration) return;
+      if (txprosStatusEl) txprosStatusEl.textContent = String(err.message || err);
+      showRouteProgress("");
+      showMapNotice("");
+      if (statusEl) statusEl.textContent = "TXPROS import failed.";
+    }
+  }
+
+  if (txprosLoadBtn && txprosInput) {
+    txprosLoadBtn.addEventListener("click", function () {
+      void runTxprosImport(txprosInput.value);
+    });
+    txprosInput.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        void runTxprosImport(txprosInput.value);
+      }
+    });
+  }
+
+  if (txprosScanBtn && txprosQrRegion) {
+    txprosScanBtn.addEventListener("click", function () {
+      void (async function () {
+        if (typeof Html5Qrcode === "undefined") {
+          if (txprosStatusEl) {
+            txprosStatusEl.textContent =
+              "QR library failed to load. Paste the TXPROS URL or Permit ID instead.";
+          }
+          return;
+        }
+        if (txprosScanner) {
+          if (txprosStatusEl) txprosStatusEl.textContent = "Scanner already running.";
+          return;
+        }
+        try {
+          txprosQrRegion.classList.remove("is-hidden");
+          if (txprosStopScanBtn) txprosStopScanBtn.disabled = false;
+          const h = new Html5Qrcode("txpros-qr-reader");
+          txprosScanner = h;
+          const box = Math.min(260, Math.max(160, window.innerWidth - 48));
+          let decodedOnce = false;
+          await h.start(
+            { facingMode: "environment" },
+            { fps: 8, qrbox: { width: box, height: box } },
+            function (decodedText) {
+              if (decodedOnce) return;
+              decodedOnce = true;
+              void (async function () {
+                try {
+                  await h.stop();
+                } catch (_) {}
+                try {
+                  if (typeof h.clear === "function") h.clear();
+                } catch (_) {}
+                txprosScanner = null;
+                txprosQrRegion.classList.add("is-hidden");
+                if (txprosStopScanBtn) txprosStopScanBtn.disabled = true;
+                const id = extractTxprosPermitId(decodedText);
+                if (txprosInput) txprosInput.value = id || decodedText.trim();
+                if (txprosStatusEl) txprosStatusEl.textContent = "QR read — loading route…";
+                await runTxprosImport(decodedText);
+              })();
+            },
+            function () {}
+          );
+          if (txprosStatusEl) txprosStatusEl.textContent = "Point the camera at the permit QR code.";
+        } catch (e) {
+          console.warn(e);
+          txprosScanner = null;
+          txprosQrRegion.classList.add("is-hidden");
+          if (txprosStopScanBtn) txprosStopScanBtn.disabled = true;
+          if (txprosStatusEl) {
+            txprosStatusEl.textContent =
+              "Camera not available: " + (e && e.message ? e.message : String(e)) + " — paste the link instead.";
+          }
+        }
+      })();
+    });
+  }
+
+  if (txprosStopScanBtn && txprosQrRegion) {
+    txprosStopScanBtn.addEventListener("click", function () {
+      void (async function () {
+        if (!txprosScanner) return;
+        try {
+          await txprosScanner.stop();
+        } catch (_) {}
+        try {
+          if (typeof txprosScanner.clear === "function") txprosScanner.clear();
+        } catch (_) {}
+        txprosScanner = null;
+        txprosQrRegion.classList.add("is-hidden");
+        txprosStopScanBtn.disabled = true;
+        if (txprosStatusEl) txprosStatusEl.textContent = "Scan cancelled.";
+      })();
+    });
+  }
+
   upload.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2250,6 +2774,20 @@ function main() {
 
     statusEl.textContent = "Uploading to parser…";
     showRouteProgress("");
+    if (txprosScanner) {
+      const sc = txprosScanner;
+      txprosScanner = null;
+      void sc
+        .stop()
+        .catch(function () {})
+        .then(function () {
+          try {
+            if (typeof sc.clear === "function") sc.clear();
+          } catch (_) {}
+        });
+      if (txprosQrRegion) txprosQrRegion.classList.add("is-hidden");
+      if (txprosStopScanBtn) txprosStopScanBtn.disabled = true;
+    }
     rawPanel.textContent = "";
     hintsList.innerHTML = "";
     metaPanel.textContent = "";
@@ -2352,6 +2890,7 @@ function main() {
         }),
         geometry: geometry || null,
         routeProvider: routeProvider || null,
+        isTxprosOfficial: false,
       };
       if (recalcBtn) recalcBtn.disabled = coords.length < 2;
       updateDownloadGeoBtn();
@@ -2408,7 +2947,7 @@ function initApp() {
   if (!hasSupabaseParserConfig()) {
     if (bootStatus) {
       bootStatus.textContent =
-        "Supabase parser not configured. Set js/supabase-config.js values.";
+        "PDF parser: set js/supabase-config.js. TXPROS link/QR import works without Supabase.";
     }
   } else if (bootStatus && !bootStatus.textContent) {
     bootStatus.textContent = supabaseParserConfigNote();

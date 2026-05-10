@@ -11,7 +11,7 @@
 <body>
   <main id="main" class="layout layout--test">
     <section class="panel upload-panel">
-      <p>Test v9</p>
+      <p>Test v10</p>
       <h1 class="upload-title">Upload PDF</h1>
       <input type="file" id="pdf-upload" class="sr-only-input" accept="application/pdf,.pdf" />
       <label for="pdf-upload" class="file-label">
@@ -19,6 +19,34 @@
       </label>
       <p id="upload-status" class="status" aria-live="polite"></p>
       <p id="confidence-note" class="confidence"></p>
+    </section>
+
+    <section class="panel txpros-panel" aria-label="Import official TXPROS route">
+      <h2 class="section-label">Import TXPROS permit (official route)</h2>
+      <p class="txpros-lede">
+        Scan the QR on your permit or paste the TXPROS link / Permit ID. Loads state-issued breadcrumbs
+        (same data as “Show Map” on txpros.txdmv.gov). If the browser blocks the request (CORS), use a
+        same-origin proxy later.
+      </p>
+      <p class="txpros-toolbar">
+        <button type="button" id="txpros-scan-btn" class="btn secondary">Scan QR code</button>
+        <button type="button" id="txpros-stop-scan-btn" class="btn secondary" disabled>
+          Stop camera
+        </button>
+      </p>
+      <div id="txpros-qr-reader" class="txpros-qr-reader is-hidden" aria-live="polite"></div>
+      <p class="txpros-or">Or paste link / Permit ID</p>
+      <div class="txpros-row">
+        <input
+          type="text"
+          id="txpros-permit-input"
+          class="txpros-input"
+          placeholder="https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=… or 14925257"
+          autocomplete="off"
+        />
+        <button type="button" id="txpros-load-btn" class="btn">Load route</button>
+      </div>
+      <p id="txpros-import-status" class="txpros-status" aria-live="polite"></p>
     </section>
 
     <section class="panel map-panel">
@@ -67,9 +95,10 @@
 
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="js/mapbox-config.js"></script>
   <script src="js/google-maps-config.js"></script>
-  <script src="js/supabase-config.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <script src="js/supabase-config.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
 </body>
 </html>
