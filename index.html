@@ -11,7 +11,7 @@
 <body>
   <main id="main" class="layout layout--test">
     <section class="panel upload-panel">
-      <p>Test v12</p>
+      <p>Test v13</p>
       <h1 class="upload-title">Upload PDF</h1>
       <input type="file" id="pdf-upload" class="sr-only-input" accept="application/pdf,.pdf" />
       <label for="pdf-upload" class="file-label">
@@ -25,9 +25,8 @@
       <h2 class="section-label">Import TXPROS permit (official route)</h2>
       <p class="txpros-lede">
         Scan the <strong>TxDMV QR</strong> on your permit (it encodes a link with <code>PermitID=…</code>) or paste
-        that link. Use the numeric ID from the URL — not the separate printed permit number. Loads state-issued
-        breadcrumbs (same geometry as “Show Map” on txpros.txdmv.gov). Uses a Supabase proxy when configured to
-        avoid browser CORS blocks.
+        that link. Use the numeric ID from the URL — not the separate printed permit number. A Supabase function tries to
+        fetch the same data server-side; if that fails (common), paste the JSON from “Show Map” (steps below).
       </p>
       <p class="txpros-toolbar">
         <button type="button" id="txpros-scan-btn" class="btn secondary">Scan QR code</button>
@@ -36,17 +35,28 @@
         </button>
       </p>
       <div id="txpros-qr-reader" class="txpros-qr-reader is-hidden" aria-live="polite"></div>
-      <p class="txpros-or">Or paste link / Permit ID</p>
+      <p class="txpros-or">Paste link, Permit ID, or Show Map JSON</p>
       <div class="txpros-row">
-        <input
-          type="text"
+        <textarea
           id="txpros-permit-input"
-          class="txpros-input"
-          placeholder="https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=… or 14925257"
+          class="txpros-input txpros-input--textarea"
+          rows="2"
+          placeholder="Permit URL / ID — or paste full JSON from DevTools → GetLatLonForPermit → Response"
           autocomplete="off"
-        />
+        ></textarea>
         <button type="button" id="txpros-load-btn" class="btn">Load route</button>
       </div>
+      <details class="txpros-details">
+        <summary>If Load fails: copy JSON from TxPROS</summary>
+        <p class="txpros-details-body">
+          On <strong>txpros.txdmv.gov</strong> open this permit → <strong>F12</strong> (DevTools) →
+          <strong>Network</strong> → click <strong>Show Map</strong> → click request
+          <code>GetLatLonForPermit</code> → <strong>Response</strong> tab → select all → copy → paste into the field
+          above → <strong>Load route</strong>. Use <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (Windows) or
+          <kbd>⌘</kbd>+<kbd>Enter</kbd> (Mac) to load from the text box. (TxDMV often allows that call only from the
+          browser, not from cloud servers.)
+        </p>
+      </details>
       <p id="txpros-import-status" class="txpros-status" aria-live="polite"></p>
     </section>
 
@@ -99,7 +109,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="js/mapbox-config.js"></script>
   <script src="js/google-maps-config.js"></script>
-  <script src="js/supabase-config.js?v=12"></script>
-  <script src="js/app.js?v=12"></script>
+  <script src="js/supabase-config.js?v=13"></script>
+  <script src="js/app.js?v=13"></script>
 </body>
 </html>

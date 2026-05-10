@@ -4,7 +4,7 @@
  * No PDF parsing — clients send Permit ID from QR / permit details URL.
  */
 
-const SERVICE_VERSION = "txpros-proxy-v1.1.0";
+const SERVICE_VERSION = "txpros-proxy-v1.1.1";
 
 /** Legacy HTTP POST target (often returns Error.aspx; kept as fallback). */
 const TXPROS_ROUTE_BODY_URL =
@@ -400,10 +400,9 @@ async function fetchRouteFromTxpros(permitId: string): Promise<{
     if (e instanceof Error && e.message === "txpros_html_error") {
       throw new Error(
         [
-          `TXPROS did not return route data for permit ${permitId}.`,
-          "Confirm the permit opens on txpros.txdmv.gov and “Show Map” loads the route.",
-          "Use the numeric PermitID from the QR URL (?PermitID=…), not the printed permit number.",
-          "If the map works in your browser but this still fails, TxDMV may be limiting automated requests—try again later.",
+          `TXPROS did not return route data for permit ${permitId} (automated requests often fail; the map still works in your browser).`,
+          "Workaround: on txpros.txdmv.gov open the permit → DevTools → Network → Show Map → copy GetLatLonForPermit response JSON → paste into the app’s TXPROS field.",
+          "Also verify ?PermitID=… is the ID from the QR link, not the printed permit number.",
         ].join(" "),
       );
     }

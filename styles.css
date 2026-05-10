@@ -160,7 +160,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .txpros-input {
@@ -170,6 +170,39 @@ body {
   border: 1px solid #cbd5e1;
   border-radius: 0.45rem;
   font-size: 0.95rem;
+}
+
+.txpros-input--textarea {
+  flex: 1 1 100%;
+  min-height: 4.5rem;
+  resize: vertical;
+  align-self: stretch;
+  font-family: inherit;
+  line-height: 1.35;
+}
+
+.txpros-details {
+  margin: 0.65rem 0 0;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.txpros-details summary {
+  cursor: pointer;
+  color: #1d4ed8;
+}
+
+.txpros-details-body {
+  margin: 0.45rem 0 0;
+  padding: 0.5rem 0.65rem;
+  background: #f8fafc;
+  border-radius: 0.35rem;
+  border: 1px solid #e2e8f0;
+  line-height: 1.45;
+}
+
+.txpros-details-body code {
+  font-size: 0.78em;
 }
 
 .txpros-status {
