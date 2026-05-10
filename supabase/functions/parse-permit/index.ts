@@ -4,12 +4,15 @@
  * 1. Tries direct calls from this Edge (session + GetLatLon JSON + legacy body XML) — fast when TxDMV allows it.
  * 2. Browserless `/function`: applies cookies parsed from Edge Set-Cookie (incl. HttpOnly), allow-lists
  *    TxPROS + maps.googleapis.com + promiles.com (blocking those caused hangs to 408). Must navigate to the
- *    permit URL before same-origin fetch; calling GetLatLon from about:blank causes "Failed to fetch".
+ *    permit URL before same-origin fetch. v1.4.3: `commit` navigation first (fast), optional
+ *    `domcontentloaded` fallback; API fetch budget is *remaining session time* after navigation (not a fixed
+ *    worst-case nav), with a teardown reserve so 60s plans finish inside the cap; interception is opt-in via
+ *    BROWSERLESS_BLOCK_TXPROS_MEDIA.
  *
  * Clients POST { permitID } with Supabase anon key. No PDF parsing.
  */
 
-const SERVICE_VERSION = "txpros-proxy-v1.4.1";
+const SERVICE_VERSION = "txpros-proxy-v1.4.3";
 
 /** Hosted browser API — https://www.browserless.io/ — set BROWSERLESS_TOKEN on this function. */
 const BROWSERLESS_TOKEN = Deno.env.get("BROWSERLESS_TOKEN") || "";
@@ -39,6 +42,9 @@ function browserlessFunctionEndpoint(): string {
   if (preset) qs.set("proxyPreset", preset);
   if (Deno.env.get("BROWSERLESS_BLOCK_ADS") === "1" || Deno.env.get("BROWSERLESS_BLOCK_ADS") === "true") {
     qs.set("blockAds", "true");
+  }
+  if (Deno.env.get("BROWSERLESS_STEALTH") === "1" || Deno.env.get("BROWSERLESS_STEALTH") === "true") {
+    qs.set("stealth", "true");
   }
   return `${BROWSERLESS_URL}/function?${qs}`;
 }
@@ -482,6 +488,7 @@ const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) =>
   const permitId = context.permitId;
   const cookieHeader = context.cookieHeader != null ? String(context.cookieHeader) : "";
   const fromEdge = Array.isArray(context.puppetCookies) ? context.puppetCookies : [];
+  const blockMedia = context.blockMedia === true;
   const sessionMs =
     typeof context.sessionTimeoutMs === "number" && context.sessionTimeoutMs > 0
       ? context.sessionTimeoutMs
@@ -490,6 +497,11 @@ const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) =>
     typeof context.navTimeoutMs === "number" && context.navTimeoutMs > 0
       ? context.navTimeoutMs
       : Math.max(8000, sessionMs - 14000);
+
+  const commitMs = Math.min(12000, navTimeout);
+  const fallbackMs = Math.min(18000, Math.max(5000, navTimeout - commitMs));
+  // Reserve wall-clock for worker teardown so the run stays inside the Browserless session timeout.
+  const teardownReserveMs = Math.min(15000, Math.max(8000, Math.floor(sessionMs * 0.18)));
 
   if (!permitId) {
     return { data: { error: "missing_permitId" }, type: "application/json" };
@@ -512,41 +524,7 @@ const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) =>
     }
   }
 
-  try {
-    let hasPrimedCookies = false;
-    try {
-      if (fromEdge.length > 0) {
-        await page.setCookie(...fromEdge);
-        hasPrimedCookies = true;
-      }
-    } catch (_) {
-      /* invalid cookie payload from Edge; fall back to legacy string or cold session */
-    }
-    if (!hasPrimedCookies && cookieHeader.trim().length > 0) {
-      const legacy = [];
-      for (const segment of cookieHeader.split(";")) {
-        const seg = segment.trim();
-        const eq = seg.indexOf("=");
-        if (eq < 1) continue;
-        const name = seg.slice(0, eq).trim();
-        const value = seg.slice(eq + 1).trim();
-        if (!name) continue;
-        legacy.push({
-          name,
-          value,
-          domain: "txpros.txdmv.gov",
-          path: "/",
-          secure: true,
-        });
-      }
-      if (legacy.length) {
-        try {
-          await page.setCookie(...legacy);
-          hasPrimedCookies = true;
-        } catch (_) {}
-      }
-    }
-
+  async function installMediaBlocker() {
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       const u = req.url();
@@ -583,54 +561,111 @@ const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) =>
         } catch (_) {}
       }
     });
+  }
+
+  try {
+    const sessionStarted = Date.now();
+    let hasPrimedCookies = false;
+    try {
+      if (fromEdge.length > 0) {
+        await page.setCookie(...fromEdge);
+        hasPrimedCookies = true;
+      }
+    } catch (_) {}
+    if (!hasPrimedCookies && cookieHeader.trim().length > 0) {
+      const legacy = [];
+      for (const segment of cookieHeader.split(";")) {
+        const seg = segment.trim();
+        const eq = seg.indexOf("=");
+        if (eq < 1) continue;
+        const name = seg.slice(0, eq).trim();
+        const value = seg.slice(eq + 1).trim();
+        if (!name) continue;
+        legacy.push({
+          name,
+          value,
+          domain: "txpros.txdmv.gov",
+          path: "/",
+          secure: true,
+        });
+      }
+      if (legacy.length) {
+        try {
+          await page.setCookie(...legacy);
+          hasPrimedCookies = true;
+        } catch (_) {}
+      }
+    }
+
+    if (blockMedia) {
+      await installMediaBlocker();
+    }
 
     try {
-      await page.goto(permitUrl, { waitUntil: "domcontentloaded", timeout: navTimeout });
-    } catch (navErr) {
-      const nm = navErr && navErr.message ? String(navErr.message) : String(navErr);
-      return {
-        data: { status: 0, body: "navigation_failed:" + nm },
-        type: "application/json",
-      };
-    }
-    await new Promise((r) => setTimeout(r, hasPrimedCookies ? 150 : 300));
-
-    const result = await page.evaluate(async (pid) => {
+      await page.goto(permitUrl, { waitUntil: "commit", timeout: commitMs });
+    } catch (_) {
       try {
-        const ac = new AbortController();
-        const timer = setTimeout(function () {
-          ac.abort();
-        }, 28000);
-        try {
-          const r = await fetch(
-            "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit",
-            {
-              method: "POST",
-              credentials: "include",
-              signal: ac.signal,
-              headers: {
-                "Content-Type": "application/json; charset=UTF-8",
-                Accept: "application/json, text/javascript, */*;q=0.01",
-                "X-Requested-With": "XMLHttpRequest",
-                Referer: window.location.href,
-              },
-              body: JSON.stringify({
-                PermitID: parseInt(String(pid), 10),
-                UseHistoryDB: false,
-                AuditPermitID: -1,
-              }),
-            }
-          );
-          const text = await r.text();
-          return { status: r.status, body: text.length > 600000 ? text.slice(0, 600000) : text };
-        } finally {
-          clearTimeout(timer);
-        }
-      } catch (e) {
-        const m = e && e.message ? String(e.message) : String(e);
-        return { status: 0, body: "fetch_exception:" + m };
+        await page.goto(permitUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: fallbackMs,
+        });
+      } catch (navErr) {
+        const nm = navErr && navErr.message ? String(navErr.message) : String(navErr);
+        return {
+          data: { status: 0, body: "navigation_failed:" + nm },
+          type: "application/json",
+        };
       }
-    }, permitId);
+    }
+
+    const elapsedBeforeFetch = Date.now() - sessionStarted;
+    const fetchBudgetMs = Math.min(
+      18000,
+      Math.max(6000, sessionMs - elapsedBeforeFetch - teardownReserveMs),
+    );
+
+    await new Promise((r) => setTimeout(r, hasPrimedCookies ? 80 : 120));
+
+    const result = await page.evaluate(
+      async (pid, ms) => {
+        try {
+          const ac = new AbortController();
+          const timer = setTimeout(function () {
+            ac.abort();
+          }, ms);
+          try {
+            const r = await fetch(
+              "https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit",
+              {
+                method: "POST",
+                credentials: "include",
+                signal: ac.signal,
+                headers: {
+                  "Content-Type": "application/json; charset=UTF-8",
+                  Accept: "application/json, text/javascript, */*;q=0.01",
+                  "X-Requested-With": "XMLHttpRequest",
+                  Referer: window.location.href,
+                },
+                body: JSON.stringify({
+                  PermitID: parseInt(String(pid), 10),
+                  UseHistoryDB: false,
+                  AuditPermitID: -1,
+                }),
+              }
+            );
+            const text = await r.text();
+            return { status: r.status, body: text.length > 600000 ? text.slice(0, 600000) : text };
+          } finally {
+            clearTimeout(timer);
+          }
+        } catch (e) {
+          const m = e && e.message ? String(e.message) : String(e);
+          return { status: 0, body: "fetch_exception:" + m };
+        }
+      },
+      permitId,
+      fetchBudgetMs,
+    );
 
     return { data: result, type: "application/json" };
   } catch (err) {
@@ -661,16 +696,24 @@ function normalizeBrowserlessDataNode(data: Record<string, unknown>): Record<str
   return data;
 }
 
+function browserlessBlockTxprosMedia(): boolean {
+  const v = Deno.env.get("BROWSERLESS_BLOCK_TXPROS_MEDIA");
+  return v === "1" || v === "true";
+}
+
 async function fetchRouteViaBrowserless(
   permitId: string,
   primedCookieHeader: string | null,
   puppetCookies: BrowserlessCookieJar,
 ): Promise<BrowserlessRouteAttempt> {
   if (!BROWSERLESS_TOKEN) return null;
+  /** Edge HTTP client waits slightly longer than the Browserless `timeout` query param (startup + response transfer). */
+  const edgeClientTimeoutMs = browserlessSessionTimeoutMs() + 25_000;
   try {
     const res = await fetch(browserlessFunctionEndpoint(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(edgeClientTimeoutMs),
       body: JSON.stringify({
         code: BROWSERLESS_TXPROS_FUNCTION,
         context: {
@@ -679,6 +722,7 @@ async function fetchRouteViaBrowserless(
           navTimeoutMs: browserlessNavTimeoutMs(),
           cookieHeader: primedCookieHeader && primedCookieHeader.trim() ? primedCookieHeader : "",
           puppetCookies: puppetCookies.length ? puppetCookies : [],
+          blockMedia: browserlessBlockTxprosMedia(),
         },
       }),
     });
@@ -745,6 +789,17 @@ async function fetchRouteViaBrowserless(
     }
     return { ok: true, ...parsed };
   } catch (e) {
+    if (
+      e instanceof DOMException &&
+      (e.name === "TimeoutError" || e.name === "AbortError")
+    ) {
+      return {
+        ok: false,
+        detail:
+          `Edge waited ${edgeClientTimeoutMs} ms for Browserless (no HTTP response in time). ` +
+          "If Browserless returns HTTP 408, your worker exceeded the session `timeout` plan cap — lower navigation cost (do not block Maps/ProMiles), try BROWSERLESS_PROXY_PRESET=px_gov01, or raise the cap on your Browserless tier.",
+      };
+    }
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, detail: `Browserless fetch error: ${msg}` };
   }
@@ -764,9 +819,8 @@ function augmentBrowserlessFailureDetail(detail: string): string {
   if (isLikelyBrowserlessTimeout(detail)) {
     return (
       `${detail} ` +
-      "HTTP 408: Browserless session expired before the script finished (plan cap often 60s). " +
-      "v1.4.x allow-lists Google Maps + ProMiles; v1.4.1 drops pre-navigation fetch (about:blank caused 'Failed to fetch'). " +
-      "Set BROWSERLESS_PROXY_PRESET=px_gov01 if supported, or upgrade Browserless timeout."
+      "HTTP 408: Browserless session expired before the script finished. v1.4.3 sizes the in-page fetch from *remaining* session time after navigation (plus a teardown reserve); interception off by default. " +
+      "Optional: BROWSERLESS_STEALTH=true, BROWSERLESS_PROXY_PRESET=px_gov01 (if your plan supports it), or raise BROWSERLESS_SESSION_TIMEOUT_MS within plan limits."
     );
   }
   return detail;
