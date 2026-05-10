@@ -1,7 +1,7 @@
 /**
  * Tx permit route assistant — official route polyline from TXPROS (Permit ID / QR), Mapbox map.
- * Supabase Edge (`parse-permit`) tries server-side first; if that fails, we load the same TXPROS
- * APIs from **your browser** (avoids datacenter IP blocks; needs TxDMV CORS/cookies).
+ * Supabase Edge (`parse-permit`) when available; in-page fetch is usually blocked by TxDMV CORS from this origin.
+ * Paste/bookmarklet path runs GetLatLon on txpros.txdmv.gov (same-origin there), then imports here.
  */
 
 /* global pdfjsLib */
@@ -415,6 +415,84 @@ async function fetchTxprosRouteFromBrowser(permitId) {
 }
 
 /**
+ * Bookmarklet URL: run from **txpros.txdmv.gov** permit page — same-origin fetch, then copy for paste below.
+ * Create a bookmark with this URL, or use "Copy bookmarklet" in the TXPROS panel.
+ */
+function getTxprosRouteBookmarkletHref() {
+  const src =
+    "(async function(){var p=document.getElementById('PID');if(!p){alert('Open a TXPROS permit page on txpros.txdmv.gov first.');return;}" +
+    "var id=parseInt(p.value,10);if(!id){alert('No Permit ID on this page.');return;}" +
+    "var ae=document.getElementById('AuditPermitSerialID');var aud=ae?parseInt(ae.value,10):NaN;" +
+    "if(!Number.isFinite(aud))aud=-1;" +
+    "var r=await fetch('/Services/RouteService.asmx/GetLatLonForPermit',{" +
+    "method:'POST',credentials:'include',headers:{" +
+    "'Content-Type':'application/json; charset=UTF-8','X-Requested-With':'XMLHttpRequest'," +
+    "'Accept':'application/json, text/javascript, */*; q=0.01'}," +
+    "body:JSON.stringify({PermitID:id,UseHistoryDB:false,AuditPermitID:aud})});" +
+    "var t=await r.text();" +
+    "var sent=false;" +
+    "try{" +
+    "if(window.opener&&!window.opener.closed){" +
+    "window.opener.postMessage({type:'TXPROS_GETLATLON_RAW',permitId:String(id),rawText:t},'*');" +
+    "sent=true;alert('Route data sent to your permit map tab. Switch back to it.');" +
+    "}}catch(_){}" +
+    "if(!sent){" +
+    "try{await navigator.clipboard.writeText(t);alert('Copied '+t.length+' chars — paste into the permit tool.');}" +
+    "catch(_){prompt('Copy all of this:',t);}" +
+    "}" +
+    "})();";
+  return "javascript:" + encodeURIComponent(src);
+}
+
+/**
+ * @param {string} text — raw body from GetLatLonForPermit (JSON) or GetLatLonForPermitBody (XML).
+ * @returns {{ coordinates: number[][], pointCount: number, rawJson: unknown | null }}
+ */
+function parseTxprosRouteFromRawText(text) {
+  const t = String(text || "").trim();
+  if (!t) throw new Error("Nothing to paste.");
+  if (t.startsWith("{")) {
+    let j;
+    try {
+      j = JSON.parse(t);
+    } catch (_) {
+      throw new Error("Invalid JSON.");
+    }
+    if (
+      j &&
+      typeof j === "object" &&
+      typeof j.Message === "string" &&
+      j.Message.length > 0 &&
+      j.d == null &&
+      j.LatLons == null &&
+      j.latLons == null
+    ) {
+      throw new Error("TXPROS API: " + j.Message);
+    }
+    const parsed = coordsFromTxprosJsonResponseText(t);
+    if (parsed) {
+      return {
+        coordinates: parsed.coordinates,
+        pointCount: parsed.pointCount,
+        rawJson: parsed.rawJson,
+      };
+    }
+    throw new Error("JSON has no route Lat/Lon points (empty route, wrong permit, or unexpected shape).");
+  }
+  if (/<GetLatLonForPermitResult/i.test(t)) {
+    const r = parseTxprosRouteXmlResponse(t);
+    return {
+      coordinates: r.coordinates,
+      pointCount: r.pointCount,
+      rawJson: r.rawJson,
+    };
+  }
+  throw new Error(
+    "Not a TXPROS GetLatLon response. Use the bookmarklet on the official permit page, or copy the response body for GetLatLonForPermit from DevTools → Network."
+  );
+}
+
+/**
  * POST JSON { permitID } to Supabase Edge Function (txpros proxy); returns coordinates [lng,lat][].
  */
 async function fetchTxprosRouteViaSupabase(permitId) {
@@ -456,7 +534,8 @@ async function fetchTxprosRouteViaSupabase(permitId) {
 }
 
 /**
- * Official route: **browser first** (visitor IP + cookies; TxDMV often blocks Supabase Edge), then Edge when configured.
+ * Official route: Supabase Edge first (optional), then in-page fetch. TxDMV does **not** allow this site’s
+ * origin to read GetLatLon responses (no CORS), so the in-page path usually fails unless you use paste below.
  */
 async function fetchTxprosRoute(permitId) {
   const id = extractTxprosPermitId(permitId);
@@ -464,47 +543,55 @@ async function fetchTxprosRoute(permitId) {
     throw new Error("Need a numeric Permit ID or a txpros.txdmv.gov link with PermitID=…. ");
   }
 
+  const pasteHint =
+    " Use Open permit on TxPROS (this page), then the bookmarklet on their tab — route returns here. Or paste JSON below.";
+
   if (hasSupabaseParserConfig()) {
     try {
-      const r = await fetchTxprosRouteFromBrowser(id);
+      const r = await fetchTxprosRouteViaSupabase(id);
       return {
         coordinates: r.coordinates,
         pointCount: r.pointCount,
         rawJson: r.rawJson,
-        routeSource: "browser",
+        routeSource: "supabase",
       };
-    } catch (browserErr) {
-      const bMsg = browserErr && browserErr.message ? String(browserErr.message) : String(browserErr);
-      console.warn("[TXPROS] Browser session failed; trying Supabase Edge:", browserErr);
+    } catch (supErr) {
+      const sMsg = supErr && supErr.message ? String(supErr.message) : String(supErr);
+      console.warn("[TXPROS] Supabase failed; trying in-page fetch (usually blocked by CORS):", supErr);
       try {
-        const r = await fetchTxprosRouteViaSupabase(id);
+        const r = await fetchTxprosRouteFromBrowser(id);
         return {
           coordinates: r.coordinates,
           pointCount: r.pointCount,
           rawJson: r.rawJson,
-          routeSource: "supabase",
-          proxyNote: "Loaded via Supabase after browser failed: " + bMsg.slice(0, 220),
+          routeSource: "browser",
+          proxyNote: "Loaded in-page after Supabase failed: " + sMsg.slice(0, 220),
         };
-      } catch (supErr) {
-        const sMsg = supErr && supErr.message ? String(supErr.message) : String(supErr);
+      } catch (browserErr) {
+        const bMsg = browserErr && browserErr.message ? String(browserErr.message) : String(browserErr);
         throw new Error(
-          "Could not load TXPROS route. From your browser: " +
-            bMsg +
-            " — From Supabase Edge: " +
+          "Could not load TXPROS route. Supabase Edge: " +
             sMsg +
-            " If the permit opens on txpros.txdmv.gov, open that link in this browser tab once, then tap Load route again."
+            " — In-page fetch: " +
+            bMsg +
+            pasteHint
         );
       }
     }
   }
 
-  const r = await fetchTxprosRouteFromBrowser(id);
-  return {
-    coordinates: r.coordinates,
-    pointCount: r.pointCount,
-    rawJson: r.rawJson,
-    routeSource: "browser",
-  };
+  try {
+    const r = await fetchTxprosRouteFromBrowser(id);
+    return {
+      coordinates: r.coordinates,
+      pointCount: r.pointCount,
+      rawJson: r.rawJson,
+      routeSource: "browser",
+    };
+  } catch (browserErr) {
+    const bMsg = browserErr && browserErr.message ? String(browserErr.message) : String(browserErr);
+    throw new Error("Could not load TXPROS route. " + bMsg + pasteHint);
+  }
 }
 
 /** Map Matching API allows up to 100 coordinates per request */
@@ -2260,6 +2347,10 @@ function main() {
   const txprosStopScanBtn = document.getElementById("txpros-stop-scan-btn");
   const txprosStatusEl = document.getElementById("txpros-import-status");
   const txprosQrRegion = document.getElementById("txpros-qr-reader");
+  const txprosPasteTa = document.getElementById("txpros-paste-response");
+  const txprosApplyPasteBtn = document.getElementById("txpros-apply-paste");
+  const txprosCopyBmBtn = document.getElementById("txpros-copy-bookmarklet");
+  const txprosOpenOfficialBtn = document.getElementById("txpros-open-official");
   /** @type {unknown} */
   let txprosScanner = null;
 
@@ -2268,6 +2359,57 @@ function main() {
   let routeSession = null;
 
   mapInstance = initMap();
+
+  window.addEventListener(
+    "message",
+    function (event) {
+      if (event.origin !== "https://txpros.txdmv.gov") return;
+      const data = event.data;
+      if (!data || data.type !== "TXPROS_GETLATLON_RAW") return;
+      const permitId = String(data.permitId || "").trim();
+      const rawText = String(data.rawText || "");
+      if (!permitId || !rawText) return;
+      runGeneration += 1;
+      const myRun = runGeneration;
+      if (txprosInput) txprosInput.value = permitId;
+      if (txprosPasteTa) txprosPasteTa.value = rawText;
+      if (txprosStatusEl) {
+        txprosStatusEl.textContent = "Received route data from TxPROS tab — applying…";
+      }
+      showRouteProgress("Applying route from TxPROS…");
+      rawPanel.textContent = "";
+      hintsList.innerHTML = "";
+      metaPanel.innerHTML = "";
+      verifyCb.checked = false;
+      updateVerifyState();
+      clearRouteOverlay();
+      showMapNotice("Official TXPROS route (state-issued breadcrumbs).");
+      routeSession = null;
+      if (recalcBtn) recalcBtn.disabled = true;
+      updateDownloadGeoBtn();
+      if (confidence) confidence.textContent = "";
+      try {
+        const parsed = parseTxprosRouteFromRawText(rawText);
+        applyTxprosRouteData(
+          permitId,
+          parsed.coordinates,
+          parsed.pointCount,
+          parsed.rawJson,
+          "postmessage",
+          null,
+          myRun,
+        );
+      } catch (e) {
+        console.error(e);
+        if (myRun !== runGeneration) return;
+        if (txprosStatusEl) txprosStatusEl.textContent = String(e.message || e);
+        showRouteProgress("");
+        showMapNotice("");
+        if (statusEl) statusEl.textContent = "TXPROS import failed.";
+      }
+    },
+    false,
+  );
 
   if (recalcHintEl) {
     recalcHintEl.textContent =
@@ -2748,86 +2890,7 @@ function main() {
 
     try {
       const { coordinates, pointCount, rawJson, routeSource, proxyNote } = await fetchTxprosRoute(permitId);
-      if (myRun !== runGeneration) return;
-
-      const geom = { type: "LineString", coordinates: coordinates };
-      const first = coordinates[0];
-      const last = coordinates[coordinates.length - 1];
-      const enriched = [
-        {
-          label: "Origin",
-          text: "TXPROS start",
-          displayText: "TXPROS route start · Permit " + permitId,
-          geocodeOk: true,
-          includeInRoute: true,
-          lat: first[1],
-          lon: first[0],
-          geocodeSource: "txpros",
-          geocodeQuery: null,
-        },
-        {
-          label: "Destination",
-          text: "TXPROS end",
-          displayText: "TXPROS route end · Permit " + permitId,
-          geocodeOk: true,
-          includeInRoute: true,
-          lat: last[1],
-          lon: last[0],
-          geocodeSource: "txpros",
-          geocodeQuery: null,
-        },
-      ];
-
-      routeSession = {
-        hints: [],
-        enriched: enriched,
-        geometry: geom,
-        routeProvider: "txpros-official",
-        isTxprosOfficial: true,
-        txprosPermitId: permitId,
-        txprosBreadcrumbCount: pointCount,
-        txprosRawJson: rawJson,
-      };
-
-      if (recalcBtn) recalcBtn.disabled = true;
-
-      const metaBits = [
-        `<p><strong>Source:</strong> TXPROS (txpros.txdmv.gov)</p>`,
-        `<p><strong>Permit ID:</strong> ${escapeHtml(permitId)}</p>`,
-        `<p><strong>Breadcrumbs:</strong> ${pointCount} points</p>`,
-      ];
-      if (routeSource === "browser") {
-        metaBits.push(
-          `<p><strong>Load path:</strong> Your browser (same APIs as the official permit map).</p>`
-        );
-      }
-      if (proxyNote) {
-        metaBits.push(
-          `<p><strong>Supabase note:</strong> ${escapeHtml(String(proxyNote).slice(0, 280))}</p>`
-        );
-      }
-      metaPanel.innerHTML = metaBits.join("");
-
-      rawPanel.textContent =
-        "TXPROS import · Permit " + permitId + " · " + pointCount + " coordinates (see GeoJSON export for full line).";
-
-      renderHintList(enriched);
-      drawTxprosOfficialRoute(coordinates, permitId);
-
-      const linkCoords = coordinates.map(function (c) {
-        return { lat: c[1], lon: c[0] };
-      });
-      const sampledForLinks =
-        linkCoords.length > SAMPLE_COORDS_CAP ? sampleEvenly(linkCoords, SAMPLE_COORDS_CAP) : linkCoords;
-      setExportLinks(sampledForLinks.length >= 2 ? sampledForLinks : linkCoords, []);
-
-      updateDownloadGeoBtn();
-      if (txprosStatusEl) {
-        txprosStatusEl.textContent = "Loaded " + pointCount + " breadcrumb points.";
-      }
-      showRouteProgress("TXPROS route on map (" + pointCount + " pts).");
-      if (statusEl) statusEl.textContent = "OK (TXPROS)";
-      updateVerifyState();
+      applyTxprosRouteData(permitId, coordinates, pointCount, rawJson, routeSource, proxyNote, myRun);
     } catch (err) {
       console.error(err);
       if (myRun !== runGeneration) return;
@@ -2836,6 +2899,202 @@ function main() {
       showMapNotice("");
       if (statusEl) statusEl.textContent = "TXPROS import failed.";
     }
+  }
+
+  function applyTxprosRouteData(
+    permitId,
+    coordinates,
+    pointCount,
+    rawJson,
+    routeSource,
+    proxyNote,
+    myRun,
+  ) {
+    if (myRun !== runGeneration) return;
+
+    const geom = { type: "LineString", coordinates: coordinates };
+    const first = coordinates[0];
+    const last = coordinates[coordinates.length - 1];
+    const enriched = [
+      {
+        label: "Origin",
+        text: "TXPROS start",
+        displayText: "TXPROS route start · Permit " + permitId,
+        geocodeOk: true,
+        includeInRoute: true,
+        lat: first[1],
+        lon: first[0],
+        geocodeSource: "txpros",
+        geocodeQuery: null,
+      },
+      {
+        label: "Destination",
+        text: "TXPROS end",
+        displayText: "TXPROS route end · Permit " + permitId,
+        geocodeOk: true,
+        includeInRoute: true,
+        lat: last[1],
+        lon: last[0],
+        geocodeSource: "txpros",
+        geocodeQuery: null,
+      },
+    ];
+
+    routeSession = {
+      hints: [],
+      enriched: enriched,
+      geometry: geom,
+      routeProvider: "txpros-official",
+      isTxprosOfficial: true,
+      txprosPermitId: permitId,
+      txprosBreadcrumbCount: pointCount,
+      txprosRawJson: rawJson,
+    };
+
+    if (recalcBtn) recalcBtn.disabled = true;
+
+    const metaBits = [
+      `<p><strong>Source:</strong> TXPROS (txpros.txdmv.gov)</p>`,
+      `<p><strong>Permit ID:</strong> ${escapeHtml(permitId)}</p>`,
+      `<p><strong>Breadcrumbs:</strong> ${pointCount} points</p>`,
+    ];
+    if (routeSource === "supabase") {
+      metaBits.push(
+        `<p><strong>Load path:</strong> Supabase Edge (<code>parse-permit</code>).</p>`,
+      );
+    }
+    if (routeSource === "browser") {
+      metaBits.push(
+        `<p><strong>Load path:</strong> In-page fetch (same APIs as the official map).</p>`,
+      );
+    }
+    if (routeSource === "paste") {
+      metaBits.push(`<p><strong>Load path:</strong> Pasted GetLatLon response (official site).</p>`);
+    }
+    if (routeSource === "postmessage") {
+      metaBits.push(
+        `<p><strong>Load path:</strong> Returned from TxPROS tab (bookmarklet → this window).</p>`,
+      );
+    }
+    if (proxyNote) {
+      metaBits.push(
+        `<p><strong>Note:</strong> ${escapeHtml(String(proxyNote).slice(0, 280))}</p>`,
+      );
+    }
+    metaPanel.innerHTML = metaBits.join("");
+
+    rawPanel.textContent =
+      "TXPROS import · Permit " + permitId + " · " + pointCount + " coordinates (see GeoJSON export for full line).";
+
+    renderHintList(enriched);
+    drawTxprosOfficialRoute(coordinates, permitId);
+
+    const linkCoords = coordinates.map(function (c) {
+      return { lat: c[1], lon: c[0] };
+    });
+    const sampledForLinks =
+      linkCoords.length > SAMPLE_COORDS_CAP ? sampleEvenly(linkCoords, SAMPLE_COORDS_CAP) : linkCoords;
+    setExportLinks(sampledForLinks.length >= 2 ? sampledForLinks : linkCoords, []);
+
+    updateDownloadGeoBtn();
+    if (txprosStatusEl) {
+      txprosStatusEl.textContent = "Loaded " + pointCount + " breadcrumb points.";
+    }
+    showRouteProgress("TXPROS route on map (" + pointCount + " pts).");
+    if (statusEl) statusEl.textContent = "OK (TXPROS)";
+    updateVerifyState();
+  }
+
+  async function runTxprosPasteImport() {
+    const permitId = extractTxprosPermitId(txprosInput ? txprosInput.value : "");
+    const pasted = txprosPasteTa ? String(txprosPasteTa.value || "").trim() : "";
+    if (!permitId) {
+      if (txprosStatusEl) {
+        txprosStatusEl.textContent = "Enter the Permit ID or TXPROS URL in the field above first.";
+      }
+      return;
+    }
+    if (!pasted) {
+      if (txprosStatusEl) {
+        txprosStatusEl.textContent = "Paste the GetLatLon JSON or XML from TxPROS (bookmarklet or DevTools).";
+      }
+      return;
+    }
+
+    runGeneration += 1;
+    const myRun = runGeneration;
+
+    if (txprosStatusEl) txprosStatusEl.textContent = "Parsing pasted TXPROS response…";
+    showRouteProgress("Applying pasted route…");
+    rawPanel.textContent = "";
+    hintsList.innerHTML = "";
+    metaPanel.innerHTML = "";
+    verifyCb.checked = false;
+    updateVerifyState();
+    clearRouteOverlay();
+    showMapNotice("Official TXPROS route (state-issued breadcrumbs).");
+    routeSession = null;
+    if (recalcBtn) recalcBtn.disabled = true;
+    updateDownloadGeoBtn();
+    if (confidence) confidence.textContent = "";
+
+    try {
+      const { coordinates, pointCount, rawJson } = parseTxprosRouteFromRawText(pasted);
+      applyTxprosRouteData(permitId, coordinates, pointCount, rawJson, "paste", null, myRun);
+    } catch (err) {
+      console.error(err);
+      if (myRun !== runGeneration) return;
+      if (txprosStatusEl) txprosStatusEl.textContent = String(err.message || err);
+      showRouteProgress("");
+      showMapNotice("");
+      if (statusEl) statusEl.textContent = "TXPROS paste import failed.";
+    }
+  }
+
+  if (txprosOpenOfficialBtn && txprosInput) {
+    txprosOpenOfficialBtn.addEventListener("click", function () {
+      const permitId = extractTxprosPermitId(txprosInput.value);
+      if (!permitId) {
+        if (txprosStatusEl) {
+          txprosStatusEl.textContent = "Enter a Permit ID or TXPROS link first, then open the official page.";
+        }
+        return;
+      }
+      const url =
+        "https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=" + encodeURIComponent(permitId);
+      window.open(url, "txprosPermitImport");
+      if (txprosStatusEl) {
+        txprosStatusEl.textContent =
+          "TxPROS opened in another tab (leave this tab open). After the permit loads, click your TXPROS bookmarklet — the route returns here automatically.";
+      }
+    });
+  }
+
+  if (txprosApplyPasteBtn && txprosPasteTa) {
+    txprosApplyPasteBtn.addEventListener("click", function () {
+      void runTxprosPasteImport();
+    });
+  }
+
+  if (txprosCopyBmBtn) {
+    txprosCopyBmBtn.addEventListener("click", function () {
+      const href = getTxprosRouteBookmarkletHref();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        void navigator.clipboard.writeText(href).then(
+          function () {
+            if (txprosStatusEl) {
+              txprosStatusEl.textContent =
+                "Bookmarklet copied. New bookmark → paste into URL → save. Open your permit on txpros.txdmv.gov, click the bookmark, then paste here.";
+            }
+          },
+          function () {
+            window.prompt("Copy this entire line as the bookmark URL:", href);
+          },
+        );
+      } else {
+        window.prompt("Copy this entire line as the bookmark URL:", href);
+      }
+    });
   }
 
   if (txprosLoadBtn && txprosInput) {

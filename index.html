@@ -26,8 +26,9 @@
       <p class="txpros-lede">
         Scan the <strong>TxDMV QR</strong> (it encodes a permit link). We read the <strong>Permit ID</strong>
         from that link—the same number labeled <strong>Permit ID</strong> on the permit (often just below
-        <strong>Permit Number</strong>). The app loads the route API from <strong>your browser</strong> first
-        (your IP + session cookies). Supabase Edge (<code>parse-permit</code>) runs only if the browser call fails.
+        <strong>Permit Number</strong>). This site cannot read TxPROS from JavaScript (CORS). Use
+        <strong>Open permit on TxPROS</strong> (keeps this tab connected), then your TXPROS bookmarklet on their
+        tab — the route is sent back here automatically. <strong>Load route</strong> still tries Supabase when it works.
       </p>
       <p class="txpros-toolbar">
         <button type="button" id="txpros-scan-btn" class="btn secondary">Scan QR code</button>
@@ -46,8 +47,40 @@
           autocomplete="off"
         />
         <button type="button" id="txpros-load-btn" class="btn">Load route</button>
+        <button type="button" id="txpros-open-official" class="btn secondary">Open permit on TxPROS</button>
       </div>
       <p id="txpros-import-status" class="txpros-status" aria-live="polite"></p>
+
+      <details class="txpros-fallback">
+        <summary>One-time bookmarklet + automatic handoff (when Load route fails)</summary>
+        <ol class="txpros-fallback-steps">
+          <li>
+            Enter <strong>Permit ID</strong> above, click <strong>Open permit on TxPROS</strong> — keep this tab
+            open (so the TxPROS tab can send data back).
+          </li>
+          <li>
+            <button type="button" id="txpros-copy-bookmarklet" class="btn secondary">
+              Copy TXPROS bookmarklet
+            </button>
+            — save as a browser bookmark (URL field). On the <strong>TxPROS permit tab</strong>, click that
+            bookmark after the page loads. This tab should update the Mapbox route without pasting.
+          </li>
+          <li>
+            Fallback: paste JSON/XML below if your browser blocked the handoff.
+          </li>
+        </ol>
+        <label class="txpros-paste-label" for="txpros-paste-response">TXPROS route response (GetLatLon JSON or XML)</label>
+        <textarea
+          id="txpros-paste-response"
+          class="txpros-paste-area"
+          rows="5"
+          spellcheck="false"
+          placeholder='Example start: {"d":"[...'
+        ></textarea>
+        <p class="txpros-paste-actions">
+          <button type="button" id="txpros-apply-paste" class="btn secondary">Apply pasted response</button>
+        </p>
+      </details>
     </section>
 
     <section class="panel map-panel">
@@ -99,7 +132,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="js/mapbox-config.js"></script>
   <script src="js/google-maps-config.js"></script>
-  <script src="js/supabase-config.js?v=16"></script>
-  <script src="js/app.js?v=16"></script>
+  <script src="js/supabase-config.js?v=18"></script>
+  <script src="js/app.js?v=18"></script>
 </body>
 </html>
