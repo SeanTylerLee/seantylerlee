@@ -2,7 +2,7 @@
  * Edge function parse-permit: set secrets on parse-permit, then `supabase functions deploy parse-permit`
  *   BROWSERLESS_TOKEN = API token from https://www.browserless.io/
  *   BROWSERLESS_URL = optional; default https://production-sfo.browserless.io (your Browserless region)
- *   BROWSERLESS_SESSION_TIMEOUT_MS = optional; default 180000 — Browserless defaults to 60000 and returns HTTP 408 if the page is slow
+ *   BROWSERLESS_SESSION_TIMEOUT_MS = optional; default 60000 (many plans reject values above their max with HTTP 400)
  *   BROWSERLESS_PROXY_PRESET = optional; e.g. px_gov01 for some government sites (Browserless docs / your plan)
  */
 window.SUPABASE_URL = "https://vbonpfrcidaxueumzcve.supabase.co";

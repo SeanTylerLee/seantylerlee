@@ -3,13 +3,15 @@
  *
  * 1. If BROWSERLESS_TOKEN is set, calls Browserless `/function` (hosted Chromium) to load the permit page
  *    and run the same GetLatLonForPermit call the live site uses (TxDMV often blocks non-browser callers).
- *    Use BROWSERLESS_SESSION_TIMEOUT_MS so the run can exceed Browserless’s default 60s session cap (else HTTP 408).
+ *    Optional BROWSERLESS_SESSION_TIMEOUT_MS — each Browserless **plan** caps the max (many tiers: 60000 ms).
+ *    Default here is 60000 so the request is not rejected with HTTP 400; raise only if your plan allows it.
+ *    Slow TxPROS + low cap can still yield HTTP 408; then upgrade Browserless or retry.
  * 2. Otherwise falls back to direct fetch from the Edge network (often fails).
  *
  * Clients POST { permitID } with Supabase anon key. No PDF parsing.
  */
 
-const SERVICE_VERSION = "txpros-proxy-v1.3.2";
+const SERVICE_VERSION = "txpros-proxy-v1.3.3";
 
 /** Hosted browser API — https://www.browserless.io/ — set BROWSERLESS_TOKEN on this function. */
 const BROWSERLESS_TOKEN = Deno.env.get("BROWSERLESS_TOKEN") || "";
@@ -18,12 +20,17 @@ const BROWSERLESS_URL =
 
 /**
  * Max duration (ms) for the entire Browserless `/function` run (query param `timeout`).
- * Browserless defaults to 60000; government pages often exceed that → HTTP 408 before our code finishes.
+ * Starter plans often allow at most 60000 ms — larger values get HTTP 400 before any navigation.
  */
 function browserlessSessionTimeoutMs(): number {
-  const raw = parseInt(Deno.env.get("BROWSERLESS_SESSION_TIMEOUT_MS") || "180000", 10);
-  if (!Number.isFinite(raw) || raw < 45000) return 180000;
-  return Math.min(raw, 300000);
+  const raw = parseInt(Deno.env.get("BROWSERLESS_SESSION_TIMEOUT_MS") || "60000", 10);
+  if (!Number.isFinite(raw) || raw < 1000) return 60000;
+  return Math.min(raw, 86_400_000);
+}
+
+/** puppeteer `page.goto` budget: leave room for evaluate + overhead inside the session timeout */
+function browserlessGotoTimeoutMs(): number {
+  return Math.max(12000, browserlessSessionTimeoutMs() - 8000);
 }
 
 function browserlessFunctionEndpoint(): string {
@@ -412,14 +419,18 @@ async function fetchRouteXmlFromBody(
 /** Runs in Browserless Node/Puppeteer worker — sent as JSON `code` to their REST API. */
 const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) => {
   const permitId = context.permitId;
+  const gotoTimeout =
+    typeof context.gotoTimeoutMs === "number" && context.gotoTimeoutMs > 0
+      ? context.gotoTimeoutMs
+      : 52000;
   if (!permitId) {
     return { data: { error: "missing_permitId" }, type: "application/json" };
   }
   try {
     const url =
       "https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=" + encodeURIComponent(String(permitId));
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90000 });
-    await new Promise((r) => setTimeout(r, 1000));
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: gotoTimeout });
+    await new Promise((r) => setTimeout(r, 400));
     const result = await page.evaluate(async (pid) => {
       const r = await fetch("https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit", {
         method: "POST",
@@ -473,10 +484,10 @@ async function fetchRouteViaBrowserless(permitId: string): Promise<BrowserlessRo
     const res = await fetch(browserlessFunctionEndpoint(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code: BROWSERLESS_TXPROS_FUNCTION,
-        context: { permitId },
-      }),
+        body: JSON.stringify({
+          code: BROWSERLESS_TXPROS_FUNCTION,
+          context: { permitId, gotoTimeoutMs: browserlessGotoTimeoutMs() },
+        }),
     });
     const text = await res.text();
     if (!res.ok) {
@@ -544,15 +555,20 @@ function isLikelyBrowserlessTimeout(detail: string): boolean {
   return /\b408\b|Request timed out|request timed out|session.*timed|ETIMEDOUT/i.test(detail);
 }
 
-/** Extra hint when Browserless returns 408 (their default session cap is 60s). */
-function explainBrowserlessFailure(detail: string): string {
-  if (!isLikelyBrowserlessTimeout(detail)) return detail;
-  return (
-    `${detail} ` +
-    "408 here is usually Browserless closing the run at its default ~60s session cap, not a wrong permit. " +
-    "This function passes a longer timeout on the /function URL (default 180000 ms via BROWSERLESS_SESSION_TIMEOUT_MS). " +
-    "Raise that secret if TxPROS is still slow, redeploy parse-permit, and confirm your Browserless plan allows that duration."
-  );
+function augmentBrowserlessFailureDetail(detail: string): string {
+  if (/Timeout must be an integer/i.test(detail)) {
+    return (
+      detail +
+      " Many Browserless plans cap `timeout` at 60000 ms; remove BROWSERLESS_SESSION_TIMEOUT_MS or set it ≤ your plan max (see Browserless dashboard)."
+    );
+  }
+  if (isLikelyBrowserlessTimeout(detail)) {
+    return (
+      `${detail} ` +
+      "HTTP 408: the run hit Browserless’s session time limit before TxPROS finished. Default is 60000 ms; higher values require a Browserless plan that allows them."
+    );
+  }
+  return detail;
 }
 
 async function fetchRouteFromTxpros(permitId: string): Promise<{
@@ -580,9 +596,12 @@ async function fetchRouteFromTxpros(permitId: string): Promise<{
   } catch (e) {
     if (e instanceof Error && e.message === "txpros_html_error") {
       const rawDetail = bl && !bl.ok ? bl.detail : "";
-      const blDetail = rawDetail ? explainBrowserlessFailure(rawDetail) : "";
-      const permitHint = isLikelyBrowserlessTimeout(blDetail || rawDetail)
-        ? "If the permit opens in your browser, the ID is probably fine — focus on Browserless timeout/quota above."
+      const blDetail = rawDetail ? augmentBrowserlessFailureDetail(rawDetail) : "";
+      const timeoutOrPlanIssue =
+        /Timeout must be an integer/i.test(blDetail || rawDetail) ||
+        isLikelyBrowserlessTimeout(blDetail || rawDetail);
+      const permitHint = timeoutOrPlanIssue
+        ? "If the permit opens in your browser, the ID is probably fine — focus on Browserless time/plan limits above."
         : "Use the Permit ID from the QR link (?PermitID=…) — same label as on the printed permit (not the permit number when they differ). If that TxPROS URL fails in a normal browser, the ID is wrong.";
       const hint = BROWSERLESS_TOKEN
         ? (blDetail
