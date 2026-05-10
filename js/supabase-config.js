@@ -1,7 +1,7 @@
 /**
- * Optional Supabase Edge Function — TXPROS route proxy (GetLatLonForPermitBody).
- * Lets the browser fetch official lat/lon breadcrumbs without CORS issues.
- * Function name below should match `supabase functions deploy <name>` (e.g. parse-permit).
+ * Edge function parse-permit: set secrets on parse-permit, then `supabase functions deploy parse-permit`
+ *   BROWSERLESS_TOKEN = API token from https://www.browserless.io/
+ *   BROWSERLESS_URL = optional; default https://production-sfo.browserless.io (pick your Browserless region)
  */
 window.SUPABASE_URL = "https://vbonpfrcidaxueumzcve.supabase.co";
 window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZib25wZnJjaWRheHVldW16Y3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5ODIyMzAsImV4cCI6MjA5MzU1ODIzMH0.Xtk0B0zyNI758raaWX8XeH2EAHqJC7oDrV6elG47E2Q";

@@ -163,64 +163,6 @@ function extractBreadcrumbsFromTxprosJson(data) {
 }
 
 /**
- * Parse JSON from TxPROS "Show Map" XHR (GetLatLonForPermit). Same-origin in the browser only —
- * paste here when Supabase/datacenter requests get HTTP 500 from TxDMV.
- * @returns {{ coordinates: number[][], pointCount: number, rawJson: unknown } | null}
- */
-function tryParseTxprosShowMapJson(text) {
-  const trimmed = String(text || "").trim();
-  if (!trimmed.startsWith("{")) return null;
-  let data;
-  try {
-    data = JSON.parse(trimmed);
-  } catch (_) {
-    return null;
-  }
-  let inner = data;
-  if (data && typeof data === "object" && Object.prototype.hasOwnProperty.call(data, "d")) {
-    inner = data.d;
-    if (typeof inner === "string") {
-      try {
-        inner = JSON.parse(inner);
-      } catch (_) {
-        return null;
-      }
-    }
-  }
-  if (!inner || typeof inner !== "object") return null;
-
-  /** @type {number[][]} */
-  let coordinates = [];
-  const list = inner.LatLons ?? inner.latLons;
-  if (Array.isArray(list) && list.length >= 2) {
-    for (let i = 0; i < list.length; i++) {
-      const row = list[i];
-      if (!row || typeof row !== "object") continue;
-      const laRaw = row.Lat != null ? row.Lat : row.lat;
-      const loRaw = row.Lon != null ? row.Lon : row.lng;
-      const la = typeof laRaw === "string" ? parseFloat(laRaw) : Number(laRaw);
-      const lo = typeof loRaw === "string" ? parseFloat(loRaw) : Number(loRaw);
-      if (!Number.isFinite(la) || !Number.isFinite(lo)) continue;
-      if (la === -1 && lo === -1) continue;
-      if (la <= 0) continue;
-      coordinates.push([lo, la]);
-    }
-  }
-  if (coordinates.length < 2) {
-    const crumbs = extractBreadcrumbsFromTxprosJson(inner);
-    if (crumbs.length < 2) return null;
-    coordinates = crumbs.map(function (p) {
-      return [p.lon, p.lat];
-    });
-  }
-  return {
-    coordinates,
-    pointCount: coordinates.length,
-    rawJson: inner,
-  };
-}
-
-/**
  * @param {string} xmlText — SOAP/XML body from RouteService
  * @returns {{ coordinates: number[][], pointCount: number, rawJson: unknown }}
  */
@@ -2610,23 +2552,11 @@ function main() {
   }
 
   async function runTxprosImport(rawInput) {
-    const trimmed = String(rawInput || "").trim();
-    const fromJson = tryParseTxprosShowMapJson(trimmed);
-    let permitId = extractTxprosPermitId(rawInput);
-
-    if (fromJson) {
-      if (!permitId) {
-        const pid =
-          fromJson.rawJson && typeof fromJson.rawJson === "object"
-            ? fromJson.rawJson.PermitID ?? fromJson.rawJson.permitID
-            : null;
-        permitId =
-          pid != null && /^\d+$/.test(String(pid)) ? String(pid) : "pasted-json";
-      }
-    } else if (!permitId) {
+    const permitId = extractTxprosPermitId(rawInput);
+    if (!permitId) {
       if (txprosStatusEl) {
         txprosStatusEl.textContent =
-          "Paste a TxDMV link / Permit ID, or paste the JSON from Show Map (DevTools → Network → GetLatLonForPermit → Response).";
+          "Paste your TxDMV permit link (with PermitID=…) or the numeric Permit ID from that link.";
       }
       return;
     }
@@ -2634,12 +2564,8 @@ function main() {
     runGeneration += 1;
     const myRun = runGeneration;
 
-    if (txprosStatusEl) {
-      txprosStatusEl.textContent = fromJson
-        ? "Loading route from pasted TXPROS JSON…"
-        : "Loading official route from TXPROS…";
-    }
-    showRouteProgress(fromJson ? "Parsing pasted TXPROS JSON…" : "Fetching TXPROS breadcrumbs…");
+    if (txprosStatusEl) txprosStatusEl.textContent = "Loading official route from TXPROS…";
+    showRouteProgress("Fetching TXPROS breadcrumbs…");
     rawPanel.textContent = "";
     hintsList.innerHTML = "";
     metaPanel.innerHTML = "";
@@ -2653,19 +2579,7 @@ function main() {
     if (confidence) confidence.textContent = "";
 
     try {
-      let coordinates;
-      let pointCount;
-      let rawJson;
-      if (fromJson) {
-        coordinates = fromJson.coordinates;
-        pointCount = fromJson.pointCount;
-        rawJson = fromJson.rawJson;
-      } else {
-        const res = await fetchTxprosRoute(permitId);
-        coordinates = res.coordinates;
-        pointCount = res.pointCount;
-        rawJson = res.rawJson;
-      }
+      const { coordinates, pointCount, rawJson } = await fetchTxprosRoute(permitId);
       if (myRun !== runGeneration) return;
 
       const geom = { type: "LineString", coordinates: coordinates };
@@ -2738,12 +2652,7 @@ function main() {
     } catch (err) {
       console.error(err);
       if (myRun !== runGeneration) return;
-      let msg = String(err.message || err);
-      if (/did not return route data|Supabase TXPROS proxy failed|TXPROS declined/i.test(msg)) {
-        msg +=
-          " On txpros.txdmv.gov: open the permit → F12 → Network → click Show Map → select GetLatLonForPermit → copy the Response JSON → paste here → Load again.";
-      }
-      if (txprosStatusEl) txprosStatusEl.textContent = msg;
+      if (txprosStatusEl) txprosStatusEl.textContent = String(err.message || err);
       showRouteProgress("");
       showMapNotice("");
       if (statusEl) statusEl.textContent = "TXPROS import failed.";
@@ -2755,7 +2664,7 @@ function main() {
       void runTxprosImport(txprosInput.value);
     });
     txprosInput.addEventListener("keydown", function (ev) {
-      if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
+      if (ev.key === "Enter") {
         ev.preventDefault();
         void runTxprosImport(txprosInput.value);
       }

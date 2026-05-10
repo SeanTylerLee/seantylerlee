@@ -1,10 +1,19 @@
 /**
- * Supabase Edge Function: TXPROS official route proxy.
- * Forwards permit ID to TxDMV RouteService (server-side, no browser CORS).
- * No PDF parsing — clients send Permit ID from QR / permit details URL.
+ * Supabase Edge Function: TXPROS official route for Mapbox.
+ *
+ * 1. If BROWSERLESS_TOKEN is set, calls Browserless `/function` (hosted Chromium) to load the permit page
+ *    and run the same GetLatLonForPermit call the live site uses (TxDMV often blocks non-browser callers).
+ * 2. Otherwise falls back to direct fetch from the Edge network (often fails).
+ *
+ * Clients POST { permitID } with Supabase anon key. No PDF parsing.
  */
 
-const SERVICE_VERSION = "txpros-proxy-v1.1.1";
+const SERVICE_VERSION = "txpros-proxy-v1.3.0";
+
+/** Hosted browser API — https://www.browserless.io/ — set BROWSERLESS_TOKEN on this function. */
+const BROWSERLESS_TOKEN = Deno.env.get("BROWSERLESS_TOKEN") || "";
+const BROWSERLESS_URL =
+  (Deno.env.get("BROWSERLESS_URL") || "https://production-sfo.browserless.io").replace(/\/+$/, "");
 
 /** Legacy HTTP POST target (often returns Error.aspx; kept as fallback). */
 const TXPROS_ROUTE_BODY_URL =
@@ -380,11 +389,82 @@ async function fetchRouteXmlFromBody(
   throw lastErr || new Error("Could not reach TXPROS RouteService.");
 }
 
+/** Runs in Browserless’s Node/Puppeteer worker — loaded as `code` over their REST API. */
+const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) => {
+  const permitId = context.permitId;
+  if (!permitId) {
+    return { data: { error: "missing_permitId" }, type: "application/json" };
+  }
+  const url =
+    "https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=" + encodeURIComponent(String(permitId));
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120000 });
+  const result = await page.evaluate(async (pid) => {
+    const r = await fetch("https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=UTF-8",
+        Accept: "application/json, text/javascript, */*;q=0.01",
+        "X-Requested-With": "XMLHttpRequest",
+        Referer: window.location.href,
+      },
+      body: JSON.stringify({
+        PermitID: parseInt(String(pid), 10),
+        UseHistoryDB: false,
+        AuditPermitID: -1,
+      }),
+    });
+    return { status: r.status, body: await r.text() };
+  }, permitId);
+  return { data: result, type: "application/json" };
+}`;
+
+async function fetchRouteViaBrowserless(
+  permitId: string,
+): Promise<{ coordinates: number[][]; pointCount: number } | null> {
+  if (!BROWSERLESS_TOKEN) return null;
+  try {
+    const res = await fetch(
+      `${BROWSERLESS_URL}/function?token=${encodeURIComponent(BROWSERLESS_TOKEN)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: BROWSERLESS_TXPROS_FUNCTION,
+          context: { permitId },
+        }),
+      },
+    );
+    const text = await res.text();
+    if (!res.ok) return null;
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+    const data = payload.data as Record<string, unknown> | undefined;
+    if (!data || typeof data !== "object") return null;
+    if ("error" in data && data.error != null) return null;
+    const status = data.status;
+    const body = data.body;
+    if (typeof status !== "number" || typeof body !== "string") return null;
+    if (status !== 200) return null;
+    return parseCoordsFromJsonResponse(body);
+  } catch {
+    return null;
+  }
+}
+
 async function fetchRouteFromTxpros(permitId: string): Promise<{
   coordinates: number[][];
   pointCount: number;
-  via: "json" | "body_xml";
+  via: "browserless" | "json" | "body_xml";
 }> {
+  const bl = await fetchRouteViaBrowserless(permitId);
+  if (bl) {
+    return { ...bl, via: "browserless" };
+  }
+
   const sessionCookie = await establishTxprosSession(permitId);
 
   const jsonResult = await tryFetchJsonLatLon(permitId, sessionCookie);
@@ -398,11 +478,14 @@ async function fetchRouteFromTxpros(permitId: string): Promise<{
     return { coordinates, pointCount, via: "body_xml" };
   } catch (e) {
     if (e instanceof Error && e.message === "txpros_html_error") {
+      const hint = BROWSERLESS_TOKEN
+        ? "BROWSERLESS_TOKEN is set but Browserless still failed — check Browserless quota, region (BROWSERLESS_URL), or TxPROS."
+        : "TxDMV often blocks server-side calls. Add Edge Function secret BROWSERLESS_TOKEN (Browserless.io), optionally BROWSERLESS_URL (default https://production-sfo.browserless.io), redeploy parse-permit.";
       throw new Error(
         [
-          `TXPROS did not return route data for permit ${permitId} (automated requests often fail; the map still works in your browser).`,
-          "Workaround: on txpros.txdmv.gov open the permit → DevTools → Network → Show Map → copy GetLatLonForPermit response JSON → paste into the app’s TXPROS field.",
-          "Also verify ?PermitID=… is the ID from the QR link, not the printed permit number.",
+          `Could not load TXPROS route for permit ${permitId}.`,
+          "Use the PermitID from the permit QR/link (?PermitID=…), not the printed permit number.",
+          hint,
         ].join(" "),
       );
     }
@@ -421,6 +504,9 @@ type TxprosResult = {
 async function handlePermitId(permitId: string): Promise<TxprosResult> {
   const warnings: string[] = [];
   const { coordinates, pointCount, via } = await fetchRouteFromTxpros(permitId);
+  if (via === "browserless") {
+    warnings.push("route_via_browserless");
+  }
   if (via === "body_xml") {
     warnings.push("route_via_legacy_GetLatLonForPermitBody");
   }
