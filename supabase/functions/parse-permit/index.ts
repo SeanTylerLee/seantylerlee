@@ -8,7 +8,7 @@
  * Clients POST { permitID } with Supabase anon key. No PDF parsing.
  */
 
-const SERVICE_VERSION = "txpros-proxy-v1.3.0";
+const SERVICE_VERSION = "txpros-proxy-v1.3.1";
 
 /** Hosted browser API — https://www.browserless.io/ — set BROWSERLESS_TOKEN on this function. */
 const BROWSERLESS_TOKEN = Deno.env.get("BROWSERLESS_TOKEN") || "";
@@ -389,38 +389,65 @@ async function fetchRouteXmlFromBody(
   throw lastErr || new Error("Could not reach TXPROS RouteService.");
 }
 
-/** Runs in Browserless’s Node/Puppeteer worker — loaded as `code` over their REST API. */
+/** Runs in Browserless Node/Puppeteer worker — sent as JSON `code` to their REST API. */
 const BROWSERLESS_TXPROS_FUNCTION = `export default async ({ page, context }) => {
   const permitId = context.permitId;
   if (!permitId) {
     return { data: { error: "missing_permitId" }, type: "application/json" };
   }
-  const url =
-    "https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=" + encodeURIComponent(String(permitId));
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120000 });
-  const result = await page.evaluate(async (pid) => {
-    const r = await fetch("https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=UTF-8",
-        Accept: "application/json, text/javascript, */*;q=0.01",
-        "X-Requested-With": "XMLHttpRequest",
-        Referer: window.location.href,
-      },
-      body: JSON.stringify({
-        PermitID: parseInt(String(pid), 10),
-        UseHistoryDB: false,
-        AuditPermitID: -1,
-      }),
-    });
-    return { status: r.status, body: await r.text() };
-  }, permitId);
-  return { data: result, type: "application/json" };
+  try {
+    const url =
+      "https://txpros.txdmv.gov/PermitDetails02.aspx?PermitID=" + encodeURIComponent(String(permitId));
+    await page.goto(url, { waitUntil: "load", timeout: 120000 });
+    await new Promise((r) => setTimeout(r, 1500));
+    const result = await page.evaluate(async (pid) => {
+      const r = await fetch("https://txpros.txdmv.gov/Services/RouteService.asmx/GetLatLonForPermit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=UTF-8",
+          Accept: "application/json, text/javascript, */*;q=0.01",
+          "X-Requested-With": "XMLHttpRequest",
+          Referer: window.location.href,
+        },
+        body: JSON.stringify({
+          PermitID: parseInt(String(pid), 10),
+          UseHistoryDB: false,
+          AuditPermitID: -1,
+        }),
+      });
+      const text = await r.text();
+      return { status: r.status, body: text.length > 600000 ? text.slice(0, 600000) : text };
+    }, permitId);
+    return { data: result, type: "application/json" };
+  } catch (err) {
+    const msg = err && err.message ? String(err.message) : String(err);
+    return { data: { error: "browserless_exception", message: msg }, type: "application/json" };
+  }
 }`;
 
-async function fetchRouteViaBrowserless(
-  permitId: string,
-): Promise<{ coordinates: number[][]; pointCount: number } | null> {
+function clip(s: string, n: number): string {
+  const t = s.replace(/\s+/g, " ").trim();
+  return t.length <= n ? t : t.slice(0, n) + "…";
+}
+
+/** null = Browserless not configured; ok false = ran but no coordinates; ok true = success */
+type BrowserlessRouteAttempt =
+  | null
+  | { ok: true; coordinates: number[][]; pointCount: number }
+  | { ok: false; detail: string };
+
+function normalizeBrowserlessDataNode(data: Record<string, unknown>): Record<string, unknown> {
+  const inner = data.data;
+  if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+    const o = inner as Record<string, unknown>;
+    if (typeof o.status === "number" && typeof o.body === "string") {
+      return o;
+    }
+  }
+  return data;
+}
+
+async function fetchRouteViaBrowserless(permitId: string): Promise<BrowserlessRouteAttempt> {
   if (!BROWSERLESS_TOKEN) return null;
   try {
     const res = await fetch(
@@ -435,23 +462,64 @@ async function fetchRouteViaBrowserless(
       },
     );
     const text = await res.text();
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return {
+        ok: false,
+        detail: `Browserless HTTP ${res.status}: ${clip(text, 400)}`,
+      };
+    }
     let payload: Record<string, unknown>;
     try {
       payload = JSON.parse(text) as Record<string, unknown>;
     } catch {
-      return null;
+      return {
+        ok: false,
+        detail: `Browserless response not JSON: ${clip(text, 400)}`,
+      };
     }
-    const data = payload.data as Record<string, unknown> | undefined;
-    if (!data || typeof data !== "object") return null;
-    if ("error" in data && data.error != null) return null;
+    let data = payload.data as Record<string, unknown> | undefined;
+    if (!data || typeof data !== "object") {
+      return {
+        ok: false,
+        detail: `Browserless payload missing data: ${clip(text, 400)}`,
+      };
+    }
+    data = normalizeBrowserlessDataNode(data);
+
+    if ("error" in data && data.error != null) {
+      const msg = data.message != null ? String(data.message) : "";
+      return {
+        ok: false,
+        detail: `Browserless worker: ${String(data.error)}${msg ? ` (${msg})` : ""}`,
+      };
+    }
+
     const status = data.status;
     const body = data.body;
-    if (typeof status !== "number" || typeof body !== "string") return null;
-    if (status !== 200) return null;
-    return parseCoordsFromJsonResponse(body);
-  } catch {
-    return null;
+    if (typeof status !== "number" || typeof body !== "string") {
+      return {
+        ok: false,
+        detail: `Browserless worker returned unexpected shape: ${clip(JSON.stringify(data), 500)}`,
+      };
+    }
+    if (status !== 200) {
+      return {
+        ok: false,
+        detail: `TxPROS GetLatLon HTTP ${status} from browser: ${clip(body, 320)}`,
+      };
+    }
+
+    const parsed = parseCoordsFromJsonResponse(body);
+    if (!parsed) {
+      return {
+        ok: false,
+        detail: `Could not parse route JSON from browser (invalid permit or empty route): ${clip(body, 320)}`,
+      };
+    }
+    return { ok: true, ...parsed };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, detail: `Browserless fetch error: ${msg}` };
   }
 }
 
@@ -461,8 +529,9 @@ async function fetchRouteFromTxpros(permitId: string): Promise<{
   via: "browserless" | "json" | "body_xml";
 }> {
   const bl = await fetchRouteViaBrowserless(permitId);
-  if (bl) {
-    return { ...bl, via: "browserless" };
+  if (bl?.ok) {
+    const { coordinates, pointCount } = bl;
+    return { coordinates, pointCount, via: "browserless" };
   }
 
   const sessionCookie = await establishTxprosSession(permitId);
@@ -478,13 +547,16 @@ async function fetchRouteFromTxpros(permitId: string): Promise<{
     return { coordinates, pointCount, via: "body_xml" };
   } catch (e) {
     if (e instanceof Error && e.message === "txpros_html_error") {
+      const blDetail = bl && !bl.ok ? bl.detail : "";
       const hint = BROWSERLESS_TOKEN
-        ? "BROWSERLESS_TOKEN is set but Browserless still failed — check Browserless quota, region (BROWSERLESS_URL), or TxPROS."
+        ? (blDetail
+          ? `Browserless attempt failed first: ${blDetail}`
+          : "Browserless was not invoked or returned no detail; check BROWSERLESS_URL matches your Browserless region, token quota, and redeploy parse-permit.")
         : "TxDMV often blocks server-side calls. Add Edge Function secret BROWSERLESS_TOKEN (Browserless.io), optionally BROWSERLESS_URL (default https://production-sfo.browserless.io), redeploy parse-permit.";
       throw new Error(
         [
           `Could not load TXPROS route for permit ${permitId}.`,
-          "Use the PermitID from the permit QR/link (?PermitID=…), not the printed permit number.",
+          "Use only the digits from the permit link or QR (?PermitID=… on txpros.txdmv.gov). If the permit page does not load in a normal browser, the ID is wrong.",
           hint,
         ].join(" "),
       );
