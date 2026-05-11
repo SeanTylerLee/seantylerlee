@@ -33,6 +33,11 @@ type OriginStructured = {
   offset_mi: number | null;
   bearing: string | null;
   roads: string[];
+  /**
+   * TxDMV `[Loaded Route Origin: BU0287P, 2.6mi NW of BU0287P & FM1187]` — the highway the load
+   * is on at start (comma before the offset clause), normalized e.g. `BU 287P`.
+   */
+  loaded_route_road?: string | null;
 };
 
 type ParseResult = {
@@ -47,7 +52,7 @@ type ParseResult = {
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.6.0";
+const PARSER_VERSION = "tx-turntable-v2.7.0";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
@@ -544,6 +549,17 @@ function extractRoadsFromJunctionBlob(blob: string): string[] {
   return dedupeStrings(roads);
 }
 
+/** e.g. `[Loaded Route Origin: BU0287P, 2.6mi NW of BU0287P & FM1187 ]` */
+function parseLoadedRouteRoadFromOriginPrefix(raw: string): string | null {
+  const t = cleanLine(raw);
+  if (!t) return null;
+  const tok = findRoadToken(t);
+  if (tok) return tok;
+  const n = normalizeRouteToken(t);
+  const t2 = findRoadToken(n);
+  return t2 || (n.length > 2 && n.length < 56 ? n : null);
+}
+
 /** Generic Tx permit origin: junction + mile offset, semicolon triples, or state-line phrasing. */
 function parseOriginStructured(origin: string): OriginStructured {
   const o = normalizeCommonOcrTypos(origin);
@@ -552,18 +568,23 @@ function parseOriginStructured(origin: string): OriginStructured {
   }
 
   const reJunction =
-    /^(?:([^,]+?)\s*,\s*)?([\d.]+)\s*mi(?:le)?s?\s+([nsew]{1,2}|north|south|east|west|northeast|northwest|southeast|southwest)\s+of\s+(.+)$/i;
+    /^(?:([^,]+?)\s*,\s*)?([\d.]+)\s*mi(?:le)?s?\s+(nb|sb|eb|wb|[nsew]{1,2}|north|south|east|west|northeast|northwest|southeast|southwest)\s+of\s+(.+)$/i;
   const mj = reJunction.exec(o);
   if (mj) {
     const offset_mi = parseFloat(mj[2]);
     const bearing = parseDirectionAbbrev(mj[3]);
     const junctionBlob = cleanLine(mj[4]);
     const roads = extractRoadsFromJunctionBlob(junctionBlob);
+    let loaded_route_road: string | null = null;
+    if (mj[1]) {
+      loaded_route_road = parseLoadedRouteRoadFromOriginPrefix(mj[1]);
+    }
     return {
       mode: "junction_offset",
       offset_mi: Number.isFinite(offset_mi) ? offset_mi : null,
       bearing,
       roads,
+      loaded_route_road,
     };
   }
 
@@ -601,11 +622,23 @@ function structuredOriginQueries(s: OriginStructured): string[] {
   const q: string[] = [];
   if (s.mode === "junction_offset" && s.roads.length >= 2) {
     const [a, b] = [s.roads[0], s.roads[1]];
+    const off = s.offset_mi != null && Number.isFinite(s.offset_mi) ? s.offset_mi : null;
+    const bear = s.bearing || "";
+    /** Permit means: offset along/across from the **intersection** of the two roads, in `bear`. */
+    if (off != null && bear) {
+      q.push(`${off} miles ${bear} of ${a} and ${b} intersection Texas`);
+      q.push(`${off} miles ${bear} of ${a} and ${b} junction Texas`);
+      q.push(`${a} and ${b} intersection ${off} miles ${bear} Texas`);
+    }
+    if (s.loaded_route_road && off != null && bear) {
+      q.push(`${s.loaded_route_road} ${bear} ${off} miles from ${a} and ${b} intersection Texas`);
+      q.push(`${s.loaded_route_road} ${bear} ${off} miles from ${a} and ${b} junction Texas`);
+    }
     q.push(`${a} and ${b} intersection Texas`);
     q.push(`${a} ${b} junction Texas`);
-    if (s.bearing && s.offset_mi != null && Number.isFinite(s.offset_mi)) {
-      q.push(`${a} ${s.bearing} ${s.offset_mi} miles from ${b} Texas`);
-      q.push(`${a} from ${b} ${s.bearing} Texas`);
+    if (bear && off != null) {
+      q.push(`${a} ${bear} ${off} miles from ${b} Texas`);
+      q.push(`${a} from ${b} ${bear} Texas`);
     }
   }
   if (s.mode === "semicolon" && s.roads.length) {
@@ -845,7 +878,9 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
     const structuredQ = origin_structured ? structuredOriginQueries(origin_structured) : [];
     const originRoad = findRoadToken(narrativeOrigin);
     const fullO = narrativeOrigin.trim();
-    const originPrimary = (originRoad || fullO.slice(0, 96).trim()).trim();
+    const originPrimary = cleanLine(
+      origin_structured?.loaded_route_road || originRoad || fullO.slice(0, 96),
+    );
     segments.unshift({
       label: "Origin",
       text: originPrimary,
