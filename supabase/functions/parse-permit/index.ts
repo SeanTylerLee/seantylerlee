@@ -47,7 +47,7 @@ type ParseResult = {
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.5.0";
+const PARSER_VERSION = "tx-turntable-v2.6.0";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
@@ -255,6 +255,47 @@ function enrichQueriesForTxRow(
   return dedupeStrings(out);
 }
 
+/** Stop collecting a multi-line Origin block */
+const ORIGIN_BLOCK_STOP =
+  /^\s*(Destination|Final\s+Destination|Route\s+Conditions|General\s+Conditions|Miles\s+Route\s+To|Dimension|Dimensions|Vehicle|Load\s+description|Escort|Certification|Point\s+of\s+origin)\b/i;
+
+/** Stop collecting a multi-line Destination block */
+const DEST_BLOCK_STOP =
+  /^\s*(Route\s+Conditions|General\s+Conditions|Miles\s+Route\s+To|Dimension|Dimensions|Vehicle|Origin\s*:|Effective\s+date|Expiration|Certification)\b/i;
+
+function scoreAnchorText(s: string, kind: "origin" | "dest"): number {
+  const t = s.trim();
+  if (t.length < 2) return -1;
+  let sc = Math.min(t.length, 320);
+  if (/\b(US|SH|FM|RM|IH|BI|BU|CR|SS|SP|SL)\s*[-–]?\s*\d/i.test(t)) sc += 120;
+  if (/\d+(?:\.\d+)?\s*mi(?:le)?s?\b/i.test(t)) sc += 75;
+  if (/junction|intersection|\s&\s|\s+and\s+/i.test(t)) sc += 40;
+  if (/\[\s*Loaded\s+Route/i.test(t)) sc += 25;
+  if (
+    kind === "dest" &&
+    /\b\d{2,5}\s+\w[\w\s]{2,24}\b(?:street|st|road|rd|avenue|ave|drive|dr|lane|ln|blvd|hwy|fm)\b/i.test(
+      t,
+    )
+  ) {
+    sc += 60;
+  }
+  return sc;
+}
+
+function extractLoadedBracketField(text: string, label: "Origin" | "Destination"): string[] {
+  const out: string[] = [];
+  const re =
+    label === "Origin"
+      ? /\[\s*Loaded\s+Route\s+Origin\s*:\s*([^\]\n]+)/gi
+      : /\[\s*Loaded\s+Route\s+Destination\s*:\s*([^\]\n]+)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const s = cleanLine(m[1]);
+    if (s.length > 1) out.push(s);
+  }
+  return out;
+}
+
 function extractPermitNumber(text: string): string | null {
   const m =
     text.match(/\bPermit Number:\s*([A-Z0-9-]{6,})\b/i) ||
@@ -262,29 +303,79 @@ function extractPermitNumber(text: string): string | null {
   return m ? m[1] : null;
 }
 
-function extractOrigin(text: string): string | null {
-  const lines = text.split("\n");
-  let best = "";
-  for (const line of lines) {
-    const m1 = /\bOrigin\s*:\s*(.+)$/i.exec(line);
-    const m2 = /^\s*\[Loaded Route Origin\s*:\s*(.+?)\s*[\]\)]?\s*$/i.exec(line);
-    const m = m1 || m2;
-    if (m && m[1].trim().length > best.length) best = m[1].trim();
+function pickBestAnchor(candidates: string[], kind: "origin" | "dest"): string | null {
+  const list = candidates.map((c) => cleanLine(c)).filter((c) => c.length > 1);
+  if (!list.length) return null;
+  let best = list[0];
+  let bestSc = scoreAnchorText(best, kind);
+  for (let k = 1; k < list.length; k++) {
+    const sc = scoreAnchorText(list[k], kind);
+    if (sc > bestSc) {
+      bestSc = sc;
+      best = list[k];
+    }
   }
+  return best;
+}
+
+function extractOrigin(text: string): string | null {
+  const norm = normalizeWs(text);
+  const candidates: string[] = [];
+  candidates.push(...extractLoadedBracketField(norm, "Origin"));
+
+  const lines = norm.split("\n").map(cleanLine).filter(Boolean);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!/\bOrigin\s*:/i.test(line)) continue;
+    const afterColon = line.replace(/^.*?\bOrigin\s*:/i, "").trim();
+    let chunk = afterColon;
+    const inlineDest = /\bDestination\s*:/i.exec(chunk);
+    if (inlineDest) {
+      chunk = chunk.slice(0, inlineDest.index).replace(/[,;]\s*$/, "").trim();
+    }
+    const parts: string[] = [];
+    if (chunk) parts.push(chunk);
+    let j = i + 1;
+    while (j < lines.length) {
+      const L = lines[j];
+      if (ORIGIN_BLOCK_STOP.test(L)) break;
+      if (/^\s*Origin\s*:/i.test(L)) break;
+      parts.push(L);
+      j++;
+    }
+    const block = cleanLine(parts.join(" "));
+    if (block.length > 1) candidates.push(block);
+  }
+
+  const best = pickBestAnchor(candidates, "origin");
   return best ? normalizeCommonOcrTypos(best) : null;
 }
 
 function extractDestination(text: string): string | null {
-  const lines = text.split("\n");
-  let best = "";
-  for (const line of lines) {
-    const m1 = /^\s*Destination\s*:\s*(.+)$/i.exec(line);
-    const m2 = /^\s*Final Destination\s*:\s*(.+)$/i.exec(line);
-    const m3 = /^\s*\[?Loaded\s+Route\s+Destination\s*:\s*(.+?)\s*[\]\)]?\s*$/i.exec(line);
-    for (const m of [m1, m2, m3]) {
-      if (m && m[1].trim().length > best.length) best = m[1].trim();
+  const norm = normalizeWs(text);
+  const candidates: string[] = [];
+  candidates.push(...extractLoadedBracketField(norm, "Destination"));
+
+  const lines = norm.split("\n").map(cleanLine).filter(Boolean);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!/^\s*(?:Final\s+)?Destination\s*:/i.test(line)) continue;
+    const afterColon = line.replace(/^.*?\b(?:Final\s+)?Destination\s*:/i, "").trim();
+    const parts: string[] = [];
+    if (afterColon) parts.push(afterColon);
+    let j = i + 1;
+    while (j < lines.length) {
+      const L = lines[j];
+      if (DEST_BLOCK_STOP.test(L)) break;
+      if (/^\s*(?:Final\s+)?Destination\s*:/i.test(L)) break;
+      parts.push(L);
+      j++;
     }
+    const block = cleanLine(parts.join(" "));
+    if (block.length > 1) candidates.push(block);
   }
+
+  const best = pickBestAnchor(candidates, "dest");
   return best ? normalizeCommonOcrTypos(best) : null;
 }
 
@@ -420,6 +511,14 @@ function parseDirectionAbbrev(dir: string | null): string | null {
     sb: "south",
     eb: "east",
     wb: "west",
+    north: "north",
+    south: "south",
+    east: "east",
+    west: "west",
+    northeast: "northeast",
+    northwest: "northwest",
+    southeast: "southeast",
+    southwest: "southwest",
   };
   return map[k] || null;
 }
@@ -453,7 +552,7 @@ function parseOriginStructured(origin: string): OriginStructured {
   }
 
   const reJunction =
-    /^(?:([^,]+?)\s*,\s*)?([\d.]+)\s*mi\s+([nsew]{1,2})\s+of\s+(.+)$/i;
+    /^(?:([^,]+?)\s*,\s*)?([\d.]+)\s*mi(?:le)?s?\s+([nsew]{1,2}|north|south|east|west|northeast|northwest|southeast|southwest)\s+of\s+(.+)$/i;
   const mj = reJunction.exec(o);
   if (mj) {
     const offset_mi = parseFloat(mj[2]);
@@ -693,8 +792,8 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
   const permit_number = extractPermitNumber(fullText);
 
   const parse_text = fullText;
-  const origin_text = extractOrigin(fullText);
-  const destination_text = extractDestination(fullText);
+  let origin_text = extractOrigin(fullText);
+  let destination_text = extractDestination(fullText);
 
   const rows = extractTurnTableBlock(fullText)
     .filter((line) => {
@@ -716,27 +815,6 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
 
   let cumulative = 0;
 
-  const origin_structured = origin_text ? parseOriginStructured(origin_text) : null;
-  if (origin_structured) {
-    warnings.push(...collectOriginWarnings(origin_structured));
-  }
-
-  if (origin_text) {
-    const structuredQ = origin_structured ? structuredOriginQueries(origin_structured) : [];
-    const originRoad = findRoadToken(origin_text);
-    segments.push({
-      label: "Origin",
-      text: origin_text.slice(0, 64),
-      displayText: `Start · ${origin_text}`,
-      queries: dedupeStrings([
-        ...structuredQ,
-        ...(originRoad ? [`${originRoad} Texas`] : []),
-        `${origin_text} Texas`,
-        `${origin_text} TX`,
-      ]),
-    });
-  }
-
   for (const row of rows) {
     const { step, cumulativeAfter, odometerWarn } = buildStepFromRow(row, cumulative);
     if (odometerWarn) warnings.push(odometerWarn);
@@ -745,18 +823,117 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
     segments.push(...stepToSegments(step));
   }
 
-  if (destination_text) {
-    const destinationRoad = findRoadToken(destination_text);
-    segments.push({
-      label: "Destination",
-      text: destination_text.slice(0, 64),
-      displayText: `End · ${destination_text}`,
+  if (!destination_text && steps.length > 0) {
+    const last = steps[steps.length - 1];
+    if (last?.maneuver && /Arrive\s+at\s+destination/i.test(last.maneuver)) {
+      const endR = last.to_road || last.from_road;
+      if (endR) {
+        destination_text = endR;
+        warnings.push("destination_inferred_from_arrive_row");
+      }
+    }
+  }
+
+  const origin_structured = origin_text ? parseOriginStructured(origin_text) : null;
+  if (origin_structured) {
+    warnings.push(...collectOriginWarnings(origin_structured));
+  }
+
+  const narrativeOrigin = origin_text;
+
+  if (narrativeOrigin) {
+    const structuredQ = origin_structured ? structuredOriginQueries(origin_structured) : [];
+    const originRoad = findRoadToken(narrativeOrigin);
+    const fullO = narrativeOrigin.trim();
+    const originPrimary = (originRoad || fullO.slice(0, 96).trim()).trim();
+    segments.unshift({
+      label: "Origin",
+      text: originPrimary,
+      displayText: `Start · ${fullO.slice(0, 220)}`,
+      dir_hint: origin_structured?.bearing || null,
       queries: dedupeStrings([
-        ...(destinationRoad ? [`${destinationRoad} Texas`] : []),
-        `${destination_text} Texas`,
-        `${destination_text} TX`,
+        ...structuredQ,
+        `${fullO} Texas`,
+        `${fullO} TX`,
+        `${fullO} United States`,
+        ...(originRoad ? [`${originRoad} Texas`, `${originRoad} highway Texas`] : []),
       ]),
     });
+  } else if (steps.length > 0 && steps[0].from_road) {
+    const s0 = steps[0];
+    const oRoad = s0.from_road as string;
+    origin_text = oRoad;
+    warnings.push("origin_inferred_from_first_table_row");
+    segments.unshift({
+      label: "Origin",
+      text: oRoad,
+      displayText: `Start · ${s0.raw_row}`.slice(0, 240),
+      dir_hint: s0.from_dir || null,
+      queries: dedupeStrings([
+        `${oRoad} ${s0.from_dir || ""} Texas`.trim(),
+        `${oRoad} Texas`,
+        `${oRoad} highway Texas`,
+      ]),
+    });
+  }
+
+  if (destination_text) {
+    const destinationRoad = findRoadToken(destination_text);
+    const fullD = destination_text.trim();
+    const destPrimary = (destinationRoad || fullD.slice(0, 96).trim()).trim();
+    segments.push({
+      label: "Destination",
+      text: destPrimary,
+      displayText: `End · ${fullD.slice(0, 220)}`,
+      queries: dedupeStrings([
+        ...(destinationRoad ? [`${destinationRoad} Texas`, `${destinationRoad} highway Texas`] : []),
+        `${fullD} Texas`,
+        `${fullD} TX`,
+        `${fullD} United States`,
+      ]),
+    });
+  }
+
+  if (segments.length && steps.length > 0) {
+    const oSeg = segments[0];
+    if (oSeg?.label === "Origin") {
+      const st = narrativeOrigin || "";
+      const weak =
+        st.length > 0 &&
+        (st.length < 14 ||
+          (!/\d/.test(st) && !/\b(US|SH|FM|RM|IH|BI|BU|CR)\s*[-–]?\s*\d/i.test(st)));
+      if (weak && steps[0]?.from_road) {
+        const s0 = steps[0];
+        const fr = s0.from_road as string;
+        const q = `${fr} ${s0.from_dir || ""} Texas`.trim();
+        oSeg.queries = dedupeStrings([q, `${fr} Texas`, ...(oSeg.queries || [])]);
+        if (!findRoadToken(st) || st.length < 12) {
+          oSeg.text = fr;
+        }
+        if (s0.from_dir) oSeg.dir_hint = s0.from_dir;
+      }
+    }
+    const dSeg = segments[segments.length - 1];
+    if (dSeg?.label === "Destination" && steps.length) {
+      const fullD = destination_text || "";
+      const weakD =
+        fullD.length > 0 &&
+        (fullD.length < 10 ||
+          (!/\d/.test(fullD) && !/\b(US|SH|FM|RM|IH|BI|BU)\s*[-–]?\s*\d/i.test(fullD)));
+      const last = steps[steps.length - 1];
+      if (weakD && last) {
+        const endR = last.to_road || last.from_road;
+        if (endR) {
+          const endD = last.to_dir || last.from_dir || "";
+          const q = `${endR} ${endD} Texas`.trim();
+          dSeg.queries = dedupeStrings([q, `${endR} Texas`, ...(dSeg.queries || [])]);
+          if (!findRoadToken(fullD) || fullD.length < 8) {
+            dSeg.text = endR;
+          }
+          if (endD) dSeg.dir_hint = endD;
+        }
+      }
+    }
   }
 
   return {

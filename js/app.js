@@ -728,58 +728,129 @@ function routeOriginLineMatchesNarrative(lineNorm, narrNorm) {
   return false;
 }
 
+/** Align with Supabase `parse-permit` origin / destination boundaries (client-side PDF path). */
+var ORIGIN_BLOCK_STOP_CLIENT =
+  /^\s*(Destination|Final\s+Destination|Route\s+Conditions|General\s+Conditions|Miles\s+Route\s+To|Dimension|Dimensions|Vehicle|Load\s+description|Escort|Certification|Point\s+of\s+origin)\b/i;
+var DEST_BLOCK_STOP_CLIENT =
+  /^\s*(Route\s+Conditions|General\s+Conditions|Miles\s+Route\s+To|Dimension|Dimensions|Vehicle|Origin\s*:|Effective\s+date|Expiration|Certification)\b/i;
+
 /** Longest Origin narrative on the permit (page 1 or table header). */
 function extractPermitOriginNarrative(routeText) {
   if (!routeText) return "";
-  const lines = routeText
+  var norm = normalizeWs(routeText);
+  var candidates = [];
+
+  var br;
+  var reLoadedO = /\[\s*Loaded\s+Route\s+Origin\s*:\s*([^\]\n]+)/gi;
+  while ((br = reLoadedO.exec(norm)) !== null) {
+    var frag = br[1].replace(/\s+/g, " ").trim();
+    if (frag.length > 1) candidates.push(frag);
+  }
+
+  var lines = norm
     .split(/\n/)
     .map(function (l) {
       return l.replace(/\s+/g, " ").trim();
     })
     .filter(Boolean);
-  let best = "";
-  for (let i = 0; i < lines.length; i++) {
-    const m = /\bOrigin\s*:\s*(.+)$/i.exec(lines[i]);
-    if (m) {
-      const rest = m[1].trim();
-      if (rest.length > best.length) best = rest;
+  for (var i = 0; i < lines.length; i++) {
+    if (!/\bOrigin\s*:/i.test(lines[i])) continue;
+    var afterColon = lines[i].replace(/^.*?\bOrigin\s*:/i, "").trim();
+    var chunk = afterColon;
+    var inlineDest = /\bDestination\s*:/i.exec(chunk);
+    if (inlineDest) {
+      chunk = chunk.slice(0, inlineDest.index).replace(/[,;]\s*$/, "").trim();
+    }
+    var parts = [];
+    if (chunk) parts.push(chunk);
+    var j = i + 1;
+    while (j < lines.length) {
+      var L = lines[j];
+      if (ORIGIN_BLOCK_STOP_CLIENT.test(L)) break;
+      if (/^\s*Origin\s*:/i.test(L)) break;
+      parts.push(L);
+      j++;
+    }
+    var block = parts.join(" ").replace(/\s+/g, " ").trim();
+    if (block.length > 1) candidates.push(block);
+  }
+
+  var best = "";
+  var bestSc = -1;
+  for (var k = 0; k < candidates.length; k++) {
+    var c = normalizeHyphensForMatching(candidates[k]).trim();
+    var sc = Math.min(c.length, 320);
+    if (/\b(US|SH|FM|RM|IH|BI|BU|CR|SS|SP|SL)\s*[-–]?\s*\d/i.test(c)) sc += 120;
+    if (/\d+(?:\.\d+)?\s*mi(?:le)?s?\b/i.test(c)) sc += 75;
+    if (/junction|intersection|\s&\s|\s+and\s+/i.test(c)) sc += 40;
+    if (/\[\s*Loaded\s+Route/i.test(c)) sc += 25;
+    if (sc > bestSc) {
+      bestSc = sc;
+      best = c;
     }
   }
-  best = normalizeHyphensForMatching(best).trim();
+  best = best.trim();
   if (!best || best.length < 6) {
-    const fb = extractPermitOriginFallbackFirstLine(routeText);
-    if (fb) best = fb;
+    var fb = extractPermitOriginFallbackFirstLine(routeText);
+    if (fb) best = normalizeHyphensForMatching(fb).trim();
   }
   return best;
 }
 
 function extractPermitDestinationNarrative(routeText) {
   if (!routeText) return "";
-  const lines = routeText
+  var norm = normalizeWs(routeText);
+  var candidates = [];
+
+  var brd;
+  var reLoadedD = /\[\s*Loaded\s+Route\s+Destination\s*:\s*([^\]\n]+)/gi;
+  while ((brd = reLoadedD.exec(norm)) !== null) {
+    var fd = brd[1].replace(/\s+/g, " ").trim();
+    if (fd.length > 1) candidates.push(fd);
+  }
+
+  var linesD = norm
     .split(/\n/)
     .map(function (l) {
       return l.replace(/\s+/g, " ").trim();
     })
     .filter(Boolean);
-  let best = "";
-  for (let i = 0; i < lines.length; i++) {
-    const m = /^\s*Destination\s*:\s*(.+)$/i.exec(lines[i]);
-    if (m) {
-      const rest = m[1].trim();
-      if (rest.length > best.length) best = rest;
+  for (var ii = 0; ii < linesD.length; ii++) {
+    if (!/^\s*(?:Final\s+)?Destination\s*:/i.test(linesD[ii])) continue;
+    var afterC = linesD[ii].replace(/^.*?\b(?:Final\s+)?Destination\s*:/i, "").trim();
+    var partsD = [];
+    if (afterC) partsD.push(afterC);
+    var jj = ii + 1;
+    while (jj < linesD.length) {
+      var LD = linesD[jj];
+      if (DEST_BLOCK_STOP_CLIENT.test(LD)) break;
+      if (/^\s*(?:Final\s+)?Destination\s*:/i.test(LD)) break;
+      partsD.push(LD);
+      jj++;
     }
-    const mFinal = /^\s*Final Destination\s*:\s*(.+)$/i.exec(lines[i]);
-    if (mFinal) {
-      const restFinal = mFinal[1].trim();
-      if (restFinal.length > best.length) best = restFinal;
+    var blockD = partsD.join(" ").replace(/\s+/g, " ").trim();
+    if (blockD.length > 1) candidates.push(blockD);
+  }
+
+  var bestD = "";
+  var bestScD = -1;
+  for (var kk = 0; kk < candidates.length; kk++) {
+    var cD = normalizeHyphensForMatching(candidates[kk]).trim();
+    var scD = Math.min(cD.length, 320);
+    if (/\b(US|SH|FM|RM|IH|BI|BU|CR|SS|SP|SL)\s*[-–]?\s*\d/i.test(cD)) scD += 120;
+    if (
+      /\b\d{2,5}\s+\w[\w\s]{2,24}\b(?:street|st|road|rd|avenue|ave|drive|dr|lane|ln|blvd|hwy|fm)\b/i.test(
+        cD
+      )
+    ) {
+      scD += 60;
     }
-    const mLoaded = /^\s*\[Loaded Route Destination\s*:\s*(.+?)\s*\]?\s*$/i.exec(lines[i]);
-    if (mLoaded) {
-      const restLoaded = mLoaded[1].trim();
-      if (restLoaded.length > best.length) best = restLoaded;
+    if (scD > bestScD) {
+      bestScD = scD;
+      bestD = cD;
     }
   }
-  return normalizeHyphensForMatching(best).trim();
+  return bestD.trim();
 }
 
 /** Single high-priority stop so the route starts where the permit says (not first table token). */
