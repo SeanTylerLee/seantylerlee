@@ -57,7 +57,7 @@ type ParseResult = {
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.7.3";
+const PARSER_VERSION = "tx-turntable-v2.7.5";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
@@ -693,7 +693,14 @@ function structuredOriginQueries(s: OriginStructured): string[] {
     const [a, b] = [s.roads[0], s.roads[1]];
     const off = s.offset_mi != null && Number.isFinite(s.offset_mi) ? s.offset_mi : null;
     const bear = s.bearing || "";
-    /** Permit means: offset along/across from the **intersection** of the two roads, in `bear`. */
+    /**
+     * Start pin is the **crossing** of the two roads after "of" (e.g. BU 287P & FM 1187). List plain
+     * intersection queries first; offset-from-junction strings are secondary for tools that search verbatim.
+     */
+    q.push(`${a} and ${b} intersection Texas`);
+    q.push(`${b} and ${a} intersection Texas`);
+    q.push(`${a} ${b} junction Texas`);
+    /** Permit narrative: offset along/across from that intersection in `bear`. */
     if (off != null && bear) {
       q.push(`${off} miles ${bear} of ${a} and ${b} intersection Texas`);
       q.push(`${off} miles ${bear} of ${a} and ${b} junction Texas`);
@@ -703,8 +710,6 @@ function structuredOriginQueries(s: OriginStructured): string[] {
       q.push(`${s.loaded_route_road} ${bear} ${off} miles from ${a} and ${b} intersection Texas`);
       q.push(`${s.loaded_route_road} ${bear} ${off} miles from ${a} and ${b} junction Texas`);
     }
-    q.push(`${a} and ${b} intersection Texas`);
-    q.push(`${a} ${b} junction Texas`);
     if (bear && off != null) {
       q.push(`${a} ${bear} ${off} miles from ${b} Texas`);
       q.push(`${a} from ${b} ${bear} Texas`);

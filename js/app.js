@@ -1593,6 +1593,13 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
   const a = String(pair[0]).trim();
   const b = String(pair[1]).trim();
   if (!a || !b || a === b) return null;
+  /**
+   * Do not pass the first table row as Mapbox/Photon proximity here: it biases hits **along** one
+   * highway toward that row (e.g. FM 1187 milepoints toward the next turn) instead of the true
+   * crossing with the other origin road. Use Texas-wide default proximity; use `proximityPrior` only
+   * in `pickDualRoadHitNearCorridor` to disambiguate duplicate route numbers.
+   */
+  const statewideProximityBias = null;
 
   const placeHintsRaw = originStructured.place_hints || originStructured.placeHints || [];
   const placeHints = Array.isArray(placeHintsRaw)
@@ -1647,30 +1654,13 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
   const allQueries = expandQueriesWithOriginPlaceHints(dedupeStrings(queries), placeHints);
 
   const dualHits = [];
-  let best = null;
-  let bestScore = -Infinity;
-  let fallback = null;
+  let bestDualMapbox = null;
+  let bestDualScore = -Infinity;
 
   if (accessToken) {
     for (let qi = 0; qi < allQueries.length; qi++) {
       const q = allQueries[qi];
-      const feats = await geocodeMapboxPlacesFeatures(q, accessToken, proximityPrior);
-      if (feats.length && !fallback) {
-        let fh = null;
-        for (let fi = 0; fi < feats.length; fi++) {
-          if (geocodeLabelReferencesBothRoads(feats[fi].label, a, b)) {
-            fh = feats[fi];
-            break;
-          }
-        }
-        if (!fh) fh = feats[0];
-        fallback = {
-          lat: fh.lat,
-          lon: fh.lon,
-          label: fh.label,
-          matchedQuery: q,
-        };
-      }
+      const feats = await geocodeMapboxPlacesFeatures(q, accessToken, statewideProximityBias);
       for (let fi = 0; fi < feats.length; fi++) {
         const feat = feats[fi];
         const both = geocodeLabelReferencesBothRoads(feat.label, a, b);
@@ -1682,19 +1672,18 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
             matchedQuery: q,
             source: "mapbox",
           });
-        }
-        const sc = scoreMapboxIntersectionCandidateRefined(feat, both);
-        if (sc > bestScore) {
-          bestScore = sc;
-          best = {
-            lat: feat.lat,
-            lon: feat.lon,
-            label: feat.label,
-            matchedQuery: q,
-          };
+          const sc = scoreMapboxIntersectionCandidateRefined(feat, true);
+          if (sc > bestDualScore) {
+            bestDualScore = sc;
+            bestDualMapbox = {
+              lat: feat.lat,
+              lon: feat.lon,
+              label: feat.label,
+              matchedQuery: q,
+            };
+          }
         }
       }
-      if (best && bestScore >= 58) break;
       if (qi < allQueries.length - 1) await sleep(45);
     }
   }
@@ -1702,7 +1691,7 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
   const maxPhotonQ = Math.min(allQueries.length, 14);
   for (let qi = 0; qi < maxPhotonQ; qi++) {
     const q = allQueries[qi];
-    const feats = await geocodePhotonPlacesFeatures(q, proximityPrior);
+    const feats = await geocodePhotonPlacesFeatures(q, statewideProximityBias);
     for (let fi = 0; fi < feats.length; fi++) {
       const feat = feats[fi];
       if (!geocodeLabelReferencesBothRoads(feat.label, a, b)) continue;
@@ -1728,14 +1717,13 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
     };
   }
 
-  const mapboxPick = best || fallback;
-  if (mapboxPick) {
+  if (bestDualMapbox) {
     return {
-      lat: mapboxPick.lat,
-      lon: mapboxPick.lon,
-      label: `${a} & ${b} (${mapboxPick.label || "intersection"})`,
+      lat: bestDualMapbox.lat,
+      lon: bestDualMapbox.lon,
+      label: `${a} & ${b} (${bestDualMapbox.label || "intersection"})`,
       source: "mapbox",
-      matchedQuery: mapboxPick.matchedQuery,
+      matchedQuery: bestDualMapbox.matchedQuery,
     };
   }
   return null;
