@@ -1,6 +1,6 @@
 /**
  * Tx permit route assistant
- * PDF.js → heuristic segments → Mapbox Geocoding → Mapbox Directions / compare with Google Directions → Map Matching fallback.
+ * PDF.js → heuristic segments → Mapbox Geocoding (+ Photon for tricky intersections) → Mapbox Directions → OSRM / Map Matching fallback.
  * Permit text is messy; waypoints are guesses — the line cannot equal TxPROS legal corridor.
  *
  * Loaded via pdf.min.js (global pdfjsLib) — not ES modules — so script runs when opened
@@ -21,8 +21,6 @@ const MAPBOX_TX_BBOX = "-106.65,25.84,-93.51,36.5";
 const MAPBOX_PROXIMITY = "-99.3,31.5";
 const GEO_DELAY_MS = 120;
 const MAX_WAYPOINTS_DIRECTIONS = 25;
-/** Google allows up to 25 intermediate waypoints (origin and destination are separate). */
-const GOOGLE_MAX_INTERMEDIATE_WAYPOINTS = 25;
 const SAMPLE_COORDS_CAP = 18;
 
 function hasSupabaseParserConfig() {
@@ -1493,10 +1491,11 @@ function scoreMapboxIntersectionCandidateRefined(f, mentionsBothRoads) {
 
 /**
  * Loaded route origin: pin at **intersection of the two roads** (permit "A & B" / loaded route + junction).
- * @param {{ lat: number, lon: number } | null} proximityPrior — e.g. geocode of turn-table row 1 to disambiguate state-wide duplicates.
+ * Uses Mapbox first; if no candidate **place name** contains both route numbers, prefers Photon (OSM).
+ * @param {{ lat: number, lon: number } | null} proximityPrior — e.g. geocode of row 2 to disambiguate duplicates.
  */
 async function geocodeLoadedOriginIntersection(accessToken, originStructured, proximityPrior) {
-  if (!accessToken || !originStructured || typeof originStructured !== "object") {
+  if (!originStructured || typeof originStructured !== "object") {
     return null;
   }
   const pair = resolveOriginIntersectionRoads(originStructured);
@@ -1512,6 +1511,21 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
     `${b} and ${a} junction Texas`,
     `${a} ${b} intersection Texas`,
   ];
+  function addFmRmSpoken(road, other) {
+    const fm = /^FM\s+(\d{1,4})/i.exec(road);
+    if (fm) {
+      const n = fm[1];
+      queries.push(`Farm to Market Road ${n} and ${other} Texas`);
+      queries.push(`Farm Road ${n} and ${other} Texas`);
+    }
+    const rm = /^RM\s+(\d{1,4})/i.exec(road);
+    if (rm) {
+      queries.push(`Ranch Road ${rm[1]} and ${other} Texas`);
+    }
+  }
+  addFmRmSpoken(a, b);
+  addFmRmSpoken(b, a);
+
   if (/^BU\s/i.test(a)) {
     const biz = a.replace(/^BU\s+/i, "Business US ");
     queries.push(`${biz} and ${b} intersection Texas`, `${b} and ${biz} intersection Texas`);
@@ -1531,36 +1545,64 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
     }
   }
 
+  const dedupedQueries = dedupeStrings(queries);
+
   let best = null;
   let bestScore = -Infinity;
   let fallback = null;
 
-  for (let qi = 0; qi < queries.length; qi++) {
-    const q = queries[qi];
-    const feats = await geocodeMapboxPlacesFeatures(q, accessToken, proximityPrior);
-    if (feats.length && !fallback) {
-      let fh = null;
+  if (accessToken) {
+    for (let qi = 0; qi < dedupedQueries.length; qi++) {
+      const q = dedupedQueries[qi];
+      const feats = await geocodeMapboxPlacesFeatures(q, accessToken, proximityPrior);
+      if (feats.length && !fallback) {
+        let fh = null;
+        for (let fi = 0; fi < feats.length; fi++) {
+          if (geocodeLabelReferencesBothRoads(feats[fi].label, a, b)) {
+            fh = feats[fi];
+            break;
+          }
+        }
+        if (!fh) fh = feats[0];
+        fallback = {
+          lat: fh.lat,
+          lon: fh.lon,
+          label: fh.label,
+          matchedQuery: q,
+        };
+      }
       for (let fi = 0; fi < feats.length; fi++) {
-        if (geocodeLabelReferencesBothRoads(feats[fi].label, a, b)) {
-          fh = feats[fi];
-          break;
+        const feat = feats[fi];
+        const both = geocodeLabelReferencesBothRoads(feat.label, a, b);
+        const sc = scoreMapboxIntersectionCandidateRefined(feat, both);
+        if (sc > bestScore) {
+          bestScore = sc;
+          best = {
+            lat: feat.lat,
+            lon: feat.lon,
+            label: feat.label,
+            matchedQuery: q,
+          };
         }
       }
-      if (!fh) fh = feats[0];
-      fallback = {
-        lat: fh.lat,
-        lon: fh.lon,
-        label: fh.label,
-        matchedQuery: q,
-      };
+      if (best && bestScore >= 58) break;
+      if (qi < dedupedQueries.length - 1) await sleep(50);
     }
+  }
+
+  let photonDualBest = null;
+  let photonDualScore = -Infinity;
+  const maxPhotonQ = 8;
+  for (let qi = 0; qi < Math.min(dedupedQueries.length, maxPhotonQ); qi++) {
+    const q = dedupedQueries[qi];
+    const feats = await geocodePhotonPlacesFeatures(q, proximityPrior);
     for (let fi = 0; fi < feats.length; fi++) {
       const feat = feats[fi];
-      const both = geocodeLabelReferencesBothRoads(feat.label, a, b);
-      const sc = scoreMapboxIntersectionCandidateRefined(feat, both);
-      if (sc > bestScore) {
-        bestScore = sc;
-        best = {
+      if (!geocodeLabelReferencesBothRoads(feat.label, a, b)) continue;
+      const sc = (feat.relevance || 0) + scoreMapboxIntersectionCandidateRefined(feat, true);
+      if (sc > photonDualScore) {
+        photonDualScore = sc;
+        photonDualBest = {
           lat: feat.lat,
           lon: feat.lon,
           label: feat.label,
@@ -1568,19 +1610,40 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
         };
       }
     }
-    if (best && bestScore >= 58) break;
-    if (qi < queries.length - 1) await sleep(50);
+    if (qi < maxPhotonQ - 1) await sleep(55);
   }
 
-  const chosen = best || fallback;
-  if (!chosen) return null;
-  return {
-    lat: chosen.lat,
-    lon: chosen.lon,
-    label: `${a} & ${b} (${chosen.label || "intersection"})`,
-    source: "mapbox",
-    matchedQuery: chosen.matchedQuery,
-  };
+  const mapboxPick = best || fallback;
+  const mapboxDual = mapboxPick && geocodeLabelReferencesBothRoads(mapboxPick.label, a, b);
+
+  if (mapboxDual) {
+    return {
+      lat: mapboxPick.lat,
+      lon: mapboxPick.lon,
+      label: `${a} & ${b} (${mapboxPick.label || "intersection"})`,
+      source: "mapbox",
+      matchedQuery: mapboxPick.matchedQuery,
+    };
+  }
+  if (photonDualBest) {
+    return {
+      lat: photonDualBest.lat,
+      lon: photonDualBest.lon,
+      label: `${a} & ${b} (${photonDualBest.label || "intersection"})`,
+      source: "photon",
+      matchedQuery: photonDualBest.matchedQuery,
+    };
+  }
+  if (mapboxPick) {
+    return {
+      lat: mapboxPick.lat,
+      lon: mapboxPick.lon,
+      label: `${a} & ${b} (${mapboxPick.label || "intersection"})`,
+      source: "mapbox",
+      matchedQuery: mapboxPick.matchedQuery,
+    };
+  }
+  return null;
 }
 
 /**
@@ -1663,6 +1726,55 @@ async function geocodeMapboxPlacesFeatures(query, accessToken, proximityPrior) {
 async function geocodeMapboxPlaces(query, accessToken, proximityPrior) {
   const fs = await geocodeMapboxPlacesFeatures(query, accessToken, proximityPrior);
   return fs.length ? fs[0] : null;
+}
+
+function photonLabelFromFeature(f) {
+  const p = f.properties || {};
+  const streetLine = [p.housenumber, p.street].filter(Boolean).join(" ");
+  const bits = [p.name, streetLine, p.district, p.city, p.state, p.county].filter(Boolean);
+  return bits.length ? bits.join(", ") : "";
+}
+
+/** Photon (OSM) — often better for rural TX highway crossings than Mapbox alone. */
+async function geocodePhotonPlacesFeatures(query, proximityPrior) {
+  if (!query) return [];
+  let url =
+    "https://photon.komoot.io/api/?q=" +
+    encodeURIComponent(query) +
+    "&limit=12&lang=en&bbox=" +
+    encodeURIComponent("-106.7,25.8,-93.5,36.6");
+  if (
+    proximityPrior &&
+    typeof proximityPrior.lon === "number" &&
+    typeof proximityPrior.lat === "number"
+  ) {
+    url += "&lon=" + proximityPrior.lon + "&lat=" + proximityPrior.lat;
+  }
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const out = [];
+    const fs = data.features || [];
+    for (let i = 0; i < fs.length; i++) {
+      const f = fs[i];
+      if (!f?.geometry?.coordinates) continue;
+      const [lon, lat] = f.geometry.coordinates;
+      const label = photonLabelFromFeature(f);
+      if (!label) continue;
+      const pr = f.properties || {};
+      out.push({
+        lat,
+        lon,
+        label,
+        relevance: typeof pr.importance === "number" ? pr.importance : 0,
+        placeType: [],
+      });
+    }
+    return out;
+  } catch (_) {
+    return [];
+  }
 }
 
 /**
@@ -1785,175 +1897,6 @@ function dedupeConsecutiveCoords(coords) {
     out.push(c);
   }
   return out;
-}
-
-/** Encoded polyline → [[lng, lat], …] for GeoJSON (fallback if overview_path missing). */
-function decodeEncodedPolyline(encoded) {
-  if (!encoded || typeof encoded !== "string") return [];
-  const coordinates = [];
-  let index = 0;
-  let lat = 0;
-  let lng = 0;
-  while (index < encoded.length) {
-    let b;
-    let shift = 0;
-    let result = 0;
-    do {
-      b = encoded.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-    const dlat = result & 1 ? ~(result >> 1) : result >> 1;
-    lat += dlat;
-    shift = 0;
-    result = 0;
-    do {
-      b = encoded.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-    const dlng = result & 1 ? ~(result >> 1) : result >> 1;
-    lng += dlng;
-    coordinates.push([lng / 1e5, lat / 1e5]);
-  }
-  return coordinates;
-}
-
-let googleMapsScriptPromise = null;
-
-function loadGoogleMapsJs(apiKey) {
-  if (!apiKey) return Promise.reject(new Error("Missing Google Maps API key"));
-  if (typeof google !== "undefined" && google.maps && google.maps.DirectionsService) {
-    return Promise.resolve();
-  }
-  if (googleMapsScriptPromise) return googleMapsScriptPromise;
-  googleMapsScriptPromise = new Promise(function (resolve, reject) {
-    const s = document.createElement("script");
-    s.src =
-      "https://maps.googleapis.com/maps/api/js?key=" +
-      encodeURIComponent(apiKey);
-    s.async = true;
-    s.defer = true;
-    s.onload = function () {
-      resolve();
-    };
-    s.onerror = function () {
-      googleMapsScriptPromise = null;
-      reject(new Error("Google Maps JS failed to load"));
-    };
-    document.head.appendChild(s);
-  });
-  return googleMapsScriptPromise;
-}
-
-/**
- * Google Directions — one request within waypoint limits.
- */
-async function routeGoogleDirectionsSingle(coords, apiKey) {
-  if (!apiKey || coords.length < 2) return null;
-  try {
-    await loadGoogleMapsJs(apiKey);
-  } catch (e) {
-    console.warn(e);
-    return null;
-  }
-
-  const clean = dedupeConsecutiveCoords(coords);
-  if (clean.length < 2) return null;
-
-  const maxTotal = GOOGLE_MAX_INTERMEDIATE_WAYPOINTS + 2;
-  if (clean.length > maxTotal) return null;
-
-  const origin = clean[0];
-  const destination = clean[clean.length - 1];
-  let middle = clean.slice(1, -1);
-  if (middle.length > GOOGLE_MAX_INTERMEDIATE_WAYPOINTS) {
-    middle = middle.slice(0, GOOGLE_MAX_INTERMEDIATE_WAYPOINTS);
-  }
-
-  const svc = new google.maps.DirectionsService();
-  const request = {
-    origin: new google.maps.LatLng(origin.lat, origin.lon),
-    destination: new google.maps.LatLng(destination.lat, destination.lon),
-    travelMode: google.maps.TravelMode.DRIVING,
-    optimizeWaypoints: false,
-    waypoints: middle.map(function (c) {
-      return {
-        location: new google.maps.LatLng(c.lat, c.lon),
-        stopover: true,
-      };
-    }),
-  };
-
-  return new Promise(function (resolve) {
-    svc.route(request, function (result, status) {
-      if (status !== google.maps.DirectionsStatus.OK || !result?.routes?.[0]) {
-        if (status !== google.maps.DirectionsStatus.ZERO_RESULTS) {
-          console.warn("Google Directions:", status);
-        }
-        resolve(null);
-        return;
-      }
-      const route = result.routes[0];
-      let coordinates = [];
-
-      if (route.overview_path && route.overview_path.length) {
-        route.overview_path.forEach(function (ll) {
-          coordinates.push([ll.lng(), ll.lat()]);
-        });
-      }
-
-      if (!coordinates.length) {
-        let enc = null;
-        if (route.overview_polyline) {
-          enc =
-            typeof route.overview_polyline === "string"
-              ? route.overview_polyline
-              : route.overview_polyline.points;
-        }
-        if (enc) {
-          coordinates = decodeEncodedPolyline(enc);
-        }
-      }
-
-      if (!coordinates.length) {
-        resolve(null);
-        return;
-      }
-
-      resolve({
-        type: "LineString",
-        coordinates: coordinates,
-      });
-    });
-  });
-}
-
-/**
- * Long permits — chain Google requests with overlapping endpoints (no subsampling).
- */
-async function routeGoogleDirections(coords, apiKey) {
-  if (!apiKey || coords.length < 2) return null;
-  const clean = dedupeConsecutiveCoords(coords);
-  if (clean.length < 2) return null;
-
-  const maxTotal = GOOGLE_MAX_INTERMEDIATE_WAYPOINTS + 2;
-  if (clean.length <= maxTotal) {
-    return await routeGoogleDirectionsSingle(clean, apiKey);
-  }
-
-  const geoms = [];
-  let start = 0;
-  while (start < clean.length - 1) {
-    const end = Math.min(start + maxTotal, clean.length);
-    const slice = clean.slice(start, end);
-    const g = await routeGoogleDirectionsSingle(slice, apiKey);
-    if (!g) return null;
-    geoms.push(g);
-    if (end >= clean.length) break;
-    start = end - 1;
-  }
-  return stitchLineStringGeometries(geoms);
 }
 
 /**
@@ -2120,18 +2063,12 @@ async function routeMapboxMatching(coords, accessToken) {
  * noisy GPS traces and can shortcut wrong ramps if run first; use it only as a fallback.
  */
 async function routeDrivingLine(coords, mapboxToken) {
-  const googleKey =
-    typeof window !== "undefined" ? window.GOOGLE_MAPS_API_KEY || "" : "";
   let geometry = null;
   let provider = null;
 
   if (mapboxToken) {
     geometry = await routeMapboxDirections(coords, mapboxToken);
     provider = geometry ? "mapbox" : null;
-  }
-  if (!geometry && googleKey) {
-    geometry = await routeGoogleDirections(coords, googleKey);
-    provider = geometry ? "google" : null;
   }
   if (!geometry) {
     geometry = await routeOsrm(coords);
@@ -2142,28 +2079,6 @@ async function routeDrivingLine(coords, mapboxToken) {
     provider = geometry ? "mapbox-match" : null;
   }
   return { geometry, provider };
-}
-
-/**
- * Same waypoint list: primary route (Mapbox-first) plus an optional Google Directions line for side-by-side maps.
- */
-async function routeDrivingLineWithGoogleCompare(coords, mapboxToken) {
-  const primary = await routeDrivingLine(coords, mapboxToken);
-  const googleKey =
-    typeof window !== "undefined" ? window.GOOGLE_MAPS_API_KEY || "" : "";
-  let googleGeometry = null;
-  if (googleKey && coords.length >= 2) {
-    try {
-      googleGeometry = await routeGoogleDirections(coords, googleKey);
-    } catch (e) {
-      console.warn(e);
-    }
-  }
-  return {
-    geometry: primary.geometry,
-    provider: primary.provider,
-    googleGeometry,
-  };
 }
 
 function buildGoogleMapsFromCoords(coords) {
@@ -2297,61 +2212,6 @@ let mapInstance = null;
 /** @type {mapboxgl.Marker[]} */
 let mapMarkers = [];
 
-let googleCompareMap = null;
-/** @type {google.maps.Marker[]} */
-let googleCompareMarkers = [];
-/** @type {google.maps.Polyline | null} */
-let googleComparePolyline = null;
-
-function clearGoogleCompareOverlay() {
-  googleCompareMarkers.forEach(function (m) {
-    m.setMap(null);
-  });
-  googleCompareMarkers = [];
-  if (googleComparePolyline) {
-    googleComparePolyline.setMap(null);
-    googleComparePolyline = null;
-  }
-}
-
-function setGoogleCompareStatus(message) {
-  const el = document.getElementById("map-google-status");
-  if (el) el.textContent = message || "";
-}
-
-/**
- * Lazily load Maps JS and create the second map (same pins + Google Directions polyline).
- * @returns {Promise<google.maps.Map | null>}
- */
-async function ensureGoogleCompareMap() {
-  const el = document.getElementById("map-google");
-  if (!el) return null;
-  const key = typeof window !== "undefined" ? window.GOOGLE_MAPS_API_KEY || "" : "";
-  if (!key) {
-    setGoogleCompareStatus(
-      "Set GOOGLE_MAPS_API_KEY in js/google-maps-config.js to show the Google map."
-    );
-    return null;
-  }
-  try {
-    await loadGoogleMapsJs(key);
-  } catch (e) {
-    console.warn(e);
-    setGoogleCompareStatus("Google Maps failed to load. Check API key and referrer restrictions.");
-    return null;
-  }
-  if (!googleCompareMap) {
-    googleCompareMap = new google.maps.Map(el, {
-      center: { lat: 31.2, lng: -98.5 },
-      zoom: 6,
-      mapTypeControl: true,
-      streetViewControl: false,
-      fullscreenControl: true,
-    });
-  }
-  return googleCompareMap;
-}
-
 function clearRouteOverlay() {
   mapMarkers.forEach(function (m) {
     m.remove();
@@ -2362,8 +2222,6 @@ function clearRouteOverlay() {
     if (mapInstance.getLayer("route-line")) mapInstance.removeLayer("route-line");
     if (mapInstance.getSource("route-line-src")) mapInstance.removeSource("route-line-src");
   }
-
-  clearGoogleCompareOverlay();
 }
 
 function showMapNotice(message) {
@@ -2384,7 +2242,6 @@ function escapeHtml(s) {
 
 function formatRouteProviderNote(routeProvider) {
   if (routeProvider === "mapbox-match") return "Mapbox Map Matching";
-  if (routeProvider === "google") return "Google Directions";
   if (routeProvider === "mapbox") return "Mapbox Directions";
   if (routeProvider === "osrm") return "OSRM fallback (open demo)";
   return "route";
@@ -2472,20 +2329,17 @@ function main() {
 
     let geometry = null;
     let routeProvider = null;
-    let geometryGoogle = null;
     try {
-      const routed = await routeDrivingLineWithGoogleCompare(coords, accessToken);
+      const routed = await routeDrivingLine(coords, accessToken);
       geometry = routed && routed.geometry;
       routeProvider = routed && routed.provider;
-      geometryGoogle = routed && routed.googleGeometry;
     } catch (err) {
       console.warn(err);
     }
     if (myRun !== runGeneration) return;
 
-    await drawMap(displayEnriched, geometry, geometryGoogle);
+    drawMap(displayEnriched, geometry);
     routeSession.geometry = geometry || null;
-    routeSession.geometryGoogle = geometryGoogle || null;
     routeSession.routeProvider = routeProvider || null;
     updateDownloadGeoBtn();
 
@@ -2645,12 +2499,10 @@ function main() {
 
     let geometry = null;
     let routeProvider = null;
-    let geometryGoogle = null;
     try {
-      const routed = await routeDrivingLineWithGoogleCompare(coords, accessToken);
+      const routed = await routeDrivingLine(coords, accessToken);
       geometry = routed && routed.geometry;
       routeProvider = routed && routed.provider;
-      geometryGoogle = routed && routed.googleGeometry;
     } catch (e) {
       console.warn(e);
     }
@@ -2659,7 +2511,7 @@ function main() {
       return { coords: [], enriched: [], aborted: true, routeProvider: null };
     }
 
-    return { coords, enriched, geometry, routeProvider, geometryGoogle };
+    return { coords, enriched, geometry, routeProvider };
   }
 
   function renderHintList(enriched) {
@@ -2752,8 +2604,9 @@ function main() {
     return { coords, displayEnriched };
   }
 
-  async function drawMap(enriched, geometry, geometryGoogle) {
+  function drawMap(enriched, geometry) {
     clearRouteOverlay();
+
     if (!mapInstance) return;
 
     const paint = function () {
@@ -2853,87 +2706,6 @@ function main() {
       paint();
     } else {
       mapInstance.once("load", paint);
-    }
-
-    /** Google map: identical waypoint positions; line from Google Directions when available. */
-    try {
-      const gMap = await ensureGoogleCompareMap();
-      if (!gMap || typeof google === "undefined" || !google.maps) return;
-
-      setGoogleCompareStatus("");
-
-      let waypointNumG = 0;
-      let hasPts = false;
-      const gb = new google.maps.LatLngBounds();
-
-      enriched.forEach(function (h) {
-        if (!h.geocodeOk) return;
-        hasPts = true;
-        waypointNumG += 1;
-        const num = waypointNumG;
-        const pos = { lat: h.lat, lng: h.lon };
-        gb.extend(pos);
-
-        const marker = new google.maps.Marker({
-          position: pos,
-          map: gMap,
-          title: "#" + num + " " + hintDisplay(h),
-          label: {
-            text: String(num),
-            color: "#ffffff",
-            fontSize: "11px",
-            fontWeight: "bold",
-          },
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 11,
-            fillColor: "#3b82f6",
-            fillOpacity: 1,
-            strokeColor: "#1e40af",
-            strokeWeight: 2,
-          },
-        });
-        googleCompareMarkers.push(marker);
-      });
-
-      if (
-        geometryGoogle &&
-        geometryGoogle.type === "LineString" &&
-        geometryGoogle.coordinates &&
-        geometryGoogle.coordinates.length >= 2
-      ) {
-        const path = geometryGoogle.coordinates.map(function (c) {
-          return { lat: c[1], lng: c[0] };
-        });
-        googleComparePolyline = new google.maps.Polyline({
-          path: path,
-          geodesic: true,
-          strokeColor: "#15803d",
-          strokeOpacity: 0.92,
-          strokeWeight: 5,
-          map: gMap,
-        });
-        path.forEach(function (p) {
-          gb.extend(p);
-        });
-        setGoogleCompareStatus("Green line = Google Directions (same pins as Mapbox panel).");
-      } else if (hasPts) {
-        setGoogleCompareStatus(
-          geometryGoogle === null && (window.GOOGLE_MAPS_API_KEY || "")
-            ? "Pins only — Google Directions could not build a line (waypoint limit or API error)."
-            : "Pins only — add GOOGLE_MAPS_API_KEY for the Google line, or not enough waypoints for routing."
-        );
-      }
-
-      if ((hasPts || googleComparePolyline) && !gb.isEmpty()) {
-        gMap.fitBounds(gb, 56);
-      }
-      if (typeof google.maps.event !== "undefined" && google.maps.event.trigger) {
-        google.maps.event.trigger(gMap, "resize");
-      }
-    } catch (err) {
-      console.warn(err);
-      setGoogleCompareStatus("Google map error — see console.");
     }
   }
 
@@ -3074,7 +2846,7 @@ function main() {
         hints[0] ? (hints[0].displayText || hints[0].text || "") : null
       );
 
-      const { coords, enriched, geometry, aborted, routeProvider, geometryGoogle } = await geocodeAndRoute(
+      const { coords, enriched, geometry, aborted, routeProvider } = await geocodeAndRoute(
         hints,
         myRun,
         originStructured
@@ -3089,7 +2861,6 @@ function main() {
           return { ...x };
         }),
         geometry: geometry || null,
-        geometryGoogle: geometryGoogle || null,
         routeProvider: routeProvider || null,
         origin_structured: originStructured,
       };
@@ -3097,7 +2868,7 @@ function main() {
       updateDownloadGeoBtn();
 
       renderHintList(enriched);
-      await drawMap(enriched, geometry, geometryGoogle);
+      drawMap(enriched, geometry);
 
       const sampledForLinks =
         coords.length > SAMPLE_COORDS_CAP ? sampleEvenly(coords, SAMPLE_COORDS_CAP) : coords;

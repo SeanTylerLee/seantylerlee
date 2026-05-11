@@ -24,23 +24,7 @@
     <section class="panel map-panel">
       <p id="map-banner" class="map-banner"></p>
       <p id="route-progress" class="route-progress" aria-live="polite"></p>
-      <div class="map-compare-grid">
-        <div class="map-compare-cell">
-          <p class="map-compare-title">
-            Mapbox
-            <span class="map-compare-sub">basemap · primary route line (Mapbox / OSRM / fallback order)</span>
-          </p>
-          <div id="map" class="map" role="application" aria-label="Mapbox map"></div>
-        </div>
-        <div class="map-compare-cell">
-          <p class="map-compare-title">
-            Google Maps
-            <span class="map-compare-sub">same waypoint pins · driving line via Google Directions</span>
-          </p>
-          <div id="map-google" class="map map--google" role="application" aria-label="Google map"></div>
-          <p id="map-google-status" class="map-compare-hint" aria-live="polite"></p>
-        </div>
-      </div>
+      <div id="map" class="map" role="application" aria-label="Map"></div>
     </section>
 
     <section class="panel dual">
@@ -84,8 +68,7 @@
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
   <script src="js/mapbox-config.js"></script>
-  <script src="js/google-maps-config.js"></script>
   <script src="js/supabase-config.js?v=9"></script>
-  <script src="js/app.js?v=10"></script>
+  <script src="js/app.js?v=12"></script>
 </body>
 </html>
