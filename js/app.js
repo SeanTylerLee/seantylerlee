@@ -564,6 +564,30 @@ function geocodeLabelReferencesBothRoads(label, roadA, roadB) {
   return hasNum(numsA) && hasNum(numsB);
 }
 
+/** County / city tokens from the origin line (matches Edge `extractOriginPlaceHints`). */
+function extractOriginPlaceHintsClient(originLine) {
+  if (!originLine) return [];
+  const o = normalizePrintedRouteToken(
+    normalizeWs(String(originLine).replace(/^Start\s*[·.]\s*/i, "").trim())
+  );
+  if (!o) return [];
+  const hints = [];
+  const countyRe = /\b([A-Za-z][A-Za-z\s]{1,40}?)\s+County\b/gi;
+  let m;
+  while ((m = countyRe.exec(o)) !== null) {
+    const name = m[1].replace(/\s+/g, " ").trim();
+    if (name.length > 2 && name.length < 42 && !/\b(?:the|and|or)\b/i.test(name)) {
+      hints.push(name + " County");
+    }
+  }
+  const cityTx = /\b([A-Za-z][A-Za-z\s]{1,30}?)\s*,\s*TX\b/gi;
+  while ((m = cityTx.exec(o)) !== null) {
+    const name = m[1].replace(/\s+/g, " ").trim();
+    if (name.length > 2 && name.length < 36 && !/\bCounty\b/i.test(name)) hints.push(name);
+  }
+  return dedupeStrings(hints);
+}
+
 /** When Supabase omits usable `origin_structured`, infer junction roads from raw origin narrative. */
 function parseOriginJunctionMileOfClient(originLine) {
   if (!originLine) return null;
@@ -609,6 +633,7 @@ function parseOriginJunctionMileOfClient(originLine) {
     bearing: null,
     roads: roadsDedup,
     loaded_route_road: loaded,
+    place_hints: extractOriginPlaceHintsClient(originLine),
   };
 }
 
@@ -637,6 +662,7 @@ function parseOriginAmpersandOnlyClient(originLine) {
     bearing: null,
     roads: roadsDedup,
     loaded_route_road: roadsDedup[0],
+    place_hints: extractOriginPlaceHintsClient(originLine),
   };
 }
 
@@ -1489,10 +1515,74 @@ function scoreMapboxIntersectionCandidateRefined(f, mentionsBothRoads) {
   return score;
 }
 
+/** Furthest a verified “both roads” geocode may be from the first turn-table point and still win. */
+const MAX_ORIGIN_CORRIDOR_ANCHOR_MI = 175;
+
+function expandQueriesWithOriginPlaceHints(queries, hints) {
+  if (!hints || !hints.length) return dedupeStrings(queries);
+  const base = dedupeStrings(queries);
+  const out = base.slice();
+  for (let i = 0; i < base.length; i++) {
+    const qt = base[i].trim();
+    if (!qt) continue;
+    for (let hi = 0; hi < hints.length; hi++) {
+      const hint = String(hints[hi] || "").trim();
+      if (!hint) continue;
+      if (/\bTexas\b/i.test(qt)) {
+        out.push(qt.replace(/\bTexas\b/i, hint + " Texas"));
+      } else {
+        out.push(qt + " " + hint);
+      }
+    }
+  }
+  return dedupeStrings(out);
+}
+
+function dedupeIntersectionLatLon(cands) {
+  const out = [];
+  const seen = new Set();
+  for (let i = 0; i < cands.length; i++) {
+    const c = cands[i];
+    const k = String(Math.round(c.lat * 1e4)) + "," + String(Math.round(c.lon * 1e4));
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(c);
+  }
+  return out;
+}
+
+/**
+ * Candidates whose labels reference both highway numbers — prefer the one nearest the first
+ * table row (same crossing the permit uses, not another FM/US with the same digits).
+ */
+function pickDualRoadHitNearCorridor(dualHits, proximityPrior) {
+  const list = dedupeIntersectionLatLon(dualHits);
+  if (!list.length) return null;
+  if (
+    !proximityPrior ||
+    typeof proximityPrior.lat !== "number" ||
+    typeof proximityPrior.lon !== "number"
+  ) {
+    return list[0];
+  }
+  list.sort(function (x, y) {
+    return (
+      haversineMi(proximityPrior.lat, proximityPrior.lon, x.lat, x.lon) -
+      haversineMi(proximityPrior.lat, proximityPrior.lon, y.lat, y.lon)
+    );
+  });
+  for (let i = 0; i < list.length; i++) {
+    const d = haversineMi(proximityPrior.lat, proximityPrior.lon, list[i].lat, list[i].lon);
+    if (d <= MAX_ORIGIN_CORRIDOR_ANCHOR_MI) return list[i];
+  }
+  return list[0];
+}
+
 /**
  * Loaded route origin: pin at **intersection of the two roads** (permit "A & B" / loaded route + junction).
- * Uses Mapbox first; if no candidate **place name** contains both route numbers, prefers Photon (OSM).
- * @param {{ lat: number, lon: number } | null} proximityPrior — e.g. geocode of row 2 to disambiguate duplicates.
+ * Collects every Mapbox/Photon hit whose **label** mentions both route numbers, then picks the one
+ * **nearest the first turn row** so duplicate FM/US numbers elsewhere in Texas lose.
+ * @param {{ lat: number, lon: number } | null} proximityPrior — geocode of first table row after origin.
  */
 async function geocodeLoadedOriginIntersection(accessToken, originStructured, proximityPrior) {
   if (!originStructured || typeof originStructured !== "object") {
@@ -1503,6 +1593,15 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
   const a = String(pair[0]).trim();
   const b = String(pair[1]).trim();
   if (!a || !b || a === b) return null;
+
+  const placeHintsRaw = originStructured.place_hints || originStructured.placeHints || [];
+  const placeHints = Array.isArray(placeHintsRaw)
+    ? placeHintsRaw
+        .map(function (x) {
+          return String(x || "").trim();
+        })
+        .filter(Boolean)
+    : [];
 
   const queries = [
     `${a} and ${b} intersection Texas`,
@@ -1545,15 +1644,16 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
     }
   }
 
-  const dedupedQueries = dedupeStrings(queries);
+  const allQueries = expandQueriesWithOriginPlaceHints(dedupeStrings(queries), placeHints);
 
+  const dualHits = [];
   let best = null;
   let bestScore = -Infinity;
   let fallback = null;
 
   if (accessToken) {
-    for (let qi = 0; qi < dedupedQueries.length; qi++) {
-      const q = dedupedQueries[qi];
+    for (let qi = 0; qi < allQueries.length; qi++) {
+      const q = allQueries[qi];
       const feats = await geocodeMapboxPlacesFeatures(q, accessToken, proximityPrior);
       if (feats.length && !fallback) {
         let fh = null;
@@ -1574,6 +1674,15 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
       for (let fi = 0; fi < feats.length; fi++) {
         const feat = feats[fi];
         const both = geocodeLabelReferencesBothRoads(feat.label, a, b);
+        if (both) {
+          dualHits.push({
+            lat: feat.lat,
+            lon: feat.lon,
+            label: feat.label,
+            matchedQuery: q,
+            source: "mapbox",
+          });
+        }
         const sc = scoreMapboxIntersectionCandidateRefined(feat, both);
         if (sc > bestScore) {
           bestScore = sc;
@@ -1586,54 +1695,40 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
         }
       }
       if (best && bestScore >= 58) break;
-      if (qi < dedupedQueries.length - 1) await sleep(50);
+      if (qi < allQueries.length - 1) await sleep(45);
     }
   }
 
-  let photonDualBest = null;
-  let photonDualScore = -Infinity;
-  const maxPhotonQ = 8;
-  for (let qi = 0; qi < Math.min(dedupedQueries.length, maxPhotonQ); qi++) {
-    const q = dedupedQueries[qi];
+  const maxPhotonQ = Math.min(allQueries.length, 14);
+  for (let qi = 0; qi < maxPhotonQ; qi++) {
+    const q = allQueries[qi];
     const feats = await geocodePhotonPlacesFeatures(q, proximityPrior);
     for (let fi = 0; fi < feats.length; fi++) {
       const feat = feats[fi];
       if (!geocodeLabelReferencesBothRoads(feat.label, a, b)) continue;
-      const sc = (feat.relevance || 0) + scoreMapboxIntersectionCandidateRefined(feat, true);
-      if (sc > photonDualScore) {
-        photonDualScore = sc;
-        photonDualBest = {
-          lat: feat.lat,
-          lon: feat.lon,
-          label: feat.label,
-          matchedQuery: q,
-        };
-      }
+      dualHits.push({
+        lat: feat.lat,
+        lon: feat.lon,
+        label: feat.label,
+        matchedQuery: q,
+        source: "photon",
+      });
     }
-    if (qi < maxPhotonQ - 1) await sleep(55);
+    if (qi < maxPhotonQ - 1) await sleep(50);
+  }
+
+  const corridorPick = pickDualRoadHitNearCorridor(dualHits, proximityPrior);
+  if (corridorPick) {
+    return {
+      lat: corridorPick.lat,
+      lon: corridorPick.lon,
+      label: `${a} & ${b} (${corridorPick.label || "intersection"})`,
+      source: corridorPick.source || "mapbox",
+      matchedQuery: corridorPick.matchedQuery,
+    };
   }
 
   const mapboxPick = best || fallback;
-  const mapboxDual = mapboxPick && geocodeLabelReferencesBothRoads(mapboxPick.label, a, b);
-
-  if (mapboxDual) {
-    return {
-      lat: mapboxPick.lat,
-      lon: mapboxPick.lon,
-      label: `${a} & ${b} (${mapboxPick.label || "intersection"})`,
-      source: "mapbox",
-      matchedQuery: mapboxPick.matchedQuery,
-    };
-  }
-  if (photonDualBest) {
-    return {
-      lat: photonDualBest.lat,
-      lon: photonDualBest.lon,
-      label: `${a} & ${b} (${photonDualBest.label || "intersection"})`,
-      source: "photon",
-      matchedQuery: photonDualBest.matchedQuery,
-    };
-  }
   if (mapboxPick) {
     return {
       lat: mapboxPick.lat,

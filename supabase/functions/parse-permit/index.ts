@@ -38,6 +38,11 @@ type OriginStructured = {
    * is on at start (comma before the offset clause), normalized e.g. `BU 287P`.
    */
   loaded_route_road?: string | null;
+  /**
+   * Local place names from the origin narrative (e.g. `Wise County`, `Decatur`) to disambiguate
+   * duplicate FM/US numbers elsewhere in Texas when geocoding the crossing.
+   */
+  place_hints?: string[];
 };
 
 type ParseResult = {
@@ -52,7 +57,7 @@ type ParseResult = {
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.7.2";
+const PARSER_VERSION = "tx-turntable-v2.7.3";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
@@ -566,11 +571,52 @@ function parseLoadedRouteRoadFromOriginPrefix(raw: string): string | null {
   return t2 || (n.length > 2 && n.length < 56 ? n : null);
 }
 
+/** County / city tokens from the origin block — narrows duplicate highway numbers at geocode time. */
+function extractOriginPlaceHints(origin: string): string[] {
+  const o = normalizeCommonOcrTypos(origin);
+  if (!o) return [];
+  const hints = new Set<string>();
+  const countyRe = /\b([A-Za-z][A-Za-z\s]{1,40}?)\s+County\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = countyRe.exec(o)) !== null) {
+    const name = cleanLine(m[1]);
+    if (name.length > 2 && name.length < 42 && !/\b(?:the|and|or)\b/i.test(name)) {
+      hints.add(`${name} County`);
+    }
+  }
+  const cityTx = /\b([A-Za-z][A-Za-z\s]{1,30}?)\s*,\s*TX\b/gi;
+  while ((m = cityTx.exec(o)) !== null) {
+    const name = cleanLine(m[1]);
+    if (name.length > 2 && name.length < 36 && !/\bCounty\b/i.test(name)) hints.add(name);
+  }
+  return dedupeStrings([...hints]);
+}
+
+function expandOriginQueriesWithPlaceHints(queries: string[], hints: string[]): string[] {
+  if (!hints.length) return dedupeStrings(queries);
+  const out = [...queries];
+  for (const q of queries) {
+    const qt = q.trim();
+    if (!qt) continue;
+    for (const h of hints) {
+      const hint = cleanLine(h);
+      if (!hint) continue;
+      if (/\bTexas\b/i.test(qt)) {
+        out.push(qt.replace(/\bTexas\b/i, `${hint} Texas`));
+      } else {
+        out.push(`${qt} ${hint}`);
+      }
+    }
+  }
+  return dedupeStrings(out);
+}
+
 /** Generic Tx permit origin: junction + mile offset, semicolon triples, or state-line phrasing. */
 function parseOriginStructured(origin: string): OriginStructured {
   const o = normalizeCommonOcrTypos(origin);
+  const place_hints = extractOriginPlaceHints(o);
   if (!o) {
-    return { mode: "unknown", offset_mi: null, bearing: null, roads: [] };
+    return { mode: "unknown", offset_mi: null, bearing: null, roads: [], place_hints };
   }
 
   const reJunction =
@@ -605,6 +651,7 @@ function parseOriginStructured(origin: string): OriginStructured {
       bearing,
       roads,
       loaded_route_road,
+      place_hints,
     };
   }
 
@@ -620,6 +667,7 @@ function parseOriginStructured(origin: string): OriginStructured {
       offset_mi: null,
       bearing: null,
       roads: dedupeStrings(roads),
+      place_hints,
     };
   }
 
@@ -632,10 +680,11 @@ function parseOriginStructured(origin: string): OriginStructured {
       offset_mi: null,
       bearing: null,
       roads: tok ? [tok] : [],
+      place_hints,
     };
   }
 
-  return { mode: "unknown", offset_mi: null, bearing: null, roads: [] };
+  return { mode: "unknown", offset_mi: null, bearing: null, roads: [], place_hints };
 }
 
 function structuredOriginQueries(s: OriginStructured): string[] {
@@ -671,7 +720,7 @@ function structuredOriginQueries(s: OriginStructured): string[] {
     q.push(`${s.roads[0]} Texas state line`);
     q.push(`${s.roads[0]} Texas border`);
   }
-  return q;
+  return expandOriginQueriesWithPlaceHints(dedupeStrings(q), s.place_hints ?? []);
 }
 
 function collectOriginWarnings(s: OriginStructured): string[] {
