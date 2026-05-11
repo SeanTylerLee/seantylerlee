@@ -57,7 +57,7 @@ type ParseResult = {
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.7.5";
+const PARSER_VERSION = "tx-turntable-v2.7.6";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
@@ -691,6 +691,20 @@ function structuredOriginQueries(s: OriginStructured): string[] {
   const q: string[] = [];
   if (s.mode === "junction_offset" && s.roads.length >= 2) {
     const [a, b] = [s.roads[0], s.roads[1]];
+    const aT = cleanLine(a);
+    const bT = cleanLine(b);
+    const buLeg = /^BU\s/i.test(aT) ? aT : /^BU\s/i.test(bT) ? bT : null;
+    const otherLeg = buLeg === aT ? bT : aT;
+    if (buLeg && /^FM\s/i.test(otherLeg)) {
+      const bm = /^BU\s+(\d{1,4})/i.exec(buLeg);
+      const fm = /^FM\s+(\d{1,4})/i.exec(otherLeg);
+      if (bm && fm) {
+        q.push(
+          `Farm to Market Road ${fm[1]} and U.S. Highway ${bm[1]} Business intersection Texas`,
+          `U.S. Highway ${bm[1]} Business and Farm to Market Road ${fm[1]} intersection Texas`,
+        );
+      }
+    }
     const off = s.offset_mi != null && Number.isFinite(s.offset_mi) ? s.offset_mi : null;
     const bear = s.bearing || "";
     /**

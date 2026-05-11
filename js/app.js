@@ -547,6 +547,41 @@ function significantRouteNumbersFromToken(road) {
   return m[2] ? dedupeStrings([n, n + String(m[2]).toLowerCase()]) : [n];
 }
 
+function isBusinessUsPermitToken(road) {
+  return /^BU\s/i.test(String(road || ""));
+}
+
+/**
+ * "US 287" alone often denotes the mainline; BU 287P is Business U.S. 287. Reject mainline-only labels
+ * when pairing with FM so we do not snap to the wrong US-287 ∩ FM crossing.
+ */
+function labelMentionsBusinessUsForBuToken(hayLower, buRoad) {
+  const hay = String(hayLower || "").toLowerCase();
+  const nums = significantRouteNumbersFromToken(buRoad);
+  if (!nums.length) return false;
+  const hasRouteNum = nums.some(function (n) {
+    return new RegExp("\\b" + String(n).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(
+      hay
+    );
+  });
+  if (!hasRouteNum) return false;
+  if (/\b(business|bus)\b/i.test(hay)) return true;
+  const suff = String(buRoad).toUpperCase().match(/^BU\s+(\d{1,4})([A-Z]{1,3})\s*$/);
+  if (suff && suff[2]) {
+    const compact = suff[1] + suff[2].toLowerCase();
+    if (new RegExp("\\b" + compact.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(hay)) {
+      return true;
+    }
+  }
+  const nMatch = String(buRoad).match(/^BU\s+(\d{1,4})/i);
+  const n = nMatch ? nMatch[1] : "";
+  if (n && new RegExp("\\b" + n + "\\s*[-–]\\s*b\\b", "i").test(hay)) return true;
+  if (n && new RegExp("\\b(us|u\\.s\\.)\\s*[-–]?\\s*" + n + "\\s*[-–]\\s*b\\b", "i").test(hay)) {
+    return true;
+  }
+  return false;
+}
+
 function geocodeLabelReferencesBothRoads(label, roadA, roadB) {
   const hay = String(label || "").toLowerCase();
   const numsA = significantRouteNumbersFromToken(roadA);
@@ -561,7 +596,42 @@ function geocodeLabelReferencesBothRoads(label, roadA, roadB) {
     }
     return false;
   };
-  return hasNum(numsA) && hasNum(numsB);
+  const sideOk = function (road, nums) {
+    if (!hasNum(nums)) return false;
+    if (isBusinessUsPermitToken(road)) return labelMentionsBusinessUsForBuToken(hay, road);
+    return true;
+  };
+  return sideOk(roadA, numsA) && sideOk(roadB, numsB);
+}
+
+/** Query text explicitly asks for an intersection/junction and includes both route numbers. */
+function geocodeQueryImpliesBothRouteNumbers(q, roadA, roadB) {
+  const ql = String(q || "").toLowerCase();
+  const numsA = significantRouteNumbersFromToken(roadA);
+  const numsB = significantRouteNumbersFromToken(roadB);
+  const qHas = function (nums) {
+    for (let i = 0; i < nums.length; i++) {
+      if (
+        new RegExp("\\b" + String(nums[i]).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(ql)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+  return qHas(numsA) && qHas(numsB);
+}
+
+/**
+ * When labels omit "Business", still trust Mapbox's top hit for intersection queries that name
+ * Business/Bus (not plain US-287) plus the other road.
+ */
+function geocodeQueryIsTrustedBusinessIntersection(q, roadA, roadB) {
+  const ql = String(q || "").toLowerCase();
+  if (!/\b(intersection|junction)\b/.test(ql)) return false;
+  if (!geocodeQueryImpliesBothRouteNumbers(q, roadA, roadB)) return false;
+  if (!isBusinessUsPermitToken(roadA) && !isBusinessUsPermitToken(roadB)) return true;
+  return /\b(business|bus)\b/i.test(ql);
 }
 
 /** County / city tokens from the origin line (matches Edge `extractOriginPlaceHints`). */
@@ -1610,13 +1680,34 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
         .filter(Boolean)
     : [];
 
-  const queries = [
+  const queries = [];
+  const buLeg = isBusinessUsPermitToken(a)
+    ? a
+    : isBusinessUsPermitToken(b)
+      ? b
+      : null;
+  const otherLeg = buLeg === a ? b : a;
+  if (
+    buLeg &&
+    /^FM\s/i.test(otherLeg)
+  ) {
+    const bm = buLeg.match(/^BU\s+(\d{1,4})/i);
+    const fm = otherLeg.match(/^FM\s+(\d{1,4})/i);
+    if (bm && fm) {
+      queries.push(
+        `Farm to Market Road ${fm[1]} and U.S. Highway ${bm[1]} Business intersection Texas`,
+        `U.S. Highway ${bm[1]} Business and Farm to Market Road ${fm[1]} intersection Texas`,
+        `Farm Road ${fm[1]} and US Highway ${bm[1]} Business junction Texas`
+      );
+    }
+  }
+  queries.push(
     `${a} and ${b} intersection Texas`,
     `${b} and ${a} intersection Texas`,
     `${a} and ${b} junction Texas`,
     `${b} and ${a} junction Texas`,
-    `${a} ${b} intersection Texas`,
-  ];
+    `${a} ${b} intersection Texas`
+  );
   function addFmRmSpoken(road, other) {
     const fm = /^FM\s+(\d{1,4})/i.exec(road);
     if (fm) {
@@ -1638,7 +1729,11 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
     const m = a.match(/^BU\s+(\d{1,4})/i);
     if (m) {
       const n = m[1];
-      queries.push(`US ${n} and ${b} intersection Texas`, `${b} and US ${n} intersection Texas`);
+      queries.push(
+        `U.S. Highway ${n} Business and ${b} intersection Texas`,
+        `${b} and U.S. Highway ${n} Business intersection Texas`,
+        `US Highway ${n} Business and ${b} junction Texas`
+      );
     }
   }
   if (/^BU\s/i.test(b)) {
@@ -1647,13 +1742,17 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
     const m = b.match(/^BU\s+(\d{1,4})/i);
     if (m) {
       const n = m[1];
-      queries.push(`${a} and US ${n} intersection Texas`, `US ${n} and ${a} intersection Texas`);
+      queries.push(
+        `${a} and U.S. Highway ${n} Business intersection Texas`,
+        `U.S. Highway ${n} Business and ${a} intersection Texas`
+      );
     }
   }
 
   const allQueries = expandQueriesWithOriginPlaceHints(dedupeStrings(queries), placeHints);
 
   const dualHits = [];
+  const trustHits = [];
   let bestDualMapbox = null;
   let bestDualScore = -Infinity;
 
@@ -1661,10 +1760,12 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
     for (let qi = 0; qi < allQueries.length; qi++) {
       const q = allQueries[qi];
       const feats = await geocodeMapboxPlacesFeatures(q, accessToken, statewideProximityBias);
+      let anyDualLabel = false;
       for (let fi = 0; fi < feats.length; fi++) {
         const feat = feats[fi];
         const both = geocodeLabelReferencesBothRoads(feat.label, a, b);
         if (both) {
+          anyDualLabel = true;
           dualHits.push({
             lat: feat.lat,
             lon: feat.lon,
@@ -1683,6 +1784,21 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
             };
           }
         }
+      }
+      if (
+        !anyDualLabel &&
+        feats.length &&
+        geocodeQueryIsTrustedBusinessIntersection(q, a, b) &&
+        typeof feats[0].relevance === "number" &&
+        feats[0].relevance >= 0.38
+      ) {
+        trustHits.push({
+          lat: feats[0].lat,
+          lon: feats[0].lon,
+          label: feats[0].label,
+          matchedQuery: q,
+          source: "mapbox",
+        });
       }
       if (qi < allQueries.length - 1) await sleep(45);
     }
@@ -1714,6 +1830,17 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
       label: `${a} & ${b} (${corridorPick.label || "intersection"})`,
       source: corridorPick.source || "mapbox",
       matchedQuery: corridorPick.matchedQuery,
+    };
+  }
+
+  const trustPick = pickDualRoadHitNearCorridor(trustHits, proximityPrior);
+  if (trustPick) {
+    return {
+      lat: trustPick.lat,
+      lon: trustPick.lon,
+      label: `${a} & ${b} (${trustPick.label || "intersection"})`,
+      source: trustPick.source || "mapbox",
+      matchedQuery: trustPick.matchedQuery,
     };
   }
 
