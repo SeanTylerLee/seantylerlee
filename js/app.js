@@ -129,6 +129,7 @@ async function parsePermitViaSupabase(file) {
     segments: segments,
     permitNumber: out.permit_number || out.permitNumber || null,
     parserVersion: out.parser_version || out.parserVersion || null,
+    origin_structured: out.origin_structured ?? out.originStructured ?? null,
   };
 }
 
@@ -1317,6 +1318,78 @@ function idealBearingFromTravelDir(dirWord) {
   return map[w] !== undefined ? map[w] : null;
 }
 
+/** Great sphere: from (lat, lon) move distanceMi along bearingDeg (0=north, 90=east). */
+function offsetFromLatLonMiles(lat, lon, bearingDegFromNorth, distanceMi) {
+  const R = 3958.7613;
+  const toRad = Math.PI / 180;
+  const φ1 = lat * toRad;
+  const λ1 = lon * toRad;
+  const θ = bearingDegFromNorth * toRad;
+  const δ = distanceMi / R;
+  const sinφ1 = Math.sin(φ1);
+  const cosφ1 = Math.cos(φ1);
+  const sinδ = Math.sin(δ);
+  const cosδ = Math.cos(δ);
+  const sinφ2 = sinφ1 * cosδ + cosφ1 * sinδ * Math.cos(θ);
+  const φ2 = Math.asin(sinφ2);
+  const y = Math.sin(θ) * sinδ * cosφ1;
+  const x = cosδ - sinφ1 * sinφ2;
+  const λ2 = λ1 + Math.atan2(y, x);
+  let lonOut = (λ2 * 180) / Math.PI;
+  const latOut = (φ2 * 180) / Math.PI;
+  lonOut = ((lonOut + 540) % 360) - 180;
+  return { lat: latOut, lon: lonOut };
+}
+
+/**
+ * Tx origin "Y mi [dir] of A & B": geocode **intersection** only, then offset along compass —
+ * Mapbox one-shot queries for "X mi NW of intersection" are unreliable.
+ */
+async function geocodeOriginJunctionOffset(accessToken, originStructured) {
+  if (!accessToken || !originStructured || typeof originStructured !== "object") {
+    return null;
+  }
+  if (originStructured.mode !== "junction_offset") return null;
+  const roads = originStructured.roads;
+  if (!Array.isArray(roads) || roads.length < 2) return null;
+  const off = Number(originStructured.offset_mi);
+  if (!Number.isFinite(off) || off <= 0 || off > 500) return null;
+  const bearingWord = originStructured.bearing;
+  const bearingDeg = idealBearingFromTravelDir(bearingWord);
+  if (bearingDeg == null) return null;
+
+  const a = String(roads[0]).trim();
+  const b = String(roads[1]).trim();
+  const queries = [
+    `${a} and ${b} intersection Texas`,
+    `${a} and ${b} junction Texas`,
+    `${a} ${b} intersection Texas`,
+  ];
+  if (/^BU\s/i.test(a)) {
+    const biz = a.replace(/^BU\s+/i, "Business US ");
+    queries.push(`${biz} and ${b} intersection Texas`);
+    queries.push(`${biz} and ${b} junction Texas`);
+  }
+
+  for (let qi = 0; qi < queries.length; qi++) {
+    const q = queries[qi];
+    const feats = await geocodeMapboxPlacesFeatures(q, accessToken, null);
+    const j = feats.length ? feats[0] : null;
+    if (j && typeof j.lat === "number" && typeof j.lon === "number") {
+      const moved = offsetFromLatLonMiles(j.lat, j.lon, bearingDeg, off);
+      return {
+        lat: moved.lat,
+        lon: moved.lon,
+        label: `${off} mi ${bearingWord} of ${a} and ${b} (from ${j.label || q})`,
+        source: "mapbox",
+        matchedQuery: q,
+      };
+    }
+    if (qi < queries.length - 1) await sleep(50);
+  }
+  return null;
+}
+
 /**
  * When Mapbox returns several Features for a highway query, re-rank using prior waypoint +
  * permit travel direction so the pin advances along the corridor instead of snapping backward.
@@ -2144,7 +2217,7 @@ function main() {
     });
   }
 
-  async function geocodeAndRoute(hints, generation) {
+  async function geocodeAndRoute(hints, generation, originStructured) {
     if (!mapInstance || !hints.length) {
       showRouteProgress("");
       return { coords: [], enriched: [], routeProvider: null };
@@ -2197,7 +2270,21 @@ function main() {
 
       let pt = null;
       try {
-        pt = await geocodeSegment(geoHint, accessToken, proximityPrior);
+        const isFirstOrigin =
+          i === 0 &&
+          String(h.label || "")
+            .trim()
+            .toLowerCase() === "origin";
+        if (
+          isFirstOrigin &&
+          originStructured &&
+          originStructured.mode === "junction_offset"
+        ) {
+          pt = await geocodeOriginJunctionOffset(accessToken, originStructured);
+        }
+        if (!pt) {
+          pt = await geocodeSegment(geoHint, accessToken, proximityPrior);
+        }
       } catch (e) {
         console.warn(e);
       }
@@ -2512,6 +2599,7 @@ function main() {
 
       const remote = await parsePermitViaSupabase(file);
       if (myRun !== runGeneration) return;
+      const originStructured = remote?.origin_structured ?? null;
       if (remote) {
         parseText = (remote.parseText || "").trim();
         serverHints = Array.isArray(remote.segments) ? remote.segments : [];
@@ -2582,7 +2670,8 @@ function main() {
 
       const { coords, enriched, geometry, aborted, routeProvider } = await geocodeAndRoute(
         hints,
-        myRun
+        myRun,
+        originStructured
       );
       if (aborted || myRun !== runGeneration) return;
 
@@ -2595,6 +2684,7 @@ function main() {
         }),
         geometry: geometry || null,
         routeProvider: routeProvider || null,
+        origin_structured: originStructured,
       };
       if (recalcBtn) recalcBtn.disabled = coords.length < 2;
       updateDownloadGeoBtn();
