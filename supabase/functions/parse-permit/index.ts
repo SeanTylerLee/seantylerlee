@@ -52,7 +52,7 @@ type ParseResult = {
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.7.0";
+const PARSER_VERSION = "tx-turntable-v2.7.1";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
@@ -574,10 +574,24 @@ function parseOriginStructured(origin: string): OriginStructured {
     const offset_mi = parseFloat(mj[2]);
     const bearing = parseDirectionAbbrev(mj[3]);
     const junctionBlob = cleanLine(mj[4]);
-    const roads = extractRoadsFromJunctionBlob(junctionBlob);
     let loaded_route_road: string | null = null;
     if (mj[1]) {
       loaded_route_road = parseLoadedRouteRoadFromOriginPrefix(mj[1]);
+    }
+    let roads = extractRoadsFromJunctionBlob(junctionBlob);
+    /** e.g. "… of BU0287P & FM1187" often yields one token if both sides normalize the same; pair with loaded route. */
+    if (roads.length < 2 && loaded_route_road) {
+      if (roads.length === 1) {
+        roads = dedupeStrings([loaded_route_road, roads[0]]);
+      } else if (roads.length === 0 && /\s*&\s*/.test(junctionBlob)) {
+        const parts = junctionBlob.split(/\s*&\s*/).map((p) => cleanLine(p)).filter(Boolean);
+        const rhs = parts.length > 1 ? parts[parts.length - 1] : "";
+        const tok =
+          findRoadToken(rhs) ||
+          findRoadToken(normalizeRouteToken(rhs)) ||
+          (cleanLine(normalizeRouteToken(rhs)).length > 1 ? cleanLine(normalizeRouteToken(rhs)) : "");
+        if (tok) roads = dedupeStrings([loaded_route_road, tok]);
+      }
     }
     return {
       mode: "junction_offset",

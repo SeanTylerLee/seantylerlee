@@ -1318,76 +1318,123 @@ function idealBearingFromTravelDir(dirWord) {
   return map[w] !== undefined ? map[w] : null;
 }
 
-/** Great sphere: from (lat, lon) move distanceMi along bearingDeg (0=north, 90=east). */
-function offsetFromLatLonMiles(lat, lon, bearingDegFromNorth, distanceMi) {
-  const R = 3958.7613;
-  const toRad = Math.PI / 180;
-  const φ1 = lat * toRad;
-  const λ1 = lon * toRad;
-  const θ = bearingDegFromNorth * toRad;
-  const δ = distanceMi / R;
-  const sinφ1 = Math.sin(φ1);
-  const cosφ1 = Math.cos(φ1);
-  const sinδ = Math.sin(δ);
-  const cosδ = Math.cos(δ);
-  const sinφ2 = sinφ1 * cosδ + cosφ1 * sinδ * Math.cos(θ);
-  const φ2 = Math.asin(sinφ2);
-  const y = Math.sin(θ) * sinδ * cosφ1;
-  const x = cosδ - sinφ1 * sinφ2;
-  const λ2 = λ1 + Math.atan2(y, x);
-  let lonOut = (λ2 * 180) / Math.PI;
-  const latOut = (φ2 * 180) / Math.PI;
-  lonOut = ((lonOut + 540) % 360) - 180;
-  return { lat: latOut, lon: lonOut };
+/**
+ * Resolved [roadA, roadB] for Mapbox intersection search from Supabase `origin_structured`.
+ * Start pin uses the intersection only (no mile offset from the permit).
+ */
+function resolveOriginIntersectionRoads(originStructured) {
+  if (!originStructured || typeof originStructured !== "object") return null;
+  const mode = originStructured.mode;
+  const lrRaw = originStructured.loaded_route_road || originStructured.loadedRouteRoad || "";
+  const lr = String(lrRaw || "").trim();
+  let roads = Array.isArray(originStructured.roads)
+    ? originStructured.roads.map(function (r) {
+        return String(r || "").trim();
+      }).filter(Boolean)
+    : [];
+  const seen = {};
+  roads = roads.filter(function (r) {
+    if (seen[r]) return false;
+    seen[r] = true;
+    return true;
+  });
+
+  if (mode === "semicolon" && roads.length >= 2) {
+    return [roads[0], roads[1]];
+  }
+  if (mode !== "junction_offset") return null;
+
+  if (roads.length >= 2) {
+    return [roads[0], roads[1]];
+  }
+  if (roads.length === 1 && lr && roads[0] !== lr) {
+    return [lr, roads[0]];
+  }
+  return null;
+}
+
+function scoreMapboxIntersectionCandidate(f) {
+  if (!f || typeof f.lat !== "number" || typeof f.lon !== "number") return -Infinity;
+  const name = String(f.label || "").toLowerCase();
+  let score = typeof f.relevance === "number" ? f.relevance : 0;
+  if (name.includes("intersection")) score += 15;
+  if (name.includes("junction")) score += 8;
+  if (name.includes(" & ") || /\band\b/.test(name)) score += 5;
+  const pt = f.placeType || [];
+  if (pt.indexOf("address") >= 0) score += 3;
+  return score;
 }
 
 /**
- * Tx origin "Y mi [dir] of A & B": geocode **intersection** only, then offset along compass —
- * Mapbox one-shot queries for "X mi NW of intersection" are unreliable.
+ * Loaded route origin: pin at **intersection of the two roads** (permit "A & B" / loaded route + junction).
  */
-async function geocodeOriginJunctionOffset(accessToken, originStructured) {
+async function geocodeLoadedOriginIntersection(accessToken, originStructured) {
   if (!accessToken || !originStructured || typeof originStructured !== "object") {
     return null;
   }
-  if (originStructured.mode !== "junction_offset") return null;
-  const roads = originStructured.roads;
-  if (!Array.isArray(roads) || roads.length < 2) return null;
-  const off = Number(originStructured.offset_mi);
-  if (!Number.isFinite(off) || off <= 0 || off > 500) return null;
-  const bearingWord = originStructured.bearing;
-  const bearingDeg = idealBearingFromTravelDir(bearingWord);
-  if (bearingDeg == null) return null;
+  const pair = resolveOriginIntersectionRoads(originStructured);
+  if (!pair) return null;
+  const a = String(pair[0]).trim();
+  const b = String(pair[1]).trim();
+  if (!a || !b || a === b) return null;
 
-  const a = String(roads[0]).trim();
-  const b = String(roads[1]).trim();
   const queries = [
     `${a} and ${b} intersection Texas`,
+    `${b} and ${a} intersection Texas`,
     `${a} and ${b} junction Texas`,
+    `${b} and ${a} junction Texas`,
     `${a} ${b} intersection Texas`,
   ];
   if (/^BU\s/i.test(a)) {
     const biz = a.replace(/^BU\s+/i, "Business US ");
-    queries.push(`${biz} and ${b} intersection Texas`);
-    queries.push(`${biz} and ${b} junction Texas`);
+    queries.push(`${biz} and ${b} intersection Texas`, `${b} and ${biz} intersection Texas`);
   }
+  if (/^BU\s/i.test(b)) {
+    const bizB = b.replace(/^BU\s+/i, "Business US ");
+    queries.push(`${a} and ${bizB} intersection Texas`, `${bizB} and ${a} intersection Texas`);
+  }
+
+  let best = null;
+  let bestScore = -Infinity;
+  let fallback = null;
 
   for (let qi = 0; qi < queries.length; qi++) {
     const q = queries[qi];
     const feats = await geocodeMapboxPlacesFeatures(q, accessToken, null);
-    const j = feats.length ? feats[0] : null;
-    if (j && typeof j.lat === "number" && typeof j.lon === "number") {
-      const moved = offsetFromLatLonMiles(j.lat, j.lon, bearingDeg, off);
-      return {
-        lat: moved.lat,
-        lon: moved.lon,
-        label: `${off} mi ${bearingWord} of ${a} and ${b} (from ${j.label || q})`,
-        source: "mapbox",
+    if (feats.length && !fallback) {
+      const fh = feats[0];
+      fallback = {
+        lat: fh.lat,
+        lon: fh.lon,
+        label: fh.label,
         matchedQuery: q,
       };
     }
+    for (let fi = 0; fi < feats.length; fi++) {
+      const sc = scoreMapboxIntersectionCandidate(feats[fi]);
+      if (sc > bestScore) {
+        bestScore = sc;
+        best = {
+          lat: feats[fi].lat,
+          lon: feats[fi].lon,
+          label: feats[fi].label,
+          matchedQuery: q,
+        };
+      }
+    }
+    if (best && bestScore >= 12) break;
     if (qi < queries.length - 1) await sleep(50);
   }
-  return null;
+
+  const chosen = best || fallback;
+  if (!chosen) return null;
+  return {
+    lat: chosen.lat,
+    lon: chosen.lon,
+    label: `${a} & ${b} (${chosen.label || "intersection"})`,
+    source: "mapbox",
+    matchedQuery: chosen.matchedQuery,
+  };
 }
 
 /**
@@ -1456,7 +1503,13 @@ async function geocodeMapboxPlacesFeatures(query, accessToken, proximityPrior) {
     if (!f?.center || f.center.length < 2) continue;
     const [lon, lat] = f.center;
     const label = f.place_name || f.text || query;
-    out.push({ lat, lon, label });
+    out.push({
+      lat,
+      lon,
+      label,
+      relevance: typeof f.relevance === "number" ? f.relevance : 0,
+      placeType: Array.isArray(f.place_type) ? f.place_type : [],
+    });
   }
   return out;
 }
@@ -2275,12 +2328,8 @@ function main() {
           String(h.label || "")
             .trim()
             .toLowerCase() === "origin";
-        if (
-          isFirstOrigin &&
-          originStructured &&
-          originStructured.mode === "junction_offset"
-        ) {
-          pt = await geocodeOriginJunctionOffset(accessToken, originStructured);
+        if (isFirstOrigin && originStructured) {
+          pt = await geocodeLoadedOriginIntersection(accessToken, originStructured);
         }
         if (!pt) {
           pt = await geocodeSegment(geoHint, accessToken, proximityPrior);
