@@ -52,7 +52,7 @@ type ParseResult = {
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.7.1";
+const PARSER_VERSION = "tx-turntable-v2.7.2";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
@@ -535,7 +535,13 @@ function findRoadToken(str: string): string | null {
 }
 
 function extractRoadsFromJunctionBlob(blob: string): string[] {
-  const parts = blob.split(/\s*&\s*/).map((p) => cleanLine(p)).filter(Boolean);
+  const b = cleanLine(blob);
+  if (!b) return [];
+  let parts = b.split(/\s*&\s*/).map((p) => cleanLine(p)).filter(Boolean);
+  /** OCR / typography sometimes uses "and" instead of "&" between road names */
+  if (parts.length < 2 && /\band\b/i.test(b)) {
+    parts = b.split(/\s+and\s+/i).map((p) => cleanLine(p)).filter(Boolean);
+  }
   const roads: string[] = [];
   for (const p of parts) {
     const t = findRoadToken(p);

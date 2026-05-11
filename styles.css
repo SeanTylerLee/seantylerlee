@@ -217,6 +217,49 @@ body {
   background: #e2e8f0;
 }
 
+.map-compare-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.map-compare-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.map-compare-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.map-compare-sub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.map-compare-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+  min-height: 1.2em;
+}
+
+.map-panel .map.map--google {
+  height: min(48vh, 400px);
+}
+
+.map-panel .map:not(.map--google) {
+  height: min(48vh, 400px);
+}
+
 /* Mapbox GL custom waypoint markers */
 .map-marker-pin {
   width: 28px;
