@@ -1948,9 +1948,12 @@ async function geocodeTurnIntersection(accessToken, a, b, proximityPrior) {
  * Falls back to the existing geocoders for any pair OSM can't resolve.
  * ==========================================================================*/
 
+// Direct browser fallbacks (kumi/mirrors are more browser-tolerant than overpass-api.de,
+// which 406-rejects stock browser User-Agents). Primary path is the edge-function proxy.
 const OVERPASS_ENDPOINTS = [
-  "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
+  "https://z.overpass-api.de/api/interpreter",
+  "https://lz4.overpass-api.de/api/interpreter",
 ];
 /** Texas bounding box (south, west, north, east) for statewide ref lookups. */
 const OSM_TX_BBOX = [25.8, -106.7, 36.6, -93.5];
@@ -1999,8 +2002,38 @@ function permitRefToOsmCandidates(token) {
   }
 }
 
+function overpassProxyUrl() {
+  if (!window.SUPABASE_URL || !window.SUPABASE_PARSE_FUNCTION) return null;
+  return (
+    String(window.SUPABASE_URL).replace(/\/+$/, "") +
+    "/functions/v1/" +
+    encodeURIComponent(String(window.SUPABASE_PARSE_FUNCTION))
+  );
+}
+
 async function overpassQuery(body) {
   let lastErr = null;
+  // Primary: our edge-function proxy (sets a compliant User-Agent + caches geometry).
+  const proxy = overpassProxyUrl();
+  if (proxy) {
+    try {
+      const key = String(window.SUPABASE_ANON_KEY || "");
+      const res = await fetch(proxy, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: key,
+          Authorization: "Bearer " + key,
+        },
+        body: JSON.stringify({ overpass: body }),
+      });
+      if (res.ok) return await res.json();
+      lastErr = new Error("Overpass proxy HTTP " + res.status);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  // Fallback: browser-tolerant public mirrors.
   for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
     try {
       const res = await fetch(OVERPASS_ENDPOINTS[i], {

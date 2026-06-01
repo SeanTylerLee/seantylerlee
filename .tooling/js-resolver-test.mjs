@@ -43,6 +43,7 @@ const names = [
   ["OSM_GEOM_CACHE", "const"],
   ["isInterstateToken", "fn"],
   ["permitRefToOsmCandidates", "fn"],
+  ["overpassProxyUrl", "fn"],
   ["overpassQuery", "fn"],
   ["fetchRefGeometry", "fn"],
   ["geomBounds", "fn"],
@@ -56,7 +57,13 @@ const names = [
   ["resolveRouteViaOsm", "fn"],
 ];
 
-let code = "const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));\n";
+globalThis.window = {
+  SUPABASE_URL: "http://localhost:8000",
+  SUPABASE_PARSE_FUNCTION: "parse-permit",
+  SUPABASE_ANON_KEY: "test",
+};
+
+let code = "const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));\nconst window = globalThis.window;\n";
 for (const [n, k] of names) code += extract(n, k === "const" ? "const" : "fn") + "\n";
 code += "\nreturn { resolveRouteViaOsm, resolvePairViaOsm, permitRefToOsmCandidates, isInterstateToken, polylineCrossings, segIntersectLL };";
 

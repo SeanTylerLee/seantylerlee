@@ -64,7 +64,7 @@ export type ParseResult = {
   warnings: string[];
 };
 
-export const PARSER_VERSION = "tx-turntable-v2.9.0";
+export const PARSER_VERSION = "tx-turntable-v2.10.0";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
@@ -1184,6 +1184,71 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
   return parsePermitText(parsed?.text || "");
 }
 
+/* ----------------------------------------------------------------------------
+ * Overpass (OpenStreetMap) proxy.
+ *
+ * The website resolves exact highway intersections from OSM road geometry, but
+ * browsers cannot set a `User-Agent`, and overpass-api.de now 406-rejects stock
+ * browser agents. So the browser sends its Overpass query here; we forward it
+ * with a compliant User-Agent/Referer, fall back across healthy mirrors, and
+ * cache results (road geometry is static) to keep request volume low.
+ * -------------------------------------------------------------------------- */
+const OVERPASS_PROXY_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://z.overpass-api.de/api/interpreter",
+  "https://lz4.overpass-api.de/api/interpreter",
+];
+const OVERPASS_UA = "seantylerlee-permit-router/1.0 (https://seantylerlee.github.io/)";
+const OVERPASS_CACHE = new Map<string, { body: string; ts: number }>();
+const OVERPASS_TTL_MS = 6 * 60 * 60 * 1000;
+const OVERPASS_CACHE_MAX = 300;
+
+async function handleOverpassProxy(ql: string): Promise<Response> {
+  const key = ql.replace(/\s+/g, " ").trim();
+  const now = Date.now();
+  const cached = OVERPASS_CACHE.get(key);
+  if (cached && now - cached.ts < OVERPASS_TTL_MS) {
+    return new Response(cached.body, {
+      headers: corsHeaders({ "Content-Type": "application/json", "X-Overpass-Cache": "hit" }),
+    });
+  }
+
+  let lastStatus = 0;
+  let lastText = "";
+  for (const ep of OVERPASS_PROXY_ENDPOINTS) {
+    try {
+      const res = await fetch(ep, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": OVERPASS_UA,
+          Referer: "https://seantylerlee.github.io/",
+          Accept: "application/json",
+        },
+        body: "data=" + encodeURIComponent(ql),
+      });
+      const text = await res.text();
+      if (res.ok && text && text.trimStart().startsWith("{")) {
+        if (OVERPASS_CACHE.size >= OVERPASS_CACHE_MAX) {
+          const oldest = OVERPASS_CACHE.keys().next().value;
+          if (oldest) OVERPASS_CACHE.delete(oldest);
+        }
+        OVERPASS_CACHE.set(key, { body: text, ts: now });
+        return new Response(text, {
+          headers: corsHeaders({ "Content-Type": "application/json", "X-Overpass-Cache": "miss" }),
+        });
+      }
+      lastStatus = res.status;
+      lastText = text.slice(0, 200);
+    } catch (e) {
+      lastStatus = 0;
+      lastText = e instanceof Error ? e.message : String(e);
+    }
+  }
+  return json(502, { ok: false, error: "overpass_unavailable", status: lastStatus, detail: lastText });
+}
+
 // Set PARSE_PERMIT_NO_SERVE=1 to import this module for local testing without binding a port.
 if (!Deno.env.get("PARSE_PERMIT_NO_SERVE")) {
   Deno.serve(handleRequest);
@@ -1200,6 +1265,16 @@ async function handleRequest(req: Request): Promise<Response> {
 
   try {
     const contentType = req.headers.get("content-type") || "";
+
+    // Overpass proxy mode: { "overpass": "<Overpass QL>" }
+    if (contentType.includes("application/json")) {
+      const bodyJson = await req.json().catch(() => null);
+      const ql =
+        bodyJson && typeof bodyJson.overpass === "string" ? bodyJson.overpass : "";
+      if (ql) return await handleOverpassProxy(ql);
+      return json(400, { error: "Missing `overpass` query" });
+    }
+
     let bytes: Uint8Array | null = null;
     let filename = "permit.pdf";
 
