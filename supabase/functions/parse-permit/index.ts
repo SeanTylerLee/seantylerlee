@@ -16,7 +16,7 @@ type ParsedStep = {
   raw_row: string;
 };
 
-type SegmentOut = {
+export type SegmentOut = {
   label: string;
   text: string;
   displayText: string;
@@ -28,7 +28,7 @@ type SegmentOut = {
   cumulative_permit_mi?: number | null;
 };
 
-type OriginStructured = {
+export type OriginStructured = {
   mode: "junction_offset" | "semicolon" | "state_line" | "unknown";
   offset_mi: number | null;
   bearing: string | null;
@@ -45,7 +45,7 @@ type OriginStructured = {
   place_hints?: string[];
 };
 
-type ParseResult = {
+export type ParseResult = {
   parse_text: string;
   permit_number: string | null;
   origin_text: string | null;
@@ -54,10 +54,11 @@ type ParseResult = {
   steps: ParsedStep[];
   segments: SegmentOut[];
   origin_structured: OriginStructured | null;
+  destination_structured: OriginStructured | null;
   warnings: string[];
 };
 
-const PARSER_VERSION = "tx-turntable-v2.7.6";
+export const PARSER_VERSION = "tx-turntable-v2.8.0";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
@@ -76,22 +77,6 @@ const ROUTE_PATTERNS: Array<{ label: string; re: RegExp }> = [
   { label: "Spur", re: /\bSP\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi },
   { label: "Business US", re: /\b(?:BU|BUS)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
 ];
-
-function corsHeaders(extra: Record<string, string> = {}) {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    ...extra,
-  };
-}
-
-function json(status: number, body: unknown) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: corsHeaders({ "Content-Type": "application/json" }),
-  });
-}
 
 function normalizeWs(s: string): string {
   return s
@@ -267,11 +252,36 @@ function enrichQueriesForTxRow(
 
 /** Stop collecting a multi-line Origin block */
 const ORIGIN_BLOCK_STOP =
-  /^\s*(Destination|Final\s+Destination|Route\s+Conditions|General\s+Conditions|Miles\s+Route\s+To|Dimension|Dimensions|Vehicle|Load\s+description|Escort|Certification|Point\s+of\s+origin)\b/i;
+  /^\s*(Destination|Final\s+Destination|Route\s+Conditions|General\s+Conditions|Miles\s*Route\s*To|Dimension|Dimensions|Vehicle|Load\s+description|Escort|Certification|Point\s+of\s+origin)\b/i;
 
 /** Stop collecting a multi-line Destination block */
 const DEST_BLOCK_STOP =
-  /^\s*(Route\s+Conditions|General\s+Conditions|Miles\s+Route\s+To|Dimension|Dimensions|Vehicle|Origin\s*:|Effective\s+date|Expiration|Certification)\b/i;
+  /^\s*(Route\s+Conditions|General\s+Conditions|Miles\s*Route\s*To|Dimension|Dimensions|Vehicle|Origin\s*:|Effective\s+date|Expiration|Certification)\b/i;
+
+/**
+ * Lines that end any Origin/Destination narrative block regardless of section keyword: the turn
+ * table, loaded-route bracket lines, page footers, and Route-Conditions asterisk notes. Guards
+ * against `pdf-parse` runs where these arrive without surrounding blank lines.
+ */
+function isNarrativeBlockBoundary(line: string): boolean {
+  return (
+    isTableHeader(line) ||
+    /^\s*\[\s*Loaded\s+Route/i.test(line) ||
+    /^\s*\*/.test(line) ||
+    /^\s*Texas\s+Oversize/i.test(line) ||
+    /^\s*PAGE\s+\d+\s+of\s+\d+/i.test(line) ||
+    /^\s*--\s*\d+\s+of\s+\d+/i.test(line) ||
+    /^\s*For\s+more\s+information\b/i.test(line)
+  );
+}
+
+/** Strip a trailing odometer/estimated-time artifact that pdf-parse glues onto narrative lines. */
+function stripTrailingPermitTime(s: string): string {
+  return cleanLine(s)
+    .replace(/\s*\d+\.\d{2}\s*\d{1,2}:\d{2}\s*$/, "")
+    .replace(/\s*\d{1,2}:\d{2}\s*$/, "")
+    .trim();
+}
 
 function scoreAnchorText(s: string, kind: "origin" | "dest"): number {
   const t = s.trim();
@@ -336,6 +346,9 @@ function extractOrigin(text: string): string | null {
   const lines = norm.split("\n").map(cleanLine).filter(Boolean);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    // The `[Loaded Route Origin: …]` line is captured separately; skip it here so the unanchored
+    // "Origin:" match doesn't latch onto the bracket and swallow the glued turn-table rows.
+    if (/\[\s*Loaded\s+Route/i.test(line)) continue;
     if (!/\bOrigin\s*:/i.test(line)) continue;
     const afterColon = line.replace(/^.*?\bOrigin\s*:/i, "").trim();
     let chunk = afterColon;
@@ -349,11 +362,12 @@ function extractOrigin(text: string): string | null {
     while (j < lines.length) {
       const L = lines[j];
       if (ORIGIN_BLOCK_STOP.test(L)) break;
+      if (isNarrativeBlockBoundary(L)) break;
       if (/^\s*Origin\s*:/i.test(L)) break;
       parts.push(L);
       j++;
     }
-    const block = cleanLine(parts.join(" "));
+    const block = stripTrailingPermitTime(cleanLine(parts.join(" ")));
     if (block.length > 1) candidates.push(block);
   }
 
@@ -369,6 +383,7 @@ function extractDestination(text: string): string | null {
   const lines = norm.split("\n").map(cleanLine).filter(Boolean);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (/\[\s*Loaded\s+Route/i.test(line)) continue;
     if (!/^\s*(?:Final\s+)?Destination\s*:/i.test(line)) continue;
     const afterColon = line.replace(/^.*?\b(?:Final\s+)?Destination\s*:/i, "").trim();
     const parts: string[] = [];
@@ -377,11 +392,12 @@ function extractDestination(text: string): string | null {
     while (j < lines.length) {
       const L = lines[j];
       if (DEST_BLOCK_STOP.test(L)) break;
+      if (isNarrativeBlockBoundary(L)) break;
       if (/^\s*(?:Final\s+)?Destination\s*:/i.test(L)) break;
       parts.push(L);
       j++;
     }
-    const block = cleanLine(parts.join(" "));
+    const block = stripTrailingPermitTime(cleanLine(parts.join(" ")));
     if (block.length > 1) candidates.push(block);
   }
 
@@ -399,8 +415,14 @@ function isNoise(line: string): boolean {
   return false;
 }
 
+/**
+ * TxDMV turn-table header. `pdf-parse` frequently drops the inter-column spaces, so the header
+ * arrives as `MilesRouteToDistanceEst. Time`; tolerate optional whitespace between the words.
+ */
+const TABLE_HEADER_RE = /^\s*Miles\s*Route\s*To/i;
+
 function isTableHeader(line: string): boolean {
-  return /^\s*Miles\s+Route\s+To\b/i.test(line);
+  return TABLE_HEADER_RE.test(line);
 }
 
 function isTableRowStart(line: string): boolean {
@@ -418,12 +440,33 @@ function isLikelyTableContinuation(line: string): boolean {
   return true;
 }
 
+const MANEUVER_VERBS =
+  "Turn left|Turn right|Continue straight|Continue|Merge|Take|Bear left|Bear right|Bear|Arrive|DETOUR";
+
+/**
+ * `pdf-parse` concatenates the turn-table cells with no spaces, e.g.
+ * `0.60US385 nTurn right onto LOOP 1910 se0.6000:00`. Reconstruct the canonical
+ * space-separated row the rest of the parser expects. Idempotent for already-spaced text.
+ */
+function repairTableRowSpacing(line: string): string {
+  let s = cleanLine(line);
+  // 1) Split a glued trailing "<distance><HH:MM>" (e.g. "se0.6000:00" -> "se 0.60 00:00").
+  s = s.replace(/(\d+\.\d{2})(\d{1,2}:\d{2})\s*$/, " $1 $2");
+  // 2) Insert a space before the maneuver verb when glued to the route/direction cell
+  //    (e.g. "nTurn" -> "n Turn", "seBear" -> "se Bear", "eTake" -> "e Take").
+  s = s.replace(new RegExp(`([A-Za-z0-9.\\]])(${MANEUVER_VERBS})\\b`), "$1 $2");
+  // 3) Split the leading miles token from the route cell
+  //    ("0.60US385" -> "0.60 US385", "< 0.1IH20SFR" -> "< 0.1 IH20SFR").
+  s = s.replace(/^(<\s*)?(\d+(?:\.\d+)?)(?=[A-Za-z])/, (_m, lt, num) => `${lt ? "< " : ""}${num} `);
+  return cleanLine(s);
+}
+
 function extractTurnTableBlock(text: string): string[] {
   const lines = normalizeWs(text).split("\n").map(cleanLine);
 
   let hdrIdx = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (/^\s*Miles\s+Route\s+To\b/i.test(lines[i] || "")) {
+    if (isTableHeader(lines[i] || "")) {
       hdrIdx = i;
       break;
     }
@@ -439,19 +482,20 @@ function extractTurnTableBlock(text: string): string[] {
   let milesHeaderSeen = false;
 
   for (let j = start; j < lines.length; j++) {
-    const line = lines[j];
-    if (!line) continue;
-    if (/^\s*Texas\s+Oversize\b/i.test(line)) continue;
-    if (/PAGE\s+\d+\s+of\s+\d+/i.test(line)) continue;
-    if (/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/i.test(line)) continue;
+    const rawLine = lines[j];
+    if (!rawLine) continue;
+    if (/^\s*Texas\s+Oversize\b/i.test(rawLine)) continue;
+    if (/PAGE\s+\d+\s+of\s+\d+/i.test(rawLine)) continue;
+    if (/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/i.test(rawLine)) continue;
 
-    if (/^\s*Miles\s+Route\s+To\b/i.test(line)) {
+    if (isTableHeader(rawLine)) {
       if (milesHeaderSeen) continue;
       milesHeaderSeen = true;
     }
 
-    if (isNoise(line)) continue;
+    if (isNoise(rawLine)) continue;
 
+    const line = repairTableRowSpacing(rawLine);
     out.push(line);
 
     if (/Arrive at destination/i.test(line)) break;
@@ -611,9 +655,9 @@ function expandOriginQueriesWithPlaceHints(queries: string[], hints: string[]): 
   return dedupeStrings(out);
 }
 
-/** Generic Tx permit origin: junction + mile offset, semicolon triples, or state-line phrasing. */
-function parseOriginStructured(origin: string): OriginStructured {
-  const o = normalizeCommonOcrTypos(origin);
+/** Generic Tx permit junction anchor: junction + mile offset, semicolon triples, or state-line phrasing. */
+function parseJunctionStructured(narrative: string): OriginStructured {
+  const o = normalizeCommonOcrTypos(narrative);
   const place_hints = extractOriginPlaceHints(o);
   if (!o) {
     return { mode: "unknown", offset_mi: null, bearing: null, roads: [], place_hints };
@@ -687,7 +731,7 @@ function parseOriginStructured(origin: string): OriginStructured {
   return { mode: "unknown", offset_mi: null, bearing: null, roads: [], place_hints };
 }
 
-function structuredOriginQueries(s: OriginStructured): string[] {
+function structuredJunctionQueries(s: OriginStructured): string[] {
   const q: string[] = [];
   if (s.mode === "junction_offset" && s.roads.length >= 2) {
     const [a, b] = [s.roads[0], s.roads[1]];
@@ -742,13 +786,13 @@ function structuredOriginQueries(s: OriginStructured): string[] {
   return expandOriginQueriesWithPlaceHints(dedupeStrings(q), s.place_hints ?? []);
 }
 
-function collectOriginWarnings(s: OriginStructured): string[] {
+function collectJunctionWarnings(s: OriginStructured, kind: "origin" | "destination"): string[] {
   const w: string[] = [];
   if (s.mode === "junction_offset" && s.roads.length < 2) {
-    w.push("origin_junction_incomplete");
+    w.push(`${kind}_junction_incomplete`);
   }
   if (s.mode === "state_line" && !s.roads.length) {
-    w.push("origin_state_line_no_road");
+    w.push(`${kind}_state_line_no_road`);
   }
   return w;
 }
@@ -793,7 +837,9 @@ function parseManeuver(body: string): string | null {
 
 function parseToRoadAndDir(body: string): { toRoad: string | null; toDir: string | null } {
   const b = normalizeCommonOcrTypos(body).replace(/\b(?:toward|towards)\b/gi, "toward");
-  const m = /\b(?:onto|on|toward)\s+(.+)$/i.exec(b);
+  // Prefer the explicit target after onto/on/toward; otherwise fall back to the road named directly
+  // after a bare "Take"/"Merge" maneuver (e.g. "Take SH137 Ramp se", "Take IH20 Ramp e").
+  const m = /\b(?:onto|on|toward)\s+(.+)$/i.exec(b) || /\b(?:Take|Merge)\s+(.+)$/i.exec(b);
   if (!m) return { toRoad: null, toDir: null };
   const tail = m[1];
   const toRoad = findRoadToken(tail);
@@ -907,9 +953,8 @@ function stepToSegments(step: ParsedStep): SegmentOut[] {
   return out;
 }
 
-async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
-  const parsed = await pdfParse(pdfBytes);
-  const fullText = normalizeWs(parsed?.text || "");
+export function parsePermitText(rawText: string): ParseResult {
+  const fullText = normalizeWs(rawText || "");
   const permit_number = extractPermitNumber(fullText);
 
   const parse_text = fullText;
@@ -918,7 +963,7 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
 
   const rows = extractTurnTableBlock(fullText)
     .filter((line) => {
-      if (/^\s*Miles\s+Route\s+To\b/i.test(line)) return false;
+      if (isTableHeader(line)) return false;
       if (/^\s*Origin\s*:/i.test(line)) return false;
       const norm = normalizeHyphensForMatching(normalizeCommonOcrTypos(line)).replace(
         /\bTurn\s+leit\b/gi,
@@ -955,15 +1000,20 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
     }
   }
 
-  const origin_structured = origin_text ? parseOriginStructured(origin_text) : null;
+  const origin_structured = origin_text ? parseJunctionStructured(origin_text) : null;
   if (origin_structured) {
-    warnings.push(...collectOriginWarnings(origin_structured));
+    warnings.push(...collectJunctionWarnings(origin_structured, "origin"));
+  }
+
+  const destination_structured = destination_text ? parseJunctionStructured(destination_text) : null;
+  if (destination_structured) {
+    warnings.push(...collectJunctionWarnings(destination_structured, "destination"));
   }
 
   const narrativeOrigin = origin_text;
 
   if (narrativeOrigin) {
-    const structuredQ = origin_structured ? structuredOriginQueries(origin_structured) : [];
+    const structuredQ = origin_structured ? structuredJunctionQueries(origin_structured) : [];
     const originRoad = findRoadToken(narrativeOrigin);
     const fullO = narrativeOrigin.trim();
     const originPrimary = cleanLine(
@@ -1001,14 +1051,19 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
   }
 
   if (destination_text) {
+    const structuredQ = destination_structured ? structuredJunctionQueries(destination_structured) : [];
     const destinationRoad = findRoadToken(destination_text);
     const fullD = destination_text.trim();
-    const destPrimary = (destinationRoad || fullD.slice(0, 96).trim()).trim();
+    const destPrimary = cleanLine(
+      destination_structured?.loaded_route_road || destinationRoad || fullD.slice(0, 96),
+    );
     segments.push({
       label: "Destination",
       text: destPrimary,
       displayText: `End · ${fullD.slice(0, 220)}`,
+      dir_hint: destination_structured?.bearing || null,
       queries: dedupeStrings([
+        ...structuredQ,
         ...(destinationRoad ? [`${destinationRoad} Texas`, `${destinationRoad} highway Texas`] : []),
         `${fullD} Texas`,
         `${fullD} TX`,
@@ -1068,11 +1123,38 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
     steps,
     segments,
     origin_structured: origin_structured ?? null,
+    destination_structured: destination_structured ?? null,
     warnings,
   };
 }
 
-Deno.serve(async (req) => {
+function corsHeaders(extra: Record<string, string> = {}) {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    ...extra,
+  };
+}
+
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: corsHeaders({ "Content-Type": "application/json" }),
+  });
+}
+
+async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
+  const parsed = await pdfParse(pdfBytes);
+  return parsePermitText(parsed?.text || "");
+}
+
+// Set PARSE_PERMIT_NO_SERVE=1 to import this module for local testing without binding a port.
+if (!Deno.env.get("PARSE_PERMIT_NO_SERVE")) {
+  Deno.serve(handleRequest);
+}
+
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders() });
   }
@@ -1113,4 +1195,4 @@ Deno.serve(async (req) => {
     const msg = e instanceof Error ? e.message : String(e);
     return json(500, { ok: false, error: msg, parser_version: PARSER_VERSION });
   }
-});
+}
