@@ -22,5 +22,6 @@ for (const s of result.steps) {
 }
 console.log(`\nsegments: ${result.segments.length}`);
 for (const seg of result.segments) {
-  console.log(`  [${seg.label}] ${seg.text}  (q0: ${seg.queries[0] ?? "-"})`);
+  const roads = seg.roads ? ` roads=${JSON.stringify(seg.roads)}` : "";
+  console.log(`  [${seg.label}] ${seg.text}${roads}  (q0: ${seg.queries[0] ?? "-"})`);
 }

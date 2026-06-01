@@ -26,6 +26,12 @@ export type SegmentOut = {
   leg_miles_to_next?: number | null;
   /** Same as permit Distance column when parsed (odometer from start of loaded route). */
   cumulative_permit_mi?: number | null;
+  /**
+   * The two highways whose crossing defines this waypoint (origin junction, each turn point, and
+   * the destination junction). The client geocodes these as a verified road×road intersection so
+   * pins land on the actual corridor instead of an arbitrary point on a whole highway.
+   */
+  roads?: string[];
 };
 
 export type OriginStructured = {
@@ -58,7 +64,7 @@ export type ParseResult = {
   warnings: string[];
 };
 
-export const PARSER_VERSION = "tx-turntable-v2.8.0";
+export const PARSER_VERSION = "tx-turntable-v2.9.0";
 
 const ODOMETER_TOLERANCE_MI = 0.2;
 
@@ -891,65 +897,83 @@ function buildStepFromRow(
   };
 }
 
-function stepToSegments(step: ParsedStep): SegmentOut[] {
-  const odo = step.permit_odometer_mi ?? step.cumulative_mi;
-  const odoLabel =
-    odo != null && Number.isFinite(odo) ? ` · ~${odo.toFixed(1)} mi (permit odometer)` : "";
+/** Collapse ramp / service-road qualifiers so "IH 20 Ramp"/"IH 20 SFR" reduce to the mainline "IH 20". */
+function baseHighway(road: string | null): string | null {
+  if (!road) return null;
+  const b = cleanLine(road.replace(/\s+(Ramp|SFR|Service\s+Road|Frontage)\b.*$/i, ""));
+  return b || null;
+}
+
+/** Intersection-style geocode queries for the crossing of two highways `a` and `b`. */
+function buildIntersectionQueries(a: string, b: string): string[] {
+  const q = [
+    `${a} and ${b} intersection Texas`,
+    `${b} and ${a} intersection Texas`,
+    `${a} ${b} junction Texas`,
+  ];
+  const spoken = (road: string, other: string) => {
+    const fm = /^FM\s+(\d{1,4})/i.exec(road);
+    if (fm) q.push(`Farm to Market Road ${fm[1]} and ${other} Texas`);
+    const rm = /^RM\s+(\d{1,4})/i.exec(road);
+    if (rm) q.push(`Ranch Road ${rm[1]} and ${other} Texas`);
+  };
+  spoken(a, b);
+  spoken(b, a);
+  return dedupeStrings(q);
+}
+
+/**
+ * A waypoint at the crossing of the road being left (`a`) and the road being taken (`b`). These
+ * road×road intersections are precise, localizable points in route order — unlike a bare highway
+ * name, which geocodes to one arbitrary point along the whole route.
+ */
+function makeTurnWaypoint(
+  a: string,
+  b: string,
+  dir: string | null,
+  odo: number | null,
+  leg: number | null,
+): SegmentOut {
+  const odoLabel = odo != null && Number.isFinite(odo) ? ` · ~${odo.toFixed(1)} mi` : "";
+  return {
+    label: "Turn",
+    text: `${a} & ${b}`,
+    displayText: cleanLine(`${a} → ${b}${odoLabel}`),
+    roads: [a, b],
+    dir_hint: dir || null,
+    queries: dedupeStrings([
+      ...buildIntersectionQueries(a, b),
+      `${b} ${dir || ""} Texas`.trim(),
+      `${b} highway Texas`,
+      `${b} Texas`,
+    ]),
+    leg_miles_to_next: leg ?? null,
+    cumulative_permit_mi: odo ?? null,
+  };
+}
+
+/**
+ * Reduce the per-row steps to the ordered set of mainline turn points: each time the highway you
+ * are travelling on changes (ignoring ramps/service roads), emit the crossing of the old and new
+ * highway. The odometer carried is the running total at that transition.
+ */
+function buildTurnWaypoints(steps: ParsedStep[]): SegmentOut[] {
   const out: SegmentOut[] = [];
-
-  if (step.from_road) {
-    let queries = dedupeStrings([
-      `${step.from_road} ${step.from_dir || ""} Texas`.trim(),
-      `${step.from_road} highway Texas`,
-      `${step.from_road} Texas`,
-    ]);
-    if (odo != null && Number.isFinite(odo) && odo > 1) {
-      const mi = Math.round(odo * 10) / 10;
-      const spoken = interstateSpoken(step.from_road);
-      queries = dedupeStrings([
-        `${spoken} Texas around mile ${mi}`,
-        `${step.from_road} Texas approximately mile ${mi}`,
-      ]).concat(queries);
+  let prevBase: string | null = null;
+  let prevOdo: number | null = null;
+  for (const st of steps) {
+    const base = baseHighway(st.from_road);
+    const odo = st.permit_odometer_mi ?? st.cumulative_mi;
+    if (!base) {
+      if (odo != null) prevOdo = odo;
+      continue;
     }
-    queries = enrichQueriesForTxRow(queries, step.from_road, step.from_dir, step.raw_row, step.leg_miles);
-    out.push({
-      label: "Route",
-      text: step.from_road,
-      displayText: cleanLine(`${step.from_road}${odoLabel} · ${step.raw_row}`.replace(/\s+·\s+·/g, " · ")),
-      dir_hint: step.from_dir || null,
-      queries,
-      leg_miles_to_next: step.leg_miles,
-      cumulative_permit_mi: odo,
-    });
-  }
-
-  if (step.to_road && step.to_road !== step.from_road) {
-    let queries = dedupeStrings([
-      `${step.to_road} ${step.to_dir || ""} Texas`.trim(),
-      `${step.to_road} highway Texas`,
-      `${step.to_road} Texas`,
-    ]);
-    if (odo != null && Number.isFinite(odo) && odo > 1) {
-      const mi = Math.round(odo * 10) / 10;
-      const spoken = interstateSpoken(step.to_road);
-      queries = dedupeStrings([
-        `${spoken} Texas around mile ${mi}`,
-        `${step.to_road} Texas approximately mile ${mi}`,
-      ]).concat(queries);
+    if (prevBase && base.toLowerCase() !== prevBase.toLowerCase()) {
+      out.push(makeTurnWaypoint(prevBase, base, st.from_dir, prevOdo, st.leg_miles));
     }
-    const dirUse = step.to_dir || step.from_dir || null;
-    queries = enrichQueriesForTxRow(queries, step.to_road, dirUse, step.raw_row, step.leg_miles);
-    out.push({
-      label: "Route",
-      text: step.to_road,
-      displayText: cleanLine(`${step.to_road}${odoLabel} · ${step.raw_row}`.replace(/\s+·\s+·/g, " · ")),
-      dir_hint: dirUse,
-      queries,
-      leg_miles_to_next: step.leg_miles,
-      cumulative_permit_mi: odo,
-    });
+    prevBase = base;
+    if (odo != null) prevOdo = odo;
   }
-
   return out;
 }
 
@@ -986,8 +1010,9 @@ export function parsePermitText(rawText: string): ParseResult {
     if (odometerWarn) warnings.push(odometerWarn);
     cumulative = cumulativeAfter;
     steps.push(step);
-    segments.push(...stepToSegments(step));
   }
+
+  segments.push(...buildTurnWaypoints(steps));
 
   if (!destination_text && steps.length > 0) {
     const last = steps[steps.length - 1];
@@ -1019,11 +1044,16 @@ export function parsePermitText(rawText: string): ParseResult {
     const originPrimary = cleanLine(
       origin_structured?.loaded_route_road || originRoad || fullO.slice(0, 96),
     );
+    const originRoads =
+      origin_structured && origin_structured.roads.length >= 2
+        ? [origin_structured.roads[0], origin_structured.roads[1]]
+        : undefined;
     segments.unshift({
       label: "Origin",
       text: originPrimary,
       displayText: `Start · ${fullO.slice(0, 220)}`,
       dir_hint: origin_structured?.bearing || null,
+      roads: originRoads,
       queries: dedupeStrings([
         ...structuredQ,
         `${fullO} Texas`,
@@ -1057,11 +1087,16 @@ export function parsePermitText(rawText: string): ParseResult {
     const destPrimary = cleanLine(
       destination_structured?.loaded_route_road || destinationRoad || fullD.slice(0, 96),
     );
+    const destRoads =
+      destination_structured && destination_structured.roads.length >= 2
+        ? [destination_structured.roads[0], destination_structured.roads[1]]
+        : undefined;
     segments.push({
       label: "Destination",
       text: destPrimary,
       displayText: `End · ${fullD.slice(0, 220)}`,
       dir_hint: destination_structured?.bearing || null,
+      roads: destRoads,
       queries: dedupeStrings([
         ...structuredQ,
         ...(destinationRoad ? [`${destinationRoad} Texas`, `${destinationRoad} highway Texas`] : []),

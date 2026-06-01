@@ -73,6 +73,14 @@ function readSupabaseParsedSegments(obj) {
       if (dh) row.dirHint = dh;
       if (leg != null) row.legMilesToNext = leg;
       if (cumulative != null) row.cumulativePermitMi = cumulative;
+      if (Array.isArray(s.roads)) {
+        const rds = s.roads
+          .map(function (r) {
+            return String(r || "").trim();
+          })
+          .filter(Boolean);
+        if (rds.length >= 2) row.roads = rds;
+      }
       return row;
     })
     .filter(Boolean);
@@ -1856,6 +1864,75 @@ async function geocodeLoadedOriginIntersection(accessToken, originStructured, pr
   return null;
 }
 
+/** Spoken/expanded forms that help Mapbox & Photon resolve rural FM/RM crossings. */
+function intersectionQueriesForPair(a, b) {
+  const q = [
+    `${a} and ${b} intersection Texas`,
+    `${b} and ${a} intersection Texas`,
+    `${a} ${b} junction Texas`,
+  ];
+  const spoken = function (road, other) {
+    const fm = /^FM\s+(\d{1,4})/i.exec(road);
+    if (fm) q.push(`Farm to Market Road ${fm[1]} and ${other} Texas`);
+    const rm = /^RM\s+(\d{1,4})/i.exec(road);
+    if (rm) q.push(`Ranch Road ${rm[1]} and ${other} Texas`);
+  };
+  spoken(a, b);
+  spoken(b, a);
+  return dedupeStrings(q);
+}
+
+/**
+ * Lightweight road×road intersection geocode for an intermediate turn point. Same dual-road label
+ * verification as the origin, but a small query budget (Mapbox first, a little Photon) so a 15-stop
+ * route stays responsive. `proximityPrior` (previous waypoint) keeps the pin on-corridor and
+ * disambiguates duplicate route numbers across Texas. Returns null if no verified crossing is found.
+ */
+async function geocodeTurnIntersection(accessToken, a, b, proximityPrior) {
+  const ra = String(a || "").trim();
+  const rb = String(b || "").trim();
+  if (!ra || !rb || ra.toLowerCase() === rb.toLowerCase()) return null;
+  const queries = intersectionQueriesForPair(ra, rb);
+  const dualHits = [];
+
+  if (accessToken) {
+    for (let qi = 0; qi < queries.length; qi++) {
+      const feats = await geocodeMapboxPlacesFeatures(queries[qi], accessToken, proximityPrior);
+      for (let fi = 0; fi < feats.length; fi++) {
+        const feat = feats[fi];
+        if (!geocodeLabelReferencesBothRoads(feat.label, ra, rb)) continue;
+        dualHits.push({ lat: feat.lat, lon: feat.lon, label: feat.label, matchedQuery: queries[qi], source: "mapbox" });
+      }
+      if (dualHits.length) break;
+      if (qi < queries.length - 1) await sleep(40);
+    }
+  }
+
+  if (!dualHits.length) {
+    const maxPhoton = Math.min(queries.length, 3);
+    for (let qi = 0; qi < maxPhoton; qi++) {
+      const feats = await geocodePhotonPlacesFeatures(queries[qi], proximityPrior);
+      for (let fi = 0; fi < feats.length; fi++) {
+        const feat = feats[fi];
+        if (!geocodeLabelReferencesBothRoads(feat.label, ra, rb)) continue;
+        dualHits.push({ lat: feat.lat, lon: feat.lon, label: feat.label, matchedQuery: queries[qi], source: "photon" });
+      }
+      if (dualHits.length) break;
+      if (qi < maxPhoton - 1) await sleep(45);
+    }
+  }
+
+  const pick = pickDualRoadHitNearCorridor(dualHits, proximityPrior);
+  if (!pick) return null;
+  return {
+    lat: pick.lat,
+    lon: pick.lon,
+    label: `${ra} & ${rb} (${pick.label || "intersection"})`,
+    source: pick.source || "mapbox",
+    matchedQuery: pick.matchedQuery,
+  };
+}
+
 /**
  * When Mapbox returns several Features for a highway query, re-rank using prior waypoint +
  * permit travel direction so the pin advances along the corridor instead of snapping backward.
@@ -2613,11 +2690,22 @@ function main() {
       resolveOriginIntersectionRoads(originStructured);
     if (canBiasOriginWithSeg2) {
       try {
-        precomputedSeg1Pt = await geocodeSegment(
-          prepareSegmentForGeocode(hints[1]),
-          accessToken,
-          null
-        );
+        const seg2 = hints[1];
+        if (Array.isArray(seg2.roads) && seg2.roads.length >= 2) {
+          precomputedSeg1Pt = await geocodeTurnIntersection(
+            accessToken,
+            seg2.roads[0],
+            seg2.roads[1],
+            null
+          );
+        }
+        if (!precomputedSeg1Pt) {
+          precomputedSeg1Pt = await geocodeSegment(
+            prepareSegmentForGeocode(seg2),
+            accessToken,
+            null
+          );
+        }
       } catch (e) {
         console.warn(e);
       }
@@ -2659,6 +2747,16 @@ function main() {
               accessToken,
               originStructured,
               proximityForOrigin
+            );
+          }
+          // Turn points and the destination carry a road pair — geocode the verified crossing so
+          // the pin lands on the corridor instead of an arbitrary point on a whole highway.
+          if (!pt && Array.isArray(h.roads) && h.roads.length >= 2) {
+            pt = await geocodeTurnIntersection(
+              accessToken,
+              h.roads[0],
+              h.roads[1],
+              proximityPrior
             );
           }
           if (!pt) {
