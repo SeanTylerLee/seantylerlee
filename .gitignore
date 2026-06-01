@@ -1,5 +1,4 @@
 .DS_Store
 
-# Local Deno runtime + npm cache used for testing the parse-permit edge function.
-.tooling/deno/
-.tooling/deno-cache/
+# Local Deno runtime, npm cache, and scratch test harnesses for the parse-permit edge function.
+.tooling/
