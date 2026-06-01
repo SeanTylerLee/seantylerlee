@@ -1933,6 +1933,349 @@ async function geocodeTurnIntersection(accessToken, a, b, proximityPrior) {
   };
 }
 
+/* ============================================================================
+ * Exact intersection resolver via OpenStreetMap road geometry (Overpass).
+ *
+ * Forward geocoders (Mapbox/Photon) resolve a string like "US 385 & SH 115
+ * intersection Texas" to wildly wrong points (often 100s of miles off — they
+ * just match the digits), which is why pins scattered. Instead we pull the
+ * actual road *geometry* from OSM and compute where two highways meet:
+ *   - at-grade crossings  -> the polylines intersect (exact point)
+ *   - interstate ramps    -> the polylines never cross, so take the nearest
+ *                            approach between them (the interchange)
+ * Validated against the NOV permit: US 385×SH 115 = 32.31874,-102.54656
+ * (Andrews), I-20×SH 137 = Stanton, I-20×Spur 156 = Waskom, etc.
+ * Falls back to the existing geocoders for any pair OSM can't resolve.
+ * ==========================================================================*/
+
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
+/** Texas bounding box (south, west, north, east) for statewide ref lookups. */
+const OSM_TX_BBOX = [25.8, -106.7, 36.6, -93.5];
+/** ref token -> array of polylines ([[lat,lon],…]); per-session cache. */
+const OSM_GEOM_CACHE = {};
+
+function isInterstateToken(token) {
+  return /^(?:IH|I|BI)\b/i.test(String(token || "").trim());
+}
+
+/** TxDMV road token (e.g. "SH 115", "IH 20", "SL 323") -> OSM `ref` candidates. */
+function permitRefToOsmCandidates(token) {
+  const parts = String(token || "").trim().split(/\s+/);
+  const kind = (parts[0] || "").toUpperCase();
+  const rest = parts.slice(1).join(" ");
+  const digits = (rest.match(/\d+/) || [""])[0];
+  if (!digits) return [String(token || "").trim()].filter(Boolean);
+  switch (kind) {
+    case "IH":
+    case "I":
+    case "BI":
+      return ["I " + digits];
+    case "US":
+      return ["US " + digits];
+    case "SH":
+    case "TX":
+      return ["TX " + digits];
+    case "FM":
+      return ["FM " + digits, "RM " + digits];
+    case "RM":
+      return ["RM " + digits, "FM " + digits];
+    case "LOOP":
+    case "SL":
+      return ["Loop " + digits];
+    case "SS":
+    case "SP":
+    case "SPUR":
+      return ["Spur " + digits];
+    case "BU":
+    case "BUS":
+      return ["US " + digits + " Business", "Bus US " + digits, "US " + digits];
+    case "CR":
+      return ["CR " + digits];
+    default:
+      return [String(token || "").trim()];
+  }
+}
+
+async function overpassQuery(body) {
+  let lastErr = null;
+  for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
+    try {
+      const res = await fetch(OVERPASS_ENDPOINTS[i], {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: "data=" + encodeURIComponent(body),
+      });
+      if (!res.ok) {
+        lastErr = new Error("Overpass HTTP " + res.status);
+        continue;
+      }
+      return await res.json();
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("Overpass request failed");
+}
+
+async function fetchRefGeometry(token, bbox) {
+  if (OSM_GEOM_CACHE[token]) return OSM_GEOM_CACHE[token];
+  const cands = permitRefToOsmCandidates(token);
+  const s = bbox[0],
+    w = bbox[1],
+    n = bbox[2],
+    e = bbox[3];
+  const union = cands
+    .map(function (r) {
+      return `way["ref"~"(^|;)${r}(;|$)"]["highway"](${s},${w},${n},${e});`;
+    })
+    .join("");
+  const body = `[out:json][timeout:60];(${union});out geom;`;
+  const lines = [];
+  try {
+    const data = await overpassQuery(body);
+    const els = (data && data.elements) || [];
+    for (let k = 0; k < els.length; k++) {
+      const g = els[k].geometry;
+      if (g && g.length > 1) {
+        lines.push(
+          g.map(function (p) {
+            return [p.lat, p.lon];
+          })
+        );
+      }
+    }
+  } catch (e) {
+    console.warn("OSM geometry fetch failed for " + token, e);
+  }
+  OSM_GEOM_CACHE[token] = lines;
+  return lines;
+}
+
+function geomBounds(lines, pad) {
+  let mnY = 90,
+    mnX = 180,
+    mxY = -90,
+    mxX = -180;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    for (let j = 0; j < l.length; j++) {
+      const p = l[j];
+      if (p[0] < mnY) mnY = p[0];
+      if (p[0] > mxY) mxY = p[0];
+      if (p[1] < mnX) mnX = p[1];
+      if (p[1] > mxX) mxX = p[1];
+    }
+  }
+  return [mnY - pad, mnX - pad, mxY + pad, mxX + pad];
+}
+
+function geomCentroid(lines) {
+  let sy = 0,
+    sx = 0,
+    n = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    for (let j = 0; j < l.length; j++) {
+      sy += l[j][0];
+      sx += l[j][1];
+      n++;
+    }
+  }
+  return n ? { lat: sy / n, lon: sx / n } : null;
+}
+
+function lineBounds(line) {
+  let mnY = 90,
+    mnX = 180,
+    mxY = -90,
+    mxX = -180;
+  for (let j = 0; j < line.length; j++) {
+    const p = line[j];
+    if (p[0] < mnY) mnY = p[0];
+    if (p[0] > mxY) mxY = p[0];
+    if (p[1] < mnX) mnX = p[1];
+    if (p[1] > mxX) mxX = p[1];
+  }
+  return [mnY, mnX, mxY, mxX];
+}
+
+function boundsOverlap(a, b, m) {
+  return !(a[2] < b[0] - m || a[0] > b[2] + m || a[3] < b[1] - m || a[1] > b[3] + m);
+}
+
+function segIntersectLL(a1, a2, b1, b2) {
+  const y1 = a1[0],
+    x1 = a1[1],
+    y2 = a2[0],
+    x2 = a2[1],
+    y3 = b1[0],
+    x3 = b1[1],
+    y4 = b2[0],
+    x4 = b2[1];
+  const d = (x2 - x1) * (y4 - y3) - (y2 - y1) * (x4 - x3);
+  if (Math.abs(d) < 1e-12) return null;
+  const t = ((x3 - x1) * (y4 - y3) - (y3 - y1) * (x4 - x3)) / d;
+  const u = ((x3 - x1) * (y2 - y1) - (y3 - y1) * (x2 - x1)) / d;
+  if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+  return { lat: y1 + t * (y2 - y1), lon: x1 + t * (x2 - x1) };
+}
+
+/** All 2-D crossings of two road geometries (line-bbox prefiltered). */
+function polylineCrossings(A, B) {
+  const out = [];
+  const bBounds = B.map(lineBounds);
+  for (let ia = 0; ia < A.length; ia++) {
+    const la = A[ia];
+    const lab = lineBounds(la);
+    for (let ib = 0; ib < B.length; ib++) {
+      if (!boundsOverlap(lab, bBounds[ib], 0.02)) continue;
+      const lb = B[ib];
+      for (let i = 0; i + 1 < la.length; i++) {
+        const ay0 = Math.min(la[i][0], la[i + 1][0]),
+          ay1 = Math.max(la[i][0], la[i + 1][0]),
+          ax0 = Math.min(la[i][1], la[i + 1][1]),
+          ax1 = Math.max(la[i][1], la[i + 1][1]);
+        for (let j = 0; j + 1 < lb.length; j++) {
+          const by0 = Math.min(lb[j][0], lb[j + 1][0]),
+            by1 = Math.max(lb[j][0], lb[j + 1][0]),
+            bx0 = Math.min(lb[j][1], lb[j + 1][1]),
+            bx1 = Math.max(lb[j][1], lb[j + 1][1]);
+          if (ay1 < by0 || ay0 > by1 || ax1 < bx0 || ax0 > bx1) continue;
+          const p = segIntersectLL(la[i], la[i + 1], lb[j], lb[j + 1]);
+          if (p) out.push(p);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** Closest point between two geometries (for ramp-connected interstate interchanges). */
+function nearestApproach(A, B, near) {
+  const inWin = function (p) {
+    return !near || (Math.abs(p[0] - near.lat) < 0.7 && Math.abs(p[1] - near.lon) < 0.7);
+  };
+  let pa = [],
+    pb = [];
+  for (let i = 0; i < A.length; i++)
+    for (let j = 0; j < A[i].length; j++) if (inWin(A[i][j])) pa.push(A[i][j]);
+  for (let i = 0; i < B.length; i++)
+    for (let j = 0; j < B[i].length; j++) if (inWin(B[i][j])) pb.push(B[i][j]);
+  if (!pa.length) for (let i = 0; i < A.length; i++) pa = pa.concat(A[i]);
+  if (!pb.length) for (let i = 0; i < B.length; i++) pb = pb.concat(B[i]);
+  let best = null,
+    bd = Infinity;
+  for (let i = 0; i < pa.length; i++) {
+    for (let j = 0; j < pb.length; j++) {
+      const d = haversineMi(pa[i][0], pa[i][1], pb[j][0], pb[j][1]);
+      if (d < bd) {
+        bd = d;
+        best = { lat: (pa[i][0] + pb[j][0]) / 2, lon: (pa[i][1] + pb[j][1]) / 2 };
+      }
+    }
+  }
+  if (!best) return null;
+  best.gapMi = bd;
+  return best;
+}
+
+/** Resolve the crossing of two road tokens; pick the one nearest `near` (previous waypoint). */
+function resolvePairViaOsm(tokA, tokB, near) {
+  const A = OSM_GEOM_CACHE[tokA];
+  const B = OSM_GEOM_CACHE[tokB];
+  if (!A || !A.length || !B || !B.length) return null;
+  const xs = polylineCrossings(A, B);
+  if (xs.length) {
+    if (near) {
+      xs.sort(function (u, v) {
+        return (
+          haversineMi(u.lat, u.lon, near.lat, near.lon) -
+          haversineMi(v.lat, v.lon, near.lat, near.lon)
+        );
+      });
+    }
+    return { lat: xs[0].lat, lon: xs[0].lon, label: `${tokA} & ${tokB} (OSM)`, source: "osm" };
+  }
+  const na = nearestApproach(A, B, near);
+  if (na && na.gapMi < 1.5) {
+    return { lat: na.lat, lon: na.lon, label: `${tokA} & ${tokB} (OSM jct)`, source: "osm" };
+  }
+  return null;
+}
+
+/**
+ * Resolve every road×road waypoint of the route to an exact coordinate using OSM geometry.
+ * Returns an array aligned with `hints` (null where unresolved). Non-interstate refs are pulled
+ * statewide; interstates are pulled only within the resulting corridor box (bounded + fast).
+ * Disambiguates duplicate route numbers by chaining: each crossing is the one nearest the
+ * previously resolved waypoint.
+ */
+async function resolveRouteViaOsm(hints, onProgress) {
+  try {
+    const pairs = hints.map(function (h) {
+      return Array.isArray(h.roads) && h.roads.length >= 2 ? [h.roads[0], h.roads[1]] : null;
+    });
+    const tokens = [];
+    for (let i = 0; i < pairs.length; i++) {
+      if (!pairs[i]) continue;
+      for (let k = 0; k < 2; k++) if (tokens.indexOf(pairs[i][k]) < 0) tokens.push(pairs[i][k]);
+    }
+    if (!tokens.length) return [];
+
+    const nonInter = tokens.filter(function (t) {
+      return !isInterstateToken(t);
+    });
+    const inter = tokens.filter(isInterstateToken);
+
+    let done = 0;
+    const total = tokens.length;
+    for (let i = 0; i < nonInter.length; i++) {
+      done++;
+      if (onProgress) onProgress(`Locating roads (OpenStreetMap) ${done}/${total}…`);
+      await fetchRefGeometry(nonInter[i], OSM_TX_BBOX);
+      await sleep(150);
+    }
+
+    const nonGeom = [];
+    for (let i = 0; i < nonInter.length; i++) {
+      const g = OSM_GEOM_CACHE[nonInter[i]];
+      if (g && g.length) for (let j = 0; j < g.length; j++) nonGeom.push(g[j]);
+    }
+    const corridor = nonGeom.length ? geomBounds(nonGeom, 0.6) : OSM_TX_BBOX;
+    const corridorCentroid = nonGeom.length ? geomCentroid(nonGeom) : null;
+
+    for (let i = 0; i < inter.length; i++) {
+      done++;
+      if (onProgress) onProgress(`Locating roads (OpenStreetMap) ${done}/${total}…`);
+      await fetchRefGeometry(inter[i], corridor);
+      await sleep(150);
+    }
+
+    const out = new Array(hints.length).fill(null);
+    let prev = null;
+    for (let i = 0; i < hints.length; i++) {
+      const p = pairs[i];
+      if (!p) continue;
+      const near = prev || corridorCentroid;
+      const pt = resolvePairViaOsm(p[0], p[1], near);
+      if (pt) {
+        out[i] = pt;
+        prev = { lat: pt.lat, lon: pt.lon };
+      }
+    }
+    return out;
+  } catch (e) {
+    console.warn("OSM route resolve failed", e);
+    return [];
+  }
+}
+
 /**
  * When Mapbox returns several Features for a highway query, re-rank using prior waypoint +
  * permit travel direction so the pin advances along the corridor instead of snapping backward.
@@ -2677,6 +3020,24 @@ function main() {
 
     const accessToken = window.MAPBOX_ACCESS_TOKEN || "";
 
+    // Resolve every road×road waypoint to an exact coordinate from OSM road geometry first.
+    // This is the precise path; forward geocoders are only a fallback for pairs OSM can't resolve.
+    showRouteProgress("Locating roads (OpenStreetMap)…");
+    let osmPts = [];
+    try {
+      osmPts = (await resolveRouteViaOsm(hints, showRouteProgress)) || [];
+    } catch (e) {
+      console.warn(e);
+      osmPts = [];
+    }
+    if (generation !== runGeneration) {
+      return { coords: [], enriched: [], aborted: true, routeProvider: null };
+    }
+    const osmHit = function (i) {
+      const p = osmPts[i];
+      return p && typeof p.lat === "number" && typeof p.lon === "number" ? p : null;
+    };
+
     showRouteProgress("Geocoding…");
     const enriched = [];
     const coords = [];
@@ -2684,6 +3045,7 @@ function main() {
     let proximityPrior = null;
     let precomputedSeg1Pt = null;
     const canBiasOriginWithSeg2 =
+      !osmHit(0) &&
       hints.length >= 2 &&
       accessToken &&
       originStructured &&
@@ -2733,7 +3095,11 @@ function main() {
 
       let pt = null;
       try {
-        if (i === 1 && precomputedSeg1Pt) {
+        const exact = osmHit(i);
+        if (exact) {
+          pt = exact;
+          if (i === 1) precomputedSeg1Pt = null;
+        } else if (i === 1 && precomputedSeg1Pt) {
           pt = precomputedSeg1Pt;
           precomputedSeg1Pt = null;
         } else {
