@@ -2057,38 +2057,128 @@ async function overpassQuery(body) {
 }
 
 async function fetchRefGeometry(token, bbox) {
-  if (OSM_GEOM_CACHE[token]) return OSM_GEOM_CACHE[token];
-  const cands = permitRefToOsmCandidates(token);
+  await fetchRefsGeometryBatch([token], bbox);
+  return OSM_GEOM_CACHE[token] || [];
+}
+
+/** Lightweight shared-node lookup — fast for at-grade crossings (returns lat/lon nodes). */
+async function fetchSharedNodes(tokA, tokB, bbox) {
+  const candsA = permitRefToOsmCandidates(tokA);
+  const candsB = permitRefToOsmCandidates(tokB);
   const s = bbox[0],
     w = bbox[1],
     n = bbox[2],
     e = bbox[3];
-  const union = cands
+  const unionA = candsA
     .map(function (r) {
-      return `way["ref"~"(^|;)${r}(;|$)"]["highway"](${s},${w},${n},${e});`;
+      return `way["ref"~"(^|;)${r}(;|$)"](${s},${w},${n},${e});`;
     })
     .join("");
-  const body = `[out:json][timeout:60];(${union});out geom;`;
-  const lines = [];
+  const unionB = candsB
+    .map(function (r) {
+      return `way["ref"~"(^|;)${r}(;|$)"](${s},${w},${n},${e});`;
+    })
+    .join("");
+  const body = `[out:json][timeout:45];(${unionA});node(w)->.a;(${unionB});node(w)->.b;node.a.b;out 12;`;
   try {
     const data = await overpassQuery(body);
     const els = (data && data.elements) || [];
+    const out = [];
     for (let k = 0; k < els.length; k++) {
-      const g = els[k].geometry;
-      if (g && g.length > 1) {
-        lines.push(
-          g.map(function (p) {
-            return [p.lat, p.lon];
-          })
-        );
+      const el = els[k];
+      if (el.type === "node" && typeof el.lat === "number" && typeof el.lon === "number") {
+        out.push({ lat: el.lat, lon: el.lon });
       }
     }
+    return out;
   } catch (e) {
-    console.warn("OSM geometry fetch failed for " + token, e);
+    console.warn("OSM shared-node lookup failed for " + tokA + " x " + tokB, e);
+    return [];
   }
-  OSM_GEOM_CACHE[token] = lines;
-  return lines;
 }
+
+function wayRefMatchesToken(refTag, token) {
+  const cands = permitRefToOsmCandidates(token);
+  const parts = String(refTag || "").split(";");
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i].trim();
+    for (let j = 0; j < cands.length; j++) {
+      if (part === cands[j]) return true;
+    }
+  }
+  return false;
+}
+
+/** Fetch geometry for several refs in one Overpass round-trip within `bbox`. */
+async function fetchRefsGeometryBatch(tokens, bbox) {
+  const need = tokens.filter(function (t) {
+    return !OSM_GEOM_CACHE[t] || !OSM_GEOM_CACHE[t].length;
+  });
+  if (!need.length) return;
+
+  const s = bbox[0],
+    w = bbox[1],
+    n = bbox[2],
+    e = bbox[3];
+  let union = "";
+  for (let i = 0; i < need.length; i++) {
+    const cands = permitRefToOsmCandidates(need[i]);
+    for (let j = 0; j < cands.length; j++) {
+      union += `way["ref"~"(^|;)${cands[j]}(;|$)"]["highway"](${s},${w},${n},${e});`;
+    }
+  }
+  if (!union) return;
+
+  const body = `[out:json][timeout:90];(${union});out geom;`;
+  try {
+    const data = await overpassQuery(body);
+    const els = (data && data.elements) || [];
+    const bucket = {};
+    for (let i = 0; i < need.length; i++) bucket[need[i]] = [];
+
+    for (let k = 0; k < els.length; k++) {
+      const el = els[k];
+      const g = el.geometry;
+      const refTag = el.tags && el.tags.ref;
+      if (!g || g.length < 2 || !refTag) continue;
+      const line = g.map(function (p) {
+        return [p.lat, p.lon];
+      });
+      for (let i = 0; i < need.length; i++) {
+        if (wayRefMatchesToken(refTag, need[i])) bucket[need[i]].push(line);
+      }
+    }
+
+    for (let i = 0; i < need.length; i++) {
+      OSM_GEOM_CACHE[need[i]] = bucket[need[i]] || [];
+    }
+  } catch (e) {
+    console.warn("OSM batch geometry fetch failed", e);
+    for (let i = 0; i < need.length; i++) {
+      if (!OSM_GEOM_CACHE[need[i]]) OSM_GEOM_CACHE[need[i]] = [];
+    }
+  }
+}
+
+function maxRouteMilesFromHints(hints) {
+  let max = 0;
+  for (let i = 0; i < hints.length; i++) {
+    const m = hints[i].cumulativePermitMi;
+    if (m != null && !isNaN(m) && m > max) max = m;
+  }
+  return max > 0 ? max : 600;
+}
+
+/** Rough eastbound corridor box from a seed point and permit odometer miles. */
+function corridorBboxFromSeed(seed, routeMiles) {
+  const latPad = 0.35;
+  const lonWest = 0.35;
+  const lonEast = routeMiles / 58 + 0.45;
+  return [seed.lat - latPad, seed.lon - lonWest, seed.lat + latPad, seed.lon + lonEast];
+}
+
+/** Default west→east Texas corridor when we have no seed yet. */
+const OSM_WEST_TX_BBOX = [31.5, -106.7, 33.5, -93.5];
 
 function geomBounds(lines, pad) {
   let mnY = 90,
@@ -2243,11 +2333,12 @@ function resolvePairViaOsm(tokA, tokB, near) {
 }
 
 /**
- * Resolve every road×road waypoint of the route to an exact coordinate using OSM geometry.
- * Returns an array aligned with `hints` (null where unresolved). Non-interstate refs are pulled
- * statewide; interstates are pulled only within the resulting corridor box (bounded + fast).
- * Disambiguates duplicate route numbers by chaining: each crossing is the one nearest the
- * previously resolved waypoint.
+ * Resolve every road×road waypoint to an exact coordinate using OSM geometry.
+ *
+ * Fast path (typically ~10–25s instead of minutes):
+ *   1) One shared-node query seeds the corridor from the origin pair.
+ *   2) One batched geometry query pulls every highway in a tight corridor box.
+ *   3) All crossings are computed locally in milliseconds.
  */
 async function resolveRouteViaOsm(hints, onProgress) {
   try {
@@ -2261,42 +2352,58 @@ async function resolveRouteViaOsm(hints, onProgress) {
     }
     if (!tokens.length) return [];
 
-    const nonInter = tokens.filter(function (t) {
-      return !isInterstateToken(t);
-    });
-    const inter = tokens.filter(isInterstateToken);
+    const routeMiles = maxRouteMilesFromHints(hints);
+    let seed = null;
 
-    let done = 0;
-    const total = tokens.length;
-    for (let i = 0; i < nonInter.length; i++) {
-      done++;
-      if (onProgress) onProgress(`Locating roads (OpenStreetMap) ${done}/${total}…`);
-      await fetchRefGeometry(nonInter[i], OSM_TX_BBOX);
-      await sleep(150);
+    if (onProgress) onProgress("Locating start (OpenStreetMap)…");
+    const firstPair = pairs.find(Boolean);
+    if (firstPair) {
+      const nodes = await fetchSharedNodes(firstPair[0], firstPair[1], OSM_TX_BBOX);
+      if (nodes.length) seed = nodes[0];
     }
 
-    const nonGeom = [];
-    for (let i = 0; i < nonInter.length; i++) {
-      const g = OSM_GEOM_CACHE[nonInter[i]];
-      if (g && g.length) for (let j = 0; j < g.length; j++) nonGeom.push(g[j]);
-    }
-    const corridor = nonGeom.length ? geomBounds(nonGeom, 0.6) : OSM_TX_BBOX;
-    const corridorCentroid = nonGeom.length ? geomCentroid(nonGeom) : null;
+    const corridor = seed
+      ? corridorBboxFromSeed(seed, routeMiles)
+      : OSM_WEST_TX_BBOX;
 
-    for (let i = 0; i < inter.length; i++) {
-      done++;
-      if (onProgress) onProgress(`Locating roads (OpenStreetMap) ${done}/${total}…`);
-      await fetchRefGeometry(inter[i], corridor);
-      await sleep(150);
-    }
+    if (onProgress) onProgress("Loading route corridor (OpenStreetMap)…");
+    await fetchRefsGeometryBatch(tokens, corridor);
+
+    const corridorCentroid = seed || geomCentroid(
+      tokens
+        .map(function (t) {
+          return OSM_GEOM_CACHE[t];
+        })
+        .filter(function (g) {
+          return g && g.length;
+        })
+        .reduce(function (acc, g) {
+          return acc.concat(g);
+        }, [])
+    );
 
     const out = new Array(hints.length).fill(null);
-    let prev = null;
+    let prev = seed ? { lat: seed.lat, lon: seed.lon } : null;
+
     for (let i = 0; i < hints.length; i++) {
       const p = pairs[i];
       if (!p) continue;
       const near = prev || corridorCentroid;
-      const pt = resolvePairViaOsm(p[0], p[1], near);
+      let pt = resolvePairViaOsm(p[0], p[1], near);
+
+      // At-grade fallback when batch geometry missed a crossing.
+      if (!pt && near) {
+        const pad = 0.45;
+        const localBox = [
+          near.lat - pad,
+          near.lon - pad,
+          near.lat + pad,
+          near.lon + pad,
+        ];
+        await fetchRefsGeometryBatch([p[0], p[1]], localBox);
+        pt = resolvePairViaOsm(p[0], p[1], near);
+      }
+
       if (pt) {
         out[i] = pt;
         prev = { lat: pt.lat, lon: pt.lon };
@@ -3071,108 +3178,20 @@ function main() {
       return p && typeof p.lat === "number" && typeof p.lon === "number" ? p : null;
     };
 
-    showRouteProgress("Geocoding…");
     const enriched = [];
     const coords = [];
-    /** Bias each highway hit toward the previous stop so IH/US rows advance along the corridor. */
-    let proximityPrior = null;
-    let precomputedSeg1Pt = null;
-    const canBiasOriginWithSeg2 =
-      !osmHit(0) &&
-      hints.length >= 2 &&
-      accessToken &&
-      originStructured &&
-      resolveOriginIntersectionRoads(originStructured);
-    if (canBiasOriginWithSeg2) {
-      try {
-        const seg2 = hints[1];
-        if (Array.isArray(seg2.roads) && seg2.roads.length >= 2) {
-          precomputedSeg1Pt = await geocodeTurnIntersection(
-            accessToken,
-            seg2.roads[0],
-            seg2.roads[1],
-            null
-          );
-        }
-        if (!precomputedSeg1Pt) {
-          precomputedSeg1Pt = await geocodeSegment(
-            prepareSegmentForGeocode(seg2),
-            accessToken,
-            null
-          );
-        }
-      } catch (e) {
-        console.warn(e);
-      }
-    }
-    const proximityForOrigin =
-      precomputedSeg1Pt &&
-      typeof precomputedSeg1Pt.lat === "number" &&
-      typeof precomputedSeg1Pt.lon === "number"
-        ? { lat: precomputedSeg1Pt.lat, lon: precomputedSeg1Pt.lon }
-        : null;
+    const allOsmResolved =
+      hints.length > 0 &&
+      hints.every(function (_, i) {
+        return osmHit(i);
+      });
 
-    for (let i = 0; i < hints.length; i++) {
-      if (generation !== runGeneration) {
-        return { coords: [], enriched: [], aborted: true, routeProvider: null };
-      }
-
-      if (i > 0) await sleep(GEO_DELAY_MS);
-
-      const h = hints[i];
-      showRouteProgress(
-        `Geocoding ${i + 1}/${hints.length}: ${hintDisplay(h)}…`
-      );
-
-      const geoHint = prepareSegmentForGeocode(h);
-
-      let pt = null;
-      try {
-        const exact = osmHit(i);
-        if (exact) {
-          pt = exact;
-          if (i === 1) precomputedSeg1Pt = null;
-        } else if (i === 1 && precomputedSeg1Pt) {
-          pt = precomputedSeg1Pt;
-          precomputedSeg1Pt = null;
-        } else {
-          const isFirstOrigin =
-            i === 0 &&
-            String(h.label || "")
-              .trim()
-              .toLowerCase() === "origin";
-          if (isFirstOrigin && originStructured) {
-            pt = await geocodeLoadedOriginIntersection(
-              accessToken,
-              originStructured,
-              proximityForOrigin
-            );
-          }
-          // Turn points and the destination carry a road pair — geocode the verified crossing so
-          // the pin lands on the corridor instead of an arbitrary point on a whole highway.
-          if (!pt && Array.isArray(h.roads) && h.roads.length >= 2) {
-            pt = await geocodeTurnIntersection(
-              accessToken,
-              h.roads[0],
-              h.roads[1],
-              proximityPrior
-            );
-          }
-          if (!pt) {
-            pt = await geocodeSegment(geoHint, accessToken, proximityPrior);
-          }
-        }
-      } catch (e) {
-        console.warn(e);
-      }
-
-      if (generation !== runGeneration) {
-        return { coords: [], enriched: [], aborted: true, routeProvider: null };
-      }
-
-      if (pt) {
+    if (allOsmResolved) {
+      showRouteProgress("Plotting exact route…");
+      for (let i = 0; i < hints.length; i++) {
+        const pt = osmHit(i);
+        const h = hints[i];
         coords.push({ lat: pt.lat, lon: pt.lon });
-        proximityPrior = { lon: pt.lon, lat: pt.lat };
         enriched.push({
           ...h,
           lat: pt.lat,
@@ -3180,11 +3199,122 @@ function main() {
           geocodeOk: true,
           includeInRoute: true,
           geocodeLabel: pt.label,
-          geocodeSource: pt.source || "?",
-          geocodeQuery: pt.matchedQuery || null,
+          geocodeSource: pt.source || "osm",
+          geocodeQuery: null,
         });
-      } else {
-        enriched.push({ ...h, geocodeOk: false, includeInRoute: false });
+      }
+    } else {
+      showRouteProgress("Geocoding…");
+      /** Bias each highway hit toward the previous stop so IH/US rows advance along the corridor. */
+      let proximityPrior = null;
+      let precomputedSeg1Pt = null;
+      const canBiasOriginWithSeg2 =
+        !osmHit(0) &&
+        hints.length >= 2 &&
+        accessToken &&
+        originStructured &&
+        resolveOriginIntersectionRoads(originStructured);
+      if (canBiasOriginWithSeg2) {
+        try {
+          const seg2 = hints[1];
+          if (Array.isArray(seg2.roads) && seg2.roads.length >= 2) {
+            precomputedSeg1Pt = await geocodeTurnIntersection(
+              accessToken,
+              seg2.roads[0],
+              seg2.roads[1],
+              null
+            );
+          }
+          if (!precomputedSeg1Pt) {
+            precomputedSeg1Pt = await geocodeSegment(
+              prepareSegmentForGeocode(seg2),
+              accessToken,
+              null
+            );
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+      const proximityForOrigin =
+        precomputedSeg1Pt &&
+        typeof precomputedSeg1Pt.lat === "number" &&
+        typeof precomputedSeg1Pt.lon === "number"
+          ? { lat: precomputedSeg1Pt.lat, lon: precomputedSeg1Pt.lon }
+          : null;
+
+      for (let i = 0; i < hints.length; i++) {
+        if (generation !== runGeneration) {
+          return { coords: [], enriched: [], aborted: true, routeProvider: null };
+        }
+
+        if (i > 0) await sleep(GEO_DELAY_MS);
+
+        const h = hints[i];
+        showRouteProgress(
+          `Geocoding ${i + 1}/${hints.length}: ${hintDisplay(h)}…`
+        );
+
+        const geoHint = prepareSegmentForGeocode(h);
+
+        let pt = null;
+        try {
+          const exact = osmHit(i);
+          if (exact) {
+            pt = exact;
+            if (i === 1) precomputedSeg1Pt = null;
+          } else if (i === 1 && precomputedSeg1Pt) {
+            pt = precomputedSeg1Pt;
+            precomputedSeg1Pt = null;
+          } else {
+            const isFirstOrigin =
+              i === 0 &&
+              String(h.label || "")
+                .trim()
+                .toLowerCase() === "origin";
+            if (isFirstOrigin && originStructured) {
+              pt = await geocodeLoadedOriginIntersection(
+                accessToken,
+                originStructured,
+                proximityForOrigin
+              );
+            }
+            if (!pt && Array.isArray(h.roads) && h.roads.length >= 2) {
+              pt = await geocodeTurnIntersection(
+                accessToken,
+                h.roads[0],
+                h.roads[1],
+                proximityPrior
+              );
+            }
+            if (!pt) {
+              pt = await geocodeSegment(geoHint, accessToken, proximityPrior);
+            }
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+
+        if (generation !== runGeneration) {
+          return { coords: [], enriched: [], aborted: true, routeProvider: null };
+        }
+
+        if (pt) {
+          coords.push({ lat: pt.lat, lon: pt.lon });
+          proximityPrior = { lon: pt.lon, lat: pt.lat };
+          enriched.push({
+            ...h,
+            lat: pt.lat,
+            lon: pt.lon,
+            geocodeOk: true,
+            includeInRoute: true,
+            geocodeLabel: pt.label,
+            geocodeSource: pt.source || "?",
+            geocodeQuery: pt.matchedQuery || null,
+          });
+        } else {
+          enriched.push({ ...h, geocodeOk: false, includeInRoute: false });
+        }
       }
     }
 
