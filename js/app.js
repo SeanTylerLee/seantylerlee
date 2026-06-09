@@ -182,7 +182,7 @@ const ROUTE_PATTERNS = [
   { label: "State Spur", re: /\bSS\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
   /** Spur markers in detours, e.g. SP317 */
   { label: "Spur", re: /\bSP\s*[-–]?\s*0*(\d{1,3})([A-Za-z]*)\b/gi },
-  /** Business US / business route, e.g. BU0287P */
+  /** Business US / business route */
   { label: "Business US", re: /\b(?:BU|BUS)\s*[-–]?\s*0*(\d{1,4})([A-Za-z]*)\b/gi },
 ];
 
@@ -815,7 +815,7 @@ function normalizeHyphensForMatching(line) {
     });
 }
 
-/** Canonical key so we can merge repeated IH 20 / US 385 rows */
+/** Canonical key so we can merge repeated highway rows */
 function normalizeRouteKey(text) {
   if (!text) return "";
   const s = normalizePrintedRouteToken(text).replace(/\s+/g, " ").trim().toLowerCase();
@@ -1167,7 +1167,7 @@ function coalescePermitRouteLines(routeText) {
 }
 
 /**
- * One turn-by-turn row: segment mileage column + "US385 n Turn … onto LOOP 1910 se".
+ * One turn-by-turn row: segment mileage column + "<route> <dir> Turn … onto <route> <dir>".
  * Direction after each road token applies to that road only (not a global pending dir).
  * @param cumulativeAfterRow — approximate miles from start along permit odometer column after this leg
  */
@@ -1936,15 +1936,15 @@ async function geocodeTurnIntersection(accessToken, a, b, proximityPrior) {
 /* ============================================================================
  * Exact intersection resolver via OpenStreetMap road geometry (Overpass).
  *
- * Forward geocoders (Mapbox/Photon) resolve a string like "US 385 & SH 115
+ * Forward geocoders (Mapbox/Photon) resolve a string like a highway-to-highway
  * intersection Texas" to wildly wrong points (often 100s of miles off — they
  * just match the digits), which is why pins scattered. Instead we pull the
  * actual road *geometry* from OSM and compute where two highways meet:
  *   - at-grade crossings  -> the polylines intersect (exact point)
  *   - interstate ramps    -> the polylines never cross, so take the nearest
  *                            approach between them (the interchange)
- * Validated against the NOV permit: US 385×SH 115 = 32.31874,-102.54656
- * (Andrews), I-20×SH 137 = Stanton, I-20×Spur 156 = Waskom, etc.
+ * Route geometry is resolved from highway refs and permit order, not from any
+ * example permit or fixed city-to-city corridor.
  * Falls back to the existing geocoders for any pair OSM can't resolve.
  * ==========================================================================*/
 
@@ -1964,7 +1964,7 @@ function isInterstateToken(token) {
   return /^(?:IH|I|BI)\b/i.test(String(token || "").trim());
 }
 
-/** TxDMV road token (e.g. "SH 115", "IH 20", "SL 323") -> OSM `ref` candidates. */
+/** TxDMV road token (SH/IH/FM/etc.) -> OSM `ref` candidates. */
 function permitRefToOsmCandidates(token) {
   const parts = String(token || "").trim().split(/\s+/);
   const kind = (parts[0] || "").toUpperCase();
@@ -1974,8 +1974,9 @@ function permitRefToOsmCandidates(token) {
   switch (kind) {
     case "IH":
     case "I":
-    case "BI":
       return ["I " + digits];
+    case "BI":
+      return ["I " + digits + " Business", "Bus I " + digits, "I " + digits];
     case "US":
       return ["US " + digits];
     case "SH":
@@ -2110,9 +2111,9 @@ function wayRefMatchesToken(refTag, token) {
 }
 
 /** Fetch geometry for several refs in one Overpass round-trip within `bbox`. */
-async function fetchRefsGeometryBatch(tokens, bbox) {
+async function fetchRefsGeometryBatch(tokens, bbox, force) {
   const need = tokens.filter(function (t) {
-    return !OSM_GEOM_CACHE[t] || !OSM_GEOM_CACHE[t].length;
+    return force || !OSM_GEOM_CACHE[t] || !OSM_GEOM_CACHE[t].length;
   });
   if (!need.length) return;
 
@@ -2150,7 +2151,8 @@ async function fetchRefsGeometryBatch(tokens, bbox) {
     }
 
     for (let i = 0; i < need.length; i++) {
-      OSM_GEOM_CACHE[need[i]] = bucket[need[i]] || [];
+      const existing = force && OSM_GEOM_CACHE[need[i]] ? OSM_GEOM_CACHE[need[i]] : [];
+      OSM_GEOM_CACHE[need[i]] = existing.concat(bucket[need[i]] || []);
     }
   } catch (e) {
     console.warn("OSM batch geometry fetch failed", e);
@@ -2169,16 +2171,60 @@ function maxRouteMilesFromHints(hints) {
   return max > 0 ? max : 600;
 }
 
-/** Rough eastbound corridor box from a seed point and permit odometer miles. */
-function corridorBboxFromSeed(seed, routeMiles) {
-  const latPad = 0.35;
-  const lonWest = 0.35;
-  const lonEast = routeMiles / 58 + 0.45;
-  return [seed.lat - latPad, seed.lon - lonWest, seed.lat + latPad, seed.lon + lonEast];
+/** Clamp a bbox to Texas so broad all-direction searches stay bounded. */
+function clampTexasBbox(bbox) {
+  return [
+    Math.max(OSM_TX_BBOX[0], bbox[0]),
+    Math.max(OSM_TX_BBOX[1], bbox[1]),
+    Math.min(OSM_TX_BBOX[2], bbox[2]),
+    Math.min(OSM_TX_BBOX[3], bbox[3]),
+  ];
 }
 
-/** Default west→east Texas corridor when we have no seed yet. */
-const OSM_WEST_TX_BBOX = [31.5, -106.7, 33.5, -93.5];
+/**
+ * Direction-neutral corridor from a known start point and total permit miles.
+ * This may be wider than a route-specific corridor, but it works for north,
+ * south, east, west, diagonal, and backtracking Texas routes.
+ */
+function corridorBboxFromSeed(seed, routeMiles) {
+  const miles = Math.max(50, Math.min(Number(routeMiles) || 600, 900));
+  const latPad = miles / 69 + 0.45;
+  const lonPad = miles / Math.max(45, 69 * Math.cos((seed.lat * Math.PI) / 180)) + 0.45;
+  return clampTexasBbox([seed.lat - latPad, seed.lon - lonPad, seed.lat + latPad, seed.lon + lonPad]);
+}
+
+function bboxAroundPointMiles(point, miles) {
+  const m = Math.max(12, Math.min(Number(miles) || 80, 650));
+  const latPad = m / 69 + 0.12;
+  const lonPad = m / Math.max(45, 69 * Math.cos((point.lat * Math.PI) / 180)) + 0.12;
+  return clampTexasBbox([point.lat - latPad, point.lon - lonPad, point.lat + latPad, point.lon + lonPad]);
+}
+
+function numericHintOdometer(h) {
+  const v = h && h.cumulativePermitMi;
+  return v != null && !isNaN(Number(v)) ? Number(v) : null;
+}
+
+function resetOsmGeometryCache() {
+  for (const k in OSM_GEOM_CACHE) delete OSM_GEOM_CACHE[k];
+}
+
+function unambiguousSeedFromNodes(nodes) {
+  if (!nodes.length) return null;
+  let lat = 0;
+  let lon = 0;
+  for (let i = 0; i < nodes.length; i++) {
+    lat += nodes[i].lat;
+    lon += nodes[i].lon;
+  }
+  const center = { lat: lat / nodes.length, lon: lon / nodes.length };
+  for (let i = 0; i < nodes.length; i++) {
+    if (haversineMi(center.lat, center.lon, nodes[i].lat, nodes[i].lon) > 2) {
+      return null;
+    }
+  }
+  return center;
+}
 
 function geomBounds(lines, pad) {
   let mnY = 90,
@@ -2335,13 +2381,17 @@ function resolvePairViaOsm(tokA, tokB, near) {
 /**
  * Resolve every road×road waypoint to an exact coordinate using OSM geometry.
  *
- * Fast path (typically ~10–25s instead of minutes):
- *   1) One shared-node query seeds the corridor from the origin pair.
- *   2) One batched geometry query pulls every highway in a tight corridor box.
- *   3) All crossings are computed locally in milliseconds.
+ * Strategy:
+ *   1) Seed from the origin road pair when it is unambiguous.
+ *   2) Walk the permit in order.
+ *   3) For each waypoint, fetch only that road pair near the previous resolved point.
+ *
+ * This avoids route-specific direction assumptions and avoids one huge Texas-wide
+ * geometry query that can time out.
  */
 async function resolveRouteViaOsm(hints, onProgress) {
   try {
+    resetOsmGeometryCache();
     const pairs = hints.map(function (h) {
       return Array.isArray(h.roads) && h.roads.length >= 2 ? [h.roads[0], h.roads[1]] : null;
     });
@@ -2352,61 +2402,54 @@ async function resolveRouteViaOsm(hints, onProgress) {
     }
     if (!tokens.length) return [];
 
-    const routeMiles = maxRouteMilesFromHints(hints);
     let seed = null;
 
     if (onProgress) onProgress("Locating start (OpenStreetMap)…");
     const firstPair = pairs.find(Boolean);
     if (firstPair) {
       const nodes = await fetchSharedNodes(firstPair[0], firstPair[1], OSM_TX_BBOX);
-      if (nodes.length) seed = nodes[0];
+      seed = unambiguousSeedFromNodes(nodes);
     }
-
-    const corridor = seed
-      ? corridorBboxFromSeed(seed, routeMiles)
-      : OSM_WEST_TX_BBOX;
-
-    if (onProgress) onProgress("Loading route corridor (OpenStreetMap)…");
-    await fetchRefsGeometryBatch(tokens, corridor);
-
-    const corridorCentroid = seed || geomCentroid(
-      tokens
-        .map(function (t) {
-          return OSM_GEOM_CACHE[t];
-        })
-        .filter(function (g) {
-          return g && g.length;
-        })
-        .reduce(function (acc, g) {
-          return acc.concat(g);
-        }, [])
-    );
 
     const out = new Array(hints.length).fill(null);
     let prev = seed ? { lat: seed.lat, lon: seed.lon } : null;
+    let prevOdo = 0;
 
     for (let i = 0; i < hints.length; i++) {
       const p = pairs[i];
       if (!p) continue;
-      const near = prev || corridorCentroid;
-      let pt = resolvePairViaOsm(p[0], p[1], near);
+      if (onProgress) onProgress(`Resolving waypoint ${i + 1}/${hints.length} (OpenStreetMap)…`);
 
-      // At-grade fallback when batch geometry missed a crossing.
-      if (!pt && near) {
-        const pad = 0.45;
-        const localBox = [
-          near.lat - pad,
-          near.lon - pad,
-          near.lat + pad,
-          near.lon + pad,
-        ];
-        await fetchRefsGeometryBatch([p[0], p[1]], localBox);
+      let pt = null;
+      const odo = numericHintOdometer(hints[i]);
+      const legGuess = odo != null && prevOdo != null ? Math.abs(odo - prevOdo) : 80;
+      const near = prev || seed;
+
+      if (i === 0 && seed) {
+        pt = { lat: seed.lat, lon: seed.lon, label: `${p[0]} & ${p[1]} (OSM)`, source: "osm" };
+      } else {
+        const box = near ? bboxAroundPointMiles(near, legGuess + 30) : OSM_TX_BBOX;
+        await fetchRefsGeometryBatch([p[0], p[1]], box, true);
         pt = resolvePairViaOsm(p[0], p[1], near);
+      }
+
+      // Wider fallback when the permit has a long leg or the road pair is an interchange.
+      if (!pt && near) {
+        const localBox = bboxAroundPointMiles(near, Math.max(120, legGuess * 1.8 + 40));
+        await fetchRefsGeometryBatch([p[0], p[1]], localBox, true);
+        pt = resolvePairViaOsm(p[0], p[1], near);
+      }
+
+      // Last-resort pair-only Texas query. This is slower, but avoids silently guessing wrong.
+      if (!pt && !near) {
+        await fetchRefsGeometryBatch([p[0], p[1]], OSM_TX_BBOX, true);
+        pt = resolvePairViaOsm(p[0], p[1], null);
       }
 
       if (pt) {
         out[i] = pt;
         prev = { lat: pt.lat, lon: pt.lon };
+        if (odo != null) prevOdo = odo;
       }
     }
     return out;

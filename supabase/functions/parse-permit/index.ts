@@ -39,10 +39,10 @@ export type OriginStructured = {
   offset_mi: number | null;
   bearing: string | null;
   roads: string[];
-  /**
-   * TxDMV `[Loaded Route Origin: BU0287P, 2.6mi NW of BU0287P & FM1187]` — the highway the load
-   * is on at start (comma before the offset clause), normalized e.g. `BU 287P`.
-   */
+/**
+ * TxDMV `[Loaded Route Origin: <route>, <offset> of <route> & <route>]` — the highway the load
+ * is on at start (comma before the offset clause), normalized to a printable route token.
+ */
   loaded_route_road?: string | null;
   /**
    * Local place names from the origin narrative (e.g. `Wise County`, `Decatur`) to disambiguate
@@ -125,7 +125,7 @@ function dedupeStrings(arr: string[]): string[] {
   return out;
 }
 
-/** Normalize TxDMV-style tokens (US69EFR, BU0287P, fm1472, IH0410) — parity with `js/app.js`. */
+/** Normalize TxDMV-style route tokens with prefixes/suffixes — parity with `js/app.js`. */
 function normalizePrintedRouteToken(raw: string): string {
   if (!raw) return raw;
   let s = raw.replace(/\s+/g, " ").trim();
@@ -451,7 +451,7 @@ const MANEUVER_VERBS =
 
 /**
  * `pdf-parse` concatenates the turn-table cells with no spaces, e.g.
- * `0.60US385 nTurn right onto LOOP 1910 se0.6000:00`. Reconstruct the canonical
+ * `<miles><route> <dir><maneuver> ... <distance><time>`. Reconstruct the canonical
  * space-separated row the rest of the parser expects. Idempotent for already-spaced text.
  */
 function repairTableRowSpacing(line: string): string {
@@ -462,7 +462,7 @@ function repairTableRowSpacing(line: string): string {
   //    (e.g. "nTurn" -> "n Turn", "seBear" -> "se Bear", "eTake" -> "e Take").
   s = s.replace(new RegExp(`([A-Za-z0-9.\\]])(${MANEUVER_VERBS})\\b`), "$1 $2");
   // 3) Split the leading miles token from the route cell
-  //    ("0.60US385" -> "0.60 US385", "< 0.1IH20SFR" -> "< 0.1 IH20SFR").
+  //    ("0.60US123" -> "0.60 US123", "< 0.1IH20SFR" -> "< 0.1 IH20SFR").
   s = s.replace(/^(<\s*)?(\d+(?:\.\d+)?)(?=[A-Za-z])/, (_m, lt, num) => `${lt ? "< " : ""}${num} `);
   return cleanLine(s);
 }
@@ -610,7 +610,7 @@ function extractRoadsFromJunctionBlob(blob: string): string[] {
   return dedupeStrings(roads);
 }
 
-/** e.g. `[Loaded Route Origin: BU0287P, 2.6mi NW of BU0287P & FM1187 ]` */
+/** Parse the route token before the offset clause in a loaded-route origin. */
 function parseLoadedRouteRoadFromOriginPrefix(raw: string): string | null {
   const t = cleanLine(raw);
   if (!t) return null;
@@ -681,7 +681,7 @@ function parseJunctionStructured(narrative: string): OriginStructured {
       loaded_route_road = parseLoadedRouteRoadFromOriginPrefix(mj[1]);
     }
     let roads = extractRoadsFromJunctionBlob(junctionBlob);
-    /** e.g. "… of BU0287P & FM1187" often yields one token if both sides normalize the same; pair with loaded route. */
+    /** Some business-route junctions can normalize to one token; pair with loaded route when needed. */
     if (roads.length < 2 && loaded_route_road) {
       if (roads.length === 1) {
         roads = dedupeStrings([loaded_route_road, roads[0]]);
@@ -1194,10 +1194,10 @@ async function parsePermit(pdfBytes: Uint8Array): Promise<ParseResult> {
  * cache results (road geometry is static) to keep request volume low.
  * -------------------------------------------------------------------------- */
 const OVERPASS_PROXY_ENDPOINTS = [
-  "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
   "https://z.overpass-api.de/api/interpreter",
   "https://lz4.overpass-api.de/api/interpreter",
+  "https://overpass-api.de/api/interpreter",
 ];
 const OVERPASS_UA = "seantylerlee-permit-router/1.0 (https://seantylerlee.github.io/)";
 const OVERPASS_CACHE = new Map<string, { body: string; ts: number }>();
@@ -1217,6 +1217,8 @@ async function handleOverpassProxy(ql: string): Promise<Response> {
   let lastStatus = 0;
   let lastText = "";
   for (const ep of OVERPASS_PROXY_ENDPOINTS) {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 15000);
     try {
       const res = await fetch(ep, {
         method: "POST",
@@ -1227,6 +1229,7 @@ async function handleOverpassProxy(ql: string): Promise<Response> {
           Accept: "application/json",
         },
         body: "data=" + encodeURIComponent(ql),
+        signal: ctrl.signal,
       });
       const text = await res.text();
       if (res.ok && text && text.trimStart().startsWith("{")) {
@@ -1244,6 +1247,8 @@ async function handleOverpassProxy(ql: string): Promise<Response> {
     } catch (e) {
       lastStatus = 0;
       lastText = e instanceof Error ? e.message : String(e);
+    } finally {
+      clearTimeout(timeout);
     }
   }
   return json(502, { ok: false, error: "overpass_unavailable", status: lastStatus, detail: lastText });
