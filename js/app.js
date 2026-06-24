@@ -137,6 +137,8 @@ async function parsePermitViaSupabase(file) {
     parserVersion: out.parser_version || out.parserVersion || null,
     origin_structured: out.origin_structured ?? out.originStructured ?? null,
     origin_text: (out.origin_text || out.originText || "").toString().trim() || null,
+    destination_text:
+      (out.destination_text || out.destinationText || "").toString().trim() || null,
   };
 }
 
@@ -3110,6 +3112,85 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+function showRouteProgress(message) {
+  const el = document.getElementById("route-progress");
+  if (el) el.textContent = message || "";
+}
+
+function renderMetaPanel(el, data) {
+  if (!el) return;
+  const parts = [];
+  parts.push(
+    "<p><strong>Permit:</strong> " +
+      (data.permitNumber ? escapeHtml(data.permitNumber) : "—") +
+      "</p>"
+  );
+  if (data.parserVersion) {
+    parts.push(
+      "<p><strong>Parser:</strong> " + escapeHtml(data.parserVersion) + "</p>"
+    );
+  }
+  if (data.originText) {
+    parts.push(
+      "<p><strong>Origin:</strong> " + escapeHtml(data.originText) + "</p>"
+    );
+  }
+  if (data.destinationText) {
+    parts.push(
+      "<p><strong>Destination:</strong> " +
+        escapeHtml(data.destinationText) +
+        "</p>"
+    );
+  }
+  parts.push("<p><strong>Segments:</strong> " + data.segmentCount + "</p>");
+  if (data.locatedCount != null) {
+    parts.push(
+      "<p><strong>Located:</strong> " +
+        data.locatedCount +
+        "/" +
+        data.segmentCount +
+        "</p>"
+    );
+  }
+  parts.push(
+    "<p><strong>Extracted chars:</strong> " + data.parseTextLength + "</p>"
+  );
+  el.innerHTML = parts.join("");
+}
+
+function renderHintList(listEl, enriched) {
+  if (!listEl) return;
+  listEl.innerHTML = "";
+  enriched.forEach(function (h, i) {
+    const li = document.createElement("li");
+    const shown = hintDisplay(h);
+    if (h.geocodeOk) {
+      li.className = "ok";
+      const src = h.geocodeSource ? " · " + escapeHtml(h.geocodeSource) : "";
+      li.innerHTML =
+        '<span class="hint-num">' +
+        (i + 1) +
+        ".</span> " +
+        escapeHtml(shown) +
+        " <small>→ " +
+        h.lat.toFixed(4) +
+        ", " +
+        h.lon.toFixed(4) +
+        src +
+        "</small>";
+    } else {
+      li.className = "fail";
+      li.innerHTML =
+        '<span class="hint-num">' +
+        (i + 1) +
+        ".</span> " +
+        escapeHtml(shown) +
+        " <small>(not located)</small>";
+    }
+    listEl.appendChild(li);
+  });
+}
+
 function formatRouteProviderNote(routeProvider) {
   if (routeProvider === "mapbox-match") return "Mapbox Map Matching";
   if (routeProvider === "mapbox") return "Mapbox Directions";
@@ -3120,6 +3201,9 @@ function formatRouteProviderNote(routeProvider) {
 function main() {
   const upload = document.getElementById("pdf-upload");
   const statusEl = document.getElementById("upload-status");
+  const rawPanel = document.getElementById("raw-text");
+  const hintsList = document.getElementById("route-hints");
+  const metaPanel = document.getElementById("meta-panel");
 
   let runGeneration = 0;
   let routeSession = null;
@@ -3135,12 +3219,20 @@ function main() {
     const accessToken = window.MAPBOX_ACCESS_TOKEN || "";
 
     loadProgress.set(18);
+    showRouteProgress("Locating roads (OpenStreetMap)…");
     let osmPts = [];
     try {
       osmPts =
         (await resolveRouteViaOsm(hints, function (done, total) {
           const span = 58;
           loadProgress.set(18 + (done / Math.max(total, 1)) * span);
+          if (done <= 1) {
+            showRouteProgress("Locating start (OpenStreetMap)…");
+          } else {
+            showRouteProgress(
+              "Resolving waypoint " + Math.min(done, total) + "/" + total + "…"
+            );
+          }
         })) || [];
     } catch (e) {
       console.warn(e);
@@ -3164,6 +3256,7 @@ function main() {
 
     if (allOsmResolved) {
       loadProgress.set(82);
+      showRouteProgress("Plotting exact route…");
       for (let i = 0; i < hints.length; i++) {
         const pt = osmHit(i);
         const h = hints[i];
@@ -3181,6 +3274,7 @@ function main() {
       }
     } else {
       loadProgress.set(76);
+      showRouteProgress("Geocoding…");
       /** Bias each highway hit toward the previous stop so IH/US rows advance along the corridor. */
       let proximityPrior = null;
       let precomputedSeg1Pt = null;
@@ -3228,6 +3322,7 @@ function main() {
 
         const h = hints[i];
         loadProgress.set(76 + ((i + 1) / hints.length) * 10);
+        showRouteProgress("Geocoding " + (i + 1) + "/" + hints.length + "…");
 
         const geoHint = prepareSegmentForGeocode(h);
 
@@ -3301,6 +3396,7 @@ function main() {
     }
 
     loadProgress.set(92);
+    showRouteProgress("Routing…");
     await sleep(150);
 
     if (generation !== runGeneration) {
@@ -3452,6 +3548,10 @@ function main() {
     loadProgress.reset();
     loadProgress.show();
     loadProgress.set(8);
+    showRouteProgress("Uploading…");
+    if (rawPanel) rawPanel.textContent = "";
+    if (metaPanel) metaPanel.innerHTML = "";
+    if (hintsList) hintsList.innerHTML = "";
     clearRouteOverlay();
     routeSession = null;
 
@@ -3460,16 +3560,19 @@ function main() {
       let serverHints = [];
       let serverPermitNo = null;
       let parserVersion = null;
+      let originTextFromServer = null;
+      let destinationTextFromServer = null;
 
       const remote = await parsePermitViaSupabase(file);
       if (myRun !== runGeneration) return;
       const originStructuredRaw = remote?.origin_structured ?? null;
-      const originTextFromServer = remote?.origin_text ?? null;
       if (remote) {
         parseText = (remote.parseText || "").trim();
         serverHints = Array.isArray(remote.segments) ? remote.segments : [];
         serverPermitNo = remote.permitNumber || null;
         parserVersion = remote.parserVersion || null;
+        originTextFromServer = remote.origin_text ?? null;
+        destinationTextFromServer = remote.destination_text ?? null;
       }
 
       if (!parseText && !serverHints.length) {
@@ -3477,6 +3580,9 @@ function main() {
       }
 
       loadProgress.set(15);
+      showRouteProgress("Extracting route…");
+
+      if (rawPanel) rawPanel.textContent = parseText || "(no text returned)";
 
       const structuredStops = parseStructuredWaypoints(parseText);
       const hints = serverHints.length
@@ -3494,8 +3600,21 @@ function main() {
                 return { ...h, displayText: h.text };
               });
 
+      renderMetaPanel(metaPanel, {
+        permitNumber: serverPermitNo,
+        parserVersion: parserVersion,
+        originText: originTextFromServer,
+        destinationText: destinationTextFromServer,
+        segmentCount: hints.length,
+        parseTextLength: parseText.length,
+      });
+
       if (hints.length === 0) {
         loadProgress.fail();
+        showRouteProgress("");
+        if (hintsList) {
+          hintsList.innerHTML = '<li class="muted">No route segments found.</li>';
+        }
         if (statusEl) statusEl.textContent = "No route found in this permit.";
         return;
       }
@@ -3526,17 +3645,42 @@ function main() {
       };
 
       drawMap(enriched, geometry);
+      renderHintList(hintsList, enriched);
+
+      const locatedCount = enriched.filter(function (h) {
+        return h.geocodeOk;
+      }).length;
+      renderMetaPanel(metaPanel, {
+        permitNumber: serverPermitNo,
+        parserVersion: parserVersion,
+        originText: originTextFromServer,
+        destinationText: destinationTextFromServer,
+        segmentCount: hints.length,
+        locatedCount: locatedCount,
+        parseTextLength: parseText.length,
+      });
+
+      const routeNote = formatRouteProviderNote(routeProvider);
 
       if (coords.length >= 2) {
         loadProgress.complete();
         if (statusEl) statusEl.textContent = "";
+        if (geometry) {
+          showRouteProgress(
+            "Route ready · " + coords.length + " stops (" + routeNote + ")"
+          );
+        } else {
+          showRouteProgress("Stops located · driving line unavailable");
+        }
       } else {
         loadProgress.fail();
+        showRouteProgress("");
         if (statusEl) statusEl.textContent = "Could not build a route from this permit.";
       }
     } catch (err) {
       console.error(err);
       loadProgress.fail();
+      showRouteProgress("");
       if (statusEl) statusEl.textContent = String(err?.message || err || "Something went wrong.");
     }
   });

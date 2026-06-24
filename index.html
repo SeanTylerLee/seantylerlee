@@ -22,11 +22,28 @@
           <div id="loading-bar-fill" class="loading-bar__fill"></div>
         </div>
       </div>
+      <p id="route-progress" class="route-progress" aria-live="polite"></p>
       <p id="upload-status" class="status status--error" aria-live="polite"></p>
     </section>
 
     <section class="panel map-panel">
       <div id="map" class="map" role="application" aria-label="Route map"></div>
+    </section>
+
+    <section class="panel dual">
+      <div>
+        <h2 class="section-label">Route</h2>
+        <ol id="route-hints" class="hints-list"></ol>
+      </div>
+      <div>
+        <h2 class="section-label">Permit</h2>
+        <div id="meta-panel" class="meta-panel"></div>
+      </div>
+    </section>
+
+    <section class="panel raw-panel">
+      <h2 class="section-label">Extracted text</h2>
+      <pre id="raw-text" class="raw-text" aria-label="Extracted text"></pre>
     </section>
   </main>
 
@@ -34,6 +51,6 @@
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
   <script src="js/mapbox-config.js"></script>
   <script src="js/supabase-config.js?v=9"></script>
-  <script src="js/app.js?v=18"></script>
+  <script src="js/app.js?v=19"></script>
 </body>
 </html>
