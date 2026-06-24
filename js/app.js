@@ -2167,8 +2167,11 @@ async function fetchRefsGeometryBatch(tokens, bbox, force) {
 function maxRouteMilesFromHints(hints) {
   let max = 0;
   for (let i = 0; i < hints.length; i++) {
-    const m = hints[i].cumulativePermitMi;
-    if (m != null && !isNaN(m) && m > max) max = m;
+    const m =
+      hints[i].cumulativePermitMi ??
+      hints[i].cumulative_permit_mi ??
+      hints[i].leg_miles_to_next;
+    if (m != null && !isNaN(Number(m)) && Number(m) > max) max = Number(m);
   }
   return max > 0 ? max : 600;
 }
@@ -2203,7 +2206,10 @@ function bboxAroundPointMiles(point, miles) {
 }
 
 function numericHintOdometer(h) {
-  const v = h && h.cumulativePermitMi;
+  const v =
+    (h && h.cumulativePermitMi) ??
+    (h && h.cumulative_permit_mi) ??
+    null;
   return v != null && !isNaN(Number(v)) ? Number(v) : null;
 }
 
@@ -2226,6 +2232,47 @@ function unambiguousSeedFromNodes(nodes) {
     }
   }
   return center;
+}
+
+/** Centroid of shared nodes — corridor bbox anchor when the crossing is ambiguous statewide. */
+function weakSeedFromNodes(nodes) {
+  if (!nodes.length) return null;
+  if (nodes.length === 1) return { lat: nodes[0].lat, lon: nodes[0].lon };
+  let lat = 0;
+  let lon = 0;
+  for (let i = 0; i < nodes.length; i++) {
+    lat += nodes[i].lat;
+    lon += nodes[i].lon;
+  }
+  return { lat: lat / nodes.length, lon: lon / nodes.length };
+}
+
+const OSM_PREFETCH_CHUNK = 10;
+
+function tokensMissingGeometry(tokens) {
+  return tokens.filter(function (t) {
+    return !OSM_GEOM_CACHE[t] || !OSM_GEOM_CACHE[t].length;
+  });
+}
+
+/** Load all road geometry in parallel chunks (few network round-trips). */
+async function prefetchTokenGeometry(tokens, bbox) {
+  const uniq = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t && uniq.indexOf(t) < 0) uniq.push(t);
+  }
+  if (!uniq.length) return;
+
+  const chunks = [];
+  for (let i = 0; i < uniq.length; i += OSM_PREFETCH_CHUNK) {
+    chunks.push(uniq.slice(i, i + OSM_PREFETCH_CHUNK));
+  }
+  await Promise.all(
+    chunks.map(function (chunk) {
+      return fetchRefsGeometryBatch(chunk, bbox, false);
+    })
+  );
 }
 
 function geomBounds(lines, pad) {
@@ -2383,13 +2430,11 @@ function resolvePairViaOsm(tokA, tokB, near) {
 /**
  * Resolve every road×road waypoint to an exact coordinate using OSM geometry.
  *
- * Strategy:
- *   1) Seed from the origin road pair when it is unambiguous.
- *   2) Walk the permit in order.
- *   3) For each waypoint, fetch only that road pair near the previous resolved point.
- *
- * This avoids route-specific direction assumptions and avoids one huge Texas-wide
- * geometry query that can time out.
+ * Fast path:
+ *   1) One shared-node lookup to seed the origin.
+ *   2) One parallel prefetch of all unique roads inside a corridor bbox.
+ *   3) Walk the permit in order locally (nearest crossing to previous stop).
+ * Rare per-waypoint fetches only when prefetch missed geometry.
  */
 async function resolveRouteViaOsm(hints, onProgress) {
   try {
@@ -2404,15 +2449,33 @@ async function resolveRouteViaOsm(hints, onProgress) {
     }
     if (!tokens.length) return [];
 
-    let seed = null;
-
     if (onProgress) onProgress(0, hints.length);
+
+    let seed = null;
+    let corridorAnchor = null;
     const firstPair = pairs.find(Boolean);
     if (firstPair) {
       const nodes = await fetchSharedNodes(firstPair[0], firstPair[1], OSM_TX_BBOX);
       seed = unambiguousSeedFromNodes(nodes);
+      corridorAnchor = seed || weakSeedFromNodes(nodes);
     }
+
     if (onProgress) onProgress(1, hints.length);
+
+    const routeMi = maxRouteMilesFromHints(hints);
+    const corridor = corridorAnchor
+      ? corridorBboxFromSeed(corridorAnchor, routeMi)
+      : OSM_TX_BBOX;
+
+    await prefetchTokenGeometry(tokens, corridor);
+
+    let missing = tokensMissingGeometry(tokens);
+    if (missing.length && corridor !== OSM_TX_BBOX) {
+      await prefetchTokenGeometry(missing, OSM_TX_BBOX);
+      missing = tokensMissingGeometry(tokens);
+    }
+
+    if (onProgress) onProgress(2, hints.length);
 
     const out = new Array(hints.length).fill(null);
     let prev = seed ? { lat: seed.lat, lon: seed.lon } : null;
@@ -2429,21 +2492,28 @@ async function resolveRouteViaOsm(hints, onProgress) {
       const near = prev || seed;
 
       if (i === 0 && seed) {
-        pt = { lat: seed.lat, lon: seed.lon, label: `${p[0]} & ${p[1]} (OSM)`, source: "osm" };
+        pt = {
+          lat: seed.lat,
+          lon: seed.lon,
+          label: p[0] + " & " + p[1] + " (OSM)",
+          source: "osm",
+        };
       } else {
-        const box = near ? bboxAroundPointMiles(near, legGuess + 30) : OSM_TX_BBOX;
+        pt = resolvePairViaOsm(p[0], p[1], near);
+      }
+
+      if (!pt && near) {
+        const box = bboxAroundPointMiles(near, Math.max(legGuess + 30, 80));
         await fetchRefsGeometryBatch([p[0], p[1]], box, true);
         pt = resolvePairViaOsm(p[0], p[1], near);
       }
 
-      // Wider fallback when the permit has a long leg or the road pair is an interchange.
       if (!pt && near) {
-        const localBox = bboxAroundPointMiles(near, Math.max(120, legGuess * 1.8 + 40));
-        await fetchRefsGeometryBatch([p[0], p[1]], localBox, true);
+        const wide = bboxAroundPointMiles(near, Math.max(120, legGuess * 1.8 + 40));
+        await fetchRefsGeometryBatch([p[0], p[1]], wide, true);
         pt = resolvePairViaOsm(p[0], p[1], near);
       }
 
-      // Last-resort pair-only Texas query. This is slower, but avoids silently guessing wrong.
       if (!pt && !near) {
         await fetchRefsGeometryBatch([p[0], p[1]], OSM_TX_BBOX, true);
         pt = resolvePairViaOsm(p[0], p[1], null);
@@ -3226,8 +3296,10 @@ function main() {
         (await resolveRouteViaOsm(hints, function (done, total) {
           const span = 58;
           loadProgress.set(18 + (done / Math.max(total, 1)) * span);
-          if (done <= 1) {
+          if (done <= 0) {
             showRouteProgress("Locating start (OpenStreetMap)…");
+          } else if (done <= 2) {
+            showRouteProgress("Loading road geometry…");
           } else {
             showRouteProgress(
               "Resolving waypoint " + Math.min(done, total) + "/" + total + "…"
