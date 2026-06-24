@@ -1218,7 +1218,7 @@ async function handleOverpassProxy(ql: string): Promise<Response> {
   let lastText = "";
   for (const ep of OVERPASS_PROXY_ENDPOINTS) {
     const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 15000);
+    const timeout = setTimeout(() => ctrl.abort(), 35000);
     try {
       const res = await fetch(ep, {
         method: "POST",
