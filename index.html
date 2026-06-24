@@ -4,64 +4,29 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f1f5f9" />
-  <title>Permit route test</title>
+  <title>PermitParser</title>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main id="main" class="layout layout--test">
+  <main id="main" class="layout">
     <section class="panel upload-panel">
-      <p>Test v9</p>
-      <h1 class="upload-title">Upload PDF</h1>
+      <h1 class="upload-title">PermitParser</h1>
+      <p class="app-version">v1</p>
       <input type="file" id="pdf-upload" class="sr-only-input" accept="application/pdf,.pdf" />
       <label for="pdf-upload" class="file-label">
         <span class="file-ui">Choose PDF</span>
       </label>
-      <p id="upload-status" class="status" aria-live="polite"></p>
-      <p id="confidence-note" class="confidence"></p>
+      <div id="loading-bar" class="loading-bar loading-bar--hidden" aria-hidden="true">
+        <div class="loading-bar__track">
+          <div id="loading-bar-fill" class="loading-bar__fill"></div>
+        </div>
+      </div>
+      <p id="upload-status" class="status status--error" aria-live="polite"></p>
     </section>
 
     <section class="panel map-panel">
-      <p id="map-banner" class="map-banner"></p>
-      <p id="route-progress" class="route-progress" aria-live="polite"></p>
-      <div id="map" class="map" role="application" aria-label="Map"></div>
-    </section>
-
-    <section class="panel dual">
-      <div>
-        <h2 class="section-label">Segments</h2>
-        <p class="segment-toolbar">
-          <button type="button" id="recalc-route" class="btn secondary" disabled>
-            Recalculate route
-          </button>
-          <button type="button" id="download-geojson" class="btn secondary" disabled>
-            Download GeoJSON
-          </button>
-          <span id="recalc-hint" class="segment-toolbar-hint"></span>
-        </p>
-        <ol id="route-hints" class="hints-list"></ol>
-      </div>
-      <div>
-        <h2 class="section-label">Meta</h2>
-        <div id="meta-panel" class="meta-panel"></div>
-      </div>
-    </section>
-
-    <section class="panel verify-panel">
-      <label class="verify-label verify-label--compact">
-        <input type="checkbox" id="verify-permit" />
-        <span>Verified against PDF</span>
-      </label>
-      <div class="export-row">
-        <a id="open-google" class="btn secondary" href="#" data-requires-verify="true" target="_blank" rel="noopener">Google</a>
-        <a id="open-apple" class="btn secondary" href="#" data-requires-verify="true" target="_blank" rel="noopener">Apple</a>
-        <a id="open-waze" class="btn secondary" href="#" data-requires-verify="true" target="_blank" rel="noopener">Waze</a>
-      </div>
-    </section>
-
-    <section class="panel raw-panel">
-      <h2 class="section-label">Extracted text</h2>
-      <pre id="raw-text" class="raw-text" aria-label="Extracted text"></pre>
+      <div id="map" class="map" role="application" aria-label="Route map"></div>
     </section>
   </main>
 
@@ -69,6 +34,6 @@
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
   <script src="js/mapbox-config.js"></script>
   <script src="js/supabase-config.js?v=9"></script>
-  <script src="js/app.js?v=14"></script>
+  <script src="js/app.js?v=18"></script>
 </body>
 </html>

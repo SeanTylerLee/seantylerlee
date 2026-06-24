@@ -127,10 +127,18 @@ body {
 }
 
 .upload-title {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
   color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.app-version {
+  margin: 0.2rem 0 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #64748b;
 }
 
 .section-label {
@@ -197,9 +205,44 @@ body {
 
 .status {
   margin: 0.75rem 0 0;
-  min-height: 1.4em;
+  min-height: 0;
   font-weight: 500;
-  color: #0f172a;
+  color: #b91c1c;
+}
+
+.status:not(:empty) {
+  min-height: 1.4em;
+}
+
+.loading-bar {
+  margin-top: 0.85rem;
+}
+
+.loading-bar--hidden {
+  display: none;
+}
+
+.loading-bar__track {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.loading-bar__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  transition: width 0.35s ease;
+}
+
+.loading-bar--error .loading-bar__fill {
+  background: linear-gradient(90deg, #dc2626, #ef4444);
+}
+
+.loading-bar--done .loading-bar__fill {
+  background: linear-gradient(90deg, #16a34a, #22c55e);
 }
 
 .confidence {
@@ -376,6 +419,14 @@ body {
 .verify-panel input[type="checkbox"] {
   margin-top: 0.35rem;
   flex-shrink: 0;
+}
+
+.route-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-top: 1rem;
 }
 
 .export-row {

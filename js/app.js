@@ -2404,12 +2404,13 @@ async function resolveRouteViaOsm(hints, onProgress) {
 
     let seed = null;
 
-    if (onProgress) onProgress("Locating start (OpenStreetMap)…");
+    if (onProgress) onProgress(0, hints.length);
     const firstPair = pairs.find(Boolean);
     if (firstPair) {
       const nodes = await fetchSharedNodes(firstPair[0], firstPair[1], OSM_TX_BBOX);
       seed = unambiguousSeedFromNodes(nodes);
     }
+    if (onProgress) onProgress(1, hints.length);
 
     const out = new Array(hints.length).fill(null);
     let prev = seed ? { lat: seed.lat, lon: seed.lon } : null;
@@ -2418,7 +2419,7 @@ async function resolveRouteViaOsm(hints, onProgress) {
     for (let i = 0; i < hints.length; i++) {
       const p = pairs[i];
       if (!p) continue;
-      if (onProgress) onProgress(`Resolving waypoint ${i + 1}/${hints.length} (OpenStreetMap)…`);
+      if (onProgress) onProgress(i + 1, hints.length);
 
       let pt = null;
       const odo = numericHintOdometer(hints[i]);
@@ -3042,10 +3043,66 @@ function showMapNotice(message) {
   if (banner) banner.textContent = message;
 }
 
-function showRouteProgress(message) {
-  const el = document.getElementById("route-progress");
-  if (el) el.textContent = message || "";
-}
+const loadProgress = (function () {
+  let wrap = null;
+  let fill = null;
+  let current = 0;
+
+  function init() {
+    wrap = document.getElementById("loading-bar");
+    fill = document.getElementById("loading-bar-fill");
+  }
+
+  function applyWidth(pct) {
+    if (fill) fill.style.width = pct + "%";
+  }
+
+  function show() {
+    if (!wrap) init();
+    if (!wrap) return;
+    wrap.classList.remove("loading-bar--hidden", "loading-bar--error", "loading-bar--done");
+    wrap.setAttribute("aria-hidden", "false");
+  }
+
+  function hide() {
+    if (!wrap) init();
+    if (!wrap) return;
+    wrap.classList.add("loading-bar--hidden");
+    wrap.classList.remove("loading-bar--error", "loading-bar--done");
+    wrap.setAttribute("aria-hidden", "true");
+    current = 0;
+    applyWidth(0);
+  }
+
+  function set(pct) {
+    if (!wrap) init();
+    const next = Math.max(current, Math.min(100, pct));
+    current = next;
+    show();
+    applyWidth(next);
+  }
+
+  function reset() {
+    if (!wrap) init();
+    current = 0;
+    if (wrap) wrap.classList.remove("loading-bar--error", "loading-bar--done");
+    applyWidth(0);
+  }
+
+  function complete() {
+    set(100);
+    if (wrap) wrap.classList.add("loading-bar--done");
+    window.setTimeout(hide, 500);
+  }
+
+  function fail() {
+    if (!wrap) init();
+    if (wrap) wrap.classList.add("loading-bar--error");
+    window.setTimeout(hide, 900);
+  }
+
+  return { show, hide, set, reset, complete, fail };
+})();
 
 function escapeHtml(s) {
   const d = document.createElement("div");
@@ -3062,153 +3119,29 @@ function formatRouteProviderNote(routeProvider) {
 
 function main() {
   const upload = document.getElementById("pdf-upload");
-  const rawPanel = document.getElementById("raw-text");
-  const hintsList = document.getElementById("route-hints");
-  const metaPanel = document.getElementById("meta-panel");
-  const verifyCb = document.getElementById("verify-permit");
-  const exportBtns = document.querySelectorAll("[data-requires-verify]");
-  const confidence = document.getElementById("confidence-note");
   const statusEl = document.getElementById("upload-status");
-  const recalcBtn = document.getElementById("recalc-route");
-  const downloadGeoBtn = document.getElementById("download-geojson");
-  const recalcHintEl = document.getElementById("recalc-hint");
 
   let runGeneration = 0;
-  /** Last successful parse — used for “Recalculate route” / GeoJSON export */
   let routeSession = null;
 
   mapInstance = initMap();
 
-  if (recalcHintEl) {
-    recalcHintEl.textContent =
-      "Drag pins or edit lat/lon, toggle Route, then recalculate. GeoJSON = line + waypoints for your own tools.";
-  }
-
-  function updateDownloadGeoBtn() {
-    if (!downloadGeoBtn) return;
-    const hasPts =
-      routeSession &&
-      routeSession.enriched &&
-      routeSession.enriched.some(function (h) {
-        return h.geocodeOk;
-      });
-    downloadGeoBtn.disabled = !hasPts;
-  }
-
-  function setExportEnabled(on) {
-    exportBtns.forEach((btn) => {
-      if (btn.tagName === "A") {
-        btn.classList.toggle("is-disabled", !on);
-        btn.setAttribute("aria-disabled", String(!on));
-      } else {
-        btn.disabled = !on;
-        btn.setAttribute("aria-disabled", String(!on));
-      }
-    });
-  }
-
-  function updateVerifyState() {
-    setExportEnabled(verifyCb.checked);
-  }
-
-  verifyCb.addEventListener("change", updateVerifyState);
-  updateVerifyState();
-
-  exportBtns.forEach((el) => {
-    el.addEventListener("click", (ev) => {
-      if (!verifyCb.checked) {
-        ev.preventDefault();
-        if (statusEl) statusEl.textContent = "Confirm the verification checkbox first.";
-      }
-    });
-  });
-
-  async function recalculateRouteFromSegments() {
-    if (!routeSession?.enriched?.length) return;
-    runGeneration += 1;
-    const myRun = runGeneration;
-    const accessToken = window.MAPBOX_ACCESS_TOKEN || "";
-    const { coords, displayEnriched } = collectSegmentsFromList(routeSession.enriched);
-    if (coords.length < 2) {
-      if (statusEl) {
-        statusEl.textContent =
-          "Need at least 2 segments included with valid lat/lon.";
-      }
-      return;
-    }
-    showRouteProgress("Matching / routing…");
-    await sleep(80);
-    if (myRun !== runGeneration) return;
-
-    let geometry = null;
-    let routeProvider = null;
-    try {
-      const routed = await routeDrivingLine(coords, accessToken);
-      geometry = routed && routed.geometry;
-      routeProvider = routed && routed.provider;
-    } catch (err) {
-      console.warn(err);
-    }
-    if (myRun !== runGeneration) return;
-
-    drawMap(displayEnriched, geometry);
-    routeSession.geometry = geometry || null;
-    routeSession.routeProvider = routeProvider || null;
-    updateDownloadGeoBtn();
-
-    const sampledForLinks =
-      coords.length > SAMPLE_COORDS_CAP ? sampleEvenly(coords, SAMPLE_COORDS_CAP) : coords;
-    setExportLinks(sampledForLinks.length >= 2 ? sampledForLinks : coords, routeSession.hints);
-
-    const routeNote = formatRouteProviderNote(routeProvider);
-    if (coords.length >= 2 && geometry) {
-      showRouteProgress(`Done (${routeNote}). ${coords.length} anchors`);
-      if (statusEl) statusEl.textContent = "OK";
-    } else if (coords.length >= 2 && !geometry) {
-      showRouteProgress("Routing failed.");
-      if (statusEl) statusEl.textContent = "Markers only";
-    }
-  }
-
-  if (recalcBtn) {
-    recalcBtn.addEventListener("click", function () {
-      recalculateRouteFromSegments();
-    });
-  }
-
-  if (downloadGeoBtn) {
-    downloadGeoBtn.addEventListener("click", function () {
-      if (!routeSession?.enriched?.length) return;
-      const { displayEnriched } = collectSegmentsFromList(routeSession.enriched);
-      if (!displayEnriched.length) {
-        if (statusEl) {
-          statusEl.textContent =
-            "Turn on Route for at least one segment, or fix coordinates.";
-        }
-        return;
-      }
-      const fc = buildRouteGeoJSON(routeSession.geometry, displayEnriched);
-      if (!fc.features.length) return;
-      const stamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, "");
-      triggerDownloadJson(`permit-route-${stamp}.geojson`, fc);
-      if (statusEl) statusEl.textContent = "GeoJSON downloaded.";
-    });
-  }
-
   async function geocodeAndRoute(hints, generation, originStructured) {
     if (!mapInstance || !hints.length) {
-      showRouteProgress("");
+      loadProgress.hide();
       return { coords: [], enriched: [], routeProvider: null };
     }
 
     const accessToken = window.MAPBOX_ACCESS_TOKEN || "";
 
-    // Resolve every road×road waypoint to an exact coordinate from OSM road geometry first.
-    // This is the precise path; forward geocoders are only a fallback for pairs OSM can't resolve.
-    showRouteProgress("Locating roads (OpenStreetMap)…");
+    loadProgress.set(18);
     let osmPts = [];
     try {
-      osmPts = (await resolveRouteViaOsm(hints, showRouteProgress)) || [];
+      osmPts =
+        (await resolveRouteViaOsm(hints, function (done, total) {
+          const span = 58;
+          loadProgress.set(18 + (done / Math.max(total, 1)) * span);
+        })) || [];
     } catch (e) {
       console.warn(e);
       osmPts = [];
@@ -3230,7 +3163,7 @@ function main() {
       });
 
     if (allOsmResolved) {
-      showRouteProgress("Plotting exact route…");
+      loadProgress.set(82);
       for (let i = 0; i < hints.length; i++) {
         const pt = osmHit(i);
         const h = hints[i];
@@ -3247,7 +3180,7 @@ function main() {
         });
       }
     } else {
-      showRouteProgress("Geocoding…");
+      loadProgress.set(76);
       /** Bias each highway hit toward the previous stop so IH/US rows advance along the corridor. */
       let proximityPrior = null;
       let precomputedSeg1Pt = null;
@@ -3294,9 +3227,7 @@ function main() {
         if (i > 0) await sleep(GEO_DELAY_MS);
 
         const h = hints[i];
-        showRouteProgress(
-          `Geocoding ${i + 1}/${hints.length}: ${hintDisplay(h)}…`
-        );
+        loadProgress.set(76 + ((i + 1) / hints.length) * 10);
 
         const geoHint = prepareSegmentForGeocode(h);
 
@@ -3366,11 +3297,10 @@ function main() {
     }
 
     if (coords.length < 2) {
-      showRouteProgress(coords.length === 1 ? "Need 2+ geocoded segments." : "Geocode failed.");
       return { coords, enriched, routeProvider: null };
     }
 
-    showRouteProgress("Routing…");
+    loadProgress.set(92);
     await sleep(150);
 
     if (generation !== runGeneration) {
@@ -3391,97 +3321,8 @@ function main() {
       return { coords: [], enriched: [], aborted: true, routeProvider: null };
     }
 
+    loadProgress.set(98);
     return { coords, enriched, geometry, routeProvider };
-  }
-
-  function renderHintList(enriched) {
-    hintsList.innerHTML = "";
-    enriched.forEach((h, i) => {
-      const li = document.createElement("li");
-      li.dataset.segIndex = String(i);
-      const shown = hintDisplay(h);
-      const qNote =
-        h.geocodeQuery && h.geocodeOk
-          ? ` · q: ${escapeHtml(h.geocodeQuery)}`
-          : "";
-      if (h.geocodeOk) {
-        li.className = "ok";
-        const src = h.geocodeSource ? ` · ${escapeHtml(h.geocodeSource)}` : "";
-        const main = document.createElement("div");
-        main.innerHTML =
-          `<span class="hint-num">${i + 1}.</span> <span class="badge">${escapeHtml(h.label)}</span> ${escapeHtml(shown)} ` +
-          `<small>→ ${h.lat.toFixed(4)}, ${h.lon.toFixed(4)}${src}${qNote}</small>`;
-        li.appendChild(main);
-
-        const controls = document.createElement("div");
-        controls.className = "seg-controls";
-        const useLabel = document.createElement("label");
-        useLabel.className = "seg-use";
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.className = "seg-include";
-        cb.checked = h.includeInRoute !== false;
-        useLabel.appendChild(cb);
-        useLabel.appendChild(document.createTextNode(" Route"));
-        controls.appendChild(useLabel);
-
-        const coordWrap = document.createElement("span");
-        coordWrap.className = "seg-coord-edit";
-        const latLab = document.createElement("label");
-        latLab.textContent = "Lat ";
-        const latIn = document.createElement("input");
-        latIn.type = "text";
-        latIn.className = "seg-lat";
-        latIn.setAttribute("inputmode", "decimal");
-        latIn.value = String(h.lat);
-        latLab.appendChild(latIn);
-        const lonLab = document.createElement("label");
-        lonLab.textContent = "Lon ";
-        const lonIn = document.createElement("input");
-        lonIn.type = "text";
-        lonIn.className = "seg-lon";
-        lonIn.setAttribute("inputmode", "decimal");
-        lonIn.value = String(h.lon);
-        lonLab.appendChild(lonIn);
-        coordWrap.appendChild(latLab);
-        coordWrap.appendChild(lonLab);
-        controls.appendChild(coordWrap);
-        li.appendChild(controls);
-      } else {
-        li.className = "fail";
-        li.innerHTML =
-          `<span class="hint-num">${i + 1}.</span> <span class="badge">${escapeHtml(h.label)}</span> ${escapeHtml(shown)} ` +
-          `<small>(not geocoded)</small>`;
-      }
-      hintsList.appendChild(li);
-    });
-  }
-
-  function collectSegmentsFromList(enrichedBase) {
-    const coords = [];
-    const displayEnriched = [];
-    enrichedBase.forEach(function (h, i) {
-      if (!h.geocodeOk) return;
-      const li = hintsList.querySelector(`li[data-seg-index="${i}"]`);
-      if (!li) return;
-      const inc = li.querySelector(".seg-include");
-      if (inc && !inc.checked) return;
-      const latIn = li.querySelector(".seg-lat");
-      const lonIn = li.querySelector(".seg-lon");
-      let lat = h.lat;
-      let lon = h.lon;
-      if (latIn && lonIn && latIn.value.trim() !== "") {
-        const lt = parseFloat(latIn.value);
-        const ln = parseFloat(lonIn.value);
-        if (!isNaN(lt) && !isNaN(ln)) {
-          lat = lt;
-          lon = ln;
-        }
-      }
-      coords.push({ lat, lon });
-      displayEnriched.push({ ...h, lat, lon });
-    });
-    return { coords, displayEnriched };
   }
 
   function drawMap(enriched, geometry) {
@@ -3527,12 +3368,9 @@ function main() {
 
         marker.on("dragend", function () {
           const ll = marker.getLngLat();
-          const row = hintsList.querySelector(`li[data-seg-index="${segIdx}"]`);
-          if (row) {
-            const la = row.querySelector(".seg-lat");
-            const lo = row.querySelector(".seg-lon");
-            if (la) la.value = ll.lat.toFixed(5);
-            if (lo) lo.value = ll.lng.toFixed(5);
+          if (routeSession && routeSession.enriched && routeSession.enriched[segIdx]) {
+            routeSession.enriched[segIdx].lat = ll.lat;
+            routeSession.enriched[segIdx].lon = ll.lng;
           }
         });
 
@@ -3589,24 +3427,6 @@ function main() {
     }
   }
 
-  function setExportLinks(coords, hints) {
-    const gBtn = document.getElementById("open-google");
-    const aBtn = document.getElementById("open-apple");
-    const wBtn = document.getElementById("open-waze");
-
-    const gUrl = coords.length >= 2 ? buildGoogleMapsFromCoords(coords) : buildGoogleMapsSearchFallback(hints);
-    if (gBtn) gBtn.href = gUrl || "#";
-
-    if (aBtn) {
-      aBtn.href =
-        coords.length >= 1 ? buildAppleMapsFromCoords(coords) || "#" : "#";
-    }
-
-    if (wBtn) {
-      wBtn.href = coords.length >= 1 ? buildWazeFromCoords(coords) || "#" : "#";
-    }
-  }
-
   upload.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -3615,32 +3435,25 @@ function main() {
     const myRun = runGeneration;
 
     if (file.type !== "application/pdf") {
-      statusEl.textContent = "Please choose a PDF file.";
+      if (statusEl) statusEl.textContent = "Please choose a PDF file.";
       return;
     }
     if (file.size > MAX_BYTES) {
-      statusEl.textContent = "File is too large (max 15 MB for this demo).";
+      if (statusEl) statusEl.textContent = "File is too large (max 15 MB).";
       return;
     }
 
     if (!hasSupabaseParserConfig()) {
-      statusEl.textContent = "Parser not configured. Connect Supabase parser settings.";
-      confidence.textContent = "Supabase parser required";
+      if (statusEl) statusEl.textContent = "Parser not configured.";
       return;
     }
 
-    statusEl.textContent = "Uploading to parser…";
-    showRouteProgress("");
-    rawPanel.textContent = "";
-    hintsList.innerHTML = "";
-    metaPanel.textContent = "";
-    verifyCb.checked = false;
-    updateVerifyState();
+    if (statusEl) statusEl.textContent = "";
+    loadProgress.reset();
+    loadProgress.show();
+    loadProgress.set(8);
     clearRouteOverlay();
-    showMapNotice("");
     routeSession = null;
-    if (recalcBtn) recalcBtn.disabled = true;
-    updateDownloadGeoBtn();
 
     try {
       let parseText = "";
@@ -3660,21 +3473,10 @@ function main() {
       }
 
       if (!parseText && !serverHints.length) {
-        throw new Error("Parser failed: Supabase returned no route output.");
+        throw new Error("Parser failed: no route output.");
       }
 
-      if (!parseText || parseText.length < 40) {
-        confidence.textContent = "Low text (scan/OCR?)";
-        statusEl.textContent = "Weak text";
-      } else if (serverHints.length || parserVersion) {
-        confidence.textContent = "Supabase parser" + (parserVersion ? " · " + parserVersion : "");
-        statusEl.textContent = "Geocoding…";
-      } else {
-        confidence.textContent = "Supabase parser";
-        statusEl.textContent = "Geocoding…";
-      }
-
-      rawPanel.textContent = parseText || "(no text returned)";
+      loadProgress.set(15);
 
       const structuredStops = parseStructuredWaypoints(parseText);
       const hints = serverHints.length
@@ -3691,32 +3493,10 @@ function main() {
             : extractRouteHints(parseText).map(function (h) {
                 return { ...h, displayText: h.text };
               });
-      const parsingMode =
-        structuredStops.length > 0
-          ? "structured (road + direction + miles)"
-          : "regex (highway tokens only)";
-      const meta = { permitNumber: serverPermitNo };
-
-      metaPanel.innerHTML = [
-        `<p><strong>Parse from:</strong> Supabase Edge Function</p>`,
-        `<p><strong>Turn-by-turn table:</strong> ${
-          serverHints.length ? "provided by Supabase parser" : "not returned"
-        }</p>`,
-        `<p><strong>Waypoints:</strong> ${escapeHtml(parsingMode)}</p>`,
-        meta.permitNumber
-          ? `<p><strong>Guess permit ref:</strong> ${escapeHtml(meta.permitNumber)} <span class="badge">unverified</span></p>`
-          : `<p><strong>Permit ID:</strong> not detected automatically.</p>`,
-        `<p><strong>Parse text chars:</strong> ${parseText.length}</p>`,
-        `<p><strong>Segments:</strong> ${hints.length}</p>`,
-      ].join("");
 
       if (hints.length === 0) {
-        hintsList.innerHTML = '<li class="muted">No highway-style tokens found.</li>';
-        statusEl.textContent = "No route tokens to geocode.";
-        showRouteProgress("");
-        setExportLinks([], []);
-        updateVerifyState();
-        updateDownloadGeoBtn();
+        loadProgress.fail();
+        if (statusEl) statusEl.textContent = "No route found in this permit.";
         return;
       }
 
@@ -3744,34 +3524,20 @@ function main() {
         routeProvider: routeProvider || null,
         origin_structured: originStructured,
       };
-      if (recalcBtn) recalcBtn.disabled = coords.length < 2;
-      updateDownloadGeoBtn();
 
-      renderHintList(enriched);
       drawMap(enriched, geometry);
 
-      const sampledForLinks =
-        coords.length > SAMPLE_COORDS_CAP ? sampleEvenly(coords, SAMPLE_COORDS_CAP) : coords;
-      setExportLinks(sampledForLinks.length >= 2 ? sampledForLinks : coords, hints);
-
-      const routeNote = formatRouteProviderNote(routeProvider);
-
-      if (coords.length >= 2 && geometry) {
-        showRouteProgress(`Done (${routeNote}). ${coords.length} pts`);
-        statusEl.textContent = "OK";
-      } else if (coords.length >= 2 && !geometry) {
-        showRouteProgress("Routing failed.");
-        statusEl.textContent = "Markers only";
+      if (coords.length >= 2) {
+        loadProgress.complete();
+        if (statusEl) statusEl.textContent = "";
       } else {
-        statusEl.textContent = "Done";
+        loadProgress.fail();
+        if (statusEl) statusEl.textContent = "Could not build a route from this permit.";
       }
-
-      updateVerifyState();
     } catch (err) {
       console.error(err);
-      statusEl.textContent = "Parser failed.";
-      confidence.textContent = String(err?.message || err || "Supabase parser failed");
-      showRouteProgress("");
+      loadProgress.fail();
+      if (statusEl) statusEl.textContent = String(err?.message || err || "Something went wrong.");
     }
   });
 }
