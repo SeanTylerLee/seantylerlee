@@ -3,54 +3,274 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f1f5f9" />
-  <title>PermitParser</title>
-  <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet" />
+  <meta name="theme-color" content="#001848" />
+  <title>STL Apps LLC — Apps &amp; sites for oversize freight</title>
+  <meta name="description" content="Sean Tyler Lee builds software for oversize and heavy-haul freight: Permit Path route navigation, HaulPath compliance, and Pilot Car 4 Hire — the free US pilot car directory." />
+  <meta name="author" content="Sean Tyler Lee" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://seantylerlee.com/" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://seantylerlee.com/" />
+  <meta property="og:title" content="Sean Tyler Lee — Apps &amp; sites for oversize freight" />
+  <meta property="og:description" content="Permit Path, HaulPath, and Pilot Car 4 Hire — apps and websites for oversize routing, compliance, and finding pilot cars." />
+  <meta property="og:image" content="https://seantylerlee.com/images/permitpath-phones.png" />
+  <meta property="og:site_name" content="STL Apps LLC" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Sean Tyler Lee — Apps &amp; sites for oversize freight" />
+  <meta name="twitter:description" content="Permit Path, HaulPath, and Pilot Car 4 Hire." />
+  <meta name="twitter:image" content="https://seantylerlee.com/images/permitpath-phones.png" />
+
+  <link rel="icon" href="images/stlapps-mark.jpg" type="image/jpeg" />
+  <link rel="apple-touch-icon" href="images/stlapps-mark.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": "Sean Tyler Lee",
+    "url": "https://seantylerlee.com",
+    "email": "mailto:seantylerlee@icloud.com",
+    "jobTitle": "Independent software developer",
+    "description": "Builds apps and websites for oversize and heavy-haul freight.",
+    "knowsAbout": ["oversize trucking", "permit routing", "pilot cars", "heavy haul"],
+    "owns": [
+      { "@type": "SoftwareApplication", "name": "Permit Path", "url": "https://permitpathnav.com" },
+      { "@type": "SoftwareApplication", "name": "HaulPath", "url": "https://haulpath.com" },
+      { "@type": "WebSite", "name": "Pilot Car 4 Hire", "url": "https://www.pilotcar4hire.com" }
+    ]
+  }
+  </script>
 </head>
 <body>
-  <main id="main" class="layout">
-    <section class="panel upload-panel">
-      <h1 class="upload-title">PermitParser</h1>
-      <p class="app-version">v3</p>
-      <input type="file" id="pdf-upload" class="sr-only-input" accept="application/pdf,.pdf" />
-      <label for="pdf-upload" class="file-label">
-        <span class="file-ui">Choose PDF</span>
-      </label>
-      <div id="loading-bar" class="loading-bar loading-bar--hidden" aria-hidden="true">
-        <div class="loading-bar__track">
-          <div id="loading-bar-fill" class="loading-bar__fill"></div>
+  <a class="skip-link" href="#work">Skip to work</a>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#top">
+        <img class="brand-logo" src="images/stlapps-logo.jpg" alt="STL Apps LLC" width="220" height="50" />
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+        <span class="nav-toggle-bar"></span>
+        <span class="sr-only">Menu</span>
+      </button>
+      <nav id="site-nav" class="site-nav" aria-label="Primary">
+        <a href="#work">Work</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-inner">
+          <p class="eyebrow">STL Apps LLC · Oversize freight software</p>
+          <h1>Apps and websites for the <em>oversize road.</em></h1>
+          <p class="lede">
+            I build the tools I wanted on the job: permit-route navigation, state-by-state compliance,
+            and a free way to find a pilot car. No agency fluff — live products carriers and escorts use.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#work">See the work</a>
+            <a class="btn btn-ghost" href="#contact">Get in touch</a>
+          </div>
+          <ul class="hero-products">
+            <li><a href="#permit-path">Permit Path</a></li>
+            <li><a href="#haulpath">HaulPath</a></li>
+            <li><a href="#pilot-car-4-hire">Pilot Car 4 Hire</a></li>
+          </ul>
+        </div>
+        <div class="hero-mark" aria-hidden="true">
+          <svg class="layers" viewBox="0 0 220 240" fill="none">
+            <path class="layer layer-navy" d="M110 12L198 72L110 132L22 72L110 12Z"/>
+            <path class="layer layer-blue" d="M110 62L198 122L110 182L22 122L110 62Z"/>
+            <path class="layer layer-sky" d="M110 112L198 172L110 232L22 172L110 112Z"/>
+          </svg>
         </div>
       </div>
-      <p id="route-progress" class="route-progress" aria-live="polite"></p>
-      <p id="upload-status" class="status status--error" aria-live="polite"></p>
     </section>
 
-    <section class="panel map-panel">
-      <div id="map" class="map" role="application" aria-label="Route map"></div>
-    </section>
-
-    <section class="panel dual">
-      <div>
-        <h2 class="section-label">Route</h2>
-        <ol id="route-hints" class="hints-list"></ol>
+    <section id="work" class="work" aria-labelledby="work-title">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Selected work</p>
+          <h2 id="work-title">Three products. One industry.</h2>
+          <p class="section-copy">Each one ships as a website, plus native apps where drivers actually open them.</p>
+        </div>
       </div>
-      <div>
-        <h2 class="section-label">Permit</h2>
-        <div id="meta-panel" class="meta-panel"></div>
+
+      <article id="permit-path" class="product product-permit">
+        <div class="wrap product-grid">
+          <div class="product-copy">
+            <p class="product-index">01</p>
+            <div class="product-brand">
+              <img src="images/permitpath-logo.png" alt="" width="56" height="56" />
+              <div>
+                <h3>Permit Path</h3>
+                <p class="platforms">iOS · Android · Website</p>
+              </div>
+            </div>
+            <p class="product-lead">
+              Oversize route navigation you control. Build the permit-approved path with unlimited
+              waypoints, then navigate that exact route — without reading the permit behind the wheel.
+            </p>
+            <ul class="product-points">
+              <li>Unlimited waypoints for long permit corridors</li>
+              <li>Plan on one device, navigate on another</li>
+              <li>Share the same route across iOS and Android</li>
+            </ul>
+            <div class="product-links">
+              <a class="btn btn-primary" href="https://permitpathnav.com" target="_blank" rel="noopener noreferrer">Website</a>
+              <a class="store-badge" href="https://apps.apple.com/us/app/permit-path/id6759459273" target="_blank" rel="noopener noreferrer">
+                <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download Permit Path on the App Store" width="140" height="47" />
+              </a>
+              <a class="store-badge store-badge-play" href="https://play.google.com/store/apps/details?id=com.haulpath.permitpath" target="_blank" rel="noopener noreferrer">
+                <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get Permit Path on Google Play" width="155" height="60" />
+              </a>
+            </div>
+          </div>
+          <div class="product-visual">
+            <img class="visual-wide" src="images/permitpath-phones.png" alt="Permit Path on three iPhones: mapped permit route, waypoint list, and turn-by-turn navigation" width="920" height="520" />
+          </div>
+        </div>
+      </article>
+
+      <article id="haulpath" class="product product-haul">
+        <div class="wrap product-grid">
+          <div class="product-copy">
+            <p class="product-index">02</p>
+            <div class="product-brand">
+              <img src="images/haulpath-icon.png" alt="" width="56" height="56" />
+              <div>
+                <h3>HaulPath</h3>
+                <p class="platforms">iOS · Android · Website</p>
+              </div>
+            </div>
+            <p class="product-lead">
+              Enter load dimensions, pick the states on your route, and see what’s required before you
+              roll — permits, pilot cars, and high poles, state by state.
+            </p>
+            <ul class="product-points">
+              <li>48-state oversize and overweight rules</li>
+              <li>Pilot car and high-pole thresholds at a glance</li>
+              <li>Works offline when you need the answer now</li>
+            </ul>
+            <div class="product-links">
+              <a class="btn btn-primary" href="https://haulpath.com" target="_blank" rel="noopener noreferrer">Website</a>
+              <a class="store-badge" href="https://apps.apple.com/us/app/haul-path/id6752206931" target="_blank" rel="noopener noreferrer">
+                <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download Haul Path on the App Store" width="140" height="47" />
+              </a>
+              <a class="store-badge store-badge-play" href="https://play.google.com/store/apps/details?id=com.haulpath.app" target="_blank" rel="noopener noreferrer">
+                <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get HaulPath on Google Play" width="155" height="60" />
+              </a>
+            </div>
+          </div>
+          <div class="product-visual product-visual-phones">
+            <img src="images/haulpath-1.png" alt="HaulPath vehicle dimensions screen" width="360" height="780" />
+            <img src="images/haulpath-3.png" alt="HaulPath route analysis showing permit, pilot car, and high pole requirements" width="360" height="780" />
+          </div>
+        </div>
+      </article>
+
+      <article id="pilot-car-4-hire" class="product product-pc4h">
+        <div class="wrap product-grid">
+          <div class="product-copy">
+            <p class="product-index">03</p>
+            <div class="product-brand">
+              <img class="logo-light" src="images/pc4h-logo.png" alt="" width="56" height="56" />
+              <div>
+                <h3>Pilot Car 4 Hire</h3>
+                <p class="platforms">iOS · Website</p>
+              </div>
+            </div>
+            <p class="product-lead">
+              A free nationwide pilot car directory. Carriers tap a state and call the escort.
+              Drivers list for free. No fees, no middleman, no paywall.
+            </p>
+            <ul class="product-points">
+              <li>Browse lead, chase, hi-pole, steereman, route survey, and flagger</li>
+              <li>No account needed to search or contact</li>
+              <li>Listing is free — always</li>
+            </ul>
+            <div class="product-links">
+              <a class="btn btn-primary" href="https://www.pilotcar4hire.com" target="_blank" rel="noopener noreferrer">Website</a>
+              <span class="coming-soon">iOS on the App Store — coming soon</span>
+            </div>
+          </div>
+          <div class="product-visual product-visual-phones">
+            <img src="images/pc4h-browse.png" alt="Pilot Car 4 Hire map of US pilot cars" width="360" height="780" />
+            <img src="images/pc4h-welcome.png" alt="Pilot Car 4 Hire welcome screen explaining the free directory" width="360" height="780" />
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section id="about" class="about">
+      <div class="wrap about-grid">
+        <div>
+          <p class="eyebrow">About</p>
+          <h2>Built by someone who hauls the same freight.</h2>
+        </div>
+        <div class="about-copy">
+          <p>
+            I’m Sean Tyler Lee. I design and ship software for oversize and heavy-haul work —
+            the permits, the escorts, the “is this legal in the next state” questions that
+            don’t belong in a generic truck GPS.
+          </p>
+          <p>
+            Permit Path, HaulPath, and Pilot Car 4 Hire are live products with their own sites
+            and store listings. This page is the index: what they are, where to open them, and
+            how to reach me.
+          </p>
+        </div>
       </div>
     </section>
 
-    <section class="panel raw-panel">
-      <h2 class="section-label">Extracted text</h2>
-      <pre id="raw-text" class="raw-text" aria-label="Extracted text"></pre>
+    <section id="contact" class="contact">
+      <div class="wrap contact-inner">
+        <p class="eyebrow">Contact</p>
+        <h2>Need a product, a partnership, or support?</h2>
+        <p class="lede">Email is the fastest way to reach me.</p>
+        <a class="btn btn-primary btn-large" href="mailto:seantylerlee@icloud.com">seantylerlee@icloud.com</a>
+      </div>
     </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
-  <script src="js/mapbox-config.js"></script>
-  <script src="js/supabase-config.js?v=9"></script>
-  <script src="js/app.js?v=21"></script>
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <p class="footer-brand">
+        <img src="images/stlapps-logo.jpg" alt="" width="140" height="32" />
+        <span>© <span id="year">2026</span> STL Apps LLC</span>
+      </p>
+      <nav aria-label="Legal">
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById("year").textContent = String(new Date().getFullYear());
+    var toggle = document.querySelector(".nav-toggle");
+    var nav = document.getElementById("site-nav");
+    toggle.addEventListener("click", function () {
+      var open = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!open));
+      nav.classList.toggle("is-open", !open);
+    });
+    nav.querySelectorAll("a").forEach(function (link) {
+      link.addEventListener("click", function () {
+        toggle.setAttribute("aria-expanded", "false");
+        nav.classList.remove("is-open");
+      });
+    });
+  </script>
 </body>
 </html>
