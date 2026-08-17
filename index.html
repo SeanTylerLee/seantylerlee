@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=9" />
+  <link rel="stylesheet" href="styles.css?v=10" />
 
   <script type="application/ld+json">
   {
@@ -42,7 +42,7 @@
       { "@type": "SoftwareApplication", "name": "Permit Path", "url": "https://permitpathnav.com" },
       { "@type": "SoftwareApplication", "name": "HaulPath", "url": "https://haulpath.com" },
       { "@type": "WebSite", "name": "Pilot Car 4 Hire", "url": "https://www.pilotcar4hire.com" },
-      { "@type": "SoftwareApplication", "name": "FleetDispatch", "description": "Multi-role fleet operations app — company-specific, available upon request" }
+      { "@type": "SoftwareApplication", "name": "FleetDispatch", "description": "Private company operations with a dedicated backend and database per trucking company — role-based dispatch, tickets, and shop write-ups" }
     ]
   }
   </script>
@@ -215,68 +215,42 @@
             <div class="product-brand">
               <div>
                 <h3>FleetDispatch</h3>
-                <p class="platforms">iOS · Available</p>
+                <p class="product-tagline">Private company operations</p>
+                <p class="platforms">iOS · Available upon request</p>
               </div>
             </div>
             <p class="product-lead">
-              One app for the whole trucking company. Owners, office, dispatch, mechanics, and drivers
-              each get a role-built home — dispatches, tickets, equipment write-ups, and the team in one place.
+              Built for one trucking company at a time — each customer gets a dedicated backend
+              and database, so loads, drivers, and billing stay off shared multi-carrier platforms.
+              Role-based homes for owner, office, dispatch, mechanic, and driver: send jobs,
+              accept dispatches, submit tickets, and route shop write-ups in one private workspace.
             </p>
             <ul class="product-points">
-              <li>Role-based dashboards for owner, office, dispatch, mechanic, and driver</li>
-              <li>Dispatches to drivers with status and job details</li>
-              <li>Driver tickets and equipment write-ups for shop and billing</li>
+              <li>Dedicated backend and database per company</li>
+              <li>Role-based access for your whole team</li>
+              <li>Dispatches, tickets, and shop write-ups in one place</li>
             </ul>
-            <div class="product-links">
-              <span class="coming-soon">Already here — company-specific, available upon request</span>
-              <a class="btn btn-primary" href="mailto:seantylerlee@icloud.com?subject=FleetDispatch%20request">Request access</a>
+            <div class="product-links product-links-fleet">
+              <a class="btn btn-demo" href="simulator/">Try the interactive demo</a>
+              <a class="btn btn-secondary" href="mailto:seantylerlee@icloud.com?subject=FleetDispatch%20request">Request access</a>
             </div>
           </div>
 
-          <div class="product-visual">
-            <div class="fleet-card" id="fleetdispatch-card">
-              <div class="fleet-card-roles" role="tablist" aria-label="FleetDispatch role views" aria-orientation="vertical">
-                <button type="button" class="fleet-role is-active" role="tab" id="fleet-tab-owner" aria-selected="true" aria-controls="fleet-panel-owner" data-role="owner">Owner view</button>
-                <button type="button" class="fleet-role" role="tab" id="fleet-tab-office" aria-selected="false" aria-controls="fleet-panel-office" data-role="office" tabindex="-1">Office view</button>
-                <button type="button" class="fleet-role" role="tab" id="fleet-tab-dispatch" aria-selected="false" aria-controls="fleet-panel-dispatch" data-role="dispatch" tabindex="-1">Dispatch view</button>
-                <button type="button" class="fleet-role" role="tab" id="fleet-tab-driver" aria-selected="false" aria-controls="fleet-panel-driver" data-role="driver" tabindex="-1">Driver view</button>
-                <button type="button" class="fleet-role" role="tab" id="fleet-tab-mechanic" aria-selected="false" aria-controls="fleet-panel-mechanic" data-role="mechanic" tabindex="-1">Mechanic view</button>
-              </div>
-              <div class="fleet-card-gallery" id="fleetdispatch-views">
-                <div class="role-panel is-active" role="tabpanel" id="fleet-panel-owner" aria-labelledby="fleet-tab-owner" data-role-panel="owner">
-                  <div class="fleet-scroll" tabindex="0" aria-label="Owner screenshots — scroll horizontally">
-                    <img src="images/fleetbord/owner1.png" alt="FleetDispatch owner dashboard with company snapshot" width="200" height="410" />
-                    <img src="images/fleetbord/owner2.png" alt="FleetDispatch owner team and company controls" width="200" height="410" />
-                  </div>
-                </div>
-                <div class="role-panel" role="tabpanel" id="fleet-panel-office" aria-labelledby="fleet-tab-office" data-role-panel="office" hidden>
-                  <div class="fleet-scroll" tabindex="0" aria-label="Office screenshots — scroll horizontally">
-                    <img src="images/fleetbord/office1.png" alt="FleetDispatch office home for billing tickets" width="200" height="410" loading="lazy" />
-                  </div>
-                </div>
-                <div class="role-panel" role="tabpanel" id="fleet-panel-dispatch" aria-labelledby="fleet-tab-dispatch" data-role-panel="dispatch" hidden>
-                  <div class="fleet-scroll" tabindex="0" aria-label="Dispatch screenshots — scroll horizontally">
-                    <img src="images/fleetbord/dispatch1.png" alt="FleetDispatch dispatcher home" width="200" height="410" loading="lazy" />
-                    <img src="images/fleetbord/dispatch2.png" alt="FleetDispatch dispatcher jobs list" width="200" height="410" loading="lazy" />
-                    <img src="images/fleetbord/dispatch3.png" alt="FleetDispatch dispatch job details" width="200" height="410" loading="lazy" />
-                  </div>
-                </div>
-                <div class="role-panel" role="tabpanel" id="fleet-panel-driver" aria-labelledby="fleet-tab-driver" data-role-panel="driver" hidden>
-                  <div class="fleet-scroll" tabindex="0" aria-label="Driver screenshots — scroll horizontally">
-                    <img src="images/fleetbord/driver1.png" alt="FleetDispatch driver home" width="200" height="410" loading="lazy" />
-                    <img src="images/fleetbord/driver2.png" alt="FleetDispatch driver dispatches" width="200" height="410" loading="lazy" />
-                    <img src="images/fleetbord/driver3.png" alt="FleetDispatch driver ticket composer" width="200" height="410" loading="lazy" />
-                    <img src="images/fleetbord/driver4.png" alt="FleetDispatch driver equipment write-up" width="200" height="410" loading="lazy" />
-                  </div>
-                </div>
-                <div class="role-panel" role="tabpanel" id="fleet-panel-mechanic" aria-labelledby="fleet-tab-mechanic" data-role-panel="mechanic" hidden>
-                  <div class="fleet-scroll" tabindex="0" aria-label="Mechanic screenshots — scroll horizontally">
-                    <img src="images/fleetbord/mechanic1.png" alt="FleetDispatch mechanic home" width="200" height="410" loading="lazy" />
-                    <img src="images/fleetbord/mechanic2.png" alt="FleetDispatch mechanic equipment write-ups" width="200" height="410" loading="lazy" />
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div class="product-visual product-visual-phones product-visual-fleet-static">
+            <img
+              src="images/fleetbord/dispatch1.png"
+              alt="FleetDispatch dispatcher board with open jobs and driver status"
+              width="360"
+              height="780"
+              loading="lazy"
+            />
+            <img
+              src="images/fleetbord/driver1.png"
+              alt="FleetDispatch driver home with a job waiting for accept"
+              width="360"
+              height="780"
+              loading="lazy"
+            />
           </div>
         </div>
       </article>
@@ -339,51 +313,6 @@
         nav.classList.remove("is-open");
       });
     });
-
-    (function () {
-      var root = document.getElementById("fleetdispatch");
-      if (!root) return;
-      var tabs = Array.prototype.slice.call(root.querySelectorAll(".fleet-role"));
-      var panels = Array.prototype.slice.call(root.querySelectorAll(".role-panel"));
-
-      function activate(role) {
-        tabs.forEach(function (tab) {
-          var on = tab.getAttribute("data-role") === role;
-          tab.classList.toggle("is-active", on);
-          tab.setAttribute("aria-selected", on ? "true" : "false");
-          tab.tabIndex = on ? 0 : -1;
-        });
-        panels.forEach(function (panel) {
-          var on = panel.getAttribute("data-role-panel") === role;
-          panel.classList.toggle("is-active", on);
-          if (on) {
-            panel.removeAttribute("hidden");
-            var scroller = panel.querySelector(".fleet-scroll");
-            if (scroller) scroller.scrollLeft = 0;
-          } else {
-            panel.setAttribute("hidden", "");
-          }
-        });
-      }
-
-      tabs.forEach(function (tab) {
-        tab.addEventListener("click", function () {
-          activate(tab.getAttribute("data-role"));
-        });
-        tab.addEventListener("keydown", function (event) {
-          var i = tabs.indexOf(tab);
-          var next = -1;
-          if (event.key === "ArrowDown" || event.key === "ArrowRight") next = (i + 1) % tabs.length;
-          if (event.key === "ArrowUp" || event.key === "ArrowLeft") next = (i - 1 + tabs.length) % tabs.length;
-          if (event.key === "Home") next = 0;
-          if (event.key === "End") next = tabs.length - 1;
-          if (next < 0) return;
-          event.preventDefault();
-          tabs[next].focus();
-          activate(tabs[next].getAttribute("data-role"));
-        });
-      });
-    })();
   </script>
 </body>
 </html>

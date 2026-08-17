@@ -1,0 +1,3812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#8a9099" />
+  <meta name="robots" content="index, follow" />
+  <title>FleetDispatch simulator · STL Apps LLC</title>
+  <meta name="description" content="Interactive FleetDispatch demo — switch roles and try dispatches, tickets, team, and shop boards." />
+  <link rel="canonical" href="https://seantylerlee.com/simulator.html" />
+  <link rel="icon" href="images/stlapps-layers.png" type="image/png" />
+  <link rel="apple-touch-icon" href="images/stlapps-layers.png" />
+  <style>
+    :root {
+      --phone-w: 320px;
+      --phone-h: 690px;
+      --bezel: #1a1a1e;
+      --bezel-edge: #0c0c0e;
+      --bg: #f2f2f7;
+      --card: #ffffff;
+      --primary: #1c1c1e;
+      --secondary: #8e8e93;
+      --blue: #007aff;
+      --orange: #ff9500;
+      --green: #34c759;
+      --red: #ff3b30;
+      --purple: #af52de;
+      --hairline: rgba(60, 60, 67, 0.12);
+      --tab-h: 72px;
+      --glass-border: rgba(255, 255, 255, 0.55);
+      --glass-highlight: rgba(255, 255, 255, 0.75);
+      --glass-text: #1c1e22;
+      --glass-muted: #4a5058;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100dvh;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background:
+        radial-gradient(ellipse 90% 55% at 50% -12%, rgba(255, 255, 255, 0.55), transparent 58%),
+        radial-gradient(ellipse 50% 40% at 8% 85%, rgba(255, 255, 255, 0.18), transparent 55%),
+        radial-gradient(ellipse 45% 35% at 92% 70%, rgba(120, 130, 145, 0.2), transparent 50%),
+        linear-gradient(165deg, #a8aeb6 0%, #9198a1 45%, #838a94 100%);
+      overflow-x: hidden;
+      font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+      color: var(--glass-text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 20%, transparent 75%);
+      -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 20%, transparent 75%);
+      opacity: 0.55;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.28), transparent 42%),
+        radial-gradient(ellipse 80% 50% at 50% 100%, rgba(60, 66, 76, 0.12), transparent 60%);
+    }
+
+    .sim-top,
+    .sim-main {
+      position: relative;
+      z-index: 1;
+    }
+
+    .sim-top {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.85rem 1.25rem;
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.58) 0%,
+        rgba(255, 255, 255, 0.38) 100%
+      );
+      border-bottom: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        0 8px 28px rgba(40, 48, 60, 0.1);
+      backdrop-filter: blur(22px) saturate(1.2);
+      -webkit-backdrop-filter: blur(22px) saturate(1.2);
+    }
+
+    .sim-top a.brand {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+      padding: 0.3rem 0.55rem;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      box-shadow: 0 2px 10px rgba(40, 48, 60, 0.1);
+    }
+
+    .sim-top .brand-logo {
+      height: 32px;
+      width: auto;
+      max-width: min(200px, 52vw);
+      object-fit: contain;
+      display: block;
+    }
+
+    .sim-top .back {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #1c1e22;
+      text-decoration: none;
+      padding: 0.5rem 0.95rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      background: rgba(255, 255, 255, 0.45);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    }
+
+    .sim-top .back:hover {
+      border-color: rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.7);
+      color: #000;
+    }
+
+    .sim-main {
+      flex: 1;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem 1rem 2.5rem;
+    }
+
+    .stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.15rem;
+      padding: 1.35rem 1.25rem 1.5rem;
+      border-radius: 28px;
+      background: linear-gradient(
+        160deg,
+        rgba(255, 255, 255, 0.48) 0%,
+        rgba(255, 255, 255, 0.28) 55%,
+        rgba(255, 255, 255, 0.22) 100%
+      );
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.75),
+        0 20px 50px rgba(40, 48, 60, 0.14),
+        0 4px 16px rgba(40, 48, 60, 0.08);
+      backdrop-filter: blur(28px) saturate(1.15);
+      -webkit-backdrop-filter: blur(28px) saturate(1.15);
+    }
+
+    .stage-label {
+      text-align: center;
+      max-width: 360px;
+    }
+
+    .stage-label h1 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.3rem;
+      color: #15171a;
+    }
+
+    .stage-label p {
+      font-size: 0.88rem;
+      color: var(--glass-muted);
+      line-height: 1.45;
+      font-weight: 500;
+    }
+
+    .stage-main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.85rem;
+    }
+
+    .controls {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      justify-content: center;
+      max-width: min(360px, 100%);
+      padding: 3px;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.65),
+        0 2px 8px rgba(40, 48, 60, 0.08);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .role-chip {
+      border: none;
+      border-radius: 8px;
+      padding: 0.38rem 0.62rem;
+      font: inherit;
+      font-size: 0.72rem;
+      font-weight: 560;
+      letter-spacing: -0.01em;
+      background: transparent;
+      color: #3a4048;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .role-chip:hover {
+      color: #121416;
+    }
+
+    .role-chip.is-active {
+      background: rgba(255, 255, 255, 0.92);
+      color: #121416;
+      box-shadow:
+        0 1px 3px rgba(40, 48, 60, 0.12),
+        0 0 0 0.5px rgba(40, 48, 60, 0.06);
+      font-weight: 600;
+    }
+
+    .role-chip:active { transform: scale(0.98); }
+
+    .refresh-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      min-width: 0;
+      padding: 0.55rem 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: 980px;
+      background: rgba(255, 255, 255, 0.45);
+      color: #2a2e34;
+      font: inherit;
+      font-size: 0.8rem;
+      font-weight: 560;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.8),
+        0 2px 8px rgba(40, 48, 60, 0.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
+    }
+
+    .refresh-btn:hover {
+      background: rgba(255, 255, 255, 0.72);
+      color: #121416;
+      border-color: rgba(255, 255, 255, 0.85);
+    }
+
+    .refresh-btn:active {
+      transform: scale(0.97);
+      background: rgba(255, 255, 255, 0.4);
+    }
+
+    .refresh-btn svg {
+      width: 0.9rem;
+      height: 0.9rem;
+      opacity: 0.8;
+    }
+
+    /* —— iPhone shell —— */
+    .iphone {
+      position: relative;
+      width: var(--phone-w);
+      height: var(--phone-h);
+      border-radius: 48px;
+      background: linear-gradient(145deg, #2a2a30 0%, var(--bezel) 40%, var(--bezel-edge) 100%);
+      box-shadow:
+        0 0 0 1px #3a3a42,
+        0 0 0 3px #0a0a0c,
+        0 10px 22px rgba(40, 48, 60, 0.2),
+        0 28px 56px rgba(40, 48, 60, 0.22),
+        0 48px 80px rgba(40, 48, 60, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+      padding: 12px;
+    }
+
+    .iphone::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 48px;
+      pointer-events: none;
+      background: linear-gradient(105deg, rgba(255,255,255,0.08) 0%, transparent 18%, transparent 82%, rgba(255,255,255,0.04) 100%);
+      z-index: 4;
+    }
+
+    .btn-silent, .btn-vol-up, .btn-vol-down, .btn-power {
+      position: absolute;
+      z-index: 5;
+      background: linear-gradient(180deg, #3a3a40 0%, #222226 45%, #1a1a1e 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.35);
+    }
+    .btn-silent { left: -5px; top: 112px; width: 5px; height: 32px; border-radius: 3px 1px 1px 3px; }
+    .btn-vol-up { left: -5px; top: 168px; width: 5px; height: 56px; border-radius: 3px 1px 1px 3px; }
+    .btn-vol-down { left: -5px; top: 236px; width: 5px; height: 56px; border-radius: 3px 1px 1px 3px; }
+    .btn-power { right: -5px; top: 188px; width: 5px; height: 80px; border-radius: 1px 3px 3px 1px; }
+
+    .screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 38px;
+      background: var(--bg);
+      overflow: hidden;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .island {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 92px;
+      height: 28px;
+      background: #0a0a0c;
+      border-radius: 20px;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .status-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      padding: 14px 22px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      z-index: 15;
+      pointer-events: none;
+      color: var(--primary);
+    }
+
+    .status-bar .right {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .status-bar svg { display: block; }
+
+    .home-indicator {
+      position: absolute;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 108px;
+      height: 4px;
+      background: #0a0a0c;
+      border-radius: 4px;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0.85;
+    }
+
+    /* —— App chrome —— */
+    .app {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding-top: 48px;
+      background: var(--bg);
+      position: relative;
+    }
+
+    .top-bar {
+      flex-shrink: 0;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--primary);
+      background: var(--bg);
+      position: relative;
+      z-index: 2;
+      padding: 0 10px;
+    }
+
+    .top-bar .nav-btn {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: rgba(120, 120, 128, 0.16);
+      color: var(--primary);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      padding: 6px 12px;
+      border-radius: 980px;
+      cursor: pointer;
+      display: none;
+      line-height: 1.15;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.12s ease, opacity 0.12s ease;
+    }
+
+    .top-bar .nav-btn:hover { background: rgba(120, 120, 128, 0.22); }
+    .top-bar .nav-btn:active { opacity: 0.7; }
+
+    .top-bar.has-back .nav-btn { display: block; }
+
+    .top-bar .nav-btn-right {
+      left: auto;
+      right: 10px;
+      display: none;
+      color: var(--primary);
+      background: rgba(120, 120, 128, 0.16);
+      font-weight: 600;
+    }
+
+    .top-bar .nav-btn-right.is-emphasis {
+      color: #fff;
+      background: var(--blue);
+    }
+
+    .top-bar .nav-btn-right.is-emphasis:hover {
+      background: #0066d6;
+    }
+
+    .top-bar.has-right .nav-btn-right { display: block; }
+
+    .content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding: 4px 14px calc(var(--tab-h) + 18px);
+      scrollbar-width: none;
+    }
+
+    .content::-webkit-scrollbar { display: none; }
+
+    /* —— Floating tab bar —— */
+    .tabbar {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 16px;
+      z-index: 12;
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      padding: 7px 5px;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.1),
+        0 2px 6px rgba(0, 0, 0, 0.05),
+        inset 0 0.5px 0 rgba(255, 255, 255, 0.9);
+      border: 0.5px solid rgba(255, 255, 255, 0.6);
+    }
+
+    .tab {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      color: var(--secondary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 5px 2px;
+      font: inherit;
+      cursor: pointer;
+      border-radius: 20px;
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+
+    .tab.is-active {
+      color: var(--blue);
+      background: rgba(255,255,255,0.55);
+    }
+
+    .tab svg {
+      width: 20px;
+      height: 20px;
+      display: block;
+    }
+
+    .tab span {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    /* —— Shared UI pieces —— */
+    .hdr {
+      margin-bottom: 14px;
+      padding-top: 2px;
+    }
+
+    .hdr .co {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--secondary);
+      margin-bottom: 2px;
+    }
+
+    .hdr h2 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 3px;
+    }
+
+    .hdr .sub {
+      font-size: 13px;
+      color: var(--secondary);
+      line-height: 1.3;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 13px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 96px;
+      box-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.02);
+    }
+
+    .stat .ico {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stat .ico svg { width: 15px; height: 15px; }
+
+    .stat .val {
+      font-size: 26px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .stat .ttl {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.15;
+    }
+
+    .stat .meta {
+      font-size: 11px;
+      color: var(--secondary);
+      line-height: 1.2;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 4px 2px 8px;
+    }
+
+    .section-head .label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 14px;
+      box-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.02);
+    }
+
+    .card.pad { padding: 15px; }
+
+    .card.outline-orange {
+      box-shadow: inset 0 0 0 1px rgba(255, 149, 0, 0.35);
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      width: 100%;
+      border: none;
+      background: transparent;
+      text-align: left;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .row:active { background: rgba(0,0,0,0.04); }
+
+    .row + .row,
+    .list-row + .list-row {
+      border-top: 0.5px solid var(--hairline);
+    }
+
+    .row .ico-blue {
+      width: 26px;
+      flex-shrink: 0;
+      color: var(--blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .row .ico-blue svg { width: 16px; height: 16px; }
+
+    .row .body { flex: 1; min-width: 0; }
+
+    .row .body .t {
+      font-size: 15px;
+      font-weight: 500;
+      line-height: 1.2;
+    }
+
+    .row .body .s {
+      font-size: 12px;
+      color: var(--secondary);
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chev {
+      color: rgba(142,142,147,0.7);
+      flex-shrink: 0;
+    }
+
+    .chev svg { width: 12px; height: 12px; display: block; }
+
+    .list-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      width: 100%;
+      border: none;
+      background: transparent;
+      text-align: left;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      transition: background 0.1s ease;
+    }
+
+    .list-row:active { background: rgba(0, 0, 0, 0.04); }
+
+    .list-row .mark {
+      width: 26px;
+      flex-shrink: 0;
+      align-self: flex-start;
+      padding-top: 2px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .list-row .mark svg { width: 15px; height: 15px; }
+
+    .list-row .main { flex: 1; min-width: 0; }
+
+    .list-row .top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .list-row .top .name {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .list-row .top .status {
+      font-size: 11px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .list-row .line {
+      font-size: 12px;
+      color: var(--secondary);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .list-row .line.strong {
+      color: var(--primary);
+      font-weight: 500;
+      font-size: 13px;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 22px 16px;
+      color: var(--secondary);
+    }
+
+    .empty svg {
+      width: 28px;
+      height: 28px;
+      color: var(--blue);
+      margin-bottom: 6px;
+    }
+
+    .empty .t {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .empty .s { font-size: 12px; line-height: 1.35; }
+
+    /* Accept / active cards */
+    .job-card { margin-bottom: 14px; }
+
+    .job-card .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .job-card .badge svg { width: 13px; height: 13px; }
+
+    .job-card .load {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 2px;
+    }
+
+    .job-card .cust {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .job-card .route {
+      font-size: 13px;
+      color: var(--secondary);
+      margin-bottom: 2px;
+    }
+
+    .job-card .unit {
+      font-size: 12px;
+      color: var(--secondary);
+      margin-bottom: 12px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 2px;
+    }
+
+    .btn {
+      flex: 1;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      text-align: center;
+      line-height: 1.2;
+      transition: background 0.12s ease, opacity 0.12s ease, transform 0.1s ease, box-shadow 0.12s ease;
+    }
+
+    .btn:active {
+      opacity: 0.88;
+      transform: scale(0.985);
+    }
+
+    .btn-primary {
+      background: var(--blue);
+      color: #fff;
+      box-shadow: 0 1px 2px rgba(0, 122, 255, 0.22);
+    }
+
+    .btn-primary:hover {
+      background: #0066d6;
+    }
+
+    .btn-secondary {
+      background: rgba(120, 120, 128, 0.14);
+      color: var(--primary);
+      box-shadow: none;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(120, 120, 128, 0.2);
+    }
+
+    .btn-full {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 13px 14px;
+    }
+
+    .btn-full svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--blue);
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+      border: none;
+      padding: 12px 14px;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-radius: 12px;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.12s ease;
+    }
+
+    .btn-ghost:hover {
+      background: rgba(0, 122, 255, 0.06);
+    }
+
+    .btn-ghost:active {
+      background: rgba(0, 122, 255, 0.1);
+    }
+
+    .btn-ghost svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--red);
+      font-weight: 600;
+      width: 100%;
+      border: none;
+      padding: 13px 14px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+      border-radius: 12px;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.12s ease;
+    }
+
+    .btn-danger:hover {
+      background: rgba(255, 59, 48, 0.08);
+    }
+
+    .btn-danger:active {
+      background: rgba(255, 59, 48, 0.12);
+    }
+
+    .btn:disabled,
+    .btn[disabled] {
+      opacity: 0.4;
+      pointer-events: none;
+      box-shadow: none;
+    }
+
+    /* Grouped list (settings / forms) */
+    .group-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--secondary);
+      text-transform: none;
+      margin: 10px 4px 6px;
+    }
+
+    .group-footer {
+      font-size: 11px;
+      color: var(--secondary);
+      line-height: 1.35;
+      margin: 6px 4px 12px;
+    }
+
+    .field-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      min-height: 44px;
+    }
+
+    .field-row + .field-row {
+      border-top: 0.5px solid var(--hairline);
+    }
+
+    .field-row .k {
+      font-size: 15px;
+      font-weight: 400;
+      flex-shrink: 0;
+    }
+
+    .field-row .v {
+      font-size: 15px;
+      color: var(--secondary);
+      text-align: right;
+      min-width: 0;
+    }
+
+    .field-row input,
+    .field-row select,
+    .field-input {
+      border: none;
+      background: transparent;
+      font: inherit;
+      font-size: 15px;
+      color: var(--primary);
+      width: 100%;
+      outline: none;
+      text-align: left;
+    }
+
+    .field-row input::placeholder,
+    .field-input::placeholder {
+      color: #c7c7cc;
+    }
+
+    .field-row select {
+      color: var(--secondary);
+      text-align: right;
+      direction: rtl;
+      max-width: 55%;
+    }
+
+    .field-row select option { direction: ltr; }
+
+    .toggle {
+      position: relative;
+      width: 46px;
+      height: 28px;
+      border-radius: 14px;
+      background: #e9e9eb;
+      border: none;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.2s ease;
+      padding: 0;
+    }
+
+    .toggle.is-on { background: var(--green); }
+
+    .toggle::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      transition: transform 0.2s ease;
+    }
+
+    .toggle.is-on::after { transform: translateX(18px); }
+
+    .charge-item + .charge-item {
+      border-top: 0.5px solid var(--hairline);
+    }
+
+    .charge-item .field-row {
+      border-top: none;
+    }
+
+    .charge-amt-row {
+      padding-top: 0;
+      min-height: 40px;
+      padding-bottom: 10px;
+    }
+
+    .charge-amt-row[hidden] {
+      display: none !important;
+    }
+
+    .charge-amt-row .k {
+      font-size: 13px;
+      color: var(--secondary);
+    }
+
+    .charge-amt-row .field-input {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-weight: 560;
+      max-width: 140px;
+      margin-left: auto;
+      color: var(--primary);
+    }
+
+    .charge-amt-row .field-input:focus {
+      color: var(--blue);
+    }
+
+    #tk-total {
+      pointer-events: none;
+      caret-color: transparent;
+    }
+
+    /* PDF-style ticket preview */
+    .pdf-ticket-wrap {
+      padding: 4px 2px 8px;
+    }
+
+    .pdf-ticket {
+      background: #fff;
+      color: #111;
+      border-radius: 4px;
+      border: 1px solid #c8c8c8;
+      box-shadow:
+        0 1px 0 #fff inset,
+        0 8px 24px rgba(0, 0, 0, 0.12),
+        0 2px 6px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    .pdf-ticket-banner {
+      background: linear-gradient(180deg, #1c1c1e 0%, #2c2c2e 100%);
+      color: #fff;
+      padding: 14px 14px 12px;
+      text-align: center;
+      border-bottom: 3px solid var(--blue);
+    }
+
+    .pdf-ticket-banner .co {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.85;
+      margin-bottom: 4px;
+    }
+
+    .pdf-ticket-banner .doc-type {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .pdf-ticket-banner .doc-sub {
+      margin-top: 4px;
+      font-size: 10px;
+      opacity: 0.7;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .pdf-ticket-body {
+      padding: 12px 14px 14px;
+    }
+
+    .pdf-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e5e5ea;
+    }
+
+    .pdf-meta .lab {
+      display: block;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8e8e93;
+      margin-bottom: 2px;
+    }
+
+    .pdf-meta .val {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1c1c1e;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    .pdf-meta .val.num {
+      font-variant-numeric: tabular-nums;
+      font-size: 13px;
+      color: var(--blue);
+    }
+
+    .pdf-section-title {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #8e8e93;
+      margin: 0 0 6px;
+    }
+
+    .pdf-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    .pdf-table th {
+      text-align: left;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #8e8e93;
+      padding: 0 0 6px;
+      border-bottom: 1px solid #e5e5ea;
+    }
+
+    .pdf-table th.r,
+    .pdf-table td.r {
+      text-align: right;
+    }
+
+    .pdf-table td {
+      padding: 7px 0;
+      border-bottom: 1px solid #f0f0f2;
+      color: #1c1c1e;
+      font-weight: 500;
+    }
+
+    .pdf-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .pdf-table td.r {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+
+    .pdf-total-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 4px;
+      padding: 10px 12px;
+      background: #f2f2f7;
+      border-radius: 6px;
+      border: 1px solid #e5e5ea;
+    }
+
+    .pdf-total-row .lab {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #3a3a3c;
+    }
+
+    .pdf-total-row .val {
+      font-size: 18px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--blue);
+      letter-spacing: -0.02em;
+    }
+
+    .pdf-notes {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px dashed #d1d1d6;
+      font-size: 11px;
+      color: #3a3a3c;
+      line-height: 1.4;
+    }
+
+    .pdf-notes .lab {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8e8e93;
+      margin-bottom: 3px;
+    }
+
+    .pdf-sign {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .pdf-sign .line {
+      border-top: 1px solid #1c1c1e;
+      padding-top: 4px;
+      font-size: 9px;
+      color: #8e8e93;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .pdf-sign-block {
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px dashed #d1d1d6;
+    }
+
+    .pdf-sign-block .lab {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8e8e93;
+      margin-bottom: 6px;
+    }
+
+    .pdf-sign-box {
+      min-height: 64px;
+      border: 1px solid #d1d1d6;
+      border-radius: 6px;
+      background: #fafafa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 10px;
+      position: relative;
+    }
+
+    .pdf-sign-box.is-empty {
+      border-style: dashed;
+      color: #aeaeb2;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .pdf-sign-box img {
+      max-width: 100%;
+      max-height: 72px;
+      width: auto;
+      height: auto;
+      display: block;
+    }
+
+    .pdf-sign-meta {
+      margin-top: 4px;
+      font-size: 9px;
+      color: #8e8e93;
+      letter-spacing: 0.02em;
+    }
+
+    .pdf-footer {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 9px;
+      color: #aeaeb2;
+      letter-spacing: 0.04em;
+    }
+
+    .ticket-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .btn:disabled,
+    .btn[disabled] {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    /* Signature capture pad */
+    .sig-pad-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-bottom: 8px;
+    }
+
+    .sig-pad-card {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid var(--hairline);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      overflow: hidden;
+    }
+
+    .sig-pad-head {
+      padding: 12px 14px 8px;
+      text-align: center;
+    }
+
+    .sig-pad-head .t {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--primary);
+    }
+
+    .sig-pad-head .s {
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--secondary);
+      line-height: 1.35;
+    }
+
+    .sig-canvas-wrap {
+      position: relative;
+      margin: 0 12px 10px;
+      border: 1.5px dashed #c7c7cc;
+      border-radius: 12px;
+      background:
+        linear-gradient(transparent 70%, transparent 71%, #e5e5ea 71%, #e5e5ea 72%, transparent 72%),
+        #fff;
+      touch-action: none;
+      overflow: hidden;
+    }
+
+    .sig-canvas-wrap canvas {
+      display: block;
+      width: 100%;
+      height: 160px;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    .sig-canvas-hint {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 10px;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #c7c7cc;
+      pointer-events: none;
+    }
+
+    .sig-canvas-wrap.has-ink .sig-canvas-hint {
+      display: none;
+    }
+
+    .sig-pad-tools {
+      display: flex;
+      gap: 8px;
+      padding: 0 12px 12px;
+    }
+
+    .sig-pad-tools .btn {
+      flex: 1;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 11px;
+      border-radius: 980px;
+      background: rgba(120, 120, 128, 0.14);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--primary);
+    }
+
+    .amount {
+      font-size: 14px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .check {
+      color: var(--blue);
+      flex-shrink: 0;
+    }
+
+    .check svg { width: 15px; height: 15px; }
+
+    .sheet-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      border-radius: 38px;
+      overflow: hidden;
+      padding-top: 48px;
+    }
+
+    .sheet-overlay[hidden] { display: none !important; }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: 96px;
+      transform: translateX(-50%) translateY(12px);
+      background: rgba(28, 28, 30, 0.92);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 560;
+      letter-spacing: -0.01em;
+      padding: 10px 18px;
+      border-radius: 14px;
+      z-index: 40;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      white-space: nowrap;
+      max-width: 90%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .c-orange { color: var(--orange); }
+    .c-green { color: var(--green); }
+    .c-blue { color: var(--blue); }
+    .c-purple { color: var(--purple); }
+    .c-red { color: var(--red); }
+    .c-secondary { color: var(--secondary); }
+
+    .mb-0 { margin-bottom: 0; }
+    .mb-8 { margin-bottom: 8px; }
+    .mb-14 { margin-bottom: 14px; }
+
+    .team-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #5ac8fa, #007aff);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .team-avatar.role-owner { background: linear-gradient(145deg, #ffd60a, #ff9f0a); color: #1c1c1e; }
+    .team-avatar.role-dispatcher { background: linear-gradient(145deg, #64d2ff, #0a84ff); }
+    .team-avatar.role-office { background: linear-gradient(145deg, #bf5af2, #5e5ce6); }
+    .team-avatar.role-mechanic { background: linear-gradient(145deg, #ff9f0a, #ff375f); }
+    .team-avatar.role-driver { background: linear-gradient(145deg, #30d158, #34c759); }
+
+    .btn-remove-user {
+      border: none;
+      background: rgba(255, 59, 48, 0.1);
+      color: var(--red);
+      font: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      padding: 5px 9px;
+      border-radius: 980px;
+      cursor: pointer;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.12s ease, opacity 0.12s ease;
+    }
+
+    .btn-remove-user:hover {
+      background: rgba(255, 59, 48, 0.16);
+    }
+
+    .btn-remove-user:active { opacity: 0.75; }
+
+    .role-pill-select {
+      appearance: none;
+      -webkit-appearance: none;
+      border: none;
+      background: transparent;
+      font: inherit;
+      font-size: 15px;
+      color: var(--secondary);
+      text-align: right;
+      max-width: 55%;
+      direction: rtl;
+      cursor: pointer;
+    }
+
+    .role-pill-select option { direction: ltr; }
+
+    .link {
+      border: none;
+      background: none;
+      color: var(--blue);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      padding: 2px 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .link:active { opacity: 0.65; }
+
+    .list-row .pill,
+    .team-role-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 980px;
+      background: rgba(120, 120, 128, 0.12);
+      font-size: 11px;
+      font-weight: 600;
+      color: #636366;
+      letter-spacing: -0.01em;
+      flex-shrink: 0;
+    }
+
+    .card.action-card .btn-ghost {
+      padding: 13px 14px;
+    }
+
+    .tab {
+      transition: color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+    }
+
+    .tab:active {
+      transform: scale(0.96);
+    }
+
+    .tab.is-active {
+      color: var(--blue);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    @media (max-width: 380px) {
+      :root {
+        --phone-w: min(300px, calc(100vw - 2rem));
+        --phone-h: calc(var(--phone-w) * 2.156);
+      }
+
+      .stage {
+        padding: 1rem 0.75rem 1.15rem;
+        border-radius: 22px;
+        width: min(100%, calc(100vw - 1.25rem));
+      }
+    }
+
+    /* Embed mode — used inside homepage iframe / modal */
+    html.is-embed {
+      /* True iPhone shell size — never squash the aspect ratio */
+      --phone-w: 320px;
+      --phone-h: 690px;
+      /* Shrink the whole simulator uniformly (zoom affects layout size) */
+      --embed-scale: 0.72;
+      height: 100%;
+    }
+
+    html.is-embed,
+    html.is-embed body {
+      background: transparent;
+    }
+
+    html.is-embed body::before,
+    html.is-embed body::after {
+      display: none;
+    }
+
+    html.is-embed body {
+      min-height: 0;
+      height: auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding: 4px 0 6px;
+      margin: 0;
+      overflow: visible;
+    }
+
+    html.is-embed .stage {
+      gap: 0;
+      width: max-content;
+      max-width: none;
+      align-items: flex-end;
+      /* zoom scales layout + paint together → correct proportions */
+      zoom: var(--embed-scale);
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    /* Firefox: no zoom — scale with transform and collapse the leftover layout box */
+    @supports not (zoom: 1) {
+      html.is-embed .stage {
+        zoom: normal;
+        transform: scale(var(--embed-scale));
+        transform-origin: top right;
+        margin-bottom: calc((1 - var(--embed-scale)) * -100%);
+      }
+    }
+
+    html.is-embed .stage-label,
+    html.is-embed .refresh-btn {
+      display: none;
+    }
+
+    html.is-embed .stage-main {
+      align-items: center;
+      gap: 0.55rem;
+    }
+
+    html.is-embed .controls {
+      max-width: var(--phone-w);
+    }
+
+    html.is-embed .iphone {
+      /* Room for side buttons so they aren't clipped */
+      margin-inline: 6px;
+      flex-shrink: 0;
+    }
+
+    /* Fullscreen modal: larger scale for touch use, centered */
+    html.is-embed.is-modal {
+      --embed-scale: 0.92;
+    }
+
+    html.is-embed.is-modal body {
+      align-items: center;
+      justify-content: center;
+      min-height: 100%;
+      overflow: auto;
+      padding: 8px 0;
+    }
+
+    html.is-embed.is-modal .stage {
+      align-items: center;
+    }
+
+    @supports not (zoom: 1) {
+      html.is-embed.is-modal .stage {
+        transform-origin: center center;
+      }
+    }
+  </style>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("embed") === "1" || params.get("embed") === "true") {
+        document.documentElement.classList.add("is-embed");
+      }
+      if (params.get("modal") === "1" || params.get("modal") === "true") {
+        document.documentElement.classList.add("is-modal");
+      }
+    })();
+  </script>
+</head>
+<body>
+  <header class="sim-top">
+    <a class="brand" href="index.html">
+      <img class="brand-logo" src="images/stlapps-logo.jpg" alt="STL Apps LLC" width="200" height="40" />
+    </a>
+    <a class="back" href="index.html#fleetdispatch">← Back</a>
+  </header>
+
+  <main class="sim-main">
+  <div class="stage">
+    <div class="stage-label">
+      <h1>FleetDispatch simulator</h1>
+      <p>Interactive demo of the app. Use the menu to switch roles and try dispatches, tickets, team, and shop boards.</p>
+    </div>
+
+    <div class="stage-main">
+      <div class="controls" id="role-chips" role="listbox" aria-label="Sign in as role"></div>
+
+    <div class="iphone" id="iphone" role="img" aria-label="iPhone with FleetDispatch simulator">
+      <span class="btn-silent" aria-hidden="true"></span>
+      <span class="btn-vol-up" aria-hidden="true"></span>
+      <span class="btn-vol-down" aria-hidden="true"></span>
+      <span class="btn-power" aria-hidden="true"></span>
+
+      <div class="screen" id="screen">
+        <div class="island" aria-hidden="true"></div>
+        <div class="status-bar" aria-hidden="true">
+          <span id="clock">9:41</span>
+          <span class="right">
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><rect x="0" y="6" width="3" height="5" rx="0.5"/><rect x="4" y="4" width="3" height="7" rx="0.5"/><rect x="8" y="2" width="3" height="9" rx="0.5"/><rect x="12" y="0" width="3" height="11" rx="0.5"/></svg>
+            <svg width="14" height="11" viewBox="0 0 14 11" fill="currentColor"><path d="M7 2.2c1.9 0 3.6.7 4.9 1.9l1-1C11.3 1.5 9.3.6 7 .6S2.7 1.5 1.1 3.1l1 1C3.4 2.9 5.1 2.2 7 2.2zm0 2.6c1.2 0 2.3.4 3.2 1.2l1-1C10 3.9 8.6 3.2 7 3.2S4 3.9 2.8 5l1 1C4.7 5.2 5.8 4.8 7 4.8zm0 2.6c.7 0 1.3.2 1.8.7L7 10.1 5.2 8.1c.5-.5 1.1-.7 1.8-.7z"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="currentColor"><rect x="0" y="1" width="20" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1"/><rect x="1.5" y="2.5" width="15" height="6" rx="1"/><path d="M21.5 3.5v4c.8-.4 1.2-1 1.2-2s-.4-1.6-1.2-2z"/></svg>
+          </span>
+        </div>
+
+        <div class="app" id="app">
+          <div class="top-bar" id="top-bar">
+            <button type="button" class="nav-btn" id="nav-back">Back</button>
+            <span id="top-title">Owner</span>
+            <button type="button" class="nav-btn nav-btn-right" id="nav-right">Send</button>
+          </div>
+          <div class="content" id="content"></div>
+          <nav class="tabbar" id="tabbar" aria-label="App tabs"></nav>
+        </div>
+
+        <div class="sheet-overlay" id="sheet" hidden></div>
+        <div class="toast" id="toast" role="status"></div>
+        <div class="home-indicator" aria-hidden="true"></div>
+      </div>
+    </div>
+    </div><!-- /.stage-main -->
+
+    <button type="button" class="refresh-btn" id="refresh-btn" aria-label="Reset demo data">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+        <polyline points="21 3 21 9 15 9" />
+      </svg>
+      Reset demo
+    </button>
+  </div>
+  </main>
+
+  <script>
+  (function () {
+    "use strict";
+
+    /* —— Icons (inline SVG) —— */
+    var I = {
+      house: function (f) {
+        return f
+          ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 3.5 10v10.3A1.5 1.5 0 0 0 5 21.8h4.2v-6.2h5.6v6.2H19a1.5 1.5 0 0 0 1.5-1.5V10L12 3.2z"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z"/></svg>';
+      },
+      clipboard: function (f) {
+        return f
+          ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3a2 2 0 0 0-2 2H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1a2 2 0 0 0-2-2H9zm0 2h6v1H9V5zm1 5h4a1 1 0 1 1 0 2h-4a1 1 0 1 1 0-2zm0 4h6a1 1 0 1 1 0 2h-6a1 1 0 1 1 0-2z"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9 5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M9 11h4M9 15h6"/></svg>';
+      },
+      list: function (f) {
+        return f
+          ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v2h2V8H7zm4 0v2h6V8h-6zm-4 4v2h2v-2H7zm4 0v2h6v-2h-6zm-4 4v2h2v-2H7zm4 0v2h6v-2h-6z"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h.01M12 9h4M8 13h.01M12 13h4M8 17h.01M12 17h4"/></svg>';
+      },
+      wrench: function (f) {
+        return f
+          ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.7 6.3a4 4 0 0 0-5.6 5.2L4 16.6 7.4 20l5.1-5.1a4 4 0 0 0 5.2-5.6l-2.4 2.4-2.1-2.1 2.5-2.3z"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.6 5.2L4 16.6 7.4 20l5.1-5.1a4 4 0 0 0 5.2-5.6l-2.4 2.4-2.1-2.1 2.5-2.3z"/></svg>';
+      },
+      people: function (f) {
+        return f
+          ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.5 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM16 12.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.5 13.5c-3 0-5.5 1.6-5.5 3.8V19h11v-1.7c0-2.2-2.5-3.8-5.5-3.8zM16 14c-.4 0-.8 0-1.2.1 1.1.8 1.7 1.9 1.7 3.2V19H21v-1.2c0-1.8-2-3.8-5-3.8z"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="8" r="3"/><circle cx="16" cy="9" r="2.5"/><path d="M3 19c0-2.5 2.5-4 5.5-4s5.5 1.5 5.5 4M13.5 19c0-1.8 1.5-3.2 3.5-3.2S20.5 17.2 20.5 19"/></svg>';
+      },
+      gear: function (f) {
+        return f
+          ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm8.1 2.7-1.1-.2a6.6 6.6 0 0 0-.6-1.4l.7-.9a.8.8 0 0 0-.1-1.1l-1.4-1.4a.8.8 0 0 0-1.1-.1l-.9.7a6.6 6.6 0 0 0-1.4-.6l-.2-1.1A.8.8 0 0 0 13.3 4h-2.6a.8.8 0 0 0-.8.7l-.2 1.1a6.6 6.6 0 0 0-1.4.6l-.9-.7a.8.8 0 0 0-1.1.1L4.9 7.2a.8.8 0 0 0-.1 1.1l.7.9a6.6 6.6 0 0 0-.6 1.4l-1.1.2a.8.8 0 0 0-.7.8v2a.8.8 0 0 0 .7.8l1.1.2c.1.5.3 1 .6 1.4l-.7.9a.8.8 0 0 0 .1 1.1l1.4 1.4a.8.8 0 0 0 1.1.1l.9-.7c.4.3.9.5 1.4.6l.2 1.1a.8.8 0 0 0 .8.7h2.6a.8.8 0 0 0 .8-.7l.2-1.1c.5-.1 1-.3 1.4-.6l.9.7a.8.8 0 0 0 1.1-.1l1.4-1.4a.8.8 0 0 0 .1-1.1l-.7-.9c.3-.4.5-.9.6-1.4l1.1-.2a.8.8 0 0 0 .7-.8v-2a.8.8 0 0 0-.7-.8z"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+      },
+      doc: function (f) {
+        return f
+          ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-6zm-1 1.5L17.5 8H13V3.5zM8 12h8v1.5H8V12zm0 3h8v1.5H8V15zm0 3h5v1.5H8V18z"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>';
+      },
+      plane: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 11.1 4.3 3.4a1 1 0 0 0-1.4 1.2l2 6.4H11a1 1 0 1 1 0 2H4.9l-2 6.4a1 1 0 0 0 1.4 1.2l17.1-7.7a1 1 0 0 0 0-1.8z"/></svg>',
+      check: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.2 14.2-3.5-3.5 1.4-1.4 2.1 2.1 4.7-4.7 1.4 1.4-6.1 6.1z"/></svg>',
+      checkSm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>',
+      wheel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/><path d="M12 4v5.5M12 14.5V20M4 12h5.5M14.5 12H20"/></svg>',
+      chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+      bell: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2.2 2.2 0 0 0 2.2-2.2h-4.4A2.2 2.2 0 0 0 12 22zm7-6.2V11a7 7 0 0 0-5-6.7V3.5a2 2 0 1 0-4 0v.8A7 7 0 0 0 5 11v4.8L3 18v1h18v-1l-2-2.2z"/></svg>',
+      truck: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 6a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v2h2.4a2 2 0 0 1 1.6.8l2.1 2.8a2 2 0 0 1 .4 1.2V16a1 1 0 0 1-1 1h-1.1a2.5 2.5 0 0 1-4.8 0H9.9a2.5 2.5 0 0 1-4.8 0H4a1 1 0 0 1-1-1V6zm3.5 12a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm10 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM15 9v4h4.2l-1.8-2.4A1 1 0 0 0 16.6 10H15z"/></svg>',
+      plus: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4 11h-3v3h-2v-3H8v-2h3V8h2v3h3v2z"/></svg>',
+      docPlus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5M12 12v5M9.5 14.5h5"/></svg>',
+      crown: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.5 5 7l4.5 4.5L12 5l2.5 6.5L19 7l2 10.5H3zM4 19h16v2H4v-2z"/></svg>',
+      building: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 21v-5h6v5M8 7h2M14 7h2M8 11h2M14 11h2"/></svg>',
+      alert: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2zm0 6 5.5 10h-11L12 8zm-1 4h2v3h-2v-3zm0 4.5h2V18h-2v-1.5z"/></svg>',
+      hammer: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="m2 20 8-8 2 2-8 8H2v-2zm14.7-12.3 1.4-1.4a2 2 0 0 0 0-2.8l-.6-.6a2 2 0 0 0-2.8 0l-1.4 1.4 3.4 3.4zM9.5 8.5 7 6 9 4l2.5 2.5L9.5 8.5z"/></svg>'
+    };
+
+    /* —— Demo data —— */
+    function uid() {
+      return "id-" + Math.random().toString(36).slice(2, 10);
+    }
+
+    function hoursAgo(h) {
+      return Date.now() - h * 3600000;
+    }
+
+    function makeSamples() {
+      return {
+        companyName: "Demo Trucking Co",
+        role: "owner",
+        delegateUserManagementToDispatcher: false,
+        signedInDriverUsername: "tbrooks",
+        teamMembers: [
+          { id: uid(), name: "Alex Rivera", username: "arivera", role: "owner", driverNumber: null, ticketSequence: 0 },
+          { id: uid(), name: "Jordan Lee", username: "jlee", role: "dispatcher", driverNumber: null, ticketSequence: 0 },
+          { id: uid(), name: "Sam Ortiz", username: "sortiz", role: "office", driverNumber: null, ticketSequence: 0 },
+          { id: uid(), name: "Chris Nguyen", username: "cnguyen", role: "mechanic", driverNumber: null, ticketSequence: 0 },
+          { id: uid(), name: "Taylor Brooks", username: "tbrooks", role: "driver", driverNumber: 1432, ticketSequence: 3 },
+          { id: uid(), name: "Morgan Blake", username: "mblake", role: "driver", driverNumber: 1433, ticketSequence: 2 },
+          { id: uid(), name: "Casey Quinn", username: "cquinn", role: "driver", driverNumber: 1434, ticketSequence: 1 }
+        ],
+        tickets: [
+          { id: uid(), number: "1432815253", customerName: "Gulf Coast Aggregates", loadReference: "Load #4821", origin: "Dallas, TX", destination: "Houston, TX", driverName: "Taylor Brooks", driverUsername: "tbrooks", equipmentUnit: "Unit 12", rateAmount: 1850, status: "submitted", notes: "Delivered clean. BOL signed." },
+          { id: uid(), number: "1433815252", customerName: "Lone Star Steel", loadReference: "Load #4818", origin: "Fort Worth, TX", destination: "San Antonio, TX", driverName: "Morgan Blake", driverUsername: "mblake", equipmentUnit: "Unit 7", rateAmount: 2100, status: "submitted", notes: "Detention 1.5 hrs." },
+          { id: uid(), number: "1434815251", customerName: "Prairie Feed Co", loadReference: "Load #4812", origin: "Amarillo, TX", destination: "Oklahoma City, OK", driverName: "Casey Quinn", driverUsername: "cquinn", equipmentUnit: "Unit 3", rateAmount: 1725, status: "submitted", notes: "" },
+          { id: uid(), number: "1432814252", customerName: "Red River Lumber", loadReference: "Load #4801", origin: "Shreveport, LA", destination: "Tyler, TX", driverName: "Taylor Brooks", driverUsername: "tbrooks", equipmentUnit: "Unit 12", rateAmount: 950, status: "billed", notes: "Lumber tarped." },
+          { id: uid(), number: "1433814251", customerName: "Metro Concrete", loadReference: "Load #4790", origin: "Austin, TX", destination: "Waco, TX", driverName: "Morgan Blake", driverUsername: "mblake", equipmentUnit: "Unit 7", rateAmount: 1100, status: "billed", notes: "" }
+        ],
+        dispatches: [
+          { id: uid(), loadReference: "Load #4825", customerName: "Gulf Coast Aggregates", origin: "Dallas, TX", destination: "Houston, TX", driverName: "Taylor Brooks", driverUsername: "tbrooks", equipmentUnit: "Unit 12", notes: "Scale ticket required.", status: "sent", sentAt: hoursAgo(0.3) },
+          { id: uid(), loadReference: "Load #4824", customerName: "Lone Star Steel", origin: "Fort Worth, TX", destination: "San Antonio, TX", driverName: "Morgan Blake", driverUsername: "mblake", equipmentUnit: "Unit 7", notes: "", status: "sent", sentAt: hoursAgo(1) },
+          { id: uid(), loadReference: "Load #4823", customerName: "Prairie Feed Co", origin: "Amarillo, TX", destination: "Oklahoma City, OK", driverName: "Casey Quinn", driverUsername: "cquinn", equipmentUnit: "Unit 3", notes: "Call before arrival.", status: "accepted", sentAt: hoursAgo(5) },
+          { id: uid(), loadReference: "Load #4822", customerName: "Red River Lumber", origin: "Shreveport, LA", destination: "Tyler, TX", driverName: "Taylor Brooks", driverUsername: "tbrooks", equipmentUnit: "Unit 12", notes: "", status: "completed", sentAt: hoursAgo(24) },
+          { id: uid(), loadReference: "Load #4820", customerName: "Metro Concrete", origin: "Austin, TX", destination: "Waco, TX", driverName: "Morgan Blake", driverUsername: "mblake", equipmentUnit: "Unit 7", notes: "Driver declined — equipment issue.", status: "declined", sentAt: hoursAgo(48) }
+        ],
+        writeUps: [
+          { id: uid(), number: "W-221", equipmentUnit: "Unit 14", title: "Brake light out", description: "Right rear brake light not working. Noticed on pre-trip.", driverName: "Taylor Brooks", priority: "medium", status: "open" },
+          { id: uid(), number: "W-220", equipmentUnit: "Unit 7", title: "Air leak at glad hands", description: "Hissing at trailer connection after couple hours on road.", driverName: "Morgan Blake", priority: "high", status: "open" },
+          { id: uid(), number: "W-219", equipmentUnit: "Unit 3", title: "Check engine light", description: "CEL came on near Amarillo. Truck still runs.", driverName: "Casey Quinn", priority: "high", status: "inProgress", mechanicNotes: "Scanning for codes." },
+          { id: uid(), number: "W-218", equipmentUnit: "Trailer 44", title: "Tire wear outer dual", description: "Outer dual on trailer axle 2 looking low tread.", driverName: "Taylor Brooks", priority: "low", status: "open" },
+          { id: uid(), number: "W-215", equipmentUnit: "Unit 12", title: "Wiper blade shredded", description: "Driver side wiper leaving streaks in rain.", driverName: "Morgan Blake", priority: "medium", status: "fixed", mechanicNotes: "Replaced both blades." },
+          { id: uid(), number: "W-210", equipmentUnit: "Unit 9", title: "Transmission slipping", description: "Hard shift 3–4 under load.", driverName: "Casey Quinn", priority: "outOfService", status: "cannotRepair", mechanicNotes: "Needs dealer rebuild. Unit parked." }
+        ]
+      };
+    }
+
+    var ROLES = [
+      { id: "owner", title: "Owner", symbol: "crown" },
+      { id: "office", title: "Office", symbol: "building" },
+      { id: "dispatcher", title: "Dispatcher", symbol: "clipboard" },
+      { id: "mechanic", title: "Mechanic", symbol: "wrench" },
+      { id: "driver", title: "Driver", symbol: "wheel" }
+    ];
+
+    var STATUS_TITLE = {
+      sent: "Sent",
+      accepted: "Accepted",
+      declined: "Declined",
+      completed: "Completed"
+    };
+
+    var PRIORITY_TITLE = {
+      low: "Low",
+      medium: "Medium",
+      high: "High",
+      outOfService: "Out of service"
+    };
+
+    var WRITEUP_STATUS = {
+      open: "Open",
+      inProgress: "In progress",
+      fixed: "Fixed",
+      cannotRepair: "Cannot repair"
+    };
+
+    /* —— Session helpers —— */
+    var session = makeSamples();
+    var nav = { tab: "home", screen: "home", detailId: null, sheet: null };
+
+    function drivers() {
+      return session.teamMembers.filter(function (m) { return m.role === "driver"; });
+    }
+
+    function currentDriver() {
+      return session.teamMembers.find(function (m) {
+        return m.username === session.signedInDriverUsername && m.role === "driver";
+      }) || drivers()[0] || null;
+    }
+
+    function canManageUsers() {
+      if (session.role === "owner") return true;
+      if (session.role === "dispatcher") return session.delegateUserManagementToDispatcher;
+      return false;
+    }
+
+    function dispatchesPending() {
+      return session.dispatches.filter(function (d) { return d.status === "sent"; });
+    }
+    function dispatchesActive() {
+      return session.dispatches.filter(function (d) { return d.status === "accepted"; });
+    }
+    function dispatchesCompleted() {
+      return session.dispatches.filter(function (d) {
+        return d.status === "completed" || d.status === "declined";
+      });
+    }
+    function ticketsAwaiting() {
+      return session.tickets.filter(function (t) { return t.status === "submitted"; });
+    }
+    function ticketsBilled() {
+      return session.tickets.filter(function (t) { return t.status === "billed"; });
+    }
+    function writeUpsOpen() {
+      return session.writeUps.filter(function (w) { return w.status === "open"; });
+    }
+    function writeUpsInProgress() {
+      return session.writeUps.filter(function (w) { return w.status === "inProgress"; });
+    }
+    function writeUpsResolved() {
+      return session.writeUps.filter(function (w) {
+        return w.status === "fixed" || w.status === "cannotRepair";
+      });
+    }
+    function writeUpsNeedingShop() {
+      return session.writeUps.filter(function (w) {
+        return w.status === "open" || w.status === "inProgress";
+      });
+    }
+    function writeUpsPriority() {
+      return session.writeUps.filter(function (w) {
+        return (w.priority === "high" || w.priority === "outOfService") &&
+          (w.status === "open" || w.status === "inProgress");
+      });
+    }
+    function myDispatches() {
+      var d = currentDriver();
+      if (!d) return [];
+      return session.dispatches.filter(function (j) { return j.driverUsername === d.username; });
+    }
+    function myPending() {
+      return myDispatches().filter(function (j) { return j.status === "sent"; });
+    }
+    function myActive() {
+      return myDispatches().find(function (j) { return j.status === "accepted"; }) || null;
+    }
+
+    function money(n) {
+      return "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function esc(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function initials(name) {
+      return String(name || "?")
+        .split(/\s+/)
+        .map(function (p) { return p[0]; })
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+    }
+
+    function toast(msg) {
+      var el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      clearTimeout(toast._t);
+      toast._t = setTimeout(function () { el.classList.remove("show"); }, 1800);
+    }
+
+    function nextLoadRef() {
+      var nums = session.dispatches.map(function (d) {
+        var m = String(d.loadReference).match(/\d+/);
+        return m ? parseInt(m[0], 10) : 0;
+      });
+      var next = (nums.length ? Math.max.apply(null, nums) : 4820) + 1;
+      return "Load #" + next;
+    }
+
+    /* —— Tabs per role —— */
+    function tabsForRole() {
+      switch (session.role) {
+        case "owner":
+          return [
+            { id: "home", title: "Home", icon: "house" },
+            { id: "dispatches", title: "Dispatches", icon: "list" },
+            { id: "equipment", title: "Equipment", icon: "wrench" },
+            { id: "team", title: "Team", icon: "people" },
+            { id: "settings", title: "Settings", icon: "gear" }
+          ];
+        case "office":
+          return [
+            { id: "home", title: "Home", icon: "house" },
+            { id: "tickets", title: "Tickets", icon: "doc" },
+            { id: "settings", title: "Settings", icon: "gear" }
+          ];
+        case "dispatcher": {
+          var t = [
+            { id: "home", title: "Home", icon: "house" },
+            { id: "dispatches", title: "Dispatches", icon: "clipboard" }
+          ];
+          if (canManageUsers()) t.push({ id: "team", title: "Team", icon: "people" });
+          t.push({ id: "settings", title: "Settings", icon: "gear" });
+          return t;
+        }
+        case "mechanic":
+          return [
+            { id: "home", title: "Home", icon: "house" },
+            { id: "equipment", title: "Write-ups", icon: "wrench" },
+            { id: "settings", title: "Settings", icon: "gear" }
+          ];
+        case "driver":
+        default:
+          return [
+            { id: "home", title: "Home", icon: "house" },
+            { id: "dispatches", title: "Dispatches", icon: "list" },
+            { id: "settings", title: "Settings", icon: "gear" }
+          ];
+      }
+    }
+
+    function titleForScreen() {
+      if (nav.sheet === "newDispatch") return "New dispatch";
+      if (nav.sheet === "ticket") return "New ticket";
+      if (nav.sheet === "addUser") return "Add user";
+      if (nav.sheet === "writeup") return "Write-up";
+      if (nav.screen === "dispatchDetail") return "Dispatch";
+      if (nav.screen === "ticketDetail") return "Ticket";
+      switch (nav.tab) {
+        case "home":
+          return ({ owner: "Owner", office: "Office", dispatcher: "Dispatcher", mechanic: "Mechanic", driver: "Driver" })[session.role] || "Home";
+        case "dispatches": return "Dispatches";
+        case "equipment": return session.role === "mechanic" ? "Write-ups" : "Equipment";
+        case "team": return "Team";
+        case "tickets": return "Tickets";
+        case "settings": return "Settings";
+        default: return "FleetDispatch";
+      }
+    }
+
+    /* —— Render pieces —— */
+    function statCard(opts) {
+      return (
+        '<div class="stat">' +
+          '<div class="ico" style="color:' + opts.color + '">' + opts.icon + "</div>" +
+          '<div class="val">' + esc(opts.value) + "</div>" +
+          '<div class="ttl">' + esc(opts.title) + "</div>" +
+          '<div class="meta">' + esc(opts.subtitle) + "</div>" +
+        "</div>"
+      );
+    }
+
+    function sectionHead(label, linkLabel, linkAction) {
+      return (
+        '<div class="section-head">' +
+          '<span class="label">' + esc(label) + "</span>" +
+          (linkLabel
+            ? '<button type="button" class="link" data-action="' + esc(linkAction) + '">' + esc(linkLabel) + "</button>"
+            : "") +
+        "</div>"
+      );
+    }
+
+    function actionRow(title, subtitle, iconHtml, action) {
+      return (
+        '<button type="button" class="row" data-action="' + esc(action) + '">' +
+          '<span class="ico-blue">' + iconHtml + "</span>" +
+          '<span class="body"><span class="t">' + esc(title) + '</span><span class="s">' + esc(subtitle) + "</span></span>" +
+          '<span class="chev">' + I.chev + "</span>" +
+        "</button>"
+      );
+    }
+
+    function dispatchPreviewRow(job, showStatus) {
+      var accent =
+        job.status === "sent" ? "var(--orange)" :
+        job.status === "accepted" ? "var(--green)" :
+        job.status === "declined" ? "var(--red)" : "var(--secondary)";
+      var mark =
+        job.status === "accepted" ? I.check :
+        job.status === "sent" ? I.plane : I.clipboard(true);
+
+      return (
+        '<button type="button" class="list-row" data-action="openDispatch" data-id="' + esc(job.id) + '">' +
+          '<span class="mark" style="color:' + accent + '">' + mark + "</span>" +
+          '<span class="main">' +
+            '<span class="top">' +
+              '<span class="name">' + esc(job.loadReference) + "</span>" +
+              (showStatus
+                ? '<span class="status" style="color:' + accent + '">' + esc(STATUS_TITLE[job.status]) + "</span>"
+                : '<span class="chev" style="color:rgba(142,142,147,0.7)">' + I.chev + "</span>") +
+            "</span>" +
+            (showStatus
+              ? '<span class="line strong">' + esc(job.customerName) + "</span>" +
+                '<span class="line">' + esc(job.driverName) + " · " + esc(job.equipmentUnit) + "</span>" +
+                '<span class="line">' + esc(job.origin) + " → " + esc(job.destination) + "</span>"
+              : '<span class="line">' + esc(job.driverName) + " · " + esc(job.origin) + " → " + esc(job.destination) + "</span>") +
+          "</span>" +
+        "</button>"
+      );
+    }
+
+    /* —— Role homes —— */
+    function renderOwnerHome() {
+      var openJobs = dispatchesPending().length + dispatchesActive().length;
+      var awaiting = ticketsAwaiting().length;
+      var shop = writeUpsNeedingShop().length;
+      var dCount = drivers().length;
+
+      return (
+        '<div class="hdr"><div class="co">' + esc(session.companyName) + "</div>" +
+          "<h2>Owner dashboard</h2>" +
+          '<div class="sub">Company-wide view. Only your company’s data.</div></div>' +
+        '<div class="grid-2">' +
+          statCard({ title: "Dispatches", value: String(openJobs), subtitle: "Open jobs", icon: I.list(true), color: "var(--blue)" }) +
+          statCard({ title: "Tickets", value: String(awaiting), subtitle: "Awaiting bill", icon: I.doc(true), color: "var(--orange)" }) +
+          statCard({ title: "Write-ups", value: String(shop), subtitle: "Open for shop", icon: I.wrench(true), color: "var(--purple)" }) +
+          statCard({ title: "Drivers", value: String(dCount), subtitle: "On your team", icon: I.wheel, color: "var(--green)" }) +
+        "</div>" +
+        sectionHead("Quick actions") +
+        '<div class="card mb-14">' +
+          actionRow("Manage team", "Add users and assign roles", I.people(true), "goTeam") +
+          actionRow("Dispatches", "Company-wide jobs", I.list(true), "goDispatches") +
+          actionRow("Equipment", "Fleet and write-ups", I.wrench(true), "goEquipment") +
+          actionRow("Company settings", "Account and app info", I.gear(true), "goSettings") +
+        "</div>"
+      );
+    }
+
+    function renderOfficeHome() {
+      var awaiting = ticketsAwaiting();
+      var billed = ticketsBilled();
+      var total = awaiting.reduce(function (s, t) { return s + t.rateAmount; }, 0);
+
+      var rows = awaiting.slice(0, 3).map(function (t) {
+        return (
+          '<button type="button" class="list-row" data-action="openTicket" data-id="' + esc(t.id) + '">' +
+            '<span class="mark c-orange">' + I.doc(true) + "</span>" +
+            '<span class="main">' +
+              '<span class="top"><span class="name">' + esc(t.number) + '</span><span class="amount">' + money(t.rateAmount) + "</span></span>" +
+              '<span class="line">' + esc(t.customerName) + " · " + esc(t.driverName) + "</span>" +
+            "</span>" +
+          "</button>"
+        );
+      }).join("");
+
+      return (
+        '<div class="hdr"><div class="co">' + esc(session.companyName) + "</div>" +
+          "<h2>Office dashboard</h2>" +
+          '<div class="sub">Bill tickets drivers submit. Company data only.</div></div>' +
+        '<div class="grid-2">' +
+          statCard({ title: "Awaiting bill", value: String(awaiting.length), subtitle: money(total) + " total", icon: I.doc(true), color: "var(--orange)" }) +
+          statCard({ title: "Billed", value: String(billed.length), subtitle: "This company", icon: I.check, color: "var(--green)" }) +
+        "</div>" +
+        sectionHead("Needs billing", awaiting.length ? "See all" : null, "goTickets") +
+        '<div class="card mb-14">' +
+          (rows || '<div class="empty"><div class="t">Queue clear</div><div class="s">No tickets waiting to bill.</div></div>') +
+        "</div>" +
+        sectionHead("Quick actions") +
+        '<div class="card">' +
+          actionRow("Ticket queue", awaiting.length + " ticket" + (awaiting.length === 1 ? "" : "s") + " ready to bill", I.doc(true), "goTickets") +
+          actionRow("Settings", "Account and app info", I.gear(true), "goSettings") +
+        "</div>"
+      );
+    }
+
+    function renderDispatcherHome() {
+      var pending = dispatchesPending();
+      var active = dispatchesActive();
+      var preview = pending.slice(0, 3).map(function (j) {
+        return dispatchPreviewRow(j, false);
+      }).join("");
+
+      return (
+        '<div class="hdr"><div class="co">' + esc(session.companyName) + "</div>" +
+          "<h2>Dispatcher board</h2>" +
+          '<div class="sub">Send jobs to drivers. Only this company’s loads.</div></div>' +
+        '<div class="grid-2">' +
+          statCard({ title: "Awaiting reply", value: String(pending.length), subtitle: "Sent to drivers", icon: I.plane, color: "var(--orange)" }) +
+          statCard({ title: "Accepted", value: String(active.length), subtitle: "On the road", icon: I.check, color: "var(--green)" }) +
+          statCard({ title: "Drivers", value: String(drivers().length), subtitle: "Available to assign", icon: I.wheel, color: "var(--blue)" }) +
+          statCard({ title: "Today’s board", value: String(session.dispatches.length), subtitle: "All statuses", icon: I.clipboard(true), color: "var(--purple)" }) +
+        "</div>" +
+        sectionHead("Awaiting driver", pending.length ? "See all" : null, "goDispatches") +
+        '<div class="card mb-14">' +
+          (preview || '<div class="empty">' + I.plane + '<div class="t">No pending dispatches</div><div class="s">Send a new dispatch when you have a load.</div></div>') +
+        "</div>" +
+        sectionHead("Quick actions") +
+        '<div class="card">' +
+          actionRow(
+            "Dispatches",
+            pending.length ? pending.length + " waiting on driver reply" : "Create and track loads",
+            I.clipboard(true),
+            "goDispatches"
+          ) +
+          (canManageUsers()
+            ? actionRow("Manage team", "Owner delegated user management", I.people(true), "goTeam")
+            : "") +
+          actionRow("Settings", "Account and app info", I.gear(true), "goSettings") +
+        "</div>"
+      );
+    }
+
+    function renderMechanicHome() {
+      var open = writeUpsOpen();
+      var prog = writeUpsInProgress();
+      var pri = writeUpsPriority();
+      var resolved = writeUpsResolved();
+      var need = writeUpsNeedingShop();
+
+      var rows = need.slice(0, 4).map(function (w) {
+        var pColor =
+          w.priority === "high" || w.priority === "outOfService" ? "var(--red)" :
+          w.priority === "medium" ? "var(--orange)" : "var(--secondary)";
+        return (
+          '<button type="button" class="list-row" data-action="openWriteUp" data-id="' + esc(w.id) + '">' +
+            '<span class="mark c-orange">' + I.wrench(true) + "</span>" +
+            '<span class="main">' +
+              '<span class="top"><span class="name">' + esc(w.title) + '</span><span class="status" style="color:' + pColor + '">' + esc(PRIORITY_TITLE[w.priority]) + "</span></span>" +
+              '<span class="line">' + esc(w.equipmentUnit) + " · " + esc(w.driverName) + "</span>" +
+            "</span>" +
+          "</button>"
+        );
+      }).join("");
+
+      return (
+        '<div class="hdr"><div class="co">' + esc(session.companyName) + "</div>" +
+          "<h2>Shop board</h2>" +
+          '<div class="sub">Driver write-ups for your company’s equipment only.</div></div>' +
+        '<div class="grid-2">' +
+          statCard({ title: "Open", value: String(open.length), subtitle: "Not started", icon: I.wrench(true), color: "var(--orange)" }) +
+          statCard({ title: "In progress", value: String(prog.length), subtitle: "On the floor", icon: I.hammer, color: "var(--purple)" }) +
+          statCard({ title: "Priority", value: String(pri.length), subtitle: "High / OOS", icon: I.alert, color: "var(--red)" }) +
+          statCard({ title: "Resolved", value: String(resolved.length), subtitle: "Fixed or closed", icon: I.check, color: "var(--green)" }) +
+        "</div>" +
+        sectionHead("Needs shop", need.length ? "See all" : null, "goEquipment") +
+        '<div class="card mb-14">' + (rows || '<div class="empty"><div class="t">Shop is clear</div></div>') + "</div>"
+      );
+    }
+
+    function renderDriverHome() {
+      var driver = currentDriver();
+      var pending = myPending()[0] || null;
+      var active = myActive();
+      var previous = myDispatches()
+        .filter(function (j) { return j.status === "completed" || j.status === "declined"; })
+        .slice(0, 3);
+
+      var html =
+        '<div class="hdr"><div class="co">' + esc(session.companyName) + "</div>" +
+        "<h2>" + esc(driver ? driver.name : "Driver") + "</h2>" +
+        '<div class="sub">' +
+          (driver && driver.driverNumber
+            ? "Driver #" + esc(String(driver.driverNumber)) + " · jobs and tickets only"
+            : "Accept dispatches and submit tickets for Office.") +
+        "</div></div>";
+
+      if (pending) {
+        html +=
+          '<div class="card pad outline-orange job-card">' +
+            '<div class="badge c-orange">' + I.bell + " Dispatch needs your accept</div>" +
+            '<div class="load">' + esc(pending.loadReference) + "</div>" +
+            '<div class="cust">' + esc(pending.customerName) + "</div>" +
+            '<div class="route">' + esc(pending.origin) + " → " + esc(pending.destination) + "</div>" +
+            '<div class="unit">Unit ' + esc(pending.equipmentUnit.replace(/^Unit\s*/i, "")) + "</div>" +
+            '<div class="btn-row">' +
+              '<button type="button" class="btn btn-secondary" data-action="declineJob" data-id="' + esc(pending.id) + '">Decline</button>' +
+              '<button type="button" class="btn btn-primary" data-action="acceptJob" data-id="' + esc(pending.id) + '">Accept job</button>' +
+            "</div>" +
+          "</div>";
+      }
+
+      if (active) {
+        html +=
+          '<div class="card pad job-card">' +
+            '<div class="badge c-green">' + I.truck + " Job you’re on</div>" +
+            '<div class="load">' + esc(active.loadReference) + "</div>" +
+            '<div class="cust">' + esc(active.customerName) + "</div>" +
+            '<div class="route">' + esc(active.origin) + " → " + esc(active.destination) + "</div>" +
+            '<button type="button" class="btn btn-primary btn-full" data-action="startTicket" data-id="' + esc(active.id) + '">' +
+              I.docPlus + " Start ticket</button>" +
+          "</div>";
+      } else if (!pending) {
+        html +=
+          '<div class="card empty mb-14">' + I.wheel +
+            '<div class="t">No active job</div>' +
+            '<div class="s">When you accept a dispatch, it shows here with a Start ticket button.</div>' +
+          "</div>";
+      }
+
+      html +=
+        sectionHead("Previous dispatches", "See all", "goDispatches") +
+        '<div class="card mb-14">' +
+          (previous.length
+            ? previous.map(function (j) {
+                return (
+                  '<button type="button" class="list-row" data-action="goDispatches">' +
+                    '<span class="main">' +
+                      '<span class="top"><span class="name">' + esc(j.loadReference) + '</span><span class="status c-secondary">' + esc(STATUS_TITLE[j.status]) + "</span></span>" +
+                      '<span class="line">' + esc(j.origin) + " → " + esc(j.destination) + "</span>" +
+                    "</span>" +
+                  "</button>"
+                );
+              }).join("")
+            : '<div class="empty"><div class="s">No previous dispatches yet.</div></div>') +
+        "</div>" +
+        sectionHead("Quick actions") +
+        '<div class="card">' +
+          actionRow("My dispatches", "Accept jobs and history", I.list(true), "goDispatches") +
+          (active
+            ? actionRow("Start ticket", "For the job you’re on", I.docPlus, "startTicket:" + active.id)
+            : "") +
+          actionRow("Settings", "Account and app info", I.gear(true), "goSettings") +
+        "</div>";
+
+      return html;
+    }
+
+    function renderHome() {
+      switch (session.role) {
+        case "owner": return renderOwnerHome();
+        case "office": return renderOfficeHome();
+        case "dispatcher": return renderDispatcherHome();
+        case "mechanic": return renderMechanicHome();
+        case "driver": return renderDriverHome();
+        default: return "";
+      }
+    }
+
+    /* —— Tab screens —— */
+    function renderDispatches() {
+      if (session.role === "driver") {
+        var mine = myDispatches();
+        var pending = mine.filter(function (j) { return j.status === "sent"; });
+        var active = mine.filter(function (j) { return j.status === "accepted"; });
+        var done = mine.filter(function (j) {
+          return j.status === "completed" || j.status === "declined";
+        });
+
+        return (
+          (pending.length
+            ? sectionHead("Needs accept") +
+              '<div class="card mb-14">' + pending.map(function (j) { return dispatchPreviewRow(j, true); }).join("") + "</div>"
+            : "") +
+          (active.length
+            ? sectionHead("Active") +
+              '<div class="card mb-14">' + active.map(function (j) { return dispatchPreviewRow(j, true); }).join("") + "</div>"
+            : "") +
+          sectionHead("History") +
+          '<div class="card">' +
+            (done.length
+              ? done.map(function (j) { return dispatchPreviewRow(j, true); }).join("")
+              : '<div class="empty"><div class="s">No history yet.</div></div>') +
+          "</div>"
+        );
+      }
+
+      // Owner / dispatcher board list
+      var pending = dispatchesPending();
+      var active = dispatchesActive();
+      var done = dispatchesCompleted();
+
+      return (
+        '<div class="card action-card mb-8">' +
+          '<button type="button" class="btn-ghost" data-action="newDispatch">' +
+            I.plus + " New dispatch</button>" +
+        "</div>" +
+        '<p class="group-footer" style="margin-top:0">Assign a load to a driver. They can accept it, then complete a ticket for Office.</p>' +
+        sectionHead("Sent · awaiting driver") +
+        '<div class="card mb-14">' +
+          (pending.length
+            ? pending.map(function (j) { return dispatchPreviewRow(j, true); }).join("")
+            : '<div class="empty"><div class="s">None waiting.</div></div>') +
+        "</div>" +
+        sectionHead("Accepted") +
+        '<div class="card mb-14">' +
+          (active.length
+            ? active.map(function (j) { return dispatchPreviewRow(j, true); }).join("")
+            : '<div class="empty"><div class="s">None accepted right now.</div></div>') +
+        "</div>" +
+        sectionHead("Completed & declined") +
+        '<div class="card">' +
+          (done.length
+            ? done.map(function (j) { return dispatchPreviewRow(j, true); }).join("")
+            : '<div class="empty"><div class="s">No completed or declined jobs yet.</div></div>') +
+        "</div>"
+      );
+    }
+
+    function renderTickets() {
+      var awaiting = ticketsAwaiting();
+      var billed = ticketsBilled();
+
+      function ticketRow(t) {
+        return (
+          '<button type="button" class="list-row" data-action="openTicket" data-id="' + esc(t.id) + '">' +
+            '<span class="mark c-orange">' + I.doc(true) + "</span>" +
+            '<span class="main">' +
+              '<span class="top"><span class="name">' + esc(t.number) + '</span><span class="amount">' + money(t.rateAmount) + "</span></span>" +
+              '<span class="line strong">' + esc(t.customerName) + "</span>" +
+              '<span class="line">' + esc(t.driverName) + " · " + esc(t.loadReference) + "</span>" +
+            "</span>" +
+          "</button>"
+        );
+      }
+
+      return (
+        sectionHead("Awaiting bill") +
+        '<div class="card mb-14">' +
+          (awaiting.length ? awaiting.map(ticketRow).join("") : '<div class="empty"><div class="s">Nothing to bill.</div></div>') +
+        "</div>" +
+        sectionHead("Billed") +
+        '<div class="card">' +
+          (billed.length ? billed.map(ticketRow).join("") : '<div class="empty"><div class="s">No billed tickets yet.</div></div>') +
+        "</div>"
+      );
+    }
+
+    function renderEquipment() {
+      var need = writeUpsNeedingShop();
+      var resolved = writeUpsResolved();
+
+      function wuRow(w) {
+        var pColor =
+          w.priority === "high" || w.priority === "outOfService" ? "var(--red)" :
+          w.priority === "medium" ? "var(--orange)" : "var(--secondary)";
+        return (
+          '<button type="button" class="list-row" data-action="openWriteUp" data-id="' + esc(w.id) + '">' +
+            '<span class="mark c-orange">' + I.wrench(true) + "</span>" +
+            '<span class="main">' +
+              '<span class="top"><span class="name">' + esc(w.title) + '</span><span class="status" style="color:' + pColor + '">' + esc(PRIORITY_TITLE[w.priority]) + "</span></span>" +
+              '<span class="line">' + esc(w.equipmentUnit) + " · " + esc(w.driverName) + " · " + esc(WRITEUP_STATUS[w.status]) + "</span>" +
+            "</span>" +
+          "</button>"
+        );
+      }
+
+      return (
+        sectionHead("Open for shop") +
+        '<div class="card mb-14">' +
+          (need.length ? need.map(wuRow).join("") : '<div class="empty"><div class="s">No open write-ups.</div></div>') +
+        "</div>" +
+        sectionHead("Resolved") +
+        '<div class="card">' +
+          (resolved.length ? resolved.map(wuRow).join("") : '<div class="empty"><div class="s">None resolved yet.</div></div>') +
+        "</div>"
+      );
+    }
+
+    function roleTitle(role) {
+      return ({ owner: "Owner", dispatcher: "Dispatcher", office: "Office", mechanic: "Mechanic", driver: "Driver" })[role] || role;
+    }
+
+    function renderTeam() {
+      var manage = canManageUsers();
+      var members = session.teamMembers.slice().sort(function (a, b) {
+        var order = { owner: 0, dispatcher: 1, office: 2, mechanic: 3, driver: 4 };
+        return (order[a.role] || 9) - (order[b.role] || 9);
+      });
+
+      var rows = members.map(function (m) {
+        var canRemove = manage && m.role !== "owner";
+        return (
+          '<div class="list-row" style="cursor:default">' +
+            '<span class="team-avatar role-' + esc(m.role) + '">' + esc(initials(m.name)) + "</span>" +
+            '<span class="main">' +
+              '<span class="top">' +
+                '<span class="name">' + esc(m.name) + "</span>" +
+                '<span class="team-role-pill">' + esc(roleTitle(m.role)) + "</span>" +
+              "</span>" +
+              '<span class="line">@' + esc(m.username) +
+                (m.driverNumber ? " · Driver #" + m.driverNumber : "") +
+              "</span>" +
+            "</span>" +
+            (canRemove
+              ? '<button type="button" class="btn-remove-user" data-action="removeUser" data-id="' + esc(m.id) + '" aria-label="Remove ' + esc(m.name) + '">Remove</button>'
+              : "") +
+          "</div>"
+        );
+      }).join("");
+
+      return (
+        '<div class="group-label">Team · ' + esc(session.companyName) + "</div>" +
+        '<div class="card mb-8">' + rows + "</div>" +
+        '<p class="group-footer">Owner sets each user’s name, username, and password. Accounts stay inside this company only.</p>' +
+        (manage
+          ? '<div class="card action-card mb-8">' +
+              '<button type="button" class="btn-ghost" data-action="addUser">' +
+                '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M15 12c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 1.8-4 4 1.8 4 4 4zm-9-2V8H4v2H2v2h2v2h2v-2h2v-2H6zm9 4c-2.7 0-8 1.3-8 4v2h16v-2c0-2.7-5.3-4-8-4z"/></svg>' +
+                "Add user" +
+              "</button>" +
+            "</div>" +
+            '<p class="group-footer">Create a login for Office, Dispatcher, Mechanic, or Driver and give them the username and password.</p>'
+          : '<p class="group-footer">Only Owner (or a delegated Dispatcher) can add users.</p>')
+      );
+    }
+
+    function renderSettings() {
+      var driver = currentDriver();
+
+      return (
+        '<div class="group-label">Session</div>' +
+        '<div class="card mb-8">' +
+          '<div class="field-row"><span class="k">Signed in as</span><span class="v">' + esc(({ owner: "Owner", office: "Office", dispatcher: "Dispatcher", mechanic: "Mechanic", driver: "Driver" })[session.role]) + "</span></div>" +
+          '<div class="field-row"><span class="k">Company</span><span class="v">' + esc(session.companyName) + "</span></div>" +
+          (session.role === "driver" && driver
+            ? '<div class="field-row"><span class="k">Driver #</span><span class="v">' + esc(String(driver.driverNumber)) + "</span></div>" +
+              '<div class="field-row"><span class="k">Name</span><span class="v">' + esc(driver.name) + "</span></div>"
+            : "") +
+        "</div>" +
+        (session.role === "owner"
+          ? '<div class="group-label">Owner</div>' +
+            '<div class="card mb-0">' +
+              '<button type="button" class="row" data-action="goTeam">' +
+                '<span class="ico-blue">' + I.people(true) + "</span>" +
+                '<span class="body"><span class="t">Manage team</span><span class="s">Add users and assign roles</span></span>' +
+                '<span class="chev">' + I.chev + "</span>" +
+              "</button>" +
+              '<div class="field-row">' +
+                '<span class="k" style="flex:1;padding-right:12px;line-height:1.25">Delegate user management to Dispatcher</span>' +
+                '<button type="button" class="toggle' + (session.delegateUserManagementToDispatcher ? " is-on" : "") + '" data-action="toggleDelegate" aria-label="Toggle delegation"></button>' +
+              "</div>" +
+            "</div>" +
+            '<p class="group-footer">When on, Dispatcher can create and manage users for this company only.</p>'
+          : "") +
+        (session.role === "dispatcher"
+          ? '<div class="group-label">Dispatcher</div>' +
+            '<div class="card mb-8">' +
+              '<div class="field-row"><span class="k">User management</span><span class="v">' +
+                (session.delegateUserManagementToDispatcher ? "Allowed by Owner" : "Not delegated") +
+              "</span></div>" +
+            "</div>"
+          : "") +
+        '<div class="group-label">About</div>' +
+        '<div class="card mb-8">' +
+          '<div class="field-row"><span class="k">Version</span><span class="v">1.0 (demo)</span></div>' +
+          '<div class="field-row"><span class="k">App</span><span class="v">FleetDispatch</span></div>' +
+        "</div>" +
+        '<div class="card action-card">' +
+          '<button type="button" class="btn-danger" data-action="reset">Reset demo data</button>' +
+        "</div>"
+      );
+    }
+
+    function renderDispatchDetail(id) {
+      var job = session.dispatches.find(function (d) { return d.id === id; });
+      if (!job) return '<div class="empty"><div class="s">Dispatch not found.</div></div>';
+
+      var accent =
+        job.status === "sent" ? "var(--orange)" :
+        job.status === "accepted" ? "var(--green)" :
+        job.status === "declined" ? "var(--red)" : "var(--secondary)";
+
+      var actions = "";
+      if (session.role === "driver" && job.status === "sent" && job.driverUsername === (currentDriver() || {}).username) {
+        actions =
+          '<div class="btn-row mb-14">' +
+            '<button type="button" class="btn btn-secondary" data-action="declineJob" data-id="' + esc(job.id) + '">Decline</button>' +
+            '<button type="button" class="btn btn-primary" data-action="acceptJob" data-id="' + esc(job.id) + '">Accept job</button>' +
+          "</div>";
+      }
+      if (session.role === "driver" && job.status === "accepted" && job.driverUsername === (currentDriver() || {}).username) {
+        actions =
+          '<button type="button" class="btn btn-primary btn-full mb-14" data-action="startTicket" data-id="' + esc(job.id) + '">' +
+            I.docPlus + " Start ticket</button>";
+      }
+
+      return (
+        '<div class="card pad mb-14">' +
+          '<div class="badge" style="color:' + accent + '">' + esc(STATUS_TITLE[job.status]) + "</div>" +
+          '<div class="load">' + esc(job.loadReference) + "</div>" +
+          '<div class="cust">' + esc(job.customerName) + "</div>" +
+        "</div>" +
+        '<div class="group-label">Details</div>' +
+        '<div class="card mb-14">' +
+          '<div class="field-row"><span class="k">Driver</span><span class="v">' + esc(job.driverName) + "</span></div>" +
+          '<div class="field-row"><span class="k">Unit</span><span class="v">' + esc(job.equipmentUnit) + "</span></div>" +
+          '<div class="field-row"><span class="k">Origin</span><span class="v">' + esc(job.origin) + "</span></div>" +
+          '<div class="field-row"><span class="k">Destination</span><span class="v">' + esc(job.destination) + "</span></div>" +
+          (job.notes
+            ? '<div class="field-row" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="k">Notes</span><span class="v" style="text-align:left;color:var(--primary)">' + esc(job.notes) + "</span></div>"
+            : "") +
+        "</div>" +
+        actions
+      );
+    }
+
+    function renderTicketDetail(id) {
+      var t = session.tickets.find(function (x) { return x.id === id; });
+      if (!t) return '<div class="empty"><div class="s">Ticket not found.</div></div>';
+
+      return (
+        '<div class="card pad mb-14">' +
+          '<div class="badge ' + (t.status === "submitted" ? "c-orange" : "c-green") + '">' +
+            (t.status === "submitted" ? "Awaiting bill" : "Billed") +
+          "</div>" +
+          '<div class="load">' + esc(t.number) + "</div>" +
+          '<div class="cust">' + esc(t.customerName) + "</div>" +
+          '<div class="route">' + esc(t.origin) + " → " + esc(t.destination) + "</div>" +
+          '<div class="unit" style="margin-bottom:0;margin-top:8px;font-size:20px;font-weight:700;color:var(--blue)">' + money(t.rateAmount) + "</div>" +
+        "</div>" +
+        '<div class="group-label">Job</div>' +
+        '<div class="card mb-14">' +
+          '<div class="field-row"><span class="k">Load</span><span class="v">' + esc(t.loadReference) + "</span></div>" +
+          '<div class="field-row"><span class="k">Driver</span><span class="v">' + esc(t.driverName) + "</span></div>" +
+          '<div class="field-row"><span class="k">Unit</span><span class="v">' + esc(t.equipmentUnit) + "</span></div>" +
+          (t.notes ? '<div class="field-row" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="k">Notes</span><span class="v" style="text-align:left;color:var(--primary)">' + esc(t.notes) + "</span></div>" : "") +
+        "</div>" +
+        (t.customerSignature
+          ? '<div class="group-label">Customer signature</div>' +
+            '<div class="card pad mb-14">' +
+              '<div class="pdf-sign-box" style="border:none;background:transparent;padding:0;min-height:0">' +
+                '<img src="' + t.customerSignature + '" alt="Customer signature" style="max-height:80px" />' +
+              "</div>" +
+              (t.signedAtLabel ? '<div class="pdf-sign-meta" style="margin-top:8px">' + esc(t.signedAtLabel) + "</div>" : "") +
+            "</div>"
+          : "") +
+        (t.status === "submitted" && (session.role === "office" || session.role === "owner")
+          ? '<button type="button" class="btn btn-primary btn-full" data-action="billTicket" data-id="' + esc(t.id) + '">Mark as billed</button>'
+          : "")
+      );
+    }
+
+    function renderWriteUpDetail(id) {
+      var w = session.writeUps.find(function (x) { return x.id === id; });
+      if (!w) return '<div class="empty"><div class="s">Write-up not found.</div></div>';
+
+      var canEdit = session.role === "mechanic" || session.role === "owner";
+      var actions = "";
+      if (canEdit && w.status === "open") {
+        actions =
+          '<button type="button" class="btn btn-primary btn-full mb-8" data-action="wuStatus" data-id="' + esc(w.id) + '" data-status="inProgress">Start work</button>' +
+          '<button type="button" class="btn btn-secondary btn-full mb-8" data-action="wuStatus" data-id="' + esc(w.id) + '" data-status="fixed">Mark fixed</button>';
+      } else if (canEdit && w.status === "inProgress") {
+        actions =
+          '<button type="button" class="btn btn-primary btn-full mb-8" data-action="wuStatus" data-id="' + esc(w.id) + '" data-status="fixed">Mark fixed</button>' +
+          '<button type="button" class="btn btn-secondary btn-full mb-8" data-action="wuStatus" data-id="' + esc(w.id) + '" data-status="cannotRepair">Cannot repair</button>';
+      }
+
+      return (
+        '<div class="card pad mb-14">' +
+          '<div class="badge c-orange">' + esc(PRIORITY_TITLE[w.priority]) + " · " + esc(WRITEUP_STATUS[w.status]) + "</div>" +
+          '<div class="load">' + esc(w.title) + "</div>" +
+          '<div class="route">' + esc(w.equipmentUnit) + " · " + esc(w.driverName) + "</div>" +
+        "</div>" +
+        '<div class="group-label">Description</div>' +
+        '<div class="card pad mb-14"><div style="font-size:14px;line-height:1.4">' + esc(w.description) + "</div></div>" +
+        (w.mechanicNotes
+          ? '<div class="group-label">Mechanic notes</div><div class="card pad mb-14"><div style="font-size:14px;line-height:1.4">' + esc(w.mechanicNotes) + "</div></div>"
+          : "") +
+        actions
+      );
+    }
+
+    /* —— Sheets —— */
+    function renderNewDispatchSheet() {
+      var opts = drivers().map(function (d) {
+        return '<option value="' + esc(d.username) + '">' + esc(d.name) + "</option>";
+      }).join("");
+
+      return (
+        '<div class="top-bar has-back has-right">' +
+          '<button type="button" class="nav-btn" data-action="closeSheet">Cancel</button>' +
+          "<span>New dispatch</span>" +
+          '<button type="button" class="nav-btn nav-btn-right is-emphasis" data-action="sendDispatch">Send</button>' +
+        "</div>" +
+        '<div class="content" style="padding-bottom:24px" id="sheet-body">' +
+          '<div class="group-label">Assign to</div>' +
+          '<div class="card mb-8">' +
+            '<div class="field-row"><span class="k">Driver</span>' +
+              '<select id="nd-driver" style="direction:rtl">' + opts + "</select></div>" +
+          "</div>" +
+          '<div class="group-label">Load details</div>' +
+          '<div class="card mb-8">' +
+            '<div class="field-row"><input id="nd-load" class="field-input" value="' + esc(nextLoadRef()) + '" /></div>' +
+            '<div class="field-row"><input id="nd-customer" class="field-input" placeholder="Customer" /></div>' +
+            '<div class="field-row"><input id="nd-origin" class="field-input" placeholder="Origin" /></div>' +
+            '<div class="field-row"><input id="nd-dest" class="field-input" placeholder="Destination" /></div>' +
+            '<div class="field-row"><input id="nd-unit" class="field-input" value="Unit 1" /></div>' +
+          "</div>" +
+          '<div class="group-label">Notes</div>' +
+          '<div class="card mb-8">' +
+            '<div class="field-row"><input id="nd-notes" class="field-input" placeholder="Notes for driver" /></div>' +
+          "</div>" +
+          '<p class="group-footer">Sent only to the selected driver in this company.</p>' +
+        "</div>"
+      );
+    }
+
+    function renderAddUserSheet() {
+      return (
+        '<div class="top-bar has-back has-right">' +
+          '<button type="button" class="nav-btn" data-action="closeSheet">Cancel</button>' +
+          "<span>Add user</span>" +
+          '<button type="button" class="nav-btn nav-btn-right is-emphasis" data-action="submitAddUser">Add</button>' +
+        "</div>" +
+        '<div class="content" style="padding-bottom:24px" id="sheet-body">' +
+          '<div class="group-label">Identity</div>' +
+          '<div class="card mb-8">' +
+            '<div class="field-row"><input id="au-name" class="field-input" placeholder="Full name" autocomplete="name" /></div>' +
+            '<div class="field-row"><input id="au-username" class="field-input" placeholder="Username" autocomplete="username" autocapitalize="none" spellcheck="false" /></div>' +
+          "</div>" +
+          '<p class="group-footer">Name is how they appear in the company. Username is what they type to sign in.</p>' +
+          '<div class="group-label">Password</div>' +
+          '<div class="card mb-8">' +
+            '<div class="field-row"><input id="au-pass" class="field-input" type="password" placeholder="Password" autocomplete="new-password" /></div>' +
+            '<div class="field-row"><input id="au-pass2" class="field-input" type="password" placeholder="Confirm password" autocomplete="new-password" /></div>' +
+          "</div>" +
+          '<p class="group-footer" id="au-pass-hint">You set the password and share it with the user so they can log in.</p>' +
+          '<div class="group-label">Role</div>' +
+          '<div class="card mb-8">' +
+            '<div class="field-row">' +
+              '<span class="k">Role</span>' +
+              '<select id="au-role" class="role-pill-select">' +
+                '<option value="driver" selected>Driver</option>' +
+                '<option value="dispatcher">Dispatcher</option>' +
+                '<option value="office">Office</option>' +
+                '<option value="mechanic">Mechanic</option>' +
+              "</select>" +
+            "</div>" +
+          "</div>" +
+          '<p class="group-footer">Drivers can only do driver work. Office bills tickets. Dispatcher sends jobs. Mechanic handles write-ups.</p>' +
+        "</div>"
+      );
+    }
+
+    function renderTicketSheet(jobId) {
+      var job = session.dispatches.find(function (d) { return d.id === jobId; });
+      var driver = currentDriver();
+      if (!job || !driver) {
+        return '<div class="content"><div class="empty"><div class="s">No active job.</div></div></div>';
+      }
+
+      var date = new Date();
+      var datePart =
+        String(date.getMonth() + 1) +
+        String(date.getDate()).padStart(2, "0") +
+        String(date.getFullYear() % 100).padStart(2, "0");
+      var ticketNum = String(driver.driverNumber || 1000) + datePart + String((driver.ticketSequence || 0) + 1);
+
+      var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      var dateLabel = months[date.getMonth()] + " " + date.getDate() + ", " + date.getFullYear();
+
+      return (
+        '<div class="top-bar has-back" id="ticket-sheet-bar">' +
+          '<button type="button" class="nav-btn" data-action="closeSheet" id="ticket-sheet-nav">Close</button>' +
+          '<span id="ticket-sheet-title">New ticket</span>' +
+        "</div>" +
+        '<div class="content" style="padding-bottom:24px" id="sheet-body">' +
+          '<div id="ticket-form-step">' +
+            '<div class="group-label">Ticket</div>' +
+            '<div class="card mb-8">' +
+              '<div class="field-row"><span class="k">Ticket #</span><span class="v" id="tk-number-label">' + esc(ticketNum) + "</span></div>" +
+              '<div class="field-row"><span class="k">Date</span><span class="pill" id="tk-date-label">' + esc(dateLabel) + "</span></div>" +
+            "</div>" +
+            '<p class="group-footer">Number format: driver code + month/day/year + sequence.</p>' +
+            '<div class="group-label">Job</div>' +
+            '<div class="card mb-8">' +
+              '<div class="field-row"><span class="k">Load</span><span class="v">' + esc(job.loadReference) + "</span></div>" +
+              '<div class="field-row"><span class="k">Unit</span><span class="v">' + esc(job.equipmentUnit) + "</span></div>" +
+              '<div class="field-row"><span class="k">Route</span><span class="v">' + esc(job.origin) + " → " + esc(job.destination) + "</span></div>" +
+            "</div>" +
+            '<div class="group-label">Trip details</div>' +
+            '<div class="card mb-8">' +
+              '<div class="field-row"><input id="tk-customer" class="field-input" value="' + esc(job.customerName) + '" placeholder="Customer" /></div>' +
+              '<div class="field-row"><input id="tk-origin" class="field-input" value="' + esc(job.origin) + '" placeholder="Origin" /></div>' +
+              '<div class="field-row"><input id="tk-dest" class="field-input" value="' + esc(job.destination) + '" placeholder="Destination" /></div>' +
+              '<div class="field-row"><input id="tk-hauled" class="field-input" placeholder="What you hauled" /></div>' +
+            "</div>" +
+            '<div class="group-label">Charges</div>' +
+            '<div class="card mb-8" id="ticket-charges">' +
+              chargeToggle("Rate", "tk-rate", true, "1850.00") +
+              chargeToggle("Fuel", "tk-fuel", false, "") +
+              chargeToggle("Permits", "tk-permits", false, "") +
+              chargeToggle("Pilots", "tk-pilots", false, "") +
+              chargeToggle("Standby", "tk-standby", false, "") +
+            "</div>" +
+            '<div class="card mb-14">' +
+              '<div class="field-row"><span class="k" style="font-weight:600">Ticket total</span>' +
+                '<input id="tk-total" class="field-input" style="text-align:right;color:var(--blue);font-weight:700;font-variant-numeric:tabular-nums" value="1850.00" inputmode="decimal" readonly tabindex="-1" aria-live="polite" /></div>' +
+            "</div>" +
+            '<button type="button" class="btn btn-primary btn-full" data-action="generateTicket" data-id="' + esc(job.id) + '" data-number="' + esc(ticketNum) + '" data-date="' + esc(dateLabel) + '">Generate ticket</button>' +
+            '<p class="group-footer">Toggle charges and enter amounts, then generate a PDF-style ticket to review before submitting.</p>' +
+          "</div>" +
+          '<div id="ticket-preview-step" hidden></div>' +
+        "</div>"
+      );
+    }
+
+    function collectTicketCharges() {
+      var charges = [];
+      var root = document.getElementById("ticket-charges");
+      if (!root) return charges;
+      root.querySelectorAll(".charge-item").forEach(function (item) {
+        var toggle = item.querySelector(".toggle");
+        var amt = item.querySelector(".charge-amt");
+        var labelEl = item.querySelector(".field-row .k");
+        if (!toggle || !toggle.classList.contains("is-on") || !amt) return;
+        var amount = parseMoneyInput(amt.value);
+        if (amount <= 0) return;
+        charges.push({
+          label: labelEl ? labelEl.textContent : "Charge",
+          amount: amount
+        });
+      });
+      return charges;
+    }
+
+    function collectTicketDraft(jobId, ticketNumber, dateLabel) {
+      var job = findDispatch(jobId);
+      var driver = currentDriver();
+      var total = updateTicketTotal();
+      return {
+        jobId: jobId,
+        number: ticketNumber || "",
+        dateLabel: dateLabel || "",
+        companyName: session.companyName || "FleetDispatch",
+        customerName: (document.getElementById("tk-customer") || {}).value || (job && job.customerName) || "",
+        origin: (document.getElementById("tk-origin") || {}).value || (job && job.origin) || "",
+        destination: (document.getElementById("tk-dest") || {}).value || (job && job.destination) || "",
+        hauled: (document.getElementById("tk-hauled") || {}).value || "",
+        loadReference: job ? job.loadReference : "",
+        equipmentUnit: job ? job.equipmentUnit : "",
+        driverName: driver ? driver.name : "",
+        driverNumber: driver && driver.driverNumber ? String(driver.driverNumber) : "",
+        driverUsername: driver ? driver.username : "",
+        charges: collectTicketCharges(),
+        total: total
+      };
+    }
+
+    function renderPdfTicket(draft) {
+      var signed = !!(draft.customerSignature);
+      var chargeRows = (draft.charges || []).map(function (c) {
+        return (
+          "<tr>" +
+            "<td>" + esc(c.label) + "</td>" +
+            '<td class="r">' + money(c.amount) + "</td>" +
+          "</tr>"
+        );
+      }).join("");
+
+      if (!chargeRows) {
+        chargeRows = '<tr><td colspan="2" style="color:#8e8e93;font-weight:400">No charge lines</td></tr>';
+      }
+
+      var signBlock =
+        '<div class="pdf-sign-block">' +
+          '<div class="lab">Customer signature</div>' +
+          (signed
+            ? '<div class="pdf-sign-box"><img src="' + draft.customerSignature + '" alt="Customer signature" /></div>' +
+              '<div class="pdf-sign-meta">Signed by customer' +
+                (draft.customerName ? " · " + esc(draft.customerName) : "") +
+                (draft.signedAtLabel ? " · " + esc(draft.signedAtLabel) : "") +
+              "</div>"
+            : '<div class="pdf-sign-box is-empty">Awaiting customer signature</div>') +
+        "</div>";
+
+      var actions;
+      if (signed) {
+        actions =
+          '<div class="ticket-actions">' +
+            '<button type="button" class="btn btn-primary btn-full" data-action="submitTicket">Submit ticket to Office</button>' +
+            '<button type="button" class="btn btn-secondary btn-full" data-action="openCustomerSign">Re-sign</button>' +
+            '<button type="button" class="btn btn-secondary btn-full" data-action="editTicket">Edit ticket</button>' +
+          "</div>" +
+          '<p class="group-footer">Customer has signed. Submit this ticket to Office for billing.</p>';
+      } else {
+        actions =
+          '<div class="ticket-actions">' +
+            '<button type="button" class="btn btn-primary btn-full" data-action="openCustomerSign">Customer sign</button>' +
+            '<button type="button" class="btn btn-secondary btn-full" data-action="editTicket">Edit ticket</button>' +
+          "</div>" +
+          '<p class="group-footer">Hand the phone to the customer to sign, then submit the ticket to Office.</p>';
+      }
+
+      return (
+        '<div class="pdf-ticket-wrap">' +
+          '<div class="pdf-ticket" role="document" aria-label="Generated ticket preview">' +
+            '<div class="pdf-ticket-banner">' +
+              '<div class="co">' + esc(draft.companyName) + "</div>" +
+              '<div class="doc-type">Haul Ticket</div>' +
+              '<div class="doc-sub">For billing · driver copy</div>' +
+            "</div>" +
+            '<div class="pdf-ticket-body">' +
+              '<div class="pdf-meta">' +
+                '<div><span class="lab">Ticket #</span><span class="val num">' + esc(draft.number) + "</span></div>" +
+                '<div><span class="lab">Date</span><span class="val">' + esc(draft.dateLabel) + "</span></div>" +
+                '<div><span class="lab">Driver</span><span class="val">' + esc(draft.driverName) +
+                  (draft.driverNumber ? " · #" + esc(draft.driverNumber) : "") +
+                "</span></div>" +
+                '<div><span class="lab">Unit</span><span class="val">' + esc(draft.equipmentUnit || "—") + "</span></div>" +
+                '<div><span class="lab">Load</span><span class="val">' + esc(draft.loadReference || "—") + "</span></div>" +
+                '<div><span class="lab">Customer</span><span class="val">' + esc(draft.customerName || "—") + "</span></div>" +
+                '<div style="grid-column:1/-1"><span class="lab">Route</span><span class="val">' +
+                  esc(draft.origin || "—") + " → " + esc(draft.destination || "—") +
+                "</span></div>" +
+              "</div>" +
+              '<div class="pdf-section-title">Charges</div>' +
+              '<table class="pdf-table">' +
+                "<thead><tr><th>Description</th><th class=\"r\">Amount</th></tr></thead>" +
+                "<tbody>" + chargeRows + "</tbody>" +
+              "</table>" +
+              '<div class="pdf-total-row">' +
+                '<span class="lab">Total</span>' +
+                '<span class="val">' + money(draft.total) + "</span>" +
+              "</div>" +
+              (draft.hauled
+                ? '<div class="pdf-notes"><div class="lab">Commodity / notes</div>' + esc(draft.hauled) + "</div>"
+                : "") +
+              signBlock +
+              '<div class="pdf-sign" style="margin-top:12px">' +
+                '<div class="line">Driver signature</div>' +
+                '<div class="line">Office received</div>' +
+              "</div>" +
+              '<div class="pdf-footer">Generated in FleetDispatch · company-dedicated ticket</div>' +
+            "</div>" +
+          "</div>" +
+        "</div>" +
+        actions
+      );
+    }
+
+    function renderSignaturePad(draft) {
+      var who = draft && draft.customerName ? draft.customerName : "Customer";
+      return (
+        '<div class="sig-pad-panel" id="sig-pad-panel">' +
+          '<div class="sig-pad-card">' +
+            '<div class="sig-pad-head">' +
+              '<div class="t">Customer signature</div>' +
+              '<div class="s">Have <strong>' + esc(who) + "</strong> sign below with a finger or mouse.</div>" +
+            "</div>" +
+            '<div class="sig-canvas-wrap" id="sig-canvas-wrap">' +
+              '<canvas id="sig-canvas" width="560" height="320" aria-label="Signature pad"></canvas>' +
+              '<div class="sig-canvas-hint">Sign here</div>' +
+            "</div>" +
+            '<div class="sig-pad-tools">' +
+              '<button type="button" class="btn btn-secondary" data-action="clearSignature">Clear</button>' +
+              '<button type="button" class="btn btn-primary" data-action="saveSignature" id="sig-save-btn" disabled>Done</button>' +
+            "</div>" +
+          "</div>" +
+          '<button type="button" class="btn btn-secondary btn-full" data-action="cancelSignature">Cancel</button>' +
+          '<p class="group-footer">Signature is captured on this device and attached to the ticket before Office receives it.</p>' +
+        "</div>"
+      );
+    }
+
+    var ticketDraft = null;
+    var sigPad = null;
+
+    function destroySigPad() {
+      if (sigPad && sigPad.destroy) sigPad.destroy();
+      sigPad = null;
+    }
+
+    function initSigPad() {
+      destroySigPad();
+      var canvas = document.getElementById("sig-canvas");
+      var wrap = document.getElementById("sig-canvas-wrap");
+      var saveBtn = document.getElementById("sig-save-btn");
+      if (!canvas || !wrap) return;
+
+      var ctx = canvas.getContext("2d");
+      var drawing = false;
+      var hasInk = false;
+      var lastX = 0;
+      var lastY = 0;
+
+      function resize() {
+        var rect = wrap.getBoundingClientRect();
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        var w = Math.max(1, Math.floor(rect.width));
+        var h = 160;
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#1c1c1e";
+        ctx.lineWidth = 2.4;
+        // restore blank after resize
+        hasInk = false;
+        wrap.classList.remove("has-ink");
+        if (saveBtn) saveBtn.disabled = true;
+      }
+
+      function pos(e) {
+        var rect = canvas.getBoundingClientRect();
+        var t = e.touches && e.touches[0] ? e.touches[0] : e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
+        return {
+          x: t.clientX - rect.left,
+          y: t.clientY - rect.top
+        };
+      }
+
+      function start(e) {
+        e.preventDefault();
+        drawing = true;
+        var p = pos(e);
+        lastX = p.x;
+        lastY = p.y;
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+      }
+
+      function move(e) {
+        if (!drawing) return;
+        e.preventDefault();
+        var p = pos(e);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        lastX = p.x;
+        lastY = p.y;
+        if (!hasInk) {
+          hasInk = true;
+          wrap.classList.add("has-ink");
+          if (saveBtn) saveBtn.disabled = false;
+        }
+      }
+
+      function end(e) {
+        if (!drawing) return;
+        e.preventDefault();
+        drawing = false;
+      }
+
+      function clear() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        hasInk = false;
+        wrap.classList.remove("has-ink");
+        if (saveBtn) saveBtn.disabled = true;
+      }
+
+      function exportDataUrl() {
+        if (!hasInk) return null;
+        // Export at display size on white background
+        var out = document.createElement("canvas");
+        var rect = canvas.getBoundingClientRect();
+        out.width = Math.max(1, Math.floor(rect.width));
+        out.height = 160;
+        var octx = out.getContext("2d");
+        octx.fillStyle = "#ffffff";
+        octx.fillRect(0, 0, out.width, out.height);
+        octx.drawImage(canvas, 0, 0, out.width, out.height);
+        return out.toDataURL("image/png");
+      }
+
+      resize();
+      canvas.addEventListener("mousedown", start);
+      canvas.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", end);
+      canvas.addEventListener("touchstart", start, { passive: false });
+      canvas.addEventListener("touchmove", move, { passive: false });
+      canvas.addEventListener("touchend", end, { passive: false });
+      canvas.addEventListener("touchcancel", end, { passive: false });
+
+      sigPad = {
+        clear: clear,
+        exportDataUrl: exportDataUrl,
+        hasInk: function () { return hasInk; },
+        destroy: function () {
+          canvas.removeEventListener("mousedown", start);
+          canvas.removeEventListener("mousemove", move);
+          window.removeEventListener("mouseup", end);
+          canvas.removeEventListener("touchstart", start);
+          canvas.removeEventListener("touchmove", move);
+          canvas.removeEventListener("touchend", end);
+          canvas.removeEventListener("touchcancel", end);
+        }
+      };
+    }
+
+    function showTicketPreview(draft) {
+      destroySigPad();
+      ticketDraft = draft;
+      var formStep = document.getElementById("ticket-form-step");
+      var previewStep = document.getElementById("ticket-preview-step");
+      var title = document.getElementById("ticket-sheet-title");
+      var navBtn = document.getElementById("ticket-sheet-nav");
+      if (!formStep || !previewStep) return;
+
+      formStep.hidden = true;
+      previewStep.hidden = false;
+      previewStep.innerHTML = renderPdfTicket(draft);
+      if (title) title.textContent = draft.customerSignature ? "Review ticket" : "Review ticket";
+      if (navBtn) {
+        navBtn.textContent = "Edit";
+        navBtn.setAttribute("data-action", "editTicket");
+      }
+      var sheetBody = document.getElementById("sheet-body");
+      if (sheetBody) sheetBody.scrollTop = 0;
+    }
+
+    function showCustomerSignPad() {
+      if (!ticketDraft) return;
+      destroySigPad();
+      var formStep = document.getElementById("ticket-form-step");
+      var previewStep = document.getElementById("ticket-preview-step");
+      var title = document.getElementById("ticket-sheet-title");
+      var navBtn = document.getElementById("ticket-sheet-nav");
+      if (!previewStep) return;
+
+      if (formStep) formStep.hidden = true;
+      previewStep.hidden = false;
+      previewStep.innerHTML = renderSignaturePad(ticketDraft);
+      if (title) title.textContent = "Customer sign";
+      if (navBtn) {
+        navBtn.textContent = "Back";
+        navBtn.setAttribute("data-action", "cancelSignature");
+      }
+      initSigPad();
+      var sheetBody = document.getElementById("sheet-body");
+      if (sheetBody) sheetBody.scrollTop = 0;
+    }
+
+    function showTicketForm() {
+      destroySigPad();
+      ticketDraft = null;
+      var formStep = document.getElementById("ticket-form-step");
+      var previewStep = document.getElementById("ticket-preview-step");
+      var title = document.getElementById("ticket-sheet-title");
+      var navBtn = document.getElementById("ticket-sheet-nav");
+      if (!formStep || !previewStep) return;
+
+      previewStep.hidden = true;
+      previewStep.innerHTML = "";
+      formStep.hidden = false;
+      if (title) title.textContent = "New ticket";
+      if (navBtn) {
+        navBtn.textContent = "Close";
+        navBtn.setAttribute("data-action", "closeSheet");
+      }
+      var sheetBody = document.getElementById("sheet-body");
+      if (sheetBody) sheetBody.scrollTop = 0;
+    }
+
+    function chargeToggle(label, id, on, amount) {
+      var amt = amount == null ? "" : String(amount);
+      return (
+        '<div class="charge-item" data-charge="' + esc(id) + '">' +
+          '<div class="field-row">' +
+            '<span class="k">' + esc(label) + "</span>" +
+            '<button type="button" class="toggle' + (on ? " is-on" : "") + '" data-action="toggleCharge" data-target="' + esc(id) + '" id="' + esc(id) + '" aria-label="Toggle ' + esc(label) + '"></button>' +
+          "</div>" +
+          '<div class="field-row charge-amt-row"' + (on ? "" : " hidden") + ' id="' + esc(id) + '-row">' +
+            '<span class="k">Amount</span>' +
+            '<input class="field-input charge-amt" id="' + esc(id) + '-amt" inputmode="decimal" placeholder="0.00" value="' + esc(amt) + '" aria-label="' + esc(label) + ' amount" />' +
+          "</div>" +
+        "</div>"
+      );
+    }
+
+    function parseMoneyInput(str) {
+      var n = parseFloat(String(str || "").replace(/[^0-9.]/g, ""));
+      return isFinite(n) ? n : 0;
+    }
+
+    function formatMoneyInput(n) {
+      return (Math.round(n * 100) / 100).toFixed(2);
+    }
+
+    function updateTicketTotal() {
+      var totalEl = document.getElementById("tk-total");
+      var charges = document.getElementById("ticket-charges");
+      if (!totalEl || !charges) return 0;
+
+      var sum = 0;
+      charges.querySelectorAll(".charge-item").forEach(function (item) {
+        var toggle = item.querySelector(".toggle");
+        var amt = item.querySelector(".charge-amt");
+        if (toggle && toggle.classList.contains("is-on") && amt) {
+          sum += parseMoneyInput(amt.value);
+        }
+      });
+      totalEl.value = formatMoneyInput(sum);
+      return sum;
+    }
+
+    /* —— Main render —— */
+    function renderTabBar() {
+      var tabs = tabsForRole();
+      var bar = document.getElementById("tabbar");
+      if (nav.sheet) {
+        bar.style.display = "none";
+        return;
+      }
+      bar.style.display = "flex";
+      bar.innerHTML = tabs.map(function (t) {
+        var active = nav.tab === t.id;
+        var iconFn = I[t.icon] || I.house;
+        var icon = typeof iconFn === "function" ? iconFn(active) : iconFn;
+        return (
+          '<button type="button" class="tab' + (active ? " is-active" : "") + '" data-tab="' + esc(t.id) + '" aria-label="' + esc(t.title) + '">' +
+            icon + "<span>" + esc(t.title) + "</span>" +
+          "</button>"
+        );
+      }).join("");
+    }
+
+    function renderChips() {
+      var el = document.getElementById("role-chips");
+      el.innerHTML = ROLES.map(function (r) {
+        return (
+          '<button type="button" class="role-chip' + (session.role === r.id ? " is-active" : "") + '" data-role="' + esc(r.id) + '">' +
+            esc(r.title) +
+          "</button>"
+        );
+      }).join("");
+    }
+
+    function renderTopBar() {
+      var bar = document.getElementById("top-bar");
+      var title = document.getElementById("top-title");
+      title.textContent = titleForScreen();
+      var hasBack = nav.screen !== "home" && !nav.sheet;
+      bar.classList.toggle("has-back", hasBack);
+      bar.classList.toggle("has-right", false);
+      document.getElementById("nav-back").textContent = "Back";
+    }
+
+    function renderContent() {
+      var root = document.getElementById("content");
+      var html = "";
+
+      if (nav.screen === "dispatchDetail") {
+        html = renderDispatchDetail(nav.detailId);
+      } else if (nav.screen === "ticketDetail") {
+        html = renderTicketDetail(nav.detailId);
+      } else if (nav.screen === "writeupDetail") {
+        html = renderWriteUpDetail(nav.detailId);
+      } else {
+        switch (nav.tab) {
+          case "home": html = renderHome(); break;
+          case "dispatches": html = renderDispatches(); break;
+          case "tickets": html = renderTickets(); break;
+          case "equipment": html = renderEquipment(); break;
+          case "team": html = renderTeam(); break;
+          case "settings": html = renderSettings(); break;
+          default: html = renderHome();
+        }
+      }
+
+      root.innerHTML = html;
+      root.scrollTop = 0;
+    }
+
+    function renderSheet() {
+      var sheet = document.getElementById("sheet");
+      if (!nav.sheet) {
+        sheet.hidden = true;
+        sheet.innerHTML = "";
+        return;
+      }
+      sheet.hidden = false;
+      if (nav.sheet === "newDispatch") {
+        sheet.innerHTML = renderNewDispatchSheet();
+      } else if (nav.sheet === "ticket") {
+        sheet.innerHTML = renderTicketSheet(nav.detailId);
+      } else if (nav.sheet === "addUser") {
+        sheet.innerHTML = renderAddUserSheet();
+      }
+    }
+
+    function renderAll() {
+      renderChips();
+      renderTopBar();
+      renderContent();
+      renderTabBar();
+      renderSheet();
+    }
+
+    /* —— Navigation actions —— */
+    function goTab(tab) {
+      nav.tab = tab;
+      nav.screen = "home";
+      nav.detailId = null;
+      nav.sheet = null;
+      renderAll();
+    }
+
+    function setRole(role) {
+      session.role = role;
+      if (role === "driver" && !currentDriver()) {
+        session.signedInDriverUsername = drivers()[0] ? drivers()[0].username : "tbrooks";
+      }
+      nav.tab = "home";
+      nav.screen = "home";
+      nav.detailId = null;
+      nav.sheet = null;
+      renderAll();
+      toast("Signed in as " + ({ owner: "Owner", office: "Office", dispatcher: "Dispatcher", mechanic: "Mechanic", driver: "Driver" })[role]);
+    }
+
+    function findDispatch(id) {
+      return session.dispatches.find(function (d) { return d.id === id; });
+    }
+
+    function handleAction(action, el) {
+      if (!action) return;
+
+      if (action === "goHome") return goTab("home");
+      if (action === "goDispatches") return goTab("dispatches");
+      if (action === "goTickets") return goTab("tickets");
+      if (action === "goEquipment") return goTab("equipment");
+      if (action === "goTeam") return goTab("team");
+      if (action === "goSettings") return goTab("settings");
+
+      if (action === "setRole") {
+        setRole(el.getAttribute("data-role"));
+        return;
+      }
+
+      if (action === "toggleDelegate") {
+        session.delegateUserManagementToDispatcher = !session.delegateUserManagementToDispatcher;
+        renderAll();
+        toast(session.delegateUserManagementToDispatcher ? "Delegation on" : "Delegation off");
+        return;
+      }
+
+      if (action === "openDispatch") {
+        nav.screen = "dispatchDetail";
+        nav.detailId = el.getAttribute("data-id");
+        renderAll();
+        return;
+      }
+
+      if (action === "openTicket") {
+        nav.screen = "ticketDetail";
+        nav.detailId = el.getAttribute("data-id");
+        renderAll();
+        return;
+      }
+
+      if (action === "openWriteUp") {
+        nav.screen = "writeupDetail";
+        nav.detailId = el.getAttribute("data-id");
+        renderAll();
+        return;
+      }
+
+      if (action === "acceptJob") {
+        var job = findDispatch(el.getAttribute("data-id"));
+        if (job && job.status === "sent") {
+          job.status = "accepted";
+          toast("Job accepted");
+          renderAll();
+        }
+        return;
+      }
+
+      if (action === "declineJob") {
+        var jobD = findDispatch(el.getAttribute("data-id"));
+        if (jobD && jobD.status === "sent") {
+          jobD.status = "declined";
+          toast("Job declined");
+          renderAll();
+        }
+        return;
+      }
+
+      if (action.indexOf("startTicket") === 0) {
+        var tid = action.indexOf(":") >= 0 ? action.split(":")[1] : el.getAttribute("data-id");
+        nav.sheet = "ticket";
+        nav.detailId = tid;
+        renderAll();
+        return;
+      }
+
+      if (action === "newDispatch") {
+        nav.sheet = "newDispatch";
+        renderAll();
+        return;
+      }
+
+      if (action === "addUser") {
+        if (!canManageUsers()) {
+          toast("Not allowed for this role");
+          return;
+        }
+        nav.sheet = "addUser";
+        renderAll();
+        return;
+      }
+
+      if (action === "submitAddUser") {
+        if (!canManageUsers()) return;
+        var nameEl = document.getElementById("au-name");
+        var userEl = document.getElementById("au-username");
+        var passEl = document.getElementById("au-pass");
+        var pass2El = document.getElementById("au-pass2");
+        var roleEl = document.getElementById("au-role");
+        var name = (nameEl && nameEl.value || "").trim();
+        var username = (userEl && userEl.value || "").trim().toLowerCase().replace(/\s+/g, "");
+        var pass = passEl ? passEl.value : "";
+        var pass2 = pass2El ? pass2El.value : "";
+        var role = roleEl ? roleEl.value : "driver";
+
+        if (!name) { toast("Enter a full name"); return; }
+        if (!username) { toast("Enter a username"); return; }
+        if (session.teamMembers.some(function (m) { return m.username.toLowerCase() === username; })) {
+          toast("Username already taken");
+          return;
+        }
+        if (!pass) { toast("Enter a password"); return; }
+        if (pass !== pass2) { toast("Passwords do not match"); return; }
+        if (["dispatcher", "office", "mechanic", "driver"].indexOf(role) < 0) {
+          role = "driver";
+        }
+
+        var driverNumber = null;
+        if (role === "driver") {
+          var existing = session.teamMembers.map(function (m) { return m.driverNumber || 0; });
+          driverNumber = (existing.length ? Math.max.apply(null, existing) : 1431) + 1;
+        }
+
+        session.teamMembers.push({
+          id: uid(),
+          name: name,
+          username: username,
+          role: role,
+          driverNumber: driverNumber,
+          ticketSequence: 0
+        });
+        nav.sheet = null;
+        nav.tab = "team";
+        nav.screen = "home";
+        renderAll();
+        toast(name + " added as " + roleTitle(role));
+        return;
+      }
+
+      if (action === "removeUser") {
+        if (!canManageUsers()) return;
+        var rid = el.getAttribute("data-id");
+        var member = session.teamMembers.find(function (m) { return m.id === rid; });
+        if (!member || member.role === "owner") {
+          toast("Can’t remove the owner");
+          return;
+        }
+        session.teamMembers = session.teamMembers.filter(function (m) { return m.id !== rid; });
+        renderAll();
+        toast(member.name + " removed");
+        return;
+      }
+
+      if (action === "closeSheet") {
+        destroySigPad();
+        ticketDraft = null;
+        nav.sheet = null;
+        renderAll();
+        return;
+      }
+
+      if (action === "sendDispatch") {
+        var sel = document.getElementById("nd-driver");
+        var driverUser = sel ? sel.value : "";
+        var member = session.teamMembers.find(function (m) { return m.username === driverUser; });
+        var load = (document.getElementById("nd-load") || {}).value || nextLoadRef();
+        var customer = (document.getElementById("nd-customer") || {}).value || "Customer";
+        var origin = (document.getElementById("nd-origin") || {}).value || "Origin";
+        var dest = (document.getElementById("nd-dest") || {}).value || "Destination";
+        var unit = (document.getElementById("nd-unit") || {}).value || "Unit 1";
+        var notes = (document.getElementById("nd-notes") || {}).value || "";
+
+        session.dispatches.unshift({
+          id: uid(),
+          loadReference: load,
+          customerName: customer,
+          origin: origin,
+          destination: dest,
+          driverName: member ? member.name : "Driver",
+          driverUsername: driverUser,
+          equipmentUnit: unit,
+          notes: notes,
+          status: "sent",
+          sentAt: Date.now()
+        });
+        nav.sheet = null;
+        nav.tab = "dispatches";
+        nav.screen = "home";
+        renderAll();
+        toast("Dispatch sent");
+        return;
+      }
+
+      if (action === "generateTicket") {
+        var genJobId = el.getAttribute("data-id");
+        if (!findDispatch(genJobId) || !currentDriver()) return;
+        updateTicketTotal();
+        var draft = collectTicketDraft(
+          genJobId,
+          el.getAttribute("data-number") || "",
+          el.getAttribute("data-date") || ""
+        );
+        if (!draft.charges.length && draft.total <= 0) {
+          toast("Add at least one charge amount");
+          return;
+        }
+        draft.customerSignature = null;
+        draft.signedAtLabel = null;
+        showTicketPreview(draft);
+        toast("Ticket generated");
+        return;
+      }
+
+      if (action === "editTicket") {
+        showTicketForm();
+        return;
+      }
+
+      if (action === "openCustomerSign") {
+        if (!ticketDraft) {
+          toast("Generate the ticket first");
+          return;
+        }
+        showCustomerSignPad();
+        return;
+      }
+
+      if (action === "clearSignature") {
+        if (sigPad) sigPad.clear();
+        return;
+      }
+
+      if (action === "cancelSignature") {
+        if (ticketDraft) showTicketPreview(ticketDraft);
+        return;
+      }
+
+      if (action === "saveSignature") {
+        if (!ticketDraft || !sigPad) return;
+        var dataUrl = sigPad.exportDataUrl();
+        if (!dataUrl) {
+          toast("Please sign before continuing");
+          return;
+        }
+        var now = new Date();
+        var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        ticketDraft.customerSignature = dataUrl;
+        ticketDraft.signedAtLabel =
+          months[now.getMonth()] + " " + now.getDate() + ", " + now.getFullYear() +
+          " · " + now.getHours() + ":" + String(now.getMinutes()).padStart(2, "0");
+        destroySigPad();
+        showTicketPreview(ticketDraft);
+        toast("Customer signature captured");
+        return;
+      }
+
+      if (action === "submitTicket") {
+        var draftT = ticketDraft;
+        if (!draftT) {
+          toast("Generate the ticket first");
+          return;
+        }
+        if (!draftT.customerSignature) {
+          toast("Customer must sign first");
+          showCustomerSignPad();
+          return;
+        }
+        var jobT = findDispatch(draftT.jobId);
+        var driverT = currentDriver();
+        if (!jobT || !driverT) return;
+
+        driverT.ticketSequence = (driverT.ticketSequence || 0) + 1;
+
+        session.tickets.unshift({
+          id: uid(),
+          number: draftT.number,
+          customerName: draftT.customerName || jobT.customerName,
+          loadReference: draftT.loadReference || jobT.loadReference,
+          origin: draftT.origin || jobT.origin,
+          destination: draftT.destination || jobT.destination,
+          driverName: driverT.name,
+          driverUsername: driverT.username,
+          equipmentUnit: draftT.equipmentUnit || jobT.equipmentUnit,
+          rateAmount: draftT.total || 0,
+          status: "submitted",
+          notes: draftT.hauled || "",
+          charges: draftT.charges || [],
+          customerSignature: draftT.customerSignature,
+          signedAtLabel: draftT.signedAtLabel || ""
+        });
+
+        jobT.status = "completed";
+        destroySigPad();
+        ticketDraft = null;
+        nav.sheet = null;
+        nav.tab = "home";
+        nav.screen = "home";
+        renderAll();
+        toast("Ticket submitted to Office");
+        return;
+      }
+
+      if (action === "billTicket") {
+        var ticket = session.tickets.find(function (t) { return t.id === el.getAttribute("data-id"); });
+        if (ticket && ticket.status === "submitted") {
+          ticket.status = "billed";
+          toast("Ticket billed");
+          renderAll();
+        }
+        return;
+      }
+
+      if (action === "wuStatus") {
+        var wu = session.writeUps.find(function (w) { return w.id === el.getAttribute("data-id"); });
+        if (wu) {
+          wu.status = el.getAttribute("data-status");
+          toast("Write-up updated");
+          renderAll();
+        }
+        return;
+      }
+
+      if (action === "toggleCharge") {
+        el.classList.toggle("is-on");
+        var target = el.getAttribute("data-target");
+        var row = document.getElementById(target + "-row");
+        var amt = document.getElementById(target + "-amt");
+        var isOn = el.classList.contains("is-on");
+        if (row) {
+          if (isOn) row.removeAttribute("hidden");
+          else row.setAttribute("hidden", "");
+        }
+        if (isOn && amt) {
+          if (!amt.value) amt.placeholder = "0.00";
+          setTimeout(function () {
+            amt.focus();
+            amt.select();
+          }, 0);
+        }
+        updateTicketTotal();
+        return;
+      }
+
+      if (action === "reset") {
+        session = makeSamples();
+        session.role = session.role;
+        nav = { tab: "home", screen: "home", detailId: null, sheet: null };
+        // Keep current role after reset? User might want full reset - reset to owner
+        session = makeSamples();
+        nav = { tab: "home", screen: "home", detailId: null, sheet: null };
+        renderAll();
+        toast("Demo data reset");
+        return;
+      }
+    }
+
+    /* —— Events —— */
+    document.getElementById("content").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-action]");
+      if (!t) return;
+      e.preventDefault();
+      handleAction(t.getAttribute("data-action"), t);
+    });
+
+    document.getElementById("tabbar").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-tab]");
+      if (!t) return;
+      goTab(t.getAttribute("data-tab"));
+    });
+
+    document.getElementById("role-chips").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-role]");
+      if (!t) return;
+      setRole(t.getAttribute("data-role"));
+    });
+
+    document.getElementById("nav-back").addEventListener("click", function () {
+      if (nav.sheet) {
+        nav.sheet = null;
+        renderAll();
+        return;
+      }
+      nav.screen = "home";
+      nav.detailId = null;
+      renderAll();
+    });
+
+    document.getElementById("sheet").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-action]");
+      if (!t) return;
+      e.preventDefault();
+      handleAction(t.getAttribute("data-action"), t);
+    });
+
+    document.getElementById("sheet").addEventListener("input", function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains("charge-amt")) {
+        updateTicketTotal();
+      }
+    });
+
+    document.getElementById("sheet").addEventListener("change", function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains("charge-amt")) {
+        var n = parseMoneyInput(e.target.value);
+        if (e.target.value !== "") e.target.value = formatMoneyInput(n);
+        updateTicketTotal();
+      }
+    });
+
+    document.getElementById("refresh-btn").addEventListener("click", function () {
+      var keepRole = session.role;
+      session = makeSamples();
+      session.role = keepRole;
+      nav = { tab: "home", screen: "home", detailId: null, sheet: null };
+      renderAll();
+      toast("Demo reset");
+    });
+
+    // Clock
+    function tickClock() {
+      var d = new Date();
+      var h = d.getHours();
+      var m = d.getMinutes();
+      var label = h + ":" + String(m).padStart(2, "0");
+      // Use 9:41 style often — keep live clock for realism
+      document.getElementById("clock").textContent = label;
+    }
+    tickClock();
+    setInterval(tickClock, 30000);
+
+    // Start role from query (?role=owner|office|dispatcher|mechanic|driver) or dispatcher default
+    (function initRole() {
+      var params = new URLSearchParams(window.location.search);
+      var role = (params.get("role") || "dispatcher").toLowerCase();
+      var allowed = { owner: 1, office: 1, dispatcher: 1, mechanic: 1, driver: 1 };
+      // Map website tab name "dispatch" → app role
+      if (role === "dispatch") role = "dispatcher";
+      session.role = allowed[role] ? role : "dispatcher";
+    })();
+    renderAll();
+  })();
+  </script>
+</body>
+</html>
