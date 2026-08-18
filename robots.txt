@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /contract.html
+Disallow: /contract
 
 Sitemap: https://seantylerlee.com/sitemap.xml

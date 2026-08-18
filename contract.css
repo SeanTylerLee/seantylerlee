@@ -1,0 +1,513 @@
+.contract-body {
+  background:
+    radial-gradient(circle at 88% 0%, rgba(32, 152, 248, 0.1), transparent 28%),
+    linear-gradient(180deg, #f7f9fd 0%, #eef3fb 100%);
+}
+
+.contract-header .wrap {
+  width: min(1440px, calc(100% - 1.6rem));
+}
+
+.contract-header .header-inner {
+  min-height: 4.1rem;
+}
+
+.contract-brand-meta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1rem;
+}
+
+.contract-kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+
+.contract-header-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.header-actions .btn {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.contract-app {
+  width: min(1440px, calc(100% - 1.6rem));
+  margin: 1.1rem auto 2.5rem;
+  display: grid;
+  grid-template-columns: minmax(320px, 430px) minmax(0, 1fr);
+  gap: 1.1rem;
+  align-items: start;
+}
+
+.contract-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff8e8;
+  color: #5a4a20;
+  font-size: 0.84rem;
+}
+
+.panel {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(0, 24, 72, 0.05);
+}
+
+.form-panel {
+  position: sticky;
+  top: 5rem;
+  max-height: calc(100dvh - 5.6rem);
+  overflow: auto;
+  padding: 1rem 1rem 1.2rem;
+}
+
+.form-panel h2,
+.preview-toolbar h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+}
+
+.fieldset {
+  border: 0;
+  margin: 0 0 1rem;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.fieldset:last-of-type {
+  border-bottom: 0;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.fieldset legend {
+  padding: 0;
+  margin-bottom: 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  margin-bottom: 0.55rem;
+}
+
+.field.span-2,
+.grid-2 .span-2 {
+  grid-column: 1 / -1;
+}
+
+.field label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.48rem 0.6rem;
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--ink);
+  background: var(--white);
+}
+
+.field textarea {
+  min-height: 4.4rem;
+  resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  outline: 2px solid rgba(0, 112, 248, 0.28);
+  border-color: var(--blue);
+}
+
+.help {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.items-head,
+.item-row {
+  display: grid;
+  grid-template-columns: 1fr 88px 32px;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.items-head {
+  margin-bottom: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.item-row input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.42rem 0.5rem;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.item-remove {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  color: #8a3b3b;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.item-remove:hover {
+  background: #fff1f1;
+  border-color: #e8b4b4;
+}
+
+#add-item {
+  margin-top: 0.5rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.totals {
+  margin-top: 0.75rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 10px;
+  background: var(--ice);
+  border: 1px solid var(--line);
+  font-size: 0.86rem;
+}
+
+.totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.18rem 0;
+}
+
+.totals .grand {
+  margin-top: 0.35rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--line);
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.form-error {
+  display: none;
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  background: #fff1f1;
+  color: #8a2b2b;
+  font-size: 0.82rem;
+}
+
+.form-error.is-on {
+  display: block;
+}
+
+.preview-wrap {
+  padding: 0.85rem;
+}
+
+.preview-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.preview-toolbar p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.paper {
+  background: var(--white);
+  border: 1px solid #d9e3f4;
+  border-radius: 4px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 18px 50px rgba(0, 24, 72, 0.08);
+  padding: 2.1rem 2rem 2.4rem;
+  color: #1a2336;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.paper-letterhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--navy);
+  margin-bottom: 1.1rem;
+}
+
+.paper-letterhead img {
+  height: 38px;
+  width: auto;
+}
+
+.paper-meta {
+  text-align: right;
+}
+
+.paper-meta strong {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+
+.paper-meta span {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.paper h1 {
+  text-align: center;
+  font-size: 1.18rem;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.85rem;
+}
+
+.paper .project-line {
+  text-align: center;
+  margin: 0 0 1rem;
+  color: var(--muted);
+}
+
+.parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.party {
+  background: var(--ice);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.7rem 0.8rem;
+}
+
+.party h3 {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 0.35rem;
+}
+
+.party p {
+  margin: 0.12rem 0;
+  color: #1a2336;
+}
+
+.paper h2 {
+  font-size: 0.86rem;
+  letter-spacing: -0.02em;
+  margin: 1.15rem 0 0.4rem;
+}
+
+.paper p {
+  margin: 0 0 0.55rem;
+  color: #243049;
+}
+
+.paper p .lead {
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.paper ul {
+  margin: 0 0 0.6rem;
+  padding-left: 1.15rem;
+}
+
+.paper li {
+  margin: 0.15rem 0;
+  color: #243049;
+}
+
+.scope-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.4rem 0 0.75rem;
+  font-size: 0.78rem;
+}
+
+.scope-table th,
+.scope-table td {
+  border: 1px solid #cfdcf0;
+  padding: 0.4rem 0.5rem;
+  vertical-align: top;
+}
+
+.scope-table th {
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  text-align: left;
+}
+
+.scope-table td.num,
+.scope-table th.num {
+  width: 3rem;
+  text-align: center;
+}
+
+.scope-table td.price,
+.scope-table th.price {
+  width: 6.2rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.scope-table tfoot td {
+  background: var(--ice);
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.sigs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
+  margin-top: 1.2rem;
+}
+
+.sig h3 {
+  font-size: 0.8rem;
+  margin-bottom: 0.45rem;
+}
+
+.sig p {
+  margin: 0.2rem 0;
+}
+
+.sig-line {
+  margin-top: 1.35rem;
+  border-top: 1px solid #1a2336;
+  padding-top: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.sig-date {
+  margin-top: 1.1rem;
+  border-top: 1px solid #1a2336;
+  padding-top: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  width: 55%;
+}
+
+@media (max-width: 980px) {
+  .contract-app {
+    grid-template-columns: 1fr;
+  }
+
+  .form-panel {
+    position: static;
+    max-height: none;
+  }
+
+  .header-actions .btn-ghost {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .grid-2,
+  .parties,
+  .sigs {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-header .header-inner {
+    flex-wrap: wrap;
+  }
+
+  .paper {
+    padding: 1.2rem 1rem 1.6rem;
+  }
+}
+
+@media print {
+  .site-header,
+  .contract-note,
+  .form-panel,
+  .preview-toolbar,
+  .site-footer {
+    display: none !important;
+  }
+
+  .contract-body,
+  .contract-app,
+  .preview-wrap,
+  .panel {
+    background: #fff;
+    box-shadow: none;
+    border: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .paper {
+    box-shadow: none;
+    border: 0;
+  }
+}
