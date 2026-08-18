@@ -646,6 +646,16 @@ h3 {
   margin: 2rem 0 0.6rem;
 }
 
+.legal-page h3 {
+  font-size: 1rem;
+  margin: 1.25rem 0 0.4rem;
+}
+
+.legal-page ul {
+  padding-left: 1.2rem;
+  margin: 0.4rem 0 1rem;
+}
+
 .legal-page p,
 .legal-page li {
   color: var(--muted);
