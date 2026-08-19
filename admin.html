@@ -13,13 +13,15 @@
   <link rel="stylesheet" href="styles.css?v=11" />
   <link rel="stylesheet" href="contract.css?v=2" />
   <link rel="stylesheet" href="invoice.css?v=2" />
-  <link rel="stylesheet" href="admin.css?v=1" />
+  <link rel="stylesheet" href="admin.css?v=3" />
   <script>
     (function () {
+      var allowed = { invoice: 1, contract: 1, receipt: 1, reminder: 1, quote: 1 };
       var t = (location.hash || "").replace(/^#/, "").toLowerCase();
-      if (t !== "contract" && t !== "invoice") {
+      if (!allowed[t]) {
         try { t = localStorage.getItem("stl-admin-tool-v1") || "invoice"; } catch (e) { t = "invoice"; }
       }
+      if (!allowed[t]) t = "invoice";
       document.documentElement.setAttribute("data-admin-tool", t);
     })();
   </script>
@@ -36,7 +38,10 @@
       </div>
       <div class="admin-toggle" role="tablist" aria-label="Choose tool">
         <button type="button" role="tab" data-tool-tab="invoice" aria-selected="true" class="is-on">Invoice</button>
+        <button type="button" role="tab" data-tool-tab="quote" aria-selected="false">Quote</button>
         <button type="button" role="tab" data-tool-tab="contract" aria-selected="false">Contract</button>
+        <button type="button" role="tab" data-tool-tab="receipt" aria-selected="false">Receipt</button>
+        <button type="button" role="tab" data-tool-tab="reminder" aria-selected="false">Reminder</button>
       </div>
       <div class="header-actions" data-invoice-chrome data-actions="invoice">
         <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
@@ -47,6 +52,24 @@
       <div class="header-actions" data-contract-chrome data-actions="contract" hidden>
         <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
         <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
+      </div>
+      <div class="header-actions" data-receipt-chrome data-actions="receipt" hidden>
+        <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
+        <button class="btn btn-secondary btn-load" type="button" data-el="load-pdf" title="Load an invoice or receipt PDF">Load PDF</button>
+        <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
+        <input data-el="pdf-file" type="file" accept="application/pdf,.pdf" hidden />
+      </div>
+      <div class="header-actions" data-reminder-chrome data-actions="reminder" hidden>
+        <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
+        <button class="btn btn-secondary btn-load" type="button" data-el="load-pdf" title="Load an invoice or reminder PDF">Load PDF</button>
+        <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
+        <input data-el="pdf-file" type="file" accept="application/pdf,.pdf" hidden />
+      </div>
+      <div class="header-actions" data-quote-chrome data-actions="quote" hidden>
+        <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
+        <button class="btn btn-secondary btn-load" type="button" data-el="load-pdf" title="Load a quote or invoice PDF">Load PDF</button>
+        <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
+        <input data-el="pdf-file" type="file" accept="application/pdf,.pdf" hidden />
       </div>
     </div>
   </header>
@@ -391,12 +414,411 @@
       <article class="paper" data-el="preview"></article>
     </section>
   </div>
+
+  <div class="contract-app" data-tool="receipt" data-receipt-root hidden>
+    <p class="contract-note">
+      Proof of payment. Fill it in, or load an invoice PDF from this page to pull the client and amount.
+    </p>
+
+    <section class="panel form-panel" aria-label="Receipt fields">
+      <h2>Receipt details</h2>
+      <p class="form-error" data-el="error" role="alert"></p>
+      <p class="form-ok" data-el="ok" role="status"></p>
+
+      <form data-el="form" id="rcp-form" autocomplete="off">
+        <fieldset class="fieldset">
+          <legend>Payment</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="rcp-receiptNumber">Receipt number *</label>
+              <input id="rcp-receiptNumber" name="receiptNumber" type="text" required placeholder="RCP-2026-0001" />
+            </div>
+            <div class="field">
+              <label for="rcp-receiptDate">Payment date *</label>
+              <input id="rcp-receiptDate" name="receiptDate" type="date" required />
+            </div>
+            <div class="field">
+              <label for="rcp-invoiceNumber">Invoice number</label>
+              <input id="rcp-invoiceNumber" name="invoiceNumber" type="text" placeholder="INV-2026-0001" />
+            </div>
+            <div class="field">
+              <label for="rcp-paymentMethod">Payment method</label>
+              <select id="rcp-paymentMethod" name="paymentMethod">
+                <option value="Zelle" selected>Zelle</option>
+                <option value="ACH">ACH</option>
+                <option value="Wire">Wire</option>
+                <option value="Check">Check</option>
+                <option value="Card">Card</option>
+                <option value="Cash">Cash</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rcp-amount">Amount received *</label>
+              <input id="rcp-amount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <div class="field">
+              <label for="rcp-projectName">Project</label>
+              <input id="rcp-projectName" name="projectName" type="text" placeholder="Optional" />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>From</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="rcp-fromName">Company</label>
+              <input id="rcp-fromName" name="fromName" type="text" value="STL Apps LLC" />
+            </div>
+            <div class="field">
+              <label for="rcp-fromContact">Contact</label>
+              <input id="rcp-fromContact" name="fromContact" type="text" value="Sean Tyler Lee" />
+            </div>
+            <div class="field">
+              <label for="rcp-fromEmail">Email</label>
+              <input id="rcp-fromEmail" name="fromEmail" type="email" value="seantylerlee@icloud.com" />
+            </div>
+            <div class="field">
+              <label for="rcp-fromPhone">Phone</label>
+              <input id="rcp-fromPhone" name="fromPhone" type="tel" />
+            </div>
+            <div class="field span-2">
+              <label for="rcp-fromWebsite">Website</label>
+              <input id="rcp-fromWebsite" name="fromWebsite" type="text" value="seantylerlee.com" />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Received from</legend>
+          <div class="field">
+            <label for="rcp-clientName">Client name / company *</label>
+            <input id="rcp-clientName" name="clientName" type="text" required placeholder="Acme Trucking LLC" />
+          </div>
+          <div class="field">
+            <label for="rcp-clientEmail">Email</label>
+            <input id="rcp-clientEmail" name="clientEmail" type="email" placeholder="jane@acme.com" />
+          </div>
+          <div class="field">
+            <label for="rcp-clientAddress">Address</label>
+            <textarea id="rcp-clientAddress" name="clientAddress" rows="2" placeholder="Street, city, state, ZIP"></textarea>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>What it covers</legend>
+          <div class="items-head">
+            <span>Description</span>
+            <span>Amount</span>
+            <span></span>
+          </div>
+          <div data-el="items"></div>
+          <button class="btn btn-secondary" type="button" data-el="add-item">Add line item</button>
+          <div class="totals" data-el="totals"></div>
+          <p class="help">Leave amount blank to use the line-item total.</p>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Note</legend>
+          <div class="field">
+            <label for="rcp-notes">Note on the receipt</label>
+            <textarea id="rcp-notes" name="notes" rows="3">Thank you. This receipt confirms payment was received in full for the invoice or work listed above.</textarea>
+          </div>
+        </fieldset>
+      </form>
+    </section>
+
+    <section class="panel preview-wrap" aria-label="Receipt preview">
+      <div class="preview-toolbar">
+        <h2>Preview</h2>
+        <p>This is what goes into the PDF.</p>
+      </div>
+      <article class="paper invoice-paper" data-el="preview"></article>
+    </section>
+  </div>
+
+  <div class="contract-app" data-tool="reminder" data-reminder-root hidden>
+    <p class="contract-note">
+      A short past-due letter. Load an invoice PDF from this page to fill the client, dates, and balance.
+    </p>
+
+    <section class="panel form-panel" aria-label="Reminder fields">
+      <h2>Reminder details</h2>
+      <p class="form-error" data-el="error" role="alert"></p>
+      <p class="form-ok" data-el="ok" role="status"></p>
+
+      <form data-el="form" id="rem-form" autocomplete="off">
+        <fieldset class="fieldset">
+          <legend>Invoice</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="rem-invoiceNumber">Invoice number *</label>
+              <input id="rem-invoiceNumber" name="invoiceNumber" type="text" required placeholder="INV-2026-0001" />
+            </div>
+            <div class="field">
+              <label for="rem-stage">Tone</label>
+              <select id="rem-stage" name="stage">
+                <option value="first" selected>Friendly reminder</option>
+                <option value="second">Second notice</option>
+                <option value="final">Final notice</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rem-invoiceDate">Invoice date</label>
+              <input id="rem-invoiceDate" name="invoiceDate" type="date" />
+            </div>
+            <div class="field">
+              <label for="rem-dueDate">Due date</label>
+              <input id="rem-dueDate" name="dueDate" type="date" />
+            </div>
+            <div class="field">
+              <label for="rem-reminderDate">Reminder date</label>
+              <input id="rem-reminderDate" name="reminderDate" type="date" />
+            </div>
+            <div class="field">
+              <label for="rem-projectName">Project</label>
+              <input id="rem-projectName" name="projectName" type="text" placeholder="Optional" />
+            </div>
+            <div class="field">
+              <label for="rem-amountDue">Invoice total</label>
+              <input id="rem-amountDue" name="amountDue" type="number" min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <div class="field">
+              <label for="rem-amountPaid">Amount already paid</label>
+              <input id="rem-amountPaid" name="amountPaid" type="number" min="0" step="0.01" value="0" />
+            </div>
+          </div>
+          <div class="totals" data-el="totals"></div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>From</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="rem-fromName">Company</label>
+              <input id="rem-fromName" name="fromName" type="text" value="STL Apps LLC" />
+            </div>
+            <div class="field">
+              <label for="rem-fromContact">Contact</label>
+              <input id="rem-fromContact" name="fromContact" type="text" value="Sean Tyler Lee" />
+            </div>
+            <div class="field">
+              <label for="rem-fromEmail">Email</label>
+              <input id="rem-fromEmail" name="fromEmail" type="email" value="seantylerlee@icloud.com" />
+            </div>
+            <div class="field">
+              <label for="rem-fromPhone">Phone</label>
+              <input id="rem-fromPhone" name="fromPhone" type="tel" />
+            </div>
+            <div class="field span-2">
+              <label for="rem-fromWebsite">Website</label>
+              <input id="rem-fromWebsite" name="fromWebsite" type="text" value="seantylerlee.com" />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>To</legend>
+          <div class="field">
+            <label for="rem-clientName">Client name / company *</label>
+            <input id="rem-clientName" name="clientName" type="text" required placeholder="Acme Trucking LLC" />
+          </div>
+          <div class="field">
+            <label for="rem-clientEmail">Email</label>
+            <input id="rem-clientEmail" name="clientEmail" type="email" placeholder="jane@acme.com" />
+          </div>
+          <div class="field">
+            <label for="rem-clientAddress">Address</label>
+            <textarea id="rem-clientAddress" name="clientAddress" rows="2" placeholder="Street, city, state, ZIP"></textarea>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Payment</legend>
+          <div class="field">
+            <label for="rem-paymentNotes">How to pay</label>
+            <textarea id="rem-paymentNotes" name="paymentNotes" rows="2" placeholder="Zelle, ACH, check payable to STL Apps LLC, etc."></textarea>
+          </div>
+          <div class="field">
+            <label for="rem-notes">Extra sentence (optional)</label>
+            <textarea id="rem-notes" name="notes" rows="2" placeholder="Anything specific to this invoice."></textarea>
+          </div>
+        </fieldset>
+      </form>
+    </section>
+
+    <section class="panel preview-wrap" aria-label="Reminder preview">
+      <div class="preview-toolbar">
+        <h2>Preview</h2>
+        <p>This is what goes into the PDF.</p>
+      </div>
+      <article class="paper invoice-paper" data-el="preview"></article>
+    </section>
+  </div>
+
+  <div class="contract-app" data-tool="quote" data-quote-root hidden>
+    <p class="contract-note">
+      An estimate, not a contract. Price the job, set how long the quote is good, then download a PDF.
+      You can also load an invoice PDF from this page to reuse the client and line items.
+    </p>
+
+    <section class="panel form-panel" aria-label="Quote fields">
+      <h2>Quote details</h2>
+      <p class="form-error" data-el="error" role="alert"></p>
+      <p class="form-ok" data-el="ok" role="status"></p>
+
+      <form data-el="form" id="qte-form" autocomplete="off">
+        <fieldset class="fieldset">
+          <legend>Quote</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="qte-quoteNumber">Quote number *</label>
+              <input id="qte-quoteNumber" name="quoteNumber" type="text" required placeholder="QTE-2026-0001" />
+            </div>
+            <div class="field">
+              <label for="qte-quoteDate">Quote date *</label>
+              <input id="qte-quoteDate" name="quoteDate" type="date" required />
+            </div>
+            <div class="field">
+              <label for="qte-validDays">Good for</label>
+              <select id="qte-validDays" name="validDays">
+                <option value="7">7 days</option>
+                <option value="14" selected>14 days</option>
+                <option value="30">30 days</option>
+                <option value="custom">Custom date</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="qte-validUntil">Valid until</label>
+              <input id="qte-validUntil" name="validUntil" type="date" />
+            </div>
+            <div class="field span-2">
+              <label for="qte-projectName">Project name</label>
+              <input id="qte-projectName" name="projectName" type="text" placeholder="e.g., Acme dispatch website" />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>From</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="qte-fromName">Company</label>
+              <input id="qte-fromName" name="fromName" type="text" value="STL Apps LLC" />
+            </div>
+            <div class="field">
+              <label for="qte-fromContact">Contact</label>
+              <input id="qte-fromContact" name="fromContact" type="text" value="Sean Tyler Lee" />
+            </div>
+            <div class="field">
+              <label for="qte-fromEmail">Email</label>
+              <input id="qte-fromEmail" name="fromEmail" type="email" value="seantylerlee@icloud.com" />
+            </div>
+            <div class="field">
+              <label for="qte-fromPhone">Phone</label>
+              <input id="qte-fromPhone" name="fromPhone" type="tel" />
+            </div>
+            <div class="field span-2">
+              <label for="qte-fromWebsite">Website</label>
+              <input id="qte-fromWebsite" name="fromWebsite" type="text" value="seantylerlee.com" />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Prepared for</legend>
+          <div class="field">
+            <label for="qte-clientName">Client name / company *</label>
+            <input id="qte-clientName" name="clientName" type="text" required placeholder="Acme Trucking LLC" />
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="qte-clientEmail">Email</label>
+              <input id="qte-clientEmail" name="clientEmail" type="email" placeholder="jane@acme.com" />
+            </div>
+            <div class="field">
+              <label for="qte-clientPhone">Phone</label>
+              <input id="qte-clientPhone" name="clientPhone" type="tel" placeholder="(555) 555-5555" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="qte-clientAddress">Address</label>
+            <textarea id="qte-clientAddress" name="clientAddress" rows="2" placeholder="Street, city, state, ZIP"></textarea>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Line items</legend>
+          <div class="invoice-items-head">
+            <span>Description</span>
+            <span>Qty</span>
+            <span>Rate</span>
+            <span class="amount-col">Amount</span>
+            <span></span>
+          </div>
+          <div data-el="items"></div>
+          <button class="btn btn-secondary" type="button" data-el="add-item">Add line item</button>
+          <div class="totals" data-el="totals"></div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Totals</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="qte-discountType">Discount</label>
+              <select id="qte-discountType" name="discountType">
+                <option value="none">None</option>
+                <option value="percent">Percent</option>
+                <option value="amount">Dollar amount</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="qte-discountValue">Discount value</label>
+              <input id="qte-discountValue" name="discountValue" type="number" min="0" step="0.01" value="0" />
+            </div>
+            <div class="field">
+              <label for="qte-taxPercent">Tax %</label>
+              <input id="qte-taxPercent" name="taxPercent" type="number" min="0" max="100" step="0.01" value="0" />
+            </div>
+            <div class="field">
+              <label for="qte-depositPercent">Deposit % if they accept</label>
+              <input id="qte-depositPercent" name="depositPercent" type="number" min="0" max="100" step="1" value="50" />
+            </div>
+            <div class="field span-2">
+              <label for="qte-hourlyRate">Hourly rate for extras</label>
+              <input id="qte-hourlyRate" name="hourlyRate" type="number" min="0" step="1" value="150" />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Terms</legend>
+          <div class="field">
+            <label for="qte-notes">Note on the quote</label>
+            <textarea id="qte-notes" name="notes" rows="4">This quote is an estimate, not a contract. Prices are good through the valid-until date. Work starts after a signed agreement and the deposit clears. Anything not listed is out of scope.</textarea>
+          </div>
+        </fieldset>
+      </form>
+    </section>
+
+    <section class="panel preview-wrap" aria-label="Quote preview">
+      <div class="preview-toolbar">
+        <h2>Preview</h2>
+        <p>This is what goes into the PDF.</p>
+      </div>
+      <article class="paper invoice-paper" data-el="preview"></article>
+    </section>
+  </div>
   </main>
 
   <script src="lib/jspdf.umd.min.js"></script>
   <script src="lib/jspdf.plugin.autotable.min.js"></script>
-  <script src="js/admin.js"></script>
+  <script src="js/admin.js?v=3"></script>
   <script src="js/invoice.js?v=3"></script>
   <script src="js/contract.js?v=2"></script>
+  <script src="js/receipt.js?v=1"></script>
+  <script src="js/reminder.js?v=1"></script>
+  <script src="js/quote.js?v=1"></script>
 </body>
 </html>

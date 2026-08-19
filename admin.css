@@ -1,8 +1,22 @@
-html[data-admin-tool="invoice"] [data-tool="contract"],
-html[data-admin-tool="contract"] [data-tool="invoice"],
-html[data-admin-tool="invoice"] [data-actions="contract"],
-html[data-admin-tool="contract"] [data-actions="invoice"] {
+html[data-admin-tool] [data-tool],
+html[data-admin-tool] [data-actions] {
   display: none !important;
+}
+
+html[data-admin-tool="invoice"] [data-tool="invoice"],
+html[data-admin-tool="contract"] [data-tool="contract"],
+html[data-admin-tool="receipt"] [data-tool="receipt"],
+html[data-admin-tool="reminder"] [data-tool="reminder"],
+html[data-admin-tool="quote"] [data-tool="quote"] {
+  display: grid !important;
+}
+
+html[data-admin-tool="invoice"] [data-actions="invoice"],
+html[data-admin-tool="contract"] [data-actions="contract"],
+html[data-admin-tool="receipt"] [data-actions="receipt"],
+html[data-admin-tool="reminder"] [data-actions="reminder"],
+html[data-admin-tool="quote"] [data-actions="quote"] {
+  display: flex !important;
 }
 
 [data-tool][hidden],
@@ -13,6 +27,7 @@ html[data-admin-tool="contract"] [data-actions="invoice"] {
 .admin-toggle {
   display: inline-flex;
   align-items: stretch;
+  flex-wrap: wrap;
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
@@ -25,9 +40,9 @@ html[data-admin-tool="contract"] [data-actions="invoice"] {
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 0.42rem 0.9rem;
+  padding: 0.42rem 0.85rem;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--muted);
   cursor: pointer;
@@ -55,6 +70,53 @@ html[data-admin-tool="contract"] [data-actions="invoice"] {
   margin-left: auto;
 }
 
+.receipt-hero,
+.reminder-hero {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  color: #fff;
+}
+
+.receipt-hero {
+  background: #1b6b32;
+}
+
+.reminder-hero {
+  background: var(--navy);
+}
+
+.reminder-hero.is-overdue {
+  background: #9b1c1c;
+}
+
+.receipt-hero span,
+.reminder-hero span {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.receipt-hero strong,
+.reminder-hero strong {
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
+}
+
+.letter-body {
+  margin: 0 0 0.85rem;
+  color: #243049;
+}
+
+.letter-body p {
+  margin: 0 0 0.65rem;
+}
+
 @media (max-width: 980px) {
   .admin-header .header-actions .btn-ghost {
     display: none;
@@ -63,10 +125,15 @@ html[data-admin-tool="contract"] [data-actions="invoice"] {
   .admin-header .header-actions .btn-load {
     display: inline-flex;
   }
+
+  .admin-header .admin-toggle {
+    margin-left: 0;
+  }
 }
 
 @media (max-width: 640px) {
   .admin-toggle button {
-    padding: 0.4rem 0.7rem;
+    padding: 0.4rem 0.62rem;
+    font-size: 0.72rem;
   }
 }

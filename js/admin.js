@@ -2,19 +2,30 @@
   "use strict";
 
   var STORAGE_KEY = "stl-admin-tool-v1";
+  var TOOLS = {
+    invoice: { title: "Invoice", doc: "Invoice" },
+    contract: { title: "Development contract", doc: "Contract" },
+    receipt: { title: "Receipt", doc: "Receipt" },
+    reminder: { title: "Payment reminder", doc: "Reminder" },
+    quote: { title: "Quote", doc: "Quote" }
+  };
+
   var titleEl = document.getElementById("admin-tool-title");
   var tabs = document.querySelectorAll("[data-tool-tab]");
 
+  function isTool(v) {
+    return !!(v && TOOLS[v]);
+  }
+
   function readHash() {
     var h = (location.hash || "").replace(/^#/, "").toLowerCase();
-    if (h === "contract" || h === "invoice") return h;
-    return "";
+    return isTool(h) ? h : "";
   }
 
   function readStored() {
     try {
       var v = localStorage.getItem(STORAGE_KEY);
-      if (v === "contract" || v === "invoice") return v;
+      if (isTool(v)) return v;
     } catch (e) {}
     return "";
   }
@@ -24,7 +35,8 @@
   }
 
   function show(tool) {
-    if (tool !== "contract" && tool !== "invoice") tool = "invoice";
+    if (!isTool(tool)) tool = "invoice";
+    var meta = TOOLS[tool];
 
     document.documentElement.setAttribute("data-admin-tool", tool);
 
@@ -46,21 +58,16 @@
       btn.setAttribute("aria-selected", on ? "true" : "false");
     });
 
-    if (titleEl) {
-      titleEl.textContent = tool === "contract" ? "Development contract" : "Invoice";
-    }
-    document.title = (tool === "contract" ? "Contract" : "Invoice") + " · Admin · STL Apps LLC";
+    if (titleEl) titleEl.textContent = meta.title;
+    document.title = meta.doc + " · Admin · STL Apps LLC";
 
     try {
       localStorage.setItem(STORAGE_KEY, tool);
     } catch (e) {}
 
     if (readHash() !== tool) {
-      if (history.replaceState) {
-        history.replaceState(null, "", "#" + tool);
-      } else {
-        location.hash = tool;
-      }
+      if (history.replaceState) history.replaceState(null, "", "#" + tool);
+      else location.hash = tool;
     }
   }
 
