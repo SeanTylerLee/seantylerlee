@@ -206,7 +206,8 @@
   border-color: #e8b4b4;
 }
 
-#add-item {
+#add-item,
+[data-el="add-item"] {
   margin-top: 0.5rem;
   cursor: pointer;
   font-family: inherit;

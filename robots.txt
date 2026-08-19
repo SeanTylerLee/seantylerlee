@@ -1,6 +1,10 @@
 User-agent: *
 Allow: /
+Disallow: /admin.html
+Disallow: /admin
 Disallow: /contract.html
 Disallow: /contract
+Disallow: /invoice.html
+Disallow: /invoice
 
 Sitemap: https://seantylerlee.com/sitemap.xml

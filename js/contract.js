@@ -4,16 +4,31 @@
   var STORAGE_KEY = "stl-dsa-draft-v1";
   var LOGO_SRC = "images/stlapps-logo.jpg";
 
-  var form = document.getElementById("contract-form");
-  var itemsEl = document.getElementById("items");
-  var totalsEl = document.getElementById("totals");
-  var previewEl = document.getElementById("preview");
-  var errorEl = document.getElementById("form-error");
-  var addItemBtn = document.getElementById("add-item");
-  var downloadBtn = document.getElementById("download-pdf");
-  var resetBtn = document.getElementById("reset-form");
-  var depositAmountInput = document.getElementById("depositAmount");
-  var depositPercentInput = document.getElementById("depositPercent");
+  var root = document.querySelector("[data-contract-root]") || document;
+  var chrome = document.querySelector("[data-contract-chrome]") || root;
+
+  function conEl(name, fallbackId) {
+    var found = root.querySelector('[data-el="' + name + '"]');
+    if (found) return found;
+    if (chrome && chrome !== root) {
+      found = chrome.querySelector('[data-el="' + name + '"]');
+      if (found) return found;
+    }
+    return document.getElementById(fallbackId || name);
+  }
+
+  var form = conEl("form", "contract-form");
+  var itemsEl = conEl("items", "items");
+  var totalsEl = conEl("totals", "totals");
+  var previewEl = conEl("preview", "preview");
+  var errorEl = conEl("error", "form-error");
+  var addItemBtn = conEl("add-item", "add-item");
+  var downloadBtn = conEl("download", "download-pdf");
+  var resetBtn = conEl("reset", "reset-form");
+  var depositAmountInput = form ? form.elements.depositAmount : null;
+  var depositPercentInput = form ? form.elements.depositPercent : null;
+
+  if (!form || !itemsEl || !previewEl) return;
 
   var depositManual = false;
   var logoDataUrl = null;

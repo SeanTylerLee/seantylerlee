@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#001848" />
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <title>Admin · STL Apps LLC</title>
+  <link rel="icon" href="images/stlapps-layers.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=11" />
+  <link rel="stylesheet" href="contract.css?v=2" />
+  <link rel="stylesheet" href="invoice.css?v=2" />
+  <link rel="stylesheet" href="admin.css?v=1" />
+  <script>
+    (function () {
+      var t = (location.hash || "").replace(/^#/, "").toLowerCase();
+      if (t !== "contract" && t !== "invoice") {
+        try { t = localStorage.getItem("stl-admin-tool-v1") || "invoice"; } catch (e) { t = "invoice"; }
+      }
+      document.documentElement.setAttribute("data-admin-tool", t);
+    })();
+  </script>
+</head>
+<body class="contract-body">
+  <header class="site-header contract-header admin-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="index.html">
+        <img class="brand-logo" src="images/stlapps-logo.jpg" alt="STL Apps LLC" width="220" height="50" />
+      </a>
+      <div class="contract-brand-meta">
+        <p class="contract-kicker">Internal</p>
+        <p class="contract-header-title" id="admin-tool-title">Invoice</p>
+      </div>
+      <div class="admin-toggle" role="tablist" aria-label="Choose tool">
+        <button type="button" role="tab" data-tool-tab="invoice" aria-selected="true" class="is-on">Invoice</button>
+        <button type="button" role="tab" data-tool-tab="contract" aria-selected="false">Contract</button>
+      </div>
+      <div class="header-actions" data-invoice-chrome data-actions="invoice">
+        <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
+        <button class="btn btn-secondary btn-load" type="button" data-el="load-pdf" title="Open a PDF you downloaded from this page">Load PDF</button>
+        <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
+        <input data-el="pdf-file" type="file" accept="application/pdf,.pdf" hidden />
+      </div>
+      <div class="header-actions" data-contract-chrome data-actions="contract" hidden>
+        <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
+        <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+  <div class="contract-app" data-tool="invoice" data-invoice-root>
+    <p class="contract-note">
+      This page is unlisted. Fill the form, or load a PDF you already downloaded from here to mark it paid in full and download it again.
+    </p>
+
+    <section class="panel form-panel" aria-label="Invoice fields">
+      <h2>Invoice details</h2>
+      <p class="form-error" data-el="error" role="alert"></p>
+      <p class="form-ok" data-el="ok" role="status"></p>
+
+      <form data-el="form" id="inv-form" autocomplete="off">
+        <fieldset class="fieldset">
+          <legend>Invoice</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="inv-invoiceNumber">Invoice number *</label>
+              <input id="inv-invoiceNumber" name="invoiceNumber" type="text" required placeholder="INV-2026-0001" />
+            </div>
+            <div class="field">
+              <label for="inv-poNumber">PO / reference</label>
+              <input id="inv-poNumber" name="poNumber" type="text" placeholder="Optional" />
+            </div>
+            <div class="field">
+              <label for="inv-invoiceDate">Invoice date *</label>
+              <input id="inv-invoiceDate" name="invoiceDate" type="date" required />
+            </div>
+            <div class="field">
+              <label for="inv-terms">Payment terms</label>
+              <select id="inv-terms" name="terms">
+                <option value="receipt">Due on receipt</option>
+                <option value="7">Net 7</option>
+                <option value="14" selected>Net 14</option>
+                <option value="30">Net 30</option>
+                <option value="custom">Custom due date</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="inv-dueDate">Due date</label>
+              <input id="inv-dueDate" name="dueDate" type="date" />
+            </div>
+            <div class="field">
+              <label for="inv-projectName">Project / description</label>
+              <input id="inv-projectName" name="projectName" type="text" placeholder="e.g., Acme dispatch website" />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>From</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="inv-fromName">Company</label>
+              <input id="inv-fromName" name="fromName" type="text" value="STL Apps LLC" />
+            </div>
+            <div class="field">
+              <label for="inv-fromContact">Contact</label>
+              <input id="inv-fromContact" name="fromContact" type="text" value="Sean Tyler Lee" />
+            </div>
+            <div class="field">
+              <label for="inv-fromEmail">Email</label>
+              <input id="inv-fromEmail" name="fromEmail" type="email" value="seantylerlee@icloud.com" />
+            </div>
+            <div class="field">
+              <label for="inv-fromPhone">Phone</label>
+              <input id="inv-fromPhone" name="fromPhone" type="tel" />
+            </div>
+            <div class="field">
+              <label for="inv-fromWebsite">Website</label>
+              <input id="inv-fromWebsite" name="fromWebsite" type="text" value="seantylerlee.com" />
+            </div>
+            <div class="field">
+              <label for="inv-fromTaxId">EIN / tax ID</label>
+              <input id="inv-fromTaxId" name="fromTaxId" type="text" placeholder="Optional" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="inv-fromAddress">Address</label>
+            <textarea id="inv-fromAddress" name="fromAddress" rows="2" placeholder="Street, city, state, ZIP"></textarea>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Bill to</legend>
+          <div class="field">
+            <label for="inv-clientName">Client name / company *</label>
+            <input id="inv-clientName" name="clientName" type="text" required placeholder="Acme Trucking LLC" />
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="inv-clientEmail">Email</label>
+              <input id="inv-clientEmail" name="clientEmail" type="email" placeholder="jane@acme.com" />
+            </div>
+            <div class="field">
+              <label for="inv-clientPhone">Phone</label>
+              <input id="inv-clientPhone" name="clientPhone" type="tel" placeholder="(555) 555-5555" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="inv-clientAddress">Address</label>
+            <textarea id="inv-clientAddress" name="clientAddress" rows="2" placeholder="Street, city, state, ZIP"></textarea>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Line items</legend>
+          <div class="invoice-items-head">
+            <span>Description</span>
+            <span>Qty</span>
+            <span>Rate</span>
+            <span class="amount-col">Amount</span>
+            <span></span>
+          </div>
+          <div data-el="items"></div>
+          <button class="btn btn-secondary" type="button" data-el="add-item">Add line item</button>
+          <div class="totals" data-el="totals"></div>
+          <button class="btn btn-secondary mark-paid" type="button" data-el="mark-paid">Mark paid in full</button>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Totals</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="inv-discountType">Discount</label>
+              <select id="inv-discountType" name="discountType">
+                <option value="none">None</option>
+                <option value="percent">Percent</option>
+                <option value="amount">Dollar amount</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="inv-discountValue">Discount value</label>
+              <input id="inv-discountValue" name="discountValue" type="number" min="0" step="0.01" value="0" />
+            </div>
+            <div class="field">
+              <label for="inv-taxPercent">Tax %</label>
+              <input id="inv-taxPercent" name="taxPercent" type="number" min="0" max="100" step="0.01" value="0" />
+            </div>
+            <div class="field">
+              <label for="inv-amountPaid">Amount paid</label>
+              <input id="inv-amountPaid" name="amountPaid" type="number" min="0" step="0.01" value="0" />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Notes</legend>
+          <div class="field">
+            <label for="inv-paymentNotes">How to pay</label>
+            <textarea id="inv-paymentNotes" name="paymentNotes" rows="2" placeholder="Zelle, ACH, check payable to STL Apps LLC, etc."></textarea>
+          </div>
+          <div class="field">
+            <label for="inv-notes">Notes on the invoice</label>
+            <textarea id="inv-notes" name="notes" rows="2">Thank you for your business.</textarea>
+          </div>
+        </fieldset>
+      </form>
+    </section>
+
+    <section class="panel preview-wrap" aria-label="Invoice preview">
+      <div class="preview-toolbar">
+        <h2>Preview</h2>
+        <p>This is what goes into the PDF.</p>
+      </div>
+      <article class="paper invoice-paper" data-el="preview"></article>
+    </section>
+  </div>
+
+  <div class="contract-app" data-tool="contract" data-contract-root hidden>
+    <p class="contract-note">
+      This page is unlisted. It is a starting contract for STL Apps LLC, not legal advice.
+      Read the PDF before you send it. A signed copy is what binds the client.
+    </p>
+
+    <section class="panel form-panel" aria-label="Contract fields">
+      <h2>Fill in the blanks</h2>
+      <p class="form-error" data-el="error" role="alert"></p>
+
+      <form data-el="form" id="con-form" autocomplete="off">
+        <fieldset class="fieldset">
+          <legend>Project</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="con-effectiveDate">Effective date</label>
+              <input id="con-effectiveDate" name="effectiveDate" type="date" required />
+            </div>
+            <div class="field">
+              <label for="con-estimatedCompletion">Target completion</label>
+              <input id="con-estimatedCompletion" name="estimatedCompletion" type="date" />
+            </div>
+            <div class="field span-2">
+              <label for="con-projectName">Project name</label>
+              <input id="con-projectName" name="projectName" type="text" placeholder="e.g., Acme dispatch website" />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Client</legend>
+          <div class="field">
+            <label for="con-clientName">Legal name / company *</label>
+            <input id="con-clientName" name="clientName" type="text" required placeholder="Acme Trucking LLC" />
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="con-clientSigner">Authorized signer</label>
+              <input id="con-clientSigner" name="clientSigner" type="text" placeholder="Jane Doe" />
+            </div>
+            <div class="field">
+              <label for="con-clientTitle">Signer title</label>
+              <input id="con-clientTitle" name="clientTitle" type="text" placeholder="Owner" />
+            </div>
+            <div class="field">
+              <label for="con-clientEmail">Email</label>
+              <input id="con-clientEmail" name="clientEmail" type="email" placeholder="jane@acme.com" />
+            </div>
+            <div class="field">
+              <label for="con-clientPhone">Phone</label>
+              <input id="con-clientPhone" name="clientPhone" type="tel" placeholder="(555) 555-5555" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="con-clientAddress">Address</label>
+            <textarea id="con-clientAddress" name="clientAddress" rows="2" placeholder="Street, city, state, ZIP"></textarea>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Developer (you)</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="con-developerEntity">Company</label>
+              <input id="con-developerEntity" name="developerEntity" type="text" value="STL Apps LLC" />
+            </div>
+            <div class="field">
+              <label for="con-developerState">LLC formation state</label>
+              <input id="con-developerState" name="developerState" type="text" value="Oklahoma" />
+            </div>
+            <div class="field">
+              <label for="con-developerSigner">Authorized signer</label>
+              <input id="con-developerSigner" name="developerSigner" type="text" value="Sean Tyler Lee" />
+            </div>
+            <div class="field">
+              <label for="con-developerTitle">Title</label>
+              <input id="con-developerTitle" name="developerTitle" type="text" value="Member" />
+            </div>
+            <div class="field">
+              <label for="con-developerEmail">Email</label>
+              <input id="con-developerEmail" name="developerEmail" type="email" value="seantylerlee@icloud.com" />
+            </div>
+            <div class="field">
+              <label for="con-developerPhone">Phone</label>
+              <input id="con-developerPhone" name="developerPhone" type="tel" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="con-developerAddress">Address (optional)</label>
+            <textarea id="con-developerAddress" name="developerAddress" rows="2"></textarea>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Line items</legend>
+          <div class="items-head">
+            <span>Deliverable / feature</span>
+            <span>Price</span>
+            <span></span>
+          </div>
+          <div data-el="items"></div>
+          <button class="btn btn-secondary" type="button" data-el="add-item">Add line item</button>
+          <div class="totals" data-el="totals"></div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Payment</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="con-depositPercent">Deposit %</label>
+              <input id="con-depositPercent" name="depositPercent" type="number" min="0" max="100" step="1" value="50" />
+            </div>
+            <div class="field">
+              <label for="con-depositAmount">Deposit $</label>
+              <input id="con-depositAmount" name="depositAmount" type="number" min="0" step="0.01" />
+              <p class="help">Edits here unlock a custom dollar deposit.</p>
+            </div>
+            <div class="field">
+              <label for="con-hourlyRate">Hourly rate for extras</label>
+              <input id="con-hourlyRate" name="hourlyRate" type="number" min="0" step="1" value="150" />
+            </div>
+            <div class="field">
+              <label for="con-paymentNotes">How they pay</label>
+              <input id="con-paymentNotes" name="paymentNotes" type="text" placeholder="Zelle, ACH, invoice, etc." />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend>Terms</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="con-revisionRounds">Included revision rounds</label>
+              <input id="con-revisionRounds" name="revisionRounds" type="number" min="0" step="1" value="2" />
+            </div>
+            <div class="field">
+              <label for="con-reviewDays">Acceptance review (days)</label>
+              <input id="con-reviewDays" name="reviewDays" type="number" min="1" step="1" value="7" />
+            </div>
+            <div class="field">
+              <label for="con-warrantyDays">Bug-fix window (days)</label>
+              <input id="con-warrantyDays" name="warrantyDays" type="number" min="0" step="1" value="14" />
+            </div>
+            <div class="field">
+              <label for="con-lateFee">Late fee % / month</label>
+              <input id="con-lateFee" name="lateFee" type="number" min="0" max="25" step="0.1" value="1.5" />
+            </div>
+            <div class="field">
+              <label for="con-governingState">Governing state</label>
+              <input id="con-governingState" name="governingState" type="text" value="Oklahoma" />
+            </div>
+            <div class="field">
+              <label for="con-venue">Venue (county / city) *</label>
+              <input id="con-venue" name="venue" type="text" placeholder="e.g., Comanche County, Oklahoma" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="con-extraTerms">Extra terms (optional)</label>
+            <textarea id="con-extraTerms" name="extraTerms" rows="3" placeholder="Anything unique to this job. Added as its own section."></textarea>
+          </div>
+        </fieldset>
+      </form>
+    </section>
+
+    <section class="panel preview-wrap" aria-label="Contract preview">
+      <div class="preview-toolbar">
+        <h2>Preview</h2>
+        <p>This is the agreement that goes into the PDF.</p>
+      </div>
+      <article class="paper" data-el="preview"></article>
+    </section>
+  </div>
+  </main>
+
+  <script src="lib/jspdf.umd.min.js"></script>
+  <script src="lib/jspdf.plugin.autotable.min.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/invoice.js?v=3"></script>
+  <script src="js/contract.js?v=2"></script>
+</body>
+</html>
