@@ -11,17 +11,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css?v=11" />
-  <link rel="stylesheet" href="contract.css?v=2" />
-  <link rel="stylesheet" href="invoice.css?v=2" />
-  <link rel="stylesheet" href="admin.css?v=3" />
+  <link rel="stylesheet" href="contract.css?v=3" />
+  <link rel="stylesheet" href="invoice.css?v=3" />
+  <link rel="stylesheet" href="admin.css?v=4" />
   <script>
     (function () {
       var allowed = { invoice: 1, contract: 1, receipt: 1, reminder: 1, quote: 1 };
       var t = (location.hash || "").replace(/^#/, "").toLowerCase();
       if (!allowed[t]) {
-        try { t = localStorage.getItem("stl-admin-tool-v1") || "invoice"; } catch (e) { t = "invoice"; }
+        try { t = localStorage.getItem("stl-admin-tool-v1") || "quote"; } catch (e) { t = "quote"; }
       }
-      if (!allowed[t]) t = "invoice";
+      if (!allowed[t]) t = "quote";
       document.documentElement.setAttribute("data-admin-tool", t);
     })();
   </script>
@@ -33,19 +33,27 @@
         <img class="brand-logo" src="images/stlapps-logo.jpg" alt="STL Apps LLC" width="220" height="50" />
       </a>
       <div class="contract-brand-meta">
-        <p class="contract-kicker">Internal</p>
-        <p class="contract-header-title" id="admin-tool-title">Invoice</p>
+        <p class="contract-kicker">Internal · <a href="pricing.html">Rate card</a></p>
+        <p class="contract-header-title" id="admin-tool-title">Quote</p>
       </div>
       <div class="admin-toggle" role="tablist" aria-label="Choose tool">
-        <button type="button" role="tab" data-tool-tab="invoice" aria-selected="true" class="is-on">Invoice</button>
-        <button type="button" role="tab" data-tool-tab="quote" aria-selected="false">Quote</button>
-        <button type="button" role="tab" data-tool-tab="contract" aria-selected="false">Contract</button>
+        <button type="button" role="tab" data-tool-tab="quote" aria-selected="true" class="is-on">Quote</button>
+        <button type="button" role="tab" data-tool-tab="invoice" aria-selected="false">Invoice</button>
         <button type="button" role="tab" data-tool-tab="receipt" aria-selected="false">Receipt</button>
+        <button type="button" role="tab" data-tool-tab="contract" aria-selected="false">Contract</button>
         <button type="button" role="tab" data-tool-tab="reminder" aria-selected="false">Reminder</button>
       </div>
-      <div class="header-actions" data-invoice-chrome data-actions="invoice">
+      <div class="header-actions" data-quote-chrome data-actions="quote">
         <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
-        <button class="btn btn-secondary btn-load" type="button" data-el="load-pdf" title="Open a PDF you downloaded from this page">Load PDF</button>
+        <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
+      </div>
+      <div class="header-actions" data-invoice-chrome data-actions="invoice" hidden>
+        <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
+        <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
+      </div>
+      <div class="header-actions" data-receipt-chrome data-actions="receipt" hidden>
+        <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
+        <button class="btn btn-secondary btn-load" type="button" data-el="load-pdf">Upload invoice</button>
         <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
         <input data-el="pdf-file" type="file" accept="application/pdf,.pdf" hidden />
       </div>
@@ -53,21 +61,9 @@
         <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
         <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
       </div>
-      <div class="header-actions" data-receipt-chrome data-actions="receipt" hidden>
-        <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
-        <button class="btn btn-secondary btn-load" type="button" data-el="load-pdf" title="Load an invoice or receipt PDF">Load PDF</button>
-        <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
-        <input data-el="pdf-file" type="file" accept="application/pdf,.pdf" hidden />
-      </div>
       <div class="header-actions" data-reminder-chrome data-actions="reminder" hidden>
         <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
         <button class="btn btn-secondary btn-load" type="button" data-el="load-pdf" title="Load an invoice or reminder PDF">Load PDF</button>
-        <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
-        <input data-el="pdf-file" type="file" accept="application/pdf,.pdf" hidden />
-      </div>
-      <div class="header-actions" data-quote-chrome data-actions="quote" hidden>
-        <button class="btn btn-ghost" type="button" data-el="reset">Reset</button>
-        <button class="btn btn-secondary btn-load" type="button" data-el="load-pdf" title="Load a quote or invoice PDF">Load PDF</button>
         <button class="btn btn-primary" type="button" data-el="download">Download PDF</button>
         <input data-el="pdf-file" type="file" accept="application/pdf,.pdf" hidden />
       </div>
@@ -77,13 +73,17 @@
   <main>
   <div class="contract-app" data-tool="invoice" data-invoice-root>
     <p class="contract-note">
-      This page is unlisted. Fill the form, or load a PDF you already downloaded from here to mark it paid in full and download it again.
+      Fill in the job, then download the invoice PDF to your computer. To stamp it paid, use the Receipt tab.
     </p>
 
     <section class="panel form-panel" aria-label="Invoice fields">
       <h2>Invoice details</h2>
       <p class="form-error" data-el="error" role="alert"></p>
       <p class="form-ok" data-el="ok" role="status"></p>
+      <p class="help">
+        <button class="btn btn-secondary btn-load" type="button" data-el="load-pdf">Load saved invoice PDF</button>
+      </p>
+      <input data-el="pdf-file" type="file" accept="application/pdf,.pdf" hidden />
 
       <form data-el="form" id="inv-form" autocomplete="off">
         <fieldset class="fieldset">
@@ -122,8 +122,8 @@
           </div>
         </fieldset>
 
-        <fieldset class="fieldset">
-          <legend>From</legend>
+        <details class="more-fields">
+          <summary>Your details (STL Apps LLC)</summary>
           <div class="grid-2">
             <div class="field">
               <label for="inv-fromName">Company</label>
@@ -154,7 +154,7 @@
             <label for="inv-fromAddress">Address</label>
             <textarea id="inv-fromAddress" name="fromAddress" rows="2" placeholder="Street, city, state, ZIP"></textarea>
           </div>
-        </fieldset>
+        </details>
 
         <fieldset class="fieldset">
           <legend>Bill to</legend>
@@ -190,7 +190,6 @@
           <div data-el="items"></div>
           <button class="btn btn-secondary" type="button" data-el="add-item">Add line item</button>
           <div class="totals" data-el="totals"></div>
-          <button class="btn btn-secondary mark-paid" type="button" data-el="mark-paid">Mark paid in full</button>
         </fieldset>
 
         <fieldset class="fieldset">
@@ -417,122 +416,34 @@
 
   <div class="contract-app" data-tool="receipt" data-receipt-root hidden>
     <p class="contract-note">
-      Proof of payment. Fill it in, or load an invoice PDF from this page to pull the client and amount.
+      Upload an invoice PDF you downloaded from the Invoice tab. Click Paid in full to stamp PAID IN FULL in red across it, then download it to your computer.
     </p>
 
-    <section class="panel form-panel" aria-label="Receipt fields">
-      <h2>Receipt details</h2>
+    <section class="panel form-panel" aria-label="Receipt">
+      <h2>Stamp paid</h2>
       <p class="form-error" data-el="error" role="alert"></p>
       <p class="form-ok" data-el="ok" role="status"></p>
 
-      <form data-el="form" id="rcp-form" autocomplete="off">
-        <fieldset class="fieldset">
-          <legend>Payment</legend>
-          <div class="grid-2">
-            <div class="field">
-              <label for="rcp-receiptNumber">Receipt number *</label>
-              <input id="rcp-receiptNumber" name="receiptNumber" type="text" required placeholder="RCP-2026-0001" />
-            </div>
-            <div class="field">
-              <label for="rcp-receiptDate">Payment date *</label>
-              <input id="rcp-receiptDate" name="receiptDate" type="date" required />
-            </div>
-            <div class="field">
-              <label for="rcp-invoiceNumber">Invoice number</label>
-              <input id="rcp-invoiceNumber" name="invoiceNumber" type="text" placeholder="INV-2026-0001" />
-            </div>
-            <div class="field">
-              <label for="rcp-paymentMethod">Payment method</label>
-              <select id="rcp-paymentMethod" name="paymentMethod">
-                <option value="Zelle" selected>Zelle</option>
-                <option value="ACH">ACH</option>
-                <option value="Wire">Wire</option>
-                <option value="Check">Check</option>
-                <option value="Card">Card</option>
-                <option value="Cash">Cash</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="rcp-amount">Amount received *</label>
-              <input id="rcp-amount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" />
-            </div>
-            <div class="field">
-              <label for="rcp-projectName">Project</label>
-              <input id="rcp-projectName" name="projectName" type="text" placeholder="Optional" />
-            </div>
-          </div>
-        </fieldset>
+      <div class="receipt-drop" data-el="drop">
+        <button class="btn btn-secondary" type="button" data-el="load-pdf">Upload invoice PDF</button>
+        <p data-el="empty">Or drop the invoice PDF here.</p>
+        <div class="receipt-summary" data-el="loaded" hidden>
+          <div data-el="summary"></div>
+        </div>
+      </div>
 
-        <fieldset class="fieldset">
-          <legend>From</legend>
-          <div class="grid-2">
-            <div class="field">
-              <label for="rcp-fromName">Company</label>
-              <input id="rcp-fromName" name="fromName" type="text" value="STL Apps LLC" />
-            </div>
-            <div class="field">
-              <label for="rcp-fromContact">Contact</label>
-              <input id="rcp-fromContact" name="fromContact" type="text" value="Sean Tyler Lee" />
-            </div>
-            <div class="field">
-              <label for="rcp-fromEmail">Email</label>
-              <input id="rcp-fromEmail" name="fromEmail" type="email" value="seantylerlee@icloud.com" />
-            </div>
-            <div class="field">
-              <label for="rcp-fromPhone">Phone</label>
-              <input id="rcp-fromPhone" name="fromPhone" type="tel" />
-            </div>
-            <div class="field span-2">
-              <label for="rcp-fromWebsite">Website</label>
-              <input id="rcp-fromWebsite" name="fromWebsite" type="text" value="seantylerlee.com" />
-            </div>
-          </div>
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend>Received from</legend>
-          <div class="field">
-            <label for="rcp-clientName">Client name / company *</label>
-            <input id="rcp-clientName" name="clientName" type="text" required placeholder="Acme Trucking LLC" />
-          </div>
-          <div class="field">
-            <label for="rcp-clientEmail">Email</label>
-            <input id="rcp-clientEmail" name="clientEmail" type="email" placeholder="jane@acme.com" />
-          </div>
-          <div class="field">
-            <label for="rcp-clientAddress">Address</label>
-            <textarea id="rcp-clientAddress" name="clientAddress" rows="2" placeholder="Street, city, state, ZIP"></textarea>
-          </div>
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend>What it covers</legend>
-          <div class="items-head">
-            <span>Description</span>
-            <span>Amount</span>
-            <span></span>
-          </div>
-          <div data-el="items"></div>
-          <button class="btn btn-secondary" type="button" data-el="add-item">Add line item</button>
-          <div class="totals" data-el="totals"></div>
-          <p class="help">Leave amount blank to use the line-item total.</p>
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend>Note</legend>
-          <div class="field">
-            <label for="rcp-notes">Note on the receipt</label>
-            <textarea id="rcp-notes" name="notes" rows="3">Thank you. This receipt confirms payment was received in full for the invoice or work listed above.</textarea>
-          </div>
-        </fieldset>
-      </form>
+      <div class="field">
+        <label for="rcp-paid-date">Payment date</label>
+        <input id="rcp-paid-date" data-el="paid-date" type="date" />
+      </div>
+      <button class="btn mark-paid-full" type="button" data-el="mark-paid" disabled>Paid in full</button>
+      <p class="help">Sets the balance to $0 and stamps PAID IN FULL diagonally in red across the invoice.</p>
     </section>
 
-    <section class="panel preview-wrap" aria-label="Receipt preview">
+    <section class="panel preview-wrap" aria-label="Paid invoice preview">
       <div class="preview-toolbar">
         <h2>Preview</h2>
-        <p>This is what goes into the PDF.</p>
+        <p>This is the invoice that downloads.</p>
       </div>
       <article class="paper invoice-paper" data-el="preview"></article>
     </section>
@@ -659,8 +570,7 @@
 
   <div class="contract-app" data-tool="quote" data-quote-root hidden>
     <p class="contract-note">
-      An estimate, not a contract. Price the job, set how long the quote is good, then download a PDF.
-      You can also load an invoice PDF from this page to reuse the client and line items.
+      Price the job, then download the quote PDF to your computer. This is an estimate, not a contract.
     </p>
 
     <section class="panel form-panel" aria-label="Quote fields">
@@ -700,8 +610,8 @@
           </div>
         </fieldset>
 
-        <fieldset class="fieldset">
-          <legend>From</legend>
+        <details class="more-fields">
+          <summary>Your details (STL Apps LLC)</summary>
           <div class="grid-2">
             <div class="field">
               <label for="qte-fromName">Company</label>
@@ -724,7 +634,7 @@
               <input id="qte-fromWebsite" name="fromWebsite" type="text" value="seantylerlee.com" />
             </div>
           </div>
-        </fieldset>
+        </details>
 
         <fieldset class="fieldset">
           <legend>Prepared for</legend>
@@ -814,11 +724,11 @@
 
   <script src="lib/jspdf.umd.min.js"></script>
   <script src="lib/jspdf.plugin.autotable.min.js"></script>
-  <script src="js/admin.js?v=3"></script>
-  <script src="js/invoice.js?v=3"></script>
+  <script src="js/admin.js?v=4"></script>
+  <script src="js/invoice.js?v=4"></script>
   <script src="js/contract.js?v=2"></script>
-  <script src="js/receipt.js?v=1"></script>
+  <script src="js/receipt.js?v=2"></script>
   <script src="js/reminder.js?v=1"></script>
-  <script src="js/quote.js?v=1"></script>
+  <script src="js/quote.js?v=2"></script>
 </body>
 </html>

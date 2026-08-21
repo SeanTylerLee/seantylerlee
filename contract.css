@@ -19,6 +19,15 @@
   gap: 0.1rem;
 }
 
+.contract-kicker a {
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.contract-kicker a:hover {
+  text-decoration: underline;
+}
+
 .contract-kicker {
   margin: 0;
   font-size: 0.68rem;

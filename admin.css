@@ -3,6 +3,104 @@ html[data-admin-tool] [data-actions] {
   display: none !important;
 }
 
+.more-fields {
+  margin: 0 0 1rem;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.more-fields summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--blue);
+  list-style: none;
+}
+
+.more-fields summary::-webkit-details-marker {
+  display: none;
+}
+
+.more-fields[open] summary {
+  margin-bottom: 0.65rem;
+}
+
+.receipt-drop {
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  background: var(--ice);
+  margin-bottom: 1rem;
+}
+
+.receipt-drop.is-drop,
+.contract-app.is-drop .receipt-drop {
+  border-color: var(--blue);
+  background: #eaf2ff;
+}
+
+.receipt-drop p {
+  margin: 0.55rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.receipt-summary {
+  margin: 0.85rem 0 0;
+  padding: 0.8rem 0.85rem;
+  border-radius: 10px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.receipt-summary strong {
+  display: block;
+  font-size: 1.02rem;
+  color: var(--navy);
+}
+
+.receipt-summary span {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.receipt-placeholder {
+  margin: 2.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.mark-paid-full {
+  width: 100%;
+  margin-top: 0.75rem;
+  min-height: 3rem;
+  background: #c8102e;
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.mark-paid-full:hover:not(:disabled) {
+  background: #a40d24;
+}
+
+.mark-paid-full:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 html[data-admin-tool="invoice"] [data-tool="invoice"],
 html[data-admin-tool="contract"] [data-tool="contract"],
 html[data-admin-tool="receipt"] [data-tool="receipt"],

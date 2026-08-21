@@ -6,5 +6,7 @@ Disallow: /contract.html
 Disallow: /contract
 Disallow: /invoice.html
 Disallow: /invoice
+Disallow: /pricing.html
+Disallow: /pricing
 
 Sitemap: https://seantylerlee.com/sitemap.xml

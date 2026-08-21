@@ -571,9 +571,9 @@
         showError("Couldn't read this PDF. It needs to be an invoice downloaded from this page.");
         return;
       }
-      applyDraft(draft, true);
+      applyDraft(draft, false);
       var number = form.invoiceNumber.value || "invoice";
-      showOk("Loaded " + number + " and marked it paid in full. Download PDF to save the paid copy.");
+      showOk("Loaded " + number + ". Review it, then download PDF.");
     } catch (e) {
       showError("Couldn't read that PDF. Try a file downloaded from this page.");
     } finally {
@@ -647,11 +647,31 @@
     return "Unpaid";
   }
 
-  function collect() {
-    var items = collectItems();
+  function normalizeItems(items) {
+    return (items || []).map(function (item) {
+      var qty = Number(item.qty);
+      if (!Number.isFinite(qty) || qty < 0) qty = 0;
+      var rate = round2(item.rate);
+      return {
+        desc: text(item.desc),
+        qty: qty,
+        rate: rate,
+        amount: item.amount != null && item.amount !== "" ? round2(item.amount) : round2(qty * rate)
+      };
+    }).filter(function (item) {
+      return item.desc || item.rate || item.amount;
+    }).map(function (item, i) {
+      item.n = i + 1;
+      return item;
+    });
+  }
+
+  function compute(values, items) {
+    values = values || {};
+    items = normalizeItems(items);
     var subtotal = round2(items.reduce(function (sum, item) { return sum + item.amount; }, 0));
-    var discountType = form.discountType.value || "none";
-    var discountValue = round2(form.discountValue.value);
+    var discountType = values.discountType || "none";
+    var discountValue = round2(values.discountValue);
     if (discountValue < 0) discountValue = 0;
     var discount = 0;
     if (discountType === "percent") {
@@ -662,41 +682,41 @@
     }
     if (discount > subtotal) discount = subtotal;
     var taxable = round2(Math.max(0, subtotal - discount));
-    var taxPercent = Number(form.taxPercent.value);
+    var taxPercent = Number(values.taxPercent);
     if (!Number.isFinite(taxPercent) || taxPercent < 0) taxPercent = 0;
     if (taxPercent > 100) taxPercent = 100;
     var tax = round2(taxable * (taxPercent / 100));
     var total = round2(taxable + tax);
-    var amountPaid = round2(form.amountPaid.value);
+    var amountPaid = round2(values.amountPaid);
     if (amountPaid < 0) amountPaid = 0;
     if (amountPaid > total) amountPaid = total;
     var balance = round2(Math.max(0, total - amountPaid));
 
-    var terms = form.terms.value || "14";
-    var invoiceDate = form.invoiceDate.value;
-    var dueDate = form.dueDate.value;
+    var terms = values.terms || "14";
+    var invoiceDate = values.invoiceDate || "";
+    var dueDate = values.dueDate || "";
     if (terms !== "custom") {
       dueDate = dueFromTerms(invoiceDate, terms) || dueDate;
     }
 
     return {
-      invoiceNumber: text(form.invoiceNumber.value) || nextInvoiceNumber(),
-      poNumber: text(form.poNumber.value),
+      invoiceNumber: text(values.invoiceNumber) || nextInvoiceNumber(),
+      poNumber: text(values.poNumber),
       invoiceDate: invoiceDate,
       dueDate: dueDate,
       terms: terms,
-      projectName: text(form.projectName.value),
-      fromName: text(form.fromName.value) || "STL Apps LLC",
-      fromContact: text(form.fromContact.value) || "Sean Tyler Lee",
-      fromEmail: text(form.fromEmail.value) || "seantylerlee@icloud.com",
-      fromPhone: text(form.fromPhone.value),
-      fromWebsite: text(form.fromWebsite.value) || "seantylerlee.com",
-      fromTaxId: text(form.fromTaxId.value),
-      fromAddress: text(form.fromAddress.value),
-      clientName: text(form.clientName.value),
-      clientEmail: text(form.clientEmail.value),
-      clientPhone: text(form.clientPhone.value),
-      clientAddress: text(form.clientAddress.value),
+      projectName: text(values.projectName),
+      fromName: text(values.fromName) || "STL Apps LLC",
+      fromContact: text(values.fromContact) || "Sean Tyler Lee",
+      fromEmail: text(values.fromEmail) || "seantylerlee@icloud.com",
+      fromPhone: text(values.fromPhone),
+      fromWebsite: text(values.fromWebsite) || "seantylerlee.com",
+      fromTaxId: text(values.fromTaxId),
+      fromAddress: text(values.fromAddress),
+      clientName: text(values.clientName),
+      clientEmail: text(values.clientEmail),
+      clientPhone: text(values.clientPhone),
+      clientAddress: text(values.clientAddress),
       items: items,
       subtotal: subtotal,
       discountType: discountType,
@@ -707,9 +727,26 @@
       total: total,
       amountPaid: amountPaid,
       balance: balance,
-      paymentNotes: text(form.paymentNotes.value),
-      notes: text(form.notes.value)
+      paymentNotes: text(values.paymentNotes),
+      notes: text(values.notes),
+      paidDate: text(values.paidDate)
     };
+  }
+
+  function formValues() {
+    var values = {};
+    Array.prototype.forEach.call(form.elements, function (field) {
+      if (field.name) values[field.name] = field.value;
+    });
+    return values;
+  }
+
+  function collect() {
+    return compute(formValues(), collectItems());
+  }
+
+  function computeFromDraft(raw) {
+    return compute((raw && raw.values) || {}, (raw && raw.items) || []);
   }
 
   function validate(d) {
@@ -779,7 +816,7 @@
     totalsEl.innerHTML = html;
   }
 
-  function renderPreview(d) {
+  function previewHtml(d) {
     var status = invoiceStatus(d);
     var items = d.items.length ? d.items : [{ n: 1, desc: "[Add a line item]", qty: 0, rate: 0, amount: 0 }];
     var rows = items.map(function (item) {
@@ -812,6 +849,9 @@
     html += "<tr><th>Due</th><td>" + escapeHtml(formatDate(d.dueDate)) + "</td></tr>";
     if (d.poNumber) {
       html += "<tr><th>PO</th><td>" + escapeHtml(d.poNumber) + "</td></tr>";
+    }
+    if (status === "paid" && d.paidDate) {
+      html += "<tr><th>Paid</th><td>" + escapeHtml(formatDate(d.paidDate)) + "</td></tr>";
     }
     html += "</tbody></table></div></div>";
 
@@ -857,7 +897,15 @@
     html += "<strong>" + money(d.balance) + "</strong>";
     html += "</div></div>";
 
-    previewEl.innerHTML = html;
+    if (status === "paid") {
+      html += '<div class="paid-stamp" aria-hidden="true"><span>Paid in full</span></div>';
+    }
+
+    return html;
+  }
+
+  function renderPreview(d) {
+    previewEl.innerHTML = previewHtml(d);
   }
 
   function persist() {
@@ -1026,6 +1074,57 @@
     }
   };
 
+  PdfWriter.prototype.drawPaidStamp = function () {
+    var doc = this.doc;
+    var pages = doc.getNumberOfPages();
+    var cx = this.pageW / 2;
+    var cy = this.pageH / 2 + 18;
+    var angle = 32;
+    var rad = (angle * Math.PI) / 180;
+    var boxW = 430;
+    var boxH = 82;
+    var hw = boxW / 2;
+    var hh = boxH / 2;
+    var cos = Math.cos(rad);
+    var sin = Math.sin(rad);
+    var i;
+    var red = [200, 16, 46];
+    for (i = 1; i <= pages; i += 1) {
+      doc.setPage(i);
+      if (doc.saveGraphicsState) {
+        doc.saveGraphicsState();
+        if (doc.GState) doc.setGState(new doc.GState({ opacity: 0.82 }));
+      }
+      var pts = [
+        [-hw, -hh],
+        [hw, -hh],
+        [hw, hh],
+        [-hw, hh]
+      ].map(function (p) {
+        return [cx + p[0] * cos - p[1] * sin, cy + p[0] * sin + p[1] * cos];
+      });
+      doc.setDrawColor(red[0], red[1], red[2]);
+      doc.setLineWidth(5.5);
+      doc.lines(
+        [
+          [pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]],
+          [pts[2][0] - pts[1][0], pts[2][1] - pts[1][1]],
+          [pts[3][0] - pts[2][0], pts[3][1] - pts[2][1]]
+        ],
+        pts[0][0],
+        pts[0][1],
+        [1, 1],
+        "S",
+        true
+      );
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(38);
+      doc.setTextColor(red[0], red[1], red[2]);
+      doc.text("PAID IN FULL", cx, cy + 12, { align: "center", angle: angle });
+      if (doc.restoreGraphicsState) doc.restoreGraphicsState();
+    }
+  };
+
   PdfWriter.prototype.headerBlock = function (d) {
     var from = fromLines(d);
     var leftX = this.mL;
@@ -1062,6 +1161,7 @@
       ["Due", formatDate(d.dueDate)]
     ];
     if (d.poNumber) meta.push(["PO", d.poNumber]);
+    if (status === "paid" && d.paidDate) meta.push(["Paid", formatDate(d.paidDate)]);
     var metaY = this.y + 18;
     for (i = 0; i < meta.length; i += 1) {
       this.doc.setFont("helvetica", "bold");
@@ -1223,6 +1323,70 @@
     this.y = Math.max(notesY, y) + 8;
   };
 
+  function payloadFromData(d, extraValues) {
+    var values = extraValues || {
+      invoiceNumber: d.invoiceNumber,
+      poNumber: d.poNumber,
+      invoiceDate: d.invoiceDate,
+      terms: d.terms,
+      dueDate: d.dueDate,
+      projectName: d.projectName,
+      fromName: d.fromName,
+      fromContact: d.fromContact,
+      fromEmail: d.fromEmail,
+      fromPhone: d.fromPhone,
+      fromWebsite: d.fromWebsite,
+      fromTaxId: d.fromTaxId,
+      fromAddress: d.fromAddress,
+      clientName: d.clientName,
+      clientEmail: d.clientEmail,
+      clientPhone: d.clientPhone,
+      clientAddress: d.clientAddress,
+      discountType: d.discountType,
+      discountValue: String(d.discountValue == null ? 0 : d.discountValue),
+      taxPercent: String(d.taxPercent == null ? 0 : d.taxPercent),
+      amountPaid: String(d.amountPaid == null ? 0 : d.amountPaid),
+      paymentNotes: d.paymentNotes,
+      notes: d.notes,
+      paidDate: d.paidDate || ""
+    };
+    return utf8ToB64(JSON.stringify({
+      v: 1,
+      values: values,
+      items: d.items.map(function (item) {
+        return { desc: item.desc, qty: item.qty, rate: item.rate };
+      })
+    }));
+  }
+
+  async function buildInvoicePdf(d, extraValues) {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      throw new Error("PDF library failed to load.");
+    }
+    var logo = await loadLogo();
+    var paid = invoiceStatus(d) === "paid";
+    var doc = new window.jspdf.jsPDF({ unit: "pt", format: "letter", compress: true });
+    doc.setProperties({
+      title: "Invoice " + d.invoiceNumber + (d.clientName ? " — " + d.clientName : "") + (paid ? " (Paid)" : ""),
+      author: d.fromName,
+      subject: "STL-INV-1 Invoice for " + d.clientName,
+      keywords: paid ? "stl-invoice paid" : "stl-invoice",
+      creator: "STL Apps LLC invoice"
+    });
+    var w = new PdfWriter(doc, logo);
+    w.headerBlock(d);
+    w.billTo(d);
+    w.items(d);
+    w.totalsAndNotes(d);
+    w.drawHeaderFooter(d);
+    if (paid) w.drawPaidStamp();
+    var name = "STL-Apps-LLC_Invoice_" + slug(d.invoiceNumber) + "_" + slug(d.clientName) + (paid ? "_PAID" : "") + ".pdf";
+    return {
+      bytes: appendPayload(doc.output("arraybuffer"), payloadFromData(d, extraValues)),
+      filename: name
+    };
+  }
+
   async function downloadPdf() {
     var d = collect();
     var err = validate(d);
@@ -1242,32 +1406,9 @@
     downloadBtn.textContent = "Building PDF…";
 
     try {
-      var logo = await loadLogo();
-      var doc = new window.jspdf.jsPDF({ unit: "pt", format: "letter", compress: true });
-      doc.setProperties({
-        title: "Invoice " + d.invoiceNumber + (d.clientName ? " — " + d.clientName : ""),
-        author: d.fromName,
-        subject: "STL-INV-1 Invoice for " + d.clientName,
-        keywords: "stl-invoice",
-        creator: "STL Apps LLC invoice"
-      });
-      var w = new PdfWriter(doc, logo);
-      w.headerBlock(d);
-      w.billTo(d);
-      w.items(d);
-      w.totalsAndNotes(d);
-      w.drawHeaderFooter(d);
-
+      var out = await buildInvoicePdf(d, snapshotDraft().values);
       rememberInvoiceNumber(d.invoiceNumber);
-      var name = "STL-Apps-LLC_Invoice_" + slug(d.invoiceNumber) + "_" + slug(d.clientName) + ".pdf";
-      var payload = utf8ToB64(JSON.stringify({
-        v: 1,
-        values: snapshotDraft().values,
-        items: d.items.map(function (item) {
-          return { desc: item.desc, qty: item.qty, rate: item.rate };
-        })
-      }));
-      savePdfBytes(appendPayload(doc.output("arraybuffer"), payload), name);
+      savePdfBytes(out.bytes, out.filename);
     } catch (e) {
       errorEl.textContent = "Could not build the PDF. Try again, or use a current desktop browser.";
       errorEl.classList.add("is-on");
@@ -1299,11 +1440,13 @@
     refresh();
   });
 
-  markPaidBtn.addEventListener("click", function () {
-    var d = collect();
-    form.amountPaid.value = String(d.total);
-    refresh();
-  });
+  if (markPaidBtn) {
+    markPaidBtn.addEventListener("click", function () {
+      var d = collect();
+      form.amountPaid.value = String(d.total);
+      refresh();
+    });
+  }
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -1373,4 +1516,15 @@
 
   restore();
   refresh();
+
+  window.STLInvoice = {
+    readPdf: readInvoicePdf,
+    computeDraft: computeFromDraft,
+    previewHtml: previewHtml,
+    buildPdf: buildInvoicePdf,
+    invoiceStatus: invoiceStatus,
+    money: money,
+    slug: slug,
+    savePdfBytes: savePdfBytes
+  };
 })();

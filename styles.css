@@ -19,6 +19,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 4.6rem;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -89,7 +90,8 @@ a {
 
 h1,
 h2,
-h3 {
+h3,
+h4 {
   font-family: "Plus Jakarta Sans", system-ui, sans-serif;
   font-weight: 800;
   letter-spacing: -0.04em;
@@ -261,7 +263,8 @@ h3 {
   color: var(--navy);
 }
 
-.site-nav a:hover {
+.site-nav a:hover,
+.site-nav a[aria-current="page"] {
   color: var(--blue);
 }
 
@@ -349,6 +352,10 @@ h3 {
   border-color: var(--blue);
 }
 
+.hero-products .hero-yours {
+  color: var(--blue);
+}
+
 .hero-mark {
   display: flex;
   justify-content: center;
@@ -356,7 +363,7 @@ h3 {
 }
 
 .layers {
-  width: min(268px, 70%);
+  width: min(300px, 76%);
   height: auto;
   filter: drop-shadow(0 18px 32px rgba(0, 24, 72, 0.12));
 }
@@ -374,6 +381,22 @@ h3 {
   background: var(--ice);
 }
 
+.product,
+#work,
+#about,
+#contact,
+#your-app {
+  scroll-margin-top: 4.6rem;
+}
+
+.work-note {
+  margin: 0.9rem 0 0;
+  max-width: 42rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 .product {
   padding: 3.75rem 0;
   border-top: 1px solid var(--line);
@@ -387,6 +410,13 @@ h3 {
 .product-haul,
 .product-fleetdispatch {
   background: var(--ice);
+}
+
+.product-yours {
+  background:
+    radial-gradient(circle at 92% 12%, rgba(0, 112, 248, 0.16), transparent 32%),
+    radial-gradient(circle at 8% 88%, rgba(32, 152, 248, 0.1), transparent 28%),
+    var(--white);
 }
 
 .product-grid {
@@ -406,6 +436,7 @@ h3 {
 .product-haul .product-index { color: var(--blue); }
 .product-pc4h .product-index { color: var(--sky); }
 .product-fleetdispatch .product-index { color: var(--navy); }
+.product-yours .product-index { color: var(--blue); }
 
 .product-fleetdispatch .product-grid {
   align-items: center;
@@ -438,6 +469,22 @@ h3 {
   border: 1px solid var(--line);
 }
 
+.product-brand .your-app-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: var(--blue);
+  color: var(--white);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 8px 20px rgba(0, 24, 72, 0.12);
+}
+
 .platforms {
   margin: 0.25rem 0 0;
   font-size: 0.78rem;
@@ -445,6 +492,15 @@ h3 {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--blue);
+}
+
+.product-owner {
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .product-tagline {
@@ -525,6 +581,38 @@ h3 {
   background: var(--white);
 }
 
+.yours-capabilities {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.capability {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 1.15rem 1.2rem;
+  background: var(--ice);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.capability h4 {
+  margin: 0 0 0.4rem;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--navy);
+}
+
+.capability p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 .about {
   padding: 5.2rem 0;
   background: var(--white);
@@ -543,6 +631,18 @@ h3 {
 
 .about-copy p:last-child {
   margin-bottom: 0;
+}
+
+.about-copy a {
+  color: var(--blue);
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 2px solid var(--sky);
+}
+
+.about-copy a:hover {
+  color: var(--navy);
+  border-color: var(--navy);
 }
 
 .contact {
@@ -579,6 +679,21 @@ h3 {
 
 .contact .btn-primary:hover {
   background: #4eb0ff;
+}
+
+.contact .hero-actions {
+  margin-top: 0;
+}
+
+.contact .btn-ghost {
+  background: transparent;
+  color: var(--white);
+  border-color: rgba(197, 214, 245, 0.4);
+}
+
+.contact .btn-ghost:hover {
+  border-color: var(--sky);
+  color: var(--sky);
 }
 
 .site-footer {
@@ -675,6 +790,10 @@ h3 {
     align-items: center;
   }
 
+  .product-yours .product-grid {
+    align-items: stretch;
+  }
+
   .about-grid {
     grid-template-columns: 1fr 1.15fr;
     gap: 3rem;
@@ -718,11 +837,15 @@ h3 {
   }
 
   .layers {
-    width: min(180px, 46%);
+    width: min(200px, 52%);
   }
 
   .product {
     padding: 2.8rem 0;
+  }
+
+  .yours-capabilities {
+    grid-template-columns: 1fr;
   }
 
   .footer-inner {

@@ -31,7 +31,7 @@
   }
 
   function current() {
-    return readHash() || readStored() || "invoice";
+    return readHash() || readStored() || "quote";
   }
 
   function show(tool) {
