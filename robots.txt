@@ -8,5 +8,6 @@ Disallow: /invoice.html
 Disallow: /invoice
 Disallow: /pricing.html
 Disallow: /pricing
+Disallow: /stl-apps/
 
 Sitemap: https://seantylerlee.com/sitemap.xml
