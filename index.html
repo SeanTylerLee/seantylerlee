@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=16" />
+  <link rel="stylesheet" href="styles.css?v=17" />
 
   <script type="application/ld+json">
   {
@@ -41,7 +41,7 @@
     "owns": [
       { "@type": "SoftwareApplication", "name": "Permit Path", "url": "https://permitpathnav.com" },
       { "@type": "SoftwareApplication", "name": "HaulPath", "url": "https://haulpath.com" },
-      { "@type": "SoftwareApplication", "name": "Pilot Car 4 Hire", "url": "https://www.pilotcar4hire.com", "operatingSystem": "iOS", "sameAs": "https://apps.apple.com/us/app/pilotcar4hire/id6802048795" }
+      { "@type": "SoftwareApplication", "name": "Pilot Car 4 Hire", "url": "https://www.pilotcar4hire.com", "operatingSystem": "iOS, Android", "sameAs": ["https://apps.apple.com/us/app/pilotcar4hire/id6802048795", "https://play.google.com/store/apps/details?id=com.haulpath.pilotcar4hire"] }
     ],
     "makesOffer": {
       "@type": "Offer",
@@ -63,7 +63,11 @@
         <img class="brand-logo" src="images/stlapps-logo.jpg" alt="STL Apps LLC" width="220" height="50" />
       </a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
-        <span class="nav-toggle-bar"></span>
+        <span class="nav-toggle-bars" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
         <span class="sr-only">Menu</span>
       </button>
       <nav id="site-nav" class="site-nav" aria-label="Primary">
@@ -143,16 +147,18 @@
             </ul>
             <div class="product-links">
               <a class="btn btn-primary" href="https://permitpathnav.com" target="_blank" rel="noopener noreferrer">Website</a>
-              <a class="store-badge" href="https://apps.apple.com/us/app/permit-path/id6759459273" target="_blank" rel="noopener noreferrer">
-                <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download Permit Path on the App Store" width="140" height="47" />
-              </a>
-              <a class="store-badge store-badge-play" href="https://play.google.com/store/apps/details?id=com.haulpath.permitpath" target="_blank" rel="noopener noreferrer">
-                <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get Permit Path on Google Play" width="155" height="60" />
-              </a>
+              <div class="store-row">
+                <a class="store-badge" href="https://apps.apple.com/us/app/permit-path/id6759459273" target="_blank" rel="noopener noreferrer">
+                  <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download Permit Path on the App Store" width="140" height="47" />
+                </a>
+                <a class="store-badge store-badge-play" href="https://play.google.com/store/apps/details?id=com.haulpath.permitpath" target="_blank" rel="noopener noreferrer">
+                  <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get Permit Path on Google Play" width="155" height="60" />
+                </a>
+              </div>
             </div>
           </div>
           <div class="product-visual">
-            <img class="visual-wide" src="images/permitpath-phones.png" alt="Permit Path on three iPhones: mapped permit route, waypoint list, and turn-by-turn navigation" width="920" height="520" />
+            <img class="visual-wide" src="images/permitpath-phones.png" alt="Permit Path on three iPhones: mapped permit route, waypoint list, and turn-by-turn navigation" width="920" height="520" loading="lazy" />
           </div>
         </div>
       </article>
@@ -180,17 +186,19 @@
             </ul>
             <div class="product-links">
               <a class="btn btn-primary" href="https://haulpath.com" target="_blank" rel="noopener noreferrer">Website</a>
-              <a class="store-badge" href="https://apps.apple.com/us/app/haul-path/id6752206931" target="_blank" rel="noopener noreferrer">
-                <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download Haul Path on the App Store" width="140" height="47" />
-              </a>
-              <a class="store-badge store-badge-play" href="https://play.google.com/store/apps/details?id=com.haulpath.app" target="_blank" rel="noopener noreferrer">
-                <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get HaulPath on Google Play" width="155" height="60" />
-              </a>
+              <div class="store-row">
+                <a class="store-badge" href="https://apps.apple.com/us/app/haul-path/id6752206931" target="_blank" rel="noopener noreferrer">
+                  <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download Haul Path on the App Store" width="140" height="47" />
+                </a>
+                <a class="store-badge store-badge-play" href="https://play.google.com/store/apps/details?id=com.haulpath.app" target="_blank" rel="noopener noreferrer">
+                  <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get HaulPath on Google Play" width="155" height="60" />
+                </a>
+              </div>
             </div>
           </div>
           <div class="product-visual product-visual-phones">
-            <img src="images/haulpath-1.png" alt="HaulPath vehicle dimensions screen" width="360" height="780" />
-            <img src="images/haulpath-3.png" alt="HaulPath route analysis showing permit, pilot car, and high pole requirements" width="360" height="780" />
+            <img src="images/haulpath-1.png" alt="HaulPath vehicle dimensions screen" width="360" height="780" loading="lazy" />
+            <img src="images/haulpath-3.png" alt="HaulPath route analysis showing permit, pilot car, and high pole requirements" width="360" height="780" loading="lazy" />
           </div>
         </div>
       </article>
@@ -204,7 +212,7 @@
               <div>
                 <h3>Pilot Car 4 Hire</h3>
                 <p class="product-owner">Owned by STL Apps LLC</p>
-                <p class="platforms">iOS · Website</p>
+                <p class="platforms">iOS · Android · Website</p>
               </div>
             </div>
             <p class="product-lead">
@@ -218,14 +226,19 @@
             </ul>
             <div class="product-links">
               <a class="btn btn-primary" href="https://www.pilotcar4hire.com" target="_blank" rel="noopener noreferrer">Website</a>
-              <a class="store-badge" href="https://apps.apple.com/us/app/pilotcar4hire/id6802048795" target="_blank" rel="noopener noreferrer">
-                <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download Pilot Car 4 Hire on the App Store" width="140" height="47" />
-              </a>
+              <div class="store-row">
+                <a class="store-badge" href="https://apps.apple.com/us/app/pilotcar4hire/id6802048795" target="_blank" rel="noopener noreferrer">
+                  <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download Pilot Car 4 Hire on the App Store" width="140" height="47" />
+                </a>
+                <a class="store-badge store-badge-play" href="https://play.google.com/store/apps/details?id=com.haulpath.pilotcar4hire" target="_blank" rel="noopener noreferrer">
+                  <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get Pilot Car 4 Hire on Google Play" width="155" height="60" />
+                </a>
+              </div>
             </div>
           </div>
           <div class="product-visual product-visual-phones">
-            <img src="images/pc4h-4.png" alt="Pilot Car 4 Hire browse map filtered by escort type" width="360" height="780" />
-            <img src="images/pc4h-3.png" alt="Pilot Car 4 Hire Oklahoma listings with call and email" width="360" height="780" />
+            <img src="images/pc4h-4.png" alt="Pilot Car 4 Hire browse map filtered by escort type" width="360" height="780" loading="lazy" />
+            <img src="images/pc4h-3.png" alt="Pilot Car 4 Hire Oklahoma listings with call and email" width="360" height="780" loading="lazy" />
           </div>
         </div>
       </article>
@@ -340,15 +353,18 @@
     document.getElementById("year").textContent = String(new Date().getFullYear());
     var toggle = document.querySelector(".nav-toggle");
     var nav = document.getElementById("site-nav");
+    function setNavOpen(open) {
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.classList.toggle("is-open", open);
+      nav.classList.toggle("is-open", open);
+      document.body.classList.toggle("nav-open", open);
+    }
     toggle.addEventListener("click", function () {
-      var open = toggle.getAttribute("aria-expanded") === "true";
-      toggle.setAttribute("aria-expanded", String(!open));
-      nav.classList.toggle("is-open", !open);
+      setNavOpen(toggle.getAttribute("aria-expanded") !== "true");
     });
     nav.querySelectorAll("a").forEach(function (link) {
       link.addEventListener("click", function () {
-        toggle.setAttribute("aria-expanded", "false");
-        nav.classList.remove("is-open");
+        setNavOpen(false);
       });
     });
   </script>

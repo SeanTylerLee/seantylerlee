@@ -434,6 +434,36 @@
   border-radius: 6px;
 }
 
+@media (max-width: 720px) {
+  .quote-hero {
+    padding: 2rem 0 1.45rem;
+  }
+
+  .quote-hero h1 {
+    font-size: 1.85rem;
+  }
+
+  .quote-hero .lede {
+    font-size: 1rem;
+    margin-top: 0.75rem;
+  }
+
+  .quote-layout {
+    padding-bottom: 2.5rem;
+    gap: 1.15rem;
+  }
+
+  .q-estimate {
+    position: static;
+    padding: 1.15rem 1.1rem 1.2rem;
+    border-radius: 16px;
+  }
+
+  .quote-fineprint {
+    padding-bottom: 3rem;
+  }
+}
+
 @media (min-width: 720px) {
   .q-grid-2 {
     grid-template-columns: 1fr 1fr;
