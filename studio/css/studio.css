@@ -54,6 +54,7 @@
 html,
 body {
   height: 100%;
+  height: 100dvh;
 }
 
 body {
@@ -429,6 +430,17 @@ textarea {
   padding: 0;
   overflow: auto;
   background: var(--window);
+  min-width: 0;
+  min-height: 0;
+}
+
+.main > .panel {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 20px 24px 28px;
+  max-width: none;
+  min-height: 100%;
 }
 
 .panel {
@@ -675,20 +687,81 @@ textarea {
 }
 
 @media (max-width: 800px) {
+  :root {
+    --sidebar: 152px;
+    --fs-page: 16px;
+    --fs-body: 12px;
+  }
+
   .app {
-    grid-template-columns: 1fr;
-    grid-template-rows: 44px minmax(0, 1fr);
+    grid-template-columns: var(--sidebar) minmax(0, 1fr);
+    grid-template-rows: 40px minmax(0, 1fr);
     grid-template-areas:
-      "top"
-      "main";
+      "side top"
+      "side main";
   }
 
   .sidebar {
+    display: flex;
+    padding: 6px 4px 0;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .sidebar-item {
+    padding: 5px 6px;
+    font-size: 11px;
+    gap: 6px;
+    border-radius: 6px;
+  }
+
+  .sidebar-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .sidebar-icon img {
+    width: 11px;
+    height: 11px;
+  }
+
+  .sidebar-sep {
+    margin: 6px 8px;
+  }
+
+  .topbar {
+    padding: 0 8px;
+    padding-right: max(8px, env(safe-area-inset-right));
+  }
+
+  .topbar img {
+    height: 20px;
+  }
+
+  .topbar-title {
+    font-size: 12px;
+  }
+
+  .topbar .who {
     display: none;
   }
 
-  .file-float {
+  .topbar-btn {
+    min-height: 26px;
+    height: 26px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .main > .panel,
+  .panel {
+    padding: 12px 12px 20px;
+  }
+
+  .file-float,
+  .pricing-float {
     width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
     height: min(70vh, 640px);
+    left: 8px !important;
   }
 }

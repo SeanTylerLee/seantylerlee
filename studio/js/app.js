@@ -55,7 +55,108 @@
   var globalSaveBtn = document.getElementById("global-save");
   var whoEl = document.getElementById("who");
   var sidebar = document.getElementById("sidebar");
-  var panel = document.getElementById("panel");
+  var pagesEl = document.getElementById("pages");
+  var pageHosts = {};
+
+  var PAGE_MODE = {
+    overview: "is-overview",
+    billing: "is-billing",
+    notes: "is-notes",
+    projects: "is-projects",
+    clients: "is-clients",
+    bank: "is-bank",
+    business: "is-business",
+    loginVault: "is-vault",
+    calendar: "is-calendar",
+    renewals: "is-renewals",
+    expenses: "is-expenses",
+    income: "is-income",
+    ownerDraws: "is-ownerDraws",
+    taxes: "is-taxes",
+    appleAnalytics: "is-analytics",
+    sop: "is-sop",
+    apps: "is-apps",
+    support: "is-support",
+    emails: "is-emails",
+    leads: "is-leads",
+    inventory: "is-inventory"
+  };
+
+  var PAGE_MODULE = {
+    overview: "STLOverview",
+    billing: "STLBilling",
+    notes: "STLNotes",
+    projects: "STLProjects",
+    clients: "STLClients",
+    bank: "STLBank",
+    business: "STLBusiness",
+    loginVault: "STLVault",
+    calendar: "STLCalendar",
+    renewals: "STLRenewals",
+    expenses: "STLExpenses",
+    income: "STLIncome",
+    ownerDraws: "STLOwnerDraws",
+    taxes: "STLTaxes",
+    appleAnalytics: "STLAnalytics",
+    sop: "STLSOP",
+    apps: "STLApps",
+    support: "STLSupport",
+    emails: "STLEmails",
+    leads: "STLLeads",
+    inventory: "STLInventory"
+  };
+
+  function moduleFor(id) {
+    var name = PAGE_MODULE[id];
+    return name ? window[name] : null;
+  }
+
+  function saversMap() {
+    return {
+      billing: window.STLBilling,
+      projects: window.STLProjects,
+      clients: window.STLClients,
+      business: window.STLBusiness,
+      loginVault: window.STLVault,
+      renewals: window.STLRenewals,
+      notes: window.STLNotes,
+      expenses: window.STLExpenses,
+      income: window.STLIncome,
+      ownerDraws: window.STLOwnerDraws,
+      taxes: window.STLTaxes,
+      sop: window.STLSOP,
+      apps: window.STLApps,
+      support: window.STLSupport,
+      emails: window.STLEmails,
+      leads: window.STLLeads,
+      inventory: window.STLInventory
+    };
+  }
+
+  function refreshSave() {
+    if (!globalSaveBtn) return;
+    var mod = saversMap()[currentSection];
+    if (!mod || !mod.saveAll) {
+      globalSaveBtn.classList.add("hidden");
+      globalSaveBtn.disabled = true;
+      return;
+    }
+    globalSaveBtn.classList.remove("hidden");
+    if (typeof mod.isDirty === "function") globalSaveBtn.disabled = !mod.isDirty();
+    else globalSaveBtn.disabled = false;
+  }
+
+  function destroyPages() {
+    Object.keys(pageHosts).forEach(function (id) {
+      var el = pageHosts[id];
+      var mod = moduleFor(id);
+      if (mod && mod.unmount) {
+        try { mod.unmount(el); } catch (err) {}
+      }
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    });
+    pageHosts = {};
+  }
 
   var cfg = window.STL_STUDIO || {};
   var supabaseUrl = String(cfg.supabaseUrl || "").trim();
@@ -78,6 +179,7 @@
   }
 
   function showGate(message) {
+    destroyPages();
     app.classList.add("hidden");
     gate.classList.remove("hidden");
     if (message) showStatus(message, false);
@@ -151,172 +253,29 @@
   }
 
   function renderPanel() {
-    if (window.STLBilling) window.STLBilling.unmount(panel);
-    if (window.STLNotes) window.STLNotes.unmount(panel);
-    if (window.STLProjects) window.STLProjects.unmount(panel);
-    if (window.STLClients) window.STLClients.unmount(panel);
-    if (window.STLBank) window.STLBank.unmount(panel);
-    if (window.STLBusiness) window.STLBusiness.unmount(panel);
-    if (window.STLVault) window.STLVault.unmount(panel);
-    if (window.STLCalendar) window.STLCalendar.unmount(panel);
-    if (window.STLRenewals) window.STLRenewals.unmount(panel);
-    if (window.STLExpenses) window.STLExpenses.unmount(panel);
-    if (window.STLIncome) window.STLIncome.unmount(panel);
-    if (window.STLOwnerDraws) window.STLOwnerDraws.unmount(panel);
-    if (window.STLTaxes) window.STLTaxes.unmount(panel);
-    if (window.STLAnalytics) window.STLAnalytics.unmount(panel);
-    if (window.STLOverview) window.STLOverview.unmount(panel);
-    if (window.STLSOP) window.STLSOP.unmount(panel);
-    if (window.STLApps) window.STLApps.unmount(panel);
-    if (window.STLSupport) window.STLSupport.unmount(panel);
-    if (window.STLEmails) window.STLEmails.unmount(panel);
-    if (window.STLLeads) window.STLLeads.unmount(panel);
-    if (window.STLInventory) window.STLInventory.unmount(panel);
-    app.classList.remove("is-billing");
-    app.classList.remove("is-notes");
-    app.classList.remove("is-projects");
-    app.classList.remove("is-clients");
-    app.classList.remove("is-bank");
-    app.classList.remove("is-business");
-    app.classList.remove("is-vault");
-    app.classList.remove("is-calendar");
-    app.classList.remove("is-renewals");
-    app.classList.remove("is-expenses");
-    app.classList.remove("is-income");
-    app.classList.remove("is-ownerDraws");
-    app.classList.remove("is-taxes");
-    app.classList.remove("is-analytics");
-    app.classList.remove("is-overview");
-    app.classList.remove("is-sop");
-    app.classList.remove("is-apps");
-    app.classList.remove("is-support");
-    app.classList.remove("is-emails");
-    app.classList.remove("is-leads");
-    app.classList.remove("is-inventory");
     var section = SECTIONS.filter(function (s) { return s.id === currentSection; })[0] || SECTIONS[0];
-    if (section.id === "overview" && window.STLOverview) {
-      app.classList.add("is-overview");
-      window.STLOverview.mount(panel, client);
-      return;
+    Object.keys(PAGE_MODE).forEach(function (id) {
+      app.classList.remove(PAGE_MODE[id]);
+    });
+    if (PAGE_MODE[section.id]) app.classList.add(PAGE_MODE[section.id]);
+
+    Object.keys(pageHosts).forEach(function (id) {
+      pageHosts[id].classList.toggle("hidden", id !== section.id);
+    });
+
+    if (!pageHosts[section.id] && pagesEl) {
+      var el = document.createElement("section");
+      el.className = "panel";
+      el.setAttribute("data-page", section.id);
+      pagesEl.appendChild(el);
+      pageHosts[section.id] = el;
+      var mod = moduleFor(section.id);
+      if (mod && mod.mount) mod.mount(el, client);
+      else {
+        el.innerHTML = "<h1>" + section.title + "</h1><p>" + section.body + "</p>";
+      }
     }
-    if (section.id === "billing" && window.STLBilling) {
-      app.classList.add("is-billing");
-      window.STLBilling.mount(panel, client);
-      return;
-    }
-    if (section.id === "notes" && window.STLNotes) {
-      app.classList.add("is-notes");
-      window.STLNotes.mount(panel, client);
-      return;
-    }
-    if (section.id === "projects" && window.STLProjects) {
-      app.classList.add("is-projects");
-      window.STLProjects.mount(panel, client);
-      return;
-    }
-    if (section.id === "clients" && window.STLClients) {
-      app.classList.add("is-clients");
-      window.STLClients.mount(panel, client);
-      return;
-    }
-    if (section.id === "bank" && window.STLBank) {
-      app.classList.add("is-bank");
-      window.STLBank.mount(panel, client);
-      return;
-    }
-    if (section.id === "business" && window.STLBusiness) {
-      app.classList.add("is-business");
-      window.STLBusiness.mount(panel, client);
-      return;
-    }
-    if (section.id === "loginVault" && window.STLVault) {
-      app.classList.add("is-vault");
-      window.STLVault.mount(panel, client);
-      return;
-    }
-    if (section.id === "calendar" && window.STLCalendar) {
-      app.classList.add("is-calendar");
-      window.STLCalendar.mount(panel, client);
-      return;
-    }
-    if (section.id === "renewals" && window.STLRenewals) {
-      app.classList.add("is-renewals");
-      window.STLRenewals.mount(panel, client);
-      return;
-    }
-    if (section.id === "expenses" && window.STLExpenses) {
-      app.classList.add("is-expenses");
-      window.STLExpenses.mount(panel, client);
-      return;
-    }
-    if (section.id === "income" && window.STLIncome) {
-      app.classList.add("is-income");
-      window.STLIncome.mount(panel, client);
-      return;
-    }
-    if (section.id === "ownerDraws" && window.STLOwnerDraws) {
-      app.classList.add("is-ownerDraws");
-      window.STLOwnerDraws.mount(panel, client);
-      return;
-    }
-    if (section.id === "taxes" && window.STLTaxes) {
-      app.classList.add("is-taxes");
-      window.STLTaxes.mount(panel, client);
-      return;
-    }
-    if (section.id === "appleAnalytics" && window.STLAnalytics) {
-      app.classList.add("is-analytics");
-      window.STLAnalytics.mount(panel, client);
-      return;
-    }
-    if (section.id === "sop" && window.STLSOP) {
-      app.classList.add("is-sop");
-      window.STLSOP.mount(panel, client);
-      return;
-    }
-    if (section.id === "apps" && window.STLApps) {
-      app.classList.add("is-apps");
-      window.STLApps.mount(panel, client);
-      return;
-    }
-    if (section.id === "support" && window.STLSupport) {
-      app.classList.add("is-support");
-      window.STLSupport.mount(panel, client);
-      return;
-    }
-    if (section.id === "emails" && window.STLEmails) {
-      app.classList.add("is-emails");
-      window.STLEmails.mount(panel, client);
-      return;
-    }
-    if (section.id === "leads" && window.STLLeads) {
-      app.classList.add("is-leads");
-      window.STLLeads.mount(panel, client);
-      return;
-    }
-    if (section.id === "inventory" && window.STLInventory) {
-      app.classList.add("is-inventory");
-      window.STLInventory.mount(panel, client);
-      return;
-    }
-    panel.classList.remove("wide");
-    panel.classList.remove("notes-wide");
-    panel.classList.remove("projects-wide");
-    panel.classList.remove("clients-wide");
-    panel.classList.remove("bank-wide");
-    panel.classList.remove("business-wide");
-    panel.classList.remove("vault-wide");
-    panel.classList.remove("calendar-wide");
-    panel.classList.remove("renewals-wide");
-    panel.classList.remove("money-wide");
-    panel.classList.remove("analytics-wide");
-    panel.classList.remove("overview-wide");
-    panel.classList.remove("sop-wide");
-    panel.classList.remove("apps-wide");
-    panel.classList.remove("ops-wide");
-    panel.innerHTML =
-      "<h1>" + section.title + "</h1>" +
-      "<p>" + section.body + "</p>";
+    refreshSave();
   }
 
   function missingConfig() {
@@ -407,7 +366,7 @@
         leads: window.STLLeads,
         inventory: window.STLInventory
       };
-      var mod = savers[currentSection];
+      var mod = saversMap()[currentSection];
       if (mod && mod.saveAll) mod.saveAll();
     });
   }
