@@ -392,8 +392,8 @@
     var node = event.target;
     if (!node || node === document) node = document.scrollingElement;
     var y = (node && node.scrollTop) || 0;
-    if (y > lastScrollY + 6 && y > 20) app.classList.add("is-mobile-scrolled");
-    else if (y < lastScrollY - 6 || y < 12) app.classList.remove("is-mobile-scrolled");
+    if (y > 20) app.classList.add("is-mobile-scrolled");
+    else app.classList.remove("is-mobile-scrolled");
     lastScrollY = y;
   }, true);
 
