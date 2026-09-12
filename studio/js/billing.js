@@ -177,6 +177,20 @@
     return "Thank you for your business.";
   }
 
+  function catalogHourly() {
+    var list = window.STLPricing && typeof window.STLPricing.items === "function"
+      ? window.STLPricing.items()
+      : [];
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (String(list[i].name || "").toLowerCase() === "hourly rate") {
+        var n = Number(list[i].rate);
+        if (n > 0) return n;
+      }
+    }
+    return 30;
+  }
+
   function emptyDraft() {
     var D = Doc();
     var today = D.todayISO();
@@ -205,7 +219,7 @@
       validDays: "14",
       validUntil: D.addDays(today, 14),
       depositPercent: 50,
-      hourlyRate: 150,
+      hourlyRate: catalogHourly(),
       status: currentKind === "quote" ? "estimate" : "unpaid"
     }, FROM);
   }

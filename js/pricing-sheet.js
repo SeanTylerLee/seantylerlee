@@ -30,11 +30,11 @@
     el.innerHTML = table(
       ["Item", "Notes", "Base rate"],
       [
-        ["Basic website page (1 page)", "First page of a website", pricing.money(rates.website.firstPage)],
-        ["Add pages to website", "Each extra page", pricing.money(rates.website.extraPage) + " / page"],
-        ["Web app", rates.products.webapp.blurb, pricing.money(rates.products.webapp.base)],
-        ["Build an Apple app", rates.products.ios.blurb, pricing.money(rates.products.ios.base)],
-        ["Build an Android app", rates.products.android.blurb, pricing.money(rates.products.android.base)]
+        ["Basic website page", "1 page", pricing.money(rates.website.firstPage)],
+        ["Add pages to website", "$25.00 per page", pricing.money(rates.website.extraPage) + " / page"],
+        ["Web app", "", pricing.money(rates.products.webapp.base)],
+        ["Build an Apple app", "", pricing.money(rates.products.ios.base)],
+        ["Build an Android app", "", pricing.money(rates.products.android.base)]
       ]
     );
   }
@@ -59,7 +59,8 @@
       ["Term", "Value"],
       [
         ["Deposit to start", (rates.deposit * 100) + "%"],
-        ["Quote good for", rates.validDays + " days"]
+        ["Quote good for", rates.validDays + " days"],
+        ["Hourly Rate", pricing.money(rates.hourly || 30) + " / hour"]
       ]
     );
   }

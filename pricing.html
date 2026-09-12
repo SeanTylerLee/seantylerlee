@@ -34,7 +34,7 @@
     <p class="eyebrow">STL Apps LLC</p>
     <h1>Pricing sheet</h1>
     <p class="lede">
-      Rates from <strong>STLAppsLLC Pricing Sheet</strong>. The public quote tool
+      Rates from <strong>STL Studio pricing</strong>. The public quote tool
       adds the same line items the visitor picks. Confirm scope before you lock a contract.
     </p>
     <div class="sheet-actions no-print">
@@ -44,23 +44,22 @@
     <section class="sheet-section">
       <h2>How a quote is built</h2>
       <p>
-        Sum of the selected line items from this sheet. Website is $150 for the first
-        page plus $25 for each extra page. If both admin options are selected, only
+        Sum of the selected line items from this sheet. Basic website page is $150
+        for 1 page plus $25 for each extra page. If both admin options are selected, only
         “Admin back office with APIs” is charged. Deposit is 50% to start. Quote is
-        good for 14 days. Hours in the Numbers file are blank, so the public quote
-        does not estimate timeline.
+        good for 14 days. Out-of-scope work is billed at the Studio Hourly Rate.
       </p>
     </section>
 
     <section class="sheet-section">
       <h2>Products</h2>
-      <p>Copied from the Numbers file. These are the base rates the public form uses.</p>
+      <p>Copied from Studio Pricing. These are the base rates the public form uses.</p>
       <div id="sheet-products"></div>
     </section>
 
     <section class="sheet-section">
       <h2>Add-ons</h2>
-      <p>App Store listing only applies with an iOS app. Play listing only with Android.</p>
+      <p>App Store listing only applies with Build an Apple app. Play listing only with Build an Android app.</p>
       <div id="sheet-addons"></div>
     </section>
 
@@ -88,16 +87,15 @@
     <section class="sheet-section sheet-howto">
       <h2>How to change prices</h2>
       <p>
-        The live rates live in <code>js/pricing.js</code>, copied from
-        <strong>STLAppsLLC Pricing Sheet.numbers</strong> on your Desktop.
-        If you change the Numbers file, update that JS file and refresh this page
-        and <a href="quote.html">quote.html</a>. Use the Admin quote tool when you
+        The live rates live in Studio Pricing. Copy them into
+        <code>js/pricing.js</code> so the public quote stays in sync, then refresh
+        this page and <a href="quote.html">quote.html</a>. Use Studio Billing when you
         need a named PDF for a specific client.
       </p>
     </section>
   </main>
 
-  <script src="js/pricing.js?v=2"></script>
-  <script src="js/pricing-sheet.js?v=2"></script>
+  <script src="js/pricing.js?v=3"></script>
+  <script src="js/pricing-sheet.js?v=3"></script>
 </body>
 </html>

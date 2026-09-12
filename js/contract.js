@@ -157,7 +157,7 @@
       developerEmail: text(form.developerEmail.value) || "seantylerlee@icloud.com",
       developerPhone: text(form.developerPhone.value),
       developerAddress: text(form.developerAddress.value),
-      hourlyRate: round2(form.hourlyRate.value || 150),
+      hourlyRate: round2(form.hourlyRate.value || 30),
       depositPercent: pct,
       depositAmount: deposit,
       remaining: remaining,
@@ -1181,7 +1181,7 @@
     form.developerEmail.value = "seantylerlee@icloud.com";
     form.governingState.value = "Oklahoma";
     form.depositPercent.value = "50";
-    form.hourlyRate.value = "150";
+    form.hourlyRate.value = "30";
     form.revisionRounds.value = "2";
     form.reviewDays.value = "7";
     form.warrantyDays.value = "14";

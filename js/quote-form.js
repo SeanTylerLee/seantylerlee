@@ -82,9 +82,9 @@
       taxPercent: 0,
       tax: 0,
       total: quote.total,
-      depositPercent: 50,
+      depositPercent: Math.round((rates.deposit || 0.5) * 100),
       deposit: quote.deposit,
-      hourlyRate: 150,
+      hourlyRate: rates.hourly || 30,
       notes: NOTES,
       intent: intent
     };
@@ -151,7 +151,7 @@
       html += "</span><strong>" + pricing.money(line.amount) + "</strong></li>";
     });
     html += "</ul>";
-    html += '<p class="q-est-note">This is an automatic estimate from the STL Apps LLC pricing sheet, not a contract. Scope is confirmed in a written agreement before work starts. You own the finished product.</p>';
+    html += '<p class="q-est-note">This is an automatic estimate from the current STL Studio rates, not a contract. Out-of-scope work is billed at ' + pricing.money(rates.hourly || 30) + ' per hour. Scope is confirmed in a written agreement before work starts. You own the finished product.</p>';
 
     estimateEl.innerHTML = html;
     if (actionsEl) actionsEl.hidden = false;

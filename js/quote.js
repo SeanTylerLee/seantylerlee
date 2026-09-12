@@ -214,7 +214,7 @@
       total: total,
       depositPercent: depositPercent,
       deposit: deposit,
-      hourlyRate: round2(form.hourlyRate.value || 150),
+      hourlyRate: round2(form.hourlyRate.value || 30),
       notes: text(form.notes.value)
     };
   }
@@ -286,7 +286,7 @@
     form.discountValue.value = "0";
     form.taxPercent.value = "0";
     form.depositPercent.value = "50";
-    form.hourlyRate.value = "150";
+    form.hourlyRate.value = "30";
     form.quoteDate.value = todayISO();
     form.validUntil.value = addDays(form.quoteDate.value, 14);
     form.quoteNumber.value = nextNumber();
@@ -543,7 +543,7 @@
         discountValue: values.discountValue || "0",
         taxPercent: values.taxPercent || "0",
         depositPercent: "50",
-        hourlyRate: values.hourlyRate || "150",
+        hourlyRate: values.hourlyRate || "30",
         notes: form.notes.defaultValue || ""
       },
       items: data.items || []
