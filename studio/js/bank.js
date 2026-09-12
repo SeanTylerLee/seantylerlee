@@ -247,9 +247,13 @@
   }
 
   function loadStatus() {
-    return fetch("/api/mercury/status")
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
+    if (!window.STLLocalApi || !window.STLLocalApi.available()) {
+      tokenHint = "Mac only";
+      return Promise.resolve();
+    }
+    return window.STLLocalApi.get("/api/mercury/status")
+      .then(function (res) {
+        var data = res.data || {};
         tokenHint = data.hint || (data.configured ? "Saved" : "Not set");
       })
       .catch(function () {
@@ -259,16 +263,21 @@
 
   function loadSnapshot() {
     if (loading) return;
+    if (!window.STLLocalApi || !window.STLLocalApi.available()) {
+      snapshot = null;
+      showMsg(window.STLLocalApi ? window.STLLocalApi.message : "Bank only works on this Mac.", false);
+      render();
+      return;
+    }
     loading = true;
     showMsg("Loading Mercury…", true);
     render();
-    fetch("/api/mercury/snapshot")
-      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+    window.STLLocalApi.get("/api/mercury/snapshot")
       .then(function (res) {
         loading = false;
         if (!res.ok) {
           snapshot = null;
-          showMsg(res.data.error || "Could not load Mercury.", false);
+          showMsg((res.data && res.data.error) || "Could not load Mercury.", false);
           render();
           return;
         }

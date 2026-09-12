@@ -356,9 +356,14 @@
   }
 
   function loadStatus() {
+    if (!window.STLLocalApi || !window.STLLocalApi.available()) {
+      statusHint = "Mac only";
+      playHint = "Mac only";
+      return Promise.resolve();
+    }
     return Promise.all([
-      fetch("/api/asc/status").then(function (r) { return r.json(); }).catch(function () { return {}; }),
-      fetch("/api/play/status").then(function (r) { return r.json(); }).catch(function () { return {}; })
+      window.STLLocalApi.get("/api/asc/status").then(function (res) { return res.data || {}; }).catch(function () { return {}; }),
+      window.STLLocalApi.get("/api/play/status").then(function (res) { return res.data || {}; }).catch(function () { return {}; })
     ]).then(function (pair) {
       var apple = pair[0] || {};
       var play = pair[1] || {};
@@ -411,14 +416,18 @@
 
   function loadPlay() {
     if (playLoading) return;
+    if (!window.STLLocalApi || !window.STLLocalApi.available()) {
+      playSnapshot = null;
+      showMsg(window.STLLocalApi.message, false);
+      render();
+      return;
+    }
     playLoading = true;
     showMsg("Loading Google Play vitals…", true);
     render();
     playPackages().then(function (names) {
       var q = names.length ? ("?packages=" + encodeURIComponent(names.join(","))) : "";
-      return fetch("/api/play/snapshot" + q).then(function (r) {
-        return r.json().then(function (data) { return { ok: r.ok, data: data }; });
-      });
+      return window.STLLocalApi.get("/api/play/snapshot" + q);
     }).then(function (res) {
       playLoading = false;
       if (!res.ok) {
@@ -445,9 +454,16 @@
     showMsg(full ? "Loading apps + analytics…" : "Loading apps…", true);
     render();
 
+    if (!window.STLLocalApi || !window.STLLocalApi.available()) {
+      loading = false;
+      snapshot = null;
+      showMsg(window.STLLocalApi.message, false);
+      render();
+      return;
+    }
+
     // Fast pass first (apps/versions/reviews), then enrich metrics.
-    fetch("/api/asc/snapshot?metrics=0")
-      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+    window.STLLocalApi.get("/api/asc/snapshot?metrics=0")
       .then(function (res) {
         if (!res.ok) {
           loading = false;
@@ -460,8 +476,7 @@
         if (snapshot.keyID) keyID = snapshot.keyID;
         showMsg("Apps loaded. Pulling analytics reports…", true);
         render();
-        return fetch("/api/asc/snapshot?metrics=1")
-          .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); });
+        return window.STLLocalApi.get("/api/asc/snapshot?metrics=1");
       })
       .then(function (res) {
         loading = false;
