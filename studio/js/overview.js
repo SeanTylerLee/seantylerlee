@@ -17,6 +17,7 @@
   var issues = [];
   var apps = [];
   var appIssues = [];
+  var companyDocs = [];
   var exporting = false;
 
   function M() { return window.STLMoney; }
@@ -457,15 +458,39 @@
     });
   }
 
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
+  function paidInvoicesForYear() {
+    return documents.filter(function (doc) {
+      if (doc.kind !== "invoice") return false;
+      var t = invoiceTotals(doc);
+      if (t.balance > 0) return false;
+      var date = String(doc.paid_on || (doc.payload && doc.payload.paidDate) || doc.issued_on || "");
+      return date.slice(0, 4) === String(selectedYear) || Number(doc.year) === selectedYear;
+    });
+  }
+
   function exportTaxPacket() {
     if (!window.STLStudioPdf) return showMsg("PDF library missing.", false);
+    if (!window.JSZip) return showMsg("Zip library missing. Refresh the page.", false);
     exporting = true;
     render();
     var yearIn = incomes.filter(function (r) { return Number(r.year) === selectedYear; });
     var yearEx = expenses.filter(function (r) { return Number(r.year) === selectedYear; });
     var slices = M().monthSlices(selectedYear, yearIn, yearEx);
-    showMsg("Building PDF…", true);
-    window.STLStudioPdf.open({
+    var paid = paidInvoicesForYear();
+    showMsg("Building tax packet zip…", true);
+
+    var pl = window.STLStudioPdf.open({
       db: db,
       word: "TAX PACKET",
       yearLabel: "Tax year " + selectedYear
@@ -478,6 +503,8 @@
         ["Profit", window.STLStudioPdf.money(yearProfit())],
         ["Owner draws", window.STLStudioPdf.money(yearDraws())]
       ]);
+      pdf.heading("What’s in this zip", 12);
+      pdf.note("00-Profit-and-Loss.pdf · 01-Monthly-Summary.pdf · Paid-Invoices · Company-Documents. Income and expense receipt reports can also be exported from Income and Expenses.");
       pdf.heading("Summary", 12);
       var sumW = [pdf.maxW - 120, 120];
       pdf.tableHeader(["Line", "Amount"], sumW, 1);
@@ -490,16 +517,20 @@
         pdf.tableRow(
           [row[0], window.STLStudioPdf.money(row[1])],
           sumW,
-          {
-            sizes: [10, 10],
-            bolds: [i === 2, i === 2],
-            aligns: ["left", "right"],
-            stripe: i % 2 === 1
-          }
+          { sizes: [10, 10], bolds: [i === 2, i === 2], aligns: ["left", "right"], stripe: i % 2 === 1 }
         );
       });
       pdf.totalLine("Profit " + selectedYear, window.STLStudioPdf.money(yearProfit()));
-      pdf.heading("Monthly breakdown", 12);
+      return pdf.blob();
+    });
+
+    var monthly = window.STLStudioPdf.open({
+      db: db,
+      word: "MONTHLY SUMMARY",
+      yearLabel: "Tax year " + selectedYear
+    }).then(function (pdf) {
+      pdf.heading("Month-by-month — " + selectedYear, 13);
+      pdf.note("Prepared " + window.STLStudioPdf.prepared() + " from studio books.");
       var colW = [120, (pdf.maxW - 120) / 3, (pdf.maxW - 120) / 3, (pdf.maxW - 120) / 3];
       pdf.tableHeader(["Month", "Income", "Expenses", "Profit"], colW, 1);
       slices.forEach(function (m, i) {
@@ -511,22 +542,60 @@
             window.STLStudioPdf.money(m.profit)
           ],
           colW,
-          {
-            sizes: [9, 9, 9, 9],
-            bolds: [false, false, false, true],
-            aligns: ["left", "right", "right", "right"],
-            stripe: i % 2 === 1
-          }
+          { sizes: [9, 9, 9, 9], bolds: [false, false, false, true], aligns: ["left", "right", "right", "right"], stripe: i % 2 === 1 }
         );
       });
-      pdf.note("Detailed income and expense reports with receipt proof pages are exported from Income and Expenses. Paid invoices are in Billing.");
-      pdf.save("STL-Apps-LLC_Tax-Packet_" + selectedYear + ".pdf");
+      pdf.totalLine("Year profit", window.STLStudioPdf.money(yearProfit()));
+      return pdf.blob();
+    });
+
+    var invoicePdfs = Promise.all(paid.map(function (doc) {
+      if (!window.STLBillingDoc || !window.STLBillingDoc.buildPdf) return null;
+      var payload = Object.assign({}, doc.payload || {}, {
+        kind: "receipt",
+        number: doc.number,
+        clientName: doc.client_name,
+        amountPaid: (doc.payload && doc.payload.amountPaid) != null ? doc.payload.amountPaid : doc.amount
+      });
+      return window.STLBillingDoc.buildPdf(payload).then(function (out) {
+        var name = (doc.number || "Invoice") + "-" + (doc.client_name || "Client") + ".pdf";
+        name = name.replace(/[\/\\?%*:|"<>]/g, "-");
+        return { name: name, blob: out.blob };
+      }).catch(function () { return null; });
+    })).then(function (list) {
+      return list.filter(Boolean);
+    });
+
+    var companyFiles = Promise.all((companyDocs || []).filter(function (d) { return d.storage_path; }).map(function (doc) {
+      return db.storage.from("business-docs").download(doc.storage_path).then(function (res) {
+        if (res.error) return null;
+        var ext = String(doc.file_name || doc.storage_path || "pdf").split(".").pop() || "pdf";
+        var name = (doc.name || "Document") + "." + ext;
+        name = name.replace(/[\/\\?%*:|"<>]/g, "-");
+        return { name: name, blob: res.data };
+      }).catch(function () { return null; });
+    })).then(function (list) {
+      return list.filter(Boolean);
+    });
+
+    Promise.all([pl, monthly, invoicePdfs, companyFiles]).then(function (parts) {
+      var zip = new window.JSZip();
+      var folder = zip.folder("STL-Apps-LLC-Tax-Packet-" + selectedYear);
+      folder.file("00-Profit-and-Loss.pdf", parts[0]);
+      folder.file("01-Monthly-Summary.pdf", parts[1]);
+      var inv = folder.folder("Paid-Invoices");
+      (parts[2] || []).forEach(function (file) { inv.file(file.name, file.blob); });
+      var co = folder.folder("Company-Documents");
+      (parts[3] || []).forEach(function (file) { co.file(file.name, file.blob); });
+      return zip.generateAsync({ type: "blob" });
+    }).then(function (blob) {
+      downloadBlob(blob, "STL-Apps-LLC_Tax-Packet_" + selectedYear + ".zip");
       exporting = false;
-      showMsg("Tax packet PDF downloaded.", true);
+      showMsg("Tax packet zip downloaded.", true);
       render();
     }).catch(function (err) {
       exporting = false;
-      showMsg((err && err.message) || "Could not build the PDF.", false);
+      showMsg((err && err.message) || "Could not build the packet.", false);
       render();
     });
   }
@@ -549,7 +618,8 @@
       safe("project_hour_entries"),
       safe("project_issues"),
       safe("managed_apps"),
-      safe("app_issues")
+      safe("app_issues"),
+      safe("business_documents")
     ]).then(function (pair) {
       incomes = pair[0];
       expenses = pair[1];
@@ -561,6 +631,7 @@
       issues = pair[7];
       apps = pair[8];
       appIssues = pair[9];
+      companyDocs = pair[10] || [];
       var paths = [];
       apps.forEach(function (app) {
         if (app.icon_path && paths.indexOf(app.icon_path) < 0) paths.push(app.icon_path);

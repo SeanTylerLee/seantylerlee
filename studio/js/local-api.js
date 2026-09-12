@@ -2,7 +2,7 @@
   "use strict";
 
   var MSG =
-    "Bank and Analytics only work on this Mac. Open http://127.0.0.1:5173 while python3 server.py is running.";
+    "Bank and Analytics need this Mac’s studio server. On this computer open http://127.0.0.1:5173 (or the Cloudflare tunnel link) while python3 server.py is running. seantylerlee.com/studio cannot show Bank or Analytics.";
 
   function available() {
     var host = String(location.hostname || "");

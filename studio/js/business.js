@@ -414,65 +414,90 @@
     });
   }
 
+  function safeFile(name, fallback, ext) {
+    var base = String(name || fallback || "Document")
+      .replace(/[\/\\?%*:|"<>]/g, "-")
+      .replace(/\s+/g, " ")
+      .trim() || fallback || "Document";
+    var extra = ext ? ("." + String(ext).replace(/^\./, "")) : "";
+    return base + extra;
+  }
+
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
   function exportVendorPacket() {
     harvest();
     var picked = documents.filter(function (d) { return selectedPacket[d.id] && d.storage_path; });
     if (!picked.length) return showMsg("Select uploaded documents for the packet.", false);
-    showMsg("Building packet…", true);
-    var cover =
-      "STL Apps LLC — Vendor Packet\n" +
-      "Generated " + new Date().toLocaleString() + "\n\n" +
-      "Company: " + (profile.name || "") + "\n" +
-      "Contact: " + (profile.contact || "") + "\n" +
-      "Email: " + (profile.email || "") + "\n" +
-      "Phone: " + (profile.phone || "") + "\n" +
-      "Website: " + (profile.website || "") + "\n" +
-      "EIN: " + (profile.tax_id || "") + "\n\n" +
-      "Included documents:\n" +
-      picked.map(function (d, i) { return (i + 1) + ". " + d.name; }).join("\n");
+    if (!window.JSZip) return showMsg("Zip library missing. Refresh the page.", false);
+    if (!window.STLStudioPdf) return showMsg("PDF library missing. Refresh the page.", false);
+    showMsg("Building vendor packet…", true);
 
-    Promise.all(picked.map(function (doc) {
-      return db.storage.from("business-docs").download(doc.storage_path).then(function (res) {
-        if (res.error) throw res.error;
-        return { name: doc.file_name || (doc.name + ".bin"), blob: res.data };
-      });
-    })).then(function (files) {
-      if (!window.jspdf || !window.jspdf.jsPDF) {
-        // fallback: download cover + open first files
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(new Blob([cover], { type: "text/plain" }));
-        a.download = "STL-Apps-LLC_Vendor-Packet-Cover.txt";
-        a.click();
-        files.forEach(function (f) {
-          var link = document.createElement("a");
-          link.href = URL.createObjectURL(f.blob);
-          link.download = f.name;
-          link.click();
+    var company = profile.name || "STL Apps LLC";
+    Promise.all([
+      window.STLStudioPdf.open({
+        db: db,
+        word: "VENDOR PACKET",
+        yearLabel: window.STLStudioPdf.prepared()
+      }).then(function (pdf) {
+        pdf.heading("Vendor / Client Information Packet", 13);
+        pdf.note("This packet includes company formation and tax documents for vendor setup.");
+        pdf.chips([
+          ["Company", company],
+          ["Contact", profile.contact || "—"],
+          ["Email", profile.email || "—"],
+          ["EIN / Tax ID", profile.tax_id || "—"]
+        ]);
+        if (profile.address) pdf.note("Address: " + profile.address.replace(/\n/g, ", "));
+        if (profile.website) pdf.note("Website: " + profile.website);
+        if (profile.phone) pdf.note("Phone: " + profile.phone);
+        if (profile.duns_number) pdf.note("D-U-N-S: " + profile.duns_number);
+        pdf.heading("Included documents", 12);
+        var colW = [36, pdf.maxW - 36];
+        pdf.tableHeader(["#", "Document"], colW, 1);
+        picked.forEach(function (doc, i) {
+          pdf.tableRow(
+            [String(i + 1), doc.name || doc.file_name || "Document"],
+            colW,
+            { sizes: [9, 10], aligns: ["center", "left"], stripe: i % 2 === 1 }
+          );
         });
-        showMsg("Packet files downloaded.", true);
-        return;
-      }
-      var pdf = new window.jspdf.jsPDF({ unit: "pt", format: "letter" });
-      var y = 48;
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(16);
-      pdf.text("Vendor Packet", 48, y);
-      y += 24;
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(11);
-      cover.split("\n").forEach(function (line) {
-        if (y > 720) { pdf.addPage(); y = 48; }
-        pdf.text(line || " ", 48, y);
-        y += 14;
+        pdf.note("Generated " + window.STLStudioPdf.prepared() + " by " + company + ".");
+        return pdf.blob();
+      }),
+      Promise.all(picked.map(function (doc, i) {
+        return db.storage.from("business-docs").download(doc.storage_path).then(function (res) {
+          if (res.error) throw res.error;
+          var ext = String(doc.file_name || doc.storage_path || "pdf").split(".").pop() || "pdf";
+          var n = String(i + 1).padStart(2, "0");
+          return {
+            name: n + "-" + safeFile(doc.name || "Document", "Document", ext),
+            blob: res.data
+          };
+        });
+      }))
+    ]).then(function (pair) {
+      var zip = new window.JSZip();
+      var folder = zip.folder("STL-Apps-LLC-Vendor-Packet");
+      folder.file("00-Cover-Sheet.pdf", pair[0]);
+      pair[1].forEach(function (file) {
+        folder.file(file.name, file.blob);
       });
-      pdf.save("STL-Apps-LLC_Vendor-Packet-Cover.pdf");
-      files.forEach(function (f) {
-        var link = document.createElement("a");
-        link.href = URL.createObjectURL(f.blob);
-        link.download = f.name;
-        link.click();
-      });
-      showMsg("Cover PDF + selected files downloaded.", true);
+      return zip.generateAsync({ type: "blob" });
+    }).then(function (blob) {
+      var stamp = new Date().toISOString().slice(0, 10);
+      var slug = company.replace(/\s+/g, "-");
+      downloadBlob(blob, slug + "-Vendor-Packet-" + stamp + ".zip");
+      showMsg("Vendor packet zip downloaded.", true);
     }).catch(function (err) {
       showMsg((err && err.message) || "Could not export packet.", false);
     });

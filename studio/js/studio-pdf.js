@@ -320,6 +320,15 @@
     this.note(meta.line || "This proof is a PDF on file in the studio. Open the item to view it.");
   };
 
+  Report.prototype.blob = function () {
+    this.doc.setProperties({
+      title: this.word + (this.yearLabel ? " — " + this.yearLabel : ""),
+      author: this.company.name || "STL Apps LLC",
+      creator: "STL Apps LLC"
+    });
+    return this.doc.output("blob");
+  };
+
   Report.prototype.save = function (filename) {
     this.doc.setProperties({
       title: this.word + (this.yearLabel ? " — " + this.yearLabel : ""),
