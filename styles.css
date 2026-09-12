@@ -736,6 +736,7 @@ h3 {
 .footer-brand {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.85rem;
   margin: 0;
 }
@@ -746,6 +747,16 @@ h3 {
   background: #fff;
   border-radius: 6px;
   padding: 0.2rem 0.4rem;
+}
+
+.footer-studio {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.footer-studio:hover {
+  opacity: 0.82;
 }
 
 .site-footer nav {
