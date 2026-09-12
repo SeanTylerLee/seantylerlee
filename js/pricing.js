@@ -1,6 +1,6 @@
 /**
  * STL Apps LLC rate card.
- * Source: Desktop "STLAppsLLC Pricing Sheet.numbers"
+ * Source of truth: Studio Pricing (studio/data/pricing.json + studio_pricing_items).
  * The public quote page and the internal pricing sheet both read this file.
  */
 (function (root) {
@@ -8,9 +8,10 @@
 
   var RATES = {
     email: "seantylerlee@icloud.com",
-    source: "STLAppsLLC Pricing Sheet",
+    source: "STL Studio pricing",
     deposit: 0.5,
     validDays: 14,
+    hourly: 30,
     website: {
       firstPage: 150,
       extraPage: 25
@@ -18,28 +19,28 @@
     products: {
       website: {
         id: "website",
-        label: "Website",
-        blurb: "First page $150, then $25 per extra page.",
+        label: "Basic website page",
+        blurb: "$150 for 1 page, then $25 per extra page.",
         kind: "site"
       },
       webapp: {
         id: "webapp",
         label: "Web app",
-        blurb: "A product in the browser.",
+        blurb: "$200",
         base: 200,
         kind: "web"
       },
       ios: {
         id: "ios",
-        label: "iOS app",
-        blurb: "Build an Apple app.",
+        label: "Build an Apple app",
+        blurb: "$3,000",
         base: 3000,
         kind: "mobile"
       },
       android: {
         id: "android",
-        label: "Android app",
-        blurb: "Build an Android app.",
+        label: "Build an Android app",
+        blurb: "$3,000",
         base: 3000,
         kind: "mobile"
       }
@@ -53,7 +54,7 @@
         label: "Admin back office with APIs",
         price: 250,
         replaces: "admin",
-        blurb: "Use this instead of Admin / back office when APIs are included. If both are selected, only this line is charged."
+        blurb: "Use instead of Admin / back office."
       },
       maps: { id: "maps", label: "Maps or GPS", price: 250 },
       push: { id: "push", label: "Push notifications", price: 100 },
@@ -62,7 +63,7 @@
       storeAndroid: { id: "storeAndroid", label: "List on Google Play Store", price: 300, needs: "android" }
     },
     included: [
-      "The line items you pick, at the rates on the STL Apps LLC pricing sheet",
+      "The line items you pick, at the current STL Studio rates",
       "Source code delivered to you — you own the finished product",
       "A staging build to review before launch"
     ],
@@ -127,15 +128,15 @@
       lines.push({
         kind: "product",
         id: "website",
-        label: "Website · first page",
-        note: "",
+        label: "Basic website page",
+        note: "1 page",
         amount: RATES.website.firstPage
       });
       if (pages > 1) {
         lines.push({
           kind: "product",
           id: "websitePages",
-          label: "Additional website pages × " + (pages - 1),
+          label: "Add pages to website × " + (pages - 1),
           note: money(RATES.website.extraPage) + " per page",
           amount: RATES.website.extraPage * (pages - 1)
         });
@@ -208,7 +209,7 @@
       });
     }
     lines.push("");
-    lines.push("This is an estimate from the STL Apps LLC pricing sheet, not a contract. Scope is confirmed in a written agreement before work starts.");
+    lines.push("This is an estimate from the current STL Studio rates, not a contract. Scope is confirmed in a written agreement before work starts.");
     return lines.join("\n");
   }
 
