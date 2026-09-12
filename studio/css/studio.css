@@ -773,4 +773,32 @@ textarea {
     height: min(70vh, 640px);
     left: 8px !important;
   }
+
+  .app {
+    transition: grid-template-rows 0.22s ease;
+  }
+
+  .app.is-mobile-scrolled {
+    grid-template-rows: 0 minmax(0, 1fr);
+  }
+
+  .app.is-mobile-scrolled .topbar {
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .app.is-mobile-scrolled .ops-header,
+  .app.is-mobile-scrolled .money-header,
+  .app.is-mobile-scrolled .analytics-header,
+  .app.is-mobile-scrolled .bank-header,
+  .app.is-mobile-scrolled .clients-header,
+  .app.is-mobile-scrolled .business-header,
+  .app.is-mobile-scrolled .vault-header,
+  .app.is-mobile-scrolled .renewals-header,
+  .app.is-mobile-scrolled .notes-bar,
+  .app.is-mobile-scrolled .apps-header,
+  .app.is-mobile-scrolled .billing-rail > h1 {
+    display: none;
+  }
 }

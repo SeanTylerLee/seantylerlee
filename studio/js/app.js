@@ -383,6 +383,20 @@
     });
   }
 
+  var lastScrollY = 0;
+  document.addEventListener("scroll", function (event) {
+    if (!window.matchMedia || !window.matchMedia("(max-width: 800px)").matches) {
+      app.classList.remove("is-mobile-scrolled");
+      return;
+    }
+    var node = event.target;
+    if (!node || node === document) node = document.scrollingElement;
+    var y = (node && node.scrollTop) || 0;
+    if (y > lastScrollY + 6 && y > 20) app.classList.add("is-mobile-scrolled");
+    else if (y < lastScrollY - 6 || y < 12) app.classList.remove("is-mobile-scrolled");
+    lastScrollY = y;
+  }, true);
+
   window.STLApp = {
     navigate: function (sectionId) {
       if (!SECTIONS.some(function (s) { return s.id === sectionId; })) return;
