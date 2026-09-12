@@ -1,0 +1,33 @@
+.app.is-inventory .main {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--window);
+}
+
+.inventory-filters {
+  align-items: center;
+}
+
+.inventory-search {
+  min-width: min(280px, 100%);
+  min-height: 28px;
+  padding: 6px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.inventory-search:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(26, 112, 235, 0.18);
+}
+
+.inventory-workspace .ops-field input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}

@@ -3,5 +3,6 @@ Allow: /
 Disallow: /pricing.html
 Disallow: /pricing
 Disallow: /stl-apps/
+Disallow: /studio/
 
 Sitemap: https://seantylerlee.com/sitemap.xml

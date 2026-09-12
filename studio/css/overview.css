@@ -1,0 +1,321 @@
+.panel.overview-wide {
+  max-width: none;
+  height: 100%;
+  min-height: calc(100vh - 44px);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app.is-overview .main {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--window);
+}
+
+.overview-workspace {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+  background: var(--window);
+  color: var(--ink);
+}
+
+.overview-workspace [data-el="body"] {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ov-card {
+  background: var(--card);
+  border-radius: var(--r-hero);
+  padding: 16px;
+  margin-bottom: 0;
+  box-shadow: none;
+  border: 0;
+}
+
+.ov-card h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.ov-profit {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin: 8px 0 10px;
+}
+
+.ov-profit.ok { color: var(--success); }
+.ov-profit.bad { color: var(--danger); }
+
+.ov-year-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-year-nav button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--chip);
+  font-weight: 700;
+  cursor: default;
+}
+
+.ov-chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ov-chip {
+  background: var(--chip);
+  border-radius: 10px;
+  padding: 12px;
+  border: 0;
+  text-align: left;
+  cursor: default;
+  color: inherit;
+  width: 100%;
+}
+
+.ov-chip .k {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.ov-chip .v {
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-chip.ok .k { color: #1b6b32; }
+.ov-chip.warn .k { color: #c47a00; }
+.ov-chip.draw .k { color: #b87a38; }
+
+.ov-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ov-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ov-toolbar select {
+  min-height: 26px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.ov-toolbar .btn {
+  min-height: 24px;
+  height: 24px;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.ov-count {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.ov-count.clear {
+  background: rgba(56, 179, 117, 0.16);
+  color: var(--success);
+}
+
+.ov-count.busy {
+  background: rgba(242, 158, 46, 0.16);
+  color: var(--warning);
+}
+
+.ov-section {
+  margin-top: 14px;
+}
+
+.ov-section h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.ov-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 4px 0;
+  margin-bottom: 0;
+  cursor: default;
+  color: inherit;
+}
+
+.ov-row:hover {
+  background: transparent;
+  opacity: 0.88;
+}
+
+.ov-row .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.ov-row strong {
+  display: block;
+  font-size: 13px;
+}
+
+.ov-row .detail {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ov-row .actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ov-row .actions .btn {
+  min-height: 26px;
+  font-size: 11px;
+  padding: 0 10px;
+  border-radius: 7px;
+}
+
+.ov-apps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.ov-app {
+  background: var(--card);
+  border: 0;
+  box-shadow: none;
+  border-radius: var(--r-hero);
+  padding: 16px;
+  text-align: left;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: default;
+}
+
+.ov-app-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ov-app-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  flex-shrink: 0;
+  object-fit: cover;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.ov-app h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ov-app .sum {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ov-app-foot {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.ov-app-foot .issue {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--warning);
+}
+
+.ov-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+}
+
+.ov-total .k {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ov-total .v {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-banner.status {
+  margin: 0 0 12px;
+  border-radius: 10px;
+}
+
+@media (max-width: 800px) {
+  .ov-chips {
+    grid-template-columns: 1fr;
+  }
+}

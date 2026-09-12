@@ -1,0 +1,206 @@
+.panel.business-wide {
+  max-width: none;
+  height: 100%;
+  min-height: calc(100vh - 44px);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app.is-business .main {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--window);
+}
+
+.business-workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: calc(100vh - 44px);
+  background: var(--window);
+  color: var(--ink);
+}
+
+.business-header {
+  padding: 18px 20px 8px;
+}
+
+.business-header h1 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.business-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 620px;
+}
+
+.business-banner.status {
+  margin: 0 20px 10px;
+  border-radius: 10px;
+}
+
+.business-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+.biz-card {
+  background: var(--card);
+  border-radius: var(--r-card);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: none;
+}
+
+.biz-card h3 {
+  margin: 0 0 2px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.biz-card .sub {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.biz-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.biz-field {
+  margin-bottom: 10px;
+}
+
+.biz-field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.biz-field input,
+.biz-field textarea {
+  width: 100%;
+  min-height: 28px;
+  padding: 7px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  font-size: 13px;
+  background: var(--card);
+}
+
+.biz-field textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.secret-wrap {
+  display: flex;
+  gap: 6px;
+}
+
+.secret-wrap input {
+  flex: 1;
+}
+
+.secret-wrap .btn {
+  min-height: 28px;
+  height: 28px;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.doc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.doc-row:last-child {
+  border-bottom: 0;
+}
+
+.doc-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.doc-row .name {
+  flex: 1;
+  min-width: 0;
+}
+
+.doc-row .name input {
+  width: 100%;
+  min-height: 28px;
+  padding: 6px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.doc-row .meta {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.doc-row .btn {
+  min-height: 24px;
+  height: 24px;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.biz-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.biz-actions .btn {
+  min-height: 24px;
+  height: 24px;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.biz-lock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+@media (max-width: 800px) {
+  .biz-grid {
+    grid-template-columns: 1fr;
+  }
+}

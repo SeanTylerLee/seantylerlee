@@ -1,0 +1,253 @@
+.panel.sop-wide {
+  max-width: none;
+  height: 100%;
+  min-height: calc(100vh - 44px);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app.is-sop .main {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--window);
+}
+
+.sop-workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: calc(100vh - 44px);
+  background: var(--window);
+  color: var(--ink);
+}
+
+.sop-split {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+
+.sop-list {
+  background: var(--card);
+  border-right: 1px solid var(--line);
+  overflow: auto;
+  padding: 14px 10px 20px;
+}
+
+.sop-list h2 {
+  margin: 0 8px 10px;
+  font-size: 15px;
+}
+
+.sop-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+  padding: 10px;
+  cursor: default;
+  color: inherit;
+  margin-bottom: 4px;
+}
+
+.sop-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.sop-item.is-on {
+  background: rgba(26, 112, 235, 0.12);
+}
+
+.sop-item strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.sop-item span {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.sop-group-label {
+  margin: 12px 8px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.sop-group-bar {
+  height: 1px;
+  margin: 12px 8px;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.sop-empty-group {
+  margin: 0 8px 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sop-add {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 14px 8px 0;
+  border: 0;
+  background: var(--chip);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.sop-detail {
+  overflow: auto;
+  padding: 20px 24px 32px;
+}
+
+.sop-detail-empty {
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.sop-detail h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+
+.sop-summary {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+  max-width: 720px;
+}
+
+.sop-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sop-badge {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(26, 112, 235, 0.12);
+  color: var(--accent);
+}
+
+.sop-link {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.sop-section-title {
+  margin: 18px 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #12213d;
+}
+
+.sop-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--card);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  box-shadow: none;
+}
+
+.sop-step input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.sop-step.is-done p {
+  text-decoration: line-through;
+  color: #8a94a8;
+}
+
+.sop-step p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.sop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.sop-actions .btn {
+  min-height: 24px;
+  height: 24px;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.sop-banner.status {
+  margin: 0 16px 8px;
+  border-radius: 8px;
+}
+
+.sop-edit textarea,
+.sop-edit input,
+.sop-edit select {
+  width: 100%;
+  min-height: 28px;
+  padding: 8px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.sop-edit textarea {
+  min-height: 220px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .sop-split {
+    grid-template-columns: 1fr;
+  }
+
+  .sop-list {
+    max-height: 220px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+}

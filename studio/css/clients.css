@@ -1,0 +1,199 @@
+.panel.clients-wide {
+  max-width: none;
+  height: 100%;
+  min-height: calc(100vh - 44px);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app.is-clients .main {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--window);
+}
+
+.clients-workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: calc(100vh - 44px);
+  background: var(--window);
+  color: var(--ink);
+}
+
+.clients-header {
+  padding: 18px 20px 8px;
+}
+
+.clients-header h1 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.clients-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 560px;
+}
+
+.clients-banner.status {
+  margin: 0 20px 10px;
+  border-radius: 10px;
+}
+
+.clients-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 20px 28px;
+}
+
+.client-card {
+  background: var(--card);
+  border-radius: var(--r-card);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: none;
+}
+
+.client-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: default;
+  padding: 0;
+  color: inherit;
+}
+
+.client-card-head .chev {
+  width: 14px;
+  margin-top: 3px;
+  color: #8a94a8;
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+
+.client-card.is-open .chev {
+  transform: rotate(90deg);
+}
+
+.client-card-head .meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.client-card-head strong {
+  display: block;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.client-card-head .line {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-card-body {
+  display: none;
+  padding-top: 14px;
+}
+
+.client-card.is-open .client-card-body {
+  display: block;
+}
+
+.client-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.client-field {
+  margin-bottom: 10px;
+}
+
+.client-field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.client-field input,
+.client-field select,
+.client-field textarea {
+  width: 100%;
+  min-height: 28px;
+  padding: 7px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  font-size: 13px;
+  background: var(--card);
+}
+
+.client-field textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.client-related {
+  margin: 4px 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.client-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.client-actions .btn {
+  min-height: 24px;
+  height: 24px;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.clients-add {
+  margin-top: 4px;
+}
+
+.clients-empty {
+  background: var(--card);
+  border-radius: var(--r-card);
+  border: 1px solid var(--line);
+  padding: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (max-width: 800px) {
+  .client-grid {
+    grid-template-columns: 1fr;
+  }
+}

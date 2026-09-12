@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <title>Studio · STL Apps LLC</title>
+  <link rel="icon" href="images/stlapps-layers.png" type="image/png" />
+  <link rel="stylesheet" href="css/studio.css?v=16" />
+  <link rel="stylesheet" href="css/billing.css?v=17" />
+  <link rel="stylesheet" href="css/notes.css?v=13" />
+  <link rel="stylesheet" href="css/projects.css?v=13" />
+  <link rel="stylesheet" href="css/clients.css?v=13" />
+  <link rel="stylesheet" href="css/bank.css?v=13" />
+  <link rel="stylesheet" href="css/business.css?v=13" />
+  <link rel="stylesheet" href="css/vault.css?v=13" />
+  <link rel="stylesheet" href="css/calendar.css?v=13" />
+  <link rel="stylesheet" href="css/renewals.css?v=13" />
+  <link rel="stylesheet" href="css/money.css?v=15" />
+  <link rel="stylesheet" href="css/analytics.css?v=17" />
+  <link rel="stylesheet" href="css/overview.css?v=16" />
+  <link rel="stylesheet" href="css/sop.css?v=14" />
+  <link rel="stylesheet" href="css/apps.css?v=17" />
+  <link rel="stylesheet" href="css/ops.css?v=17" />
+  <link rel="stylesheet" href="css/inventory.css?v=13" />
+</head>
+<body>
+  <section class="gate" id="gate">
+    <div class="gate-card">
+      <img src="images/stlapps-logo.jpg" alt="STL Apps LLC" />
+      <h1>Private studio</h1>
+      <p class="lede" id="gate-lede">Only you. Sign in to open the studio.</p>
+      <p class="status" id="status" role="status"></p>
+      <form id="auth-form" autocomplete="on">
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required autocomplete="username" />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" required minlength="8" autocomplete="current-password" />
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="submit" id="sign-in">Sign in</button>
+          <button class="btn btn-ghost hidden" type="button" id="sign-up">Create account</button>
+        </div>
+      </form>
+      <p class="hint">Private studio. Sign in with the one account you created. This is not the public website.</p>
+    </div>
+  </section>
+
+  <div class="app hidden" id="app">
+    <header class="topbar">
+      <img src="images/stlapps-logo.jpg" alt="STL Apps LLC" />
+      <span class="topbar-title">Private studio</span>
+      <span class="who" id="who"></span>
+      <button class="btn topbar-btn topbar-btn-primary hidden" type="button" id="global-save" disabled>Save</button>
+      <button class="btn topbar-btn" type="button" id="sign-out">Sign out</button>
+    </header>
+    <nav class="sidebar" id="sidebar" aria-label="Studio"></nav>
+    <main class="main">
+      <section class="panel" id="panel"></section>
+    </main>
+  </div>
+
+  <script src="js/config.js?v=2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="js/file-float.js?v=1"></script>
+  <script src="js/image-compress.js?v=1"></script>
+  <script src="js/studio-pdf.js?v=1"></script>
+  <script src="js/billing-doc.js?v=2"></script>
+  <script src="js/billing.js?v=7"></script>
+  <script src="js/notes.js?v=3"></script>
+  <script src="js/projects.js?v=9"></script>
+  <script src="js/clients.js?v=1"></script>
+  <script src="js/bank.js?v=1"></script>
+  <script src="js/business.js?v=3"></script>
+  <script src="js/vault.js?v=2"></script>
+  <script src="js/calendar.js?v=1"></script>
+  <script src="js/renewals.js?v=1"></script>
+  <script src="js/money-shared.js?v=1"></script>
+  <script src="js/ledger.js?v=4"></script>
+  <script src="js/owner-draws.js?v=1"></script>
+  <script src="js/taxes.js?v=3"></script>
+  <script src="js/analytics.js?v=4"></script>
+  <script src="js/overview.js?v=6"></script>
+  <script src="js/sop.js?v=3"></script>
+  <script src="js/apps.js?v=4"></script>
+  <script src="js/leads.js?v=1"></script>
+  <script src="js/inventory.js?v=2"></script>
+  <script src="js/support.js?v=2"></script>
+  <script src="js/emails.js?v=1"></script>
+  <script src="js/pricing.js?v=3"></script>
+  <script src="js/app.js?v=29"></script>
+</body>
+</html>
