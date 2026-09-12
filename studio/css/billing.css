@@ -570,12 +570,10 @@
   left: 50%;
   top: 48%;
   transform: translate(-50%, -50%) rotate(-32deg);
-  border: 5.5px solid #c8102e;
   color: #c8102e;
   font-size: 38px;
   font-weight: 800;
   letter-spacing: 0.04em;
-  padding: 10px 18px;
   opacity: 0.78;
   white-space: nowrap;
   pointer-events: none;

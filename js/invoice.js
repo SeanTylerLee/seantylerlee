@@ -1079,16 +1079,8 @@
     var pages = doc.getNumberOfPages();
     var cx = this.pageW / 2;
     var cy = this.pageH / 2 + 18;
-    // Match on-screen stamp rotate(-32deg). jsPDF flips Y for path
-    // points but not for text rotation, so the box uses the opposite sign.
+    // Match on-screen stamp rotate(-32deg). Text only — no border box.
     var angle = 32;
-    var boxRad = (-angle * Math.PI) / 180;
-    var boxW = 430;
-    var boxH = 82;
-    var hw = boxW / 2;
-    var hh = boxH / 2;
-    var cos = Math.cos(boxRad);
-    var sin = Math.sin(boxRad);
     var i;
     var red = [200, 16, 46];
     for (i = 1; i <= pages; i += 1) {
@@ -1097,28 +1089,6 @@
         doc.saveGraphicsState();
         if (doc.GState) doc.setGState(new doc.GState({ opacity: 0.82 }));
       }
-      var pts = [
-        [-hw, -hh],
-        [hw, -hh],
-        [hw, hh],
-        [-hw, hh]
-      ].map(function (p) {
-        return [cx + p[0] * cos - p[1] * sin, cy + p[0] * sin + p[1] * cos];
-      });
-      doc.setDrawColor(red[0], red[1], red[2]);
-      doc.setLineWidth(5.5);
-      doc.lines(
-        [
-          [pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]],
-          [pts[2][0] - pts[1][0], pts[2][1] - pts[1][1]],
-          [pts[3][0] - pts[2][0], pts[3][1] - pts[2][1]]
-        ],
-        pts[0][0],
-        pts[0][1],
-        [1, 1],
-        "S",
-        true
-      );
       doc.setFont("helvetica", "bold");
       doc.setFontSize(38);
       doc.setTextColor(red[0], red[1], red[2]);

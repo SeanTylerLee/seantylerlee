@@ -678,14 +678,8 @@
     var pages = doc.getNumberOfPages();
     var cx = this.pageW / 2;
     var cy = this.pageH / 2 + 18;
-    // Match CSS .letter-stamp rotate(-32deg). jsPDF flips Y for path
-    // points but not for text rotation, so the box uses the opposite sign.
+    // Match CSS .letter-stamp rotate(-32deg).
     var angle = 32;
-    var boxRad = (-angle * Math.PI) / 180;
-    var hw = 215;
-    var hh = 41;
-    var cos = Math.cos(boxRad);
-    var sin = Math.sin(boxRad);
     var p;
     for (p = 1; p <= pages; p += 1) {
       doc.setPage(p);
@@ -693,23 +687,6 @@
         doc.saveGraphicsState();
         if (doc.GState) doc.setGState(new doc.GState({ opacity: 0.78 }));
       }
-      var pts = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(function (pt) {
-        return [cx + pt[0] * cos - pt[1] * sin, cy + pt[0] * sin + pt[1] * cos];
-      });
-      doc.setDrawColor(PAID_RED[0], PAID_RED[1], PAID_RED[2]);
-      doc.setLineWidth(5.5);
-      doc.lines(
-        [
-          [pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]],
-          [pts[2][0] - pts[1][0], pts[2][1] - pts[1][1]],
-          [pts[3][0] - pts[2][0], pts[3][1] - pts[2][1]]
-        ],
-        pts[0][0],
-        pts[0][1],
-        [1, 1],
-        "S",
-        true
-      );
       this.setFont(true, 38);
       rgb(doc, PAID_RED);
       doc.text("PAID IN FULL", cx, cy + 12, { align: "center", angle: angle });
