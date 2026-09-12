@@ -82,7 +82,6 @@
     rows.forEach(function (row, i) {
       if (!items[i]) return;
       items[i].name = row.querySelector("[data-name]").value;
-      items[i].detail = row.querySelector("[data-detail]").value;
       items[i].rate = Number(row.querySelector("[data-rate]").value || 0);
       items[i].sort_order = i;
     });
@@ -106,9 +105,8 @@
     }
     items.forEach(function (item, i) {
       html +=
-        '<div class="pricing-edit" data-index="' + i + '">' +
+        '<div class="pricing-edit' + (i % 2 ? " is-alt" : "") + '" data-index="' + i + '">' +
           '<input data-name type="text" value="' + esc(item.name || "") + '" placeholder="Name" />' +
-          '<input data-detail type="text" value="' + esc(item.detail || "") + '" placeholder="Note (optional)" />' +
           '<div class="pricing-edit-row">' +
             '<input data-rate type="number" min="0" step="0.01" value="' + esc(item.rate == null ? "" : item.rate) + '" />' +
             '<button type="button" class="btn btn-ghost" data-remove="' + i + '">Remove</button>' +

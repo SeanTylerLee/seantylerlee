@@ -408,8 +408,14 @@
 }
 
 .pricing-edit {
-  padding: 8px 0;
+  padding: 8px 8px;
   border-bottom: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.pricing-edit.is-alt {
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .pricing-edit input[type="text"],

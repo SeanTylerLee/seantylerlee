@@ -116,16 +116,13 @@
     }
     box.innerHTML = list.map(function (item, i) {
       var label = (item.name || "Item") + " · " + Doc().money(item.rate);
-      if (item.detail) label += " — " + item.detail;
       return '<button type="button" data-pick="' + i + '">' + escapeHtml(label) + "</button>";
     }).join("");
     box.querySelectorAll("[data-pick]").forEach(function (btn) {
       btn.onclick = function () {
         var item = list[Number(btn.getAttribute("data-pick"))];
         if (!item) return;
-        var desc = item.name || "";
-        if (item.detail) desc += " (" + item.detail + ")";
-        addItem(desc, 1, item.rate);
+        addItem(item.name || "", 1, item.rate);
         hidePricePicker();
         refreshPreview();
       };
