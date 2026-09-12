@@ -686,7 +686,7 @@ textarea {
   display: none !important;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 800px), (orientation: landscape) and (max-height: 520px) {
   :root {
     --sidebar: max-content;
     --fs-page: 16px;

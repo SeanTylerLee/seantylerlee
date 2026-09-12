@@ -385,7 +385,7 @@
 
   var lastScrollY = 0;
   document.addEventListener("scroll", function (event) {
-    if (!window.matchMedia || !window.matchMedia("(max-width: 800px)").matches) {
+    if (!window.matchMedia || !window.matchMedia("(max-width: 800px), (orientation: landscape) and (max-height: 520px)").matches) {
       app.classList.remove("is-mobile-scrolled");
       return;
     }
