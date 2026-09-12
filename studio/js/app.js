@@ -90,6 +90,10 @@
     var email = session && session.user && session.user.email;
     whoEl.textContent = email || "";
     if (window.STLPricing && window.STLPricing.init) window.STLPricing.init(client);
+    if (window.STLLocalApi && window.STLLocalApi.init) window.STLLocalApi.init(client);
+    if (window.STLLocalApi && window.STLLocalApi.syncSecretsFromMac) {
+      window.STLLocalApi.syncSecretsFromMac();
+    }
     renderNav();
     renderPanel();
   }
