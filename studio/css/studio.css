@@ -688,13 +688,13 @@ textarea {
 
 @media (max-width: 800px) {
   :root {
-    --sidebar: 152px;
+    --sidebar: max-content;
     --fs-page: 16px;
     --fs-body: 12px;
   }
 
   .app {
-    grid-template-columns: var(--sidebar) minmax(0, 1fr);
+    grid-template-columns: max-content minmax(0, 1fr);
     grid-template-rows: 40px minmax(0, 1fr);
     grid-template-areas:
       "side top"
@@ -703,15 +703,24 @@ textarea {
 
   .sidebar {
     display: flex;
-    padding: 6px 4px 0;
+    width: max-content;
+    max-width: none;
+    padding: 6px 6px 0;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
   .sidebar-item {
-    padding: 5px 6px;
+    width: max-content;
+    max-width: none;
+    padding: 5px 8px 5px 6px;
     font-size: 11px;
     gap: 6px;
     border-radius: 6px;
+  }
+
+  .sidebar-label {
+    overflow: visible;
+    text-overflow: clip;
   }
 
   .sidebar-icon {
