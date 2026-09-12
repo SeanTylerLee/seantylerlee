@@ -97,23 +97,23 @@
     panel.querySelector("[data-meta]").textContent = items.length + " items";
     var html =
       '<div class="pricing-settings">' +
-        '<label>Deposit % <input data-deposit type="number" min="0" max="100" step="1" value="' + esc(depositPercent) + '" /></label>' +
-        '<label>Quote days <input data-days type="number" min="1" step="1" value="' + esc(validDays) + '" /></label>' +
+        '<label>Deposit <input data-deposit type="number" min="0" max="100" step="1" value="' + esc(depositPercent) + '" />%</label>' +
+        '<label>Quote <input data-days type="number" min="1" step="1" value="' + esc(validDays) + '" /> days</label>' +
       "</div>";
     if (!items.length) {
       html += "<p class=\"pricing-foot\">No prices yet. Add one.</p>";
+    } else {
+      html += '<div class="pricing-cols"><span>Item</span><span>Rate</span></div>';
     }
     items.forEach(function (item, i) {
       html +=
         '<div class="pricing-edit' + (i % 2 ? " is-alt" : "") + '" data-index="' + i + '">' +
-          '<input data-name type="text" value="' + esc(item.name || "") + '" placeholder="Name" />' +
-          '<div class="pricing-edit-row">' +
-            '<input data-rate type="number" min="0" step="0.01" value="' + esc(item.rate == null ? "" : item.rate) + '" />' +
-            '<button type="button" class="btn btn-ghost" data-remove="' + i + '">Remove</button>' +
-          "</div>" +
+          '<input data-name type="text" value="' + esc(item.name || "") + '" placeholder="Item" />' +
+          '<span class="pricing-dollar">$</span>' +
+          '<input data-rate type="number" min="0" step="0.01" value="' + esc(item.rate == null ? "" : item.rate) + '" />' +
+          '<button type="button" class="pricing-x" data-remove="' + i + '" aria-label="Remove">×</button>' +
         "</div>";
     });
-    html += '<p class="pricing-foot">Drag the header to move. Save keeps this list for quotes and invoices.</p>';
     body.innerHTML = html;
     body.querySelectorAll("[data-remove]").forEach(function (btn) {
       btn.onclick = function () {
