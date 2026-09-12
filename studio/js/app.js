@@ -57,6 +57,7 @@
   var sidebar = document.getElementById("sidebar");
   var pagesEl = document.getElementById("pages");
   var pageHosts = {};
+  var appReady = false;
 
   var PAGE_MODE = {
     overview: "is-overview",
@@ -179,6 +180,7 @@
   }
 
   function showGate(message) {
+    appReady = false;
     destroyPages();
     app.classList.add("hidden");
     gate.classList.remove("hidden");
@@ -186,11 +188,17 @@
   }
 
   function showApp(session) {
+    var alreadyOpen = appReady && !app.classList.contains("hidden");
     gate.classList.add("hidden");
     app.classList.remove("hidden");
     showStatus("");
     var email = session && session.user && session.user.email;
     whoEl.textContent = email || "";
+    if (alreadyOpen) {
+      refreshSave();
+      return;
+    }
+    appReady = true;
     if (window.STLPricing && window.STLPricing.init) window.STLPricing.init(client);
     if (window.STLLocalApi && window.STLLocalApi.init) window.STLLocalApi.init(client);
     if (window.STLLocalApi && window.STLLocalApi.syncSecretsFromMac) {
@@ -299,7 +307,11 @@
 
   client = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-  client.auth.onAuthStateChange(function (_event, session) {
+  client.auth.onAuthStateChange(function (event, session) {
+    if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+      if (session && session.user && whoEl) whoEl.textContent = session.user.email || "";
+      return;
+    }
     if (session) showApp(session);
     else showGate("");
   });
