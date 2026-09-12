@@ -383,7 +383,6 @@
     });
   }
 
-  var lastScrollY = 0;
   document.addEventListener("scroll", function (event) {
     if (!window.matchMedia || !window.matchMedia("(max-width: 800px), (orientation: landscape) and (max-height: 520px)").matches) {
       app.classList.remove("is-mobile-scrolled");
@@ -394,7 +393,6 @@
     var y = (node && node.scrollTop) || 0;
     if (y > 20) app.classList.add("is-mobile-scrolled");
     else app.classList.remove("is-mobile-scrolled");
-    lastScrollY = y;
   }, true);
 
   window.STLApp = {
