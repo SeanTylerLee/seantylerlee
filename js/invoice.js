@@ -1079,14 +1079,16 @@
     var pages = doc.getNumberOfPages();
     var cx = this.pageW / 2;
     var cy = this.pageH / 2 + 18;
+    // Match on-screen stamp rotate(-32deg). jsPDF flips Y for path
+    // points but not for text rotation, so the box uses the opposite sign.
     var angle = 32;
-    var rad = (angle * Math.PI) / 180;
+    var boxRad = (-angle * Math.PI) / 180;
     var boxW = 430;
     var boxH = 82;
     var hw = boxW / 2;
     var hh = boxH / 2;
-    var cos = Math.cos(rad);
-    var sin = Math.sin(rad);
+    var cos = Math.cos(boxRad);
+    var sin = Math.sin(boxRad);
     var i;
     var red = [200, 16, 46];
     for (i = 1; i <= pages; i += 1) {
