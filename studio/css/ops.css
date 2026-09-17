@@ -12,6 +12,7 @@
 
 .app.is-support .main,
 .app.is-emails .main,
+.app.is-notifications .main,
 .app.is-leads .main,
 .app.is-inventory .main {
   padding: 0;

@@ -1300,3 +1300,87 @@ grant select, insert, update, delete on public.studio_pricing_items to authentic
 grant select, insert, update, delete on public.studio_pricing_settings to authenticated;
 revoke all on public.studio_pricing_items from anon;
 revoke all on public.studio_pricing_settings from anon;
+-- Paste into Supabase → SQL Editor → Run.
+-- Private keys for Bank / Apple / Play. Only your login can read them.
+-- The website never puts these in public files.
+
+create table if not exists public.studio_secrets (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  mercury_token text not null default '',
+  asc_issuer_id text not null default '',
+  asc_key_id text not null default '',
+  asc_private_key text not null default '',
+  play_service_account_json text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.studio_secrets enable row level security;
+
+drop policy if exists studio_secrets_select on public.studio_secrets;
+drop policy if exists studio_secrets_insert on public.studio_secrets;
+drop policy if exists studio_secrets_update on public.studio_secrets;
+drop policy if exists studio_secrets_delete on public.studio_secrets;
+
+create policy studio_secrets_select
+  on public.studio_secrets for select using (auth.uid() = user_id);
+create policy studio_secrets_insert
+  on public.studio_secrets for insert with check (auth.uid() = user_id);
+create policy studio_secrets_update
+  on public.studio_secrets for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy studio_secrets_delete
+  on public.studio_secrets for delete using (auth.uid() = user_id);
+
+grant select, insert, update, delete on public.studio_secrets to authenticated;
+revoke all on public.studio_secrets from anon;
+
+-- FILE: sql/018_notifications.sql
+-- Paste into Supabase → SQL Editor → Run.
+-- Studio notification history (compose shell stores sends here; delivery comes later).
+
+create table if not exists public.app_notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  app_id uuid references public.managed_apps (id) on delete set null,
+  app_name text not null default '',
+  subject text not null default '',
+  message text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists app_notifications_user_created
+  on public.app_notifications (user_id, created_at desc);
+
+alter table public.app_notifications enable row level security;
+
+drop policy if exists app_notifications_select on public.app_notifications;
+drop policy if exists app_notifications_insert on public.app_notifications;
+drop policy if exists app_notifications_update on public.app_notifications;
+drop policy if exists app_notifications_delete on public.app_notifications;
+
+create policy app_notifications_select
+  on public.app_notifications for select
+  using (auth.uid() = user_id);
+
+create policy app_notifications_insert
+  on public.app_notifications for insert
+  with check (auth.uid() = user_id);
+
+create policy app_notifications_update
+  on public.app_notifications for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy app_notifications_delete
+  on public.app_notifications for delete
+  using (auth.uid() = user_id);
+
+grant select, insert, update, delete on public.app_notifications to authenticated;
+revoke all on public.app_notifications from anon;
+
+-- FILE: sql/019_permitpath_announce.sql
+-- Paste into Studio Supabase → SQL Editor → Run.
+-- Adds Permit Path publish credentials to studio_secrets (used by studio-proxy / Mac sync).
+
+alter table public.studio_secrets
+  add column if not exists permitpath_supabase_url text not null default '',
+  add column if not exists permitpath_service_role_key text not null default '';

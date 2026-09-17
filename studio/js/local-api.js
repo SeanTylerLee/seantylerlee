@@ -29,7 +29,15 @@
     return fetch(path).then(parseResponse);
   }
 
-  function cloudGet(path) {
+  function localPost(path, body) {
+    return fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body || {})
+    }).then(parseResponse);
+  }
+
+  function cloudFetch(path, options) {
     if (!client) return Promise.reject(new Error("Sign in required."));
     var cfg = window.STL_STUDIO || {};
     var base = String(cfg.supabaseUrl || "").replace(/\/$/, "") + "/functions/v1/studio-proxy";
@@ -38,13 +46,24 @@
     return client.auth.getSession().then(function (res) {
       var session = res.data && res.data.session;
       if (!session) throw new Error("Sign in required.");
-      return fetch(base + clean, {
-        headers: {
-          Authorization: "Bearer " + session.access_token,
-          apikey: cfg.supabaseKey || "",
-          Accept: "application/json"
-        }
-      }).then(parseResponse);
+      var headers = Object.assign({
+        Authorization: "Bearer " + session.access_token,
+        apikey: cfg.supabaseKey || "",
+        Accept: "application/json"
+      }, (options && options.headers) || {});
+      return fetch(base + clean, Object.assign({}, options || {}, { headers: headers })).then(parseResponse);
+    });
+  }
+
+  function cloudGet(path) {
+    return cloudFetch(path, { method: "GET" });
+  }
+
+  function cloudPost(path, body) {
+    return cloudFetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {})
     });
   }
 
@@ -53,12 +72,22 @@
     return cloudGet(path);
   }
 
+  function post(path, body) {
+    if (isLocal()) return localPost(path, body);
+    return cloudPost(path, body);
+  }
+
   function syncSecretsFromMac() {
     if (!isLocal() || !client) return Promise.resolve();
     return localGet("/api/export-secrets").then(function (res) {
       if (!res.ok || !res.data) return;
       var d = res.data;
-      if (!d.mercury_token && !d.asc_private_key && !d.play_service_account_json) return;
+      if (
+        !d.mercury_token &&
+        !d.asc_private_key &&
+        !d.play_service_account_json &&
+        !d.permitpath_service_role_key
+      ) return;
       return client.auth.getUser().then(function (auth) {
         var user = auth.data && auth.data.user;
         if (!user) return;
@@ -68,7 +97,9 @@
           asc_issuer_id: d.asc_issuer_id || "",
           asc_key_id: d.asc_key_id || "",
           asc_private_key: d.asc_private_key || "",
-          play_service_account_json: d.play_service_account_json || ""
+          play_service_account_json: d.play_service_account_json || "",
+          permitpath_supabase_url: d.permitpath_supabase_url || "",
+          permitpath_service_role_key: d.permitpath_service_role_key || ""
         }, { onConflict: "user_id" });
       });
     }).catch(function () {});
@@ -84,6 +115,7 @@
     },
     message: "Bank and Analytics need keys saved in your studio account. Open this studio on your Mac once while signed in, after running sql/017_studio_secrets.sql.",
     get: get,
+    post: post,
     syncSecretsFromMac: syncSecretsFromMac
   };
 })();
