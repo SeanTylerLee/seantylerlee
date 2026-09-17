@@ -18,6 +18,7 @@
   var subject = "";
   var message = "";
   var sending = false;
+  var deletingId = null;
 
   function el(name) { return root ? root.querySelector('[data-el="' + name + '"]') : null; }
   function esc(s) {
@@ -104,6 +105,7 @@
     }
 
     history.forEach(function (item) {
+      var busy = deletingId && item.id === deletingId;
       html +=
         '<div class="ops-card" style="background:rgba(60,60,67,.05);box-shadow:none;margin-bottom:8px">' +
           '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">' +
@@ -113,6 +115,11 @@
                 esc(item.app_name || "App") + " · " + esc(formatWhen(item.created_at)) +
               "</span>" +
             "</div>" +
+            '<button class="btn" type="button" data-el="delete" data-id="' + esc(item.id) + '"' +
+              (busy || sending ? " disabled" : "") +
+              ' style="flex-shrink:0;background:#fff;border:1px solid rgba(242,69,69,.35);color:#CC1A1A">' +
+              (busy ? "Deleting…" : "Delete") +
+            "</button>" +
           "</div>" +
           '<p style="margin:10px 0 0;font-size:13px;line-height:1.45;white-space:pre-wrap">' + esc(item.message || "") + "</p>" +
         "</div>";
@@ -132,9 +139,17 @@
     if (subjectEl) subjectEl.oninput = function () { harvest(); };
     if (messageEl) messageEl.oninput = function () { harvest(); };
     if (sendBtn) {
-      sendBtn.disabled = sending;
+      sendBtn.disabled = sending || !!deletingId;
       sendBtn.textContent = sending ? "Sending…" : "Send notification";
       sendBtn.onclick = sendNotification;
+    }
+
+    var deleteBtns = root ? root.querySelectorAll('[data-el="delete"]') : [];
+    for (var i = 0; i < deleteBtns.length; i++) {
+      deleteBtns[i].onclick = function (ev) {
+        var id = ev.currentTarget.getAttribute("data-id");
+        deleteNotification(id);
+      };
     }
   }
 
@@ -195,6 +210,51 @@
         throw new Error(errMsg);
       }
       return res.data;
+    });
+  }
+
+  function deleteFromPermitPath(studioId) {
+    if (!window.STLLocalApi || typeof window.STLLocalApi.post !== "function") {
+      return Promise.reject(new Error(PP_KEYS_HINT));
+    }
+    return window.STLLocalApi.post("/api/announcements/delete", {
+      studio_notification_id: studioId
+    }).then(function (res) {
+      if (!res.ok) {
+        var errMsg = (res.data && (res.data.error || res.data.message)) || ("Delete failed (" + res.status + ")");
+        throw new Error(errMsg);
+      }
+      return res.data;
+    });
+  }
+
+  function deleteNotification(id) {
+    if (!id || deletingId || sending) return;
+    if (!db || !db.from) return showMsg("Not signed in.", false);
+    var item = history.filter(function (h) { return h.id === id; })[0];
+    var label = item && item.subject ? item.subject : "this notification";
+    if (!window.confirm('Delete "' + label + '"?\n\nIt will be removed from Studio and from Permit Path so users no longer see it.')) {
+      return;
+    }
+
+    deletingId = id;
+    render();
+    showMsg("Deleting…", true);
+
+    // Remove from Permit Path first so the app gate cannot still show it.
+    // Empty delete (never published) is still ok — then clear Studio history.
+    deleteFromPermitPath(id).then(function () {
+      return db.from("app_notifications").delete().eq("id", id).then(function (res) {
+        if (res.error) throw res.error;
+        history = history.filter(function (h) { return h.id !== id; });
+        deletingId = null;
+        render();
+        showMsg("Deleted. Permit Path users will no longer see this message.", true);
+      });
+    }).catch(function (err) {
+      deletingId = null;
+      render();
+      showMsg(schemaMissing(err) ? SCHEMA_HINT : publishErrorMessage(err), false);
     });
   }
 
@@ -303,6 +363,7 @@
       subject = "";
       message = "";
       sending = false;
+      deletingId = null;
       history = [];
       selectedAppId = "permit-path";
       apps = FALLBACK_APPS.slice();
