@@ -14,7 +14,8 @@
 .app.is-emails .main,
 .app.is-notifications .main,
 .app.is-leads .main,
-.app.is-inventory .main {
+.app.is-inventory .main,
+.app.is-mileage .main {
   padding: 0;
   overflow: hidden;
   display: flex;

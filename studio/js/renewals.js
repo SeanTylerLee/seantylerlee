@@ -42,6 +42,10 @@
     return String(s == null ? "" : s).trim();
   }
 
+  function money(n) {
+    return (Number(n) || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
+  }
+
   function showMsg(msg, ok) {
     var box = el("banner");
     if (!box) return;
@@ -175,7 +179,7 @@
       '<div class="renewals-workspace">' +
         '<div class="renewals-header">' +
           "<h1>Renewals</h1>" +
-          "<p>LLC filings, Apple Developer, domains, insurance, and anything else that renews.</p>" +
+          "<p>LLC filings, Apple Developer, domains, insurance. Set an amount, then Log as expense when you pay.</p>" +
         "</div>" +
         '<p class="status renewals-banner" data-el="banner"></p>' +
         '<div class="renewals-body" data-el="body"></div>' +
@@ -199,7 +203,10 @@
           '<span class="chev">▸</span>' +
           '<span class="meta">' +
             "<strong>" + esc(displayTitle(item)) + "</strong>" +
-            '<span class="line">' + esc(formatDate(item.due_date)) + "</span>" +
+            '<span class="line">' + esc(formatDate(item.due_date)) +
+            (Number(item.amount) > 0 ? " · " + money(item.amount) : "") +
+            (item.logged_expense_id ? " · logged to Expenses" : "") +
+            "</span>" +
           "</span>" +
           '<span class="side">' +
             '<span class="renewal-badge ' + klass + '">' + esc(statusLabel(item)) + "</span>" +
@@ -212,9 +219,14 @@
             field("Category", "category", categoryOptions(item.category || "other"), "select") +
             field("Due date", "due_date", item.due_date, "date") +
             field("Remind days before", "remind_days_before", item.remind_days_before, "number") +
+            field("Amount", "amount", item.amount == null ? "" : item.amount, "number") +
           "</div>" +
           field("Notes", "notes", item.notes, "textarea") +
-          '<div class="renewals-actions" style="justify-content:flex-end">' +
+          '<div class="renewals-actions" style="justify-content:flex-end;gap:8px;flex-wrap:wrap">' +
+            '<button class="btn btn-ghost" type="button" data-action="log-expense"' +
+              (Number(item.amount) > 0 ? "" : " disabled title=\"Set an amount first\"") + ">" +
+              (item.logged_expense_id ? "Log again as expense" : "Log as expense") +
+            "</button>" +
             '<button class="btn btn-ghost" type="button" data-action="remove">Remove</button>' +
           "</div>" +
         "</div>" +
@@ -266,6 +278,7 @@
     var key = input.getAttribute("data-key");
     var value = input.value;
     if (key === "remind_days_before") value = Math.max(0, Number(value || 0));
+    if (key === "amount") value = value === "" ? 0 : Number(value || 0);
     renewals.forEach(function (item) {
       if (item.id === id) item[key] = value;
     });
@@ -303,7 +316,11 @@
           var strong = card.querySelector("strong");
           if (strong && item) strong.textContent = displayTitle(item);
         }
-        if (input.getAttribute("data-key") === "due_date" || input.getAttribute("data-key") === "remind_days_before") {
+        if (
+          input.getAttribute("data-key") === "due_date" ||
+          input.getAttribute("data-key") === "remind_days_before" ||
+          input.getAttribute("data-key") === "amount"
+        ) {
           harvest();
           render();
           if (dirty) showMsg("Unsaved changes", true);
@@ -327,10 +344,80 @@
       });
     });
 
+    root.querySelectorAll('[data-action="log-expense"]').forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.closest(".renewal-card").getAttribute("data-id");
+        logAsExpense(id);
+      });
+    });
+
     var add = el("add");
     if (add) add.addEventListener("click", addRenewal);
     var addCommon = el("add-common");
     if (addCommon) addCommon.addEventListener("click", addSuggestedDefaults);
+  }
+
+  function logAsExpense(id) {
+    harvest();
+    var item = renewals.filter(function (x) { return x.id === id; })[0];
+    if (!item) return;
+    var amount = Number(item.amount) || 0;
+    if (amount <= 0) return showMsg("Set an amount greater than zero first.", false);
+    if (item.logged_expense_id) {
+      if (!window.confirm("This renewal was already logged to Expenses. Create another expense row?")) return;
+    } else if (!window.confirm('Log "' + displayTitle(item) + '" as a ' + money(amount) + " expense?")) {
+      return;
+    }
+    var due = String(item.due_date || todayISO()).slice(0, 10);
+    var year = Number(due.slice(0, 4)) || new Date().getFullYear();
+    var noteBits = [];
+    if (trim(item.notes)) noteBits.push(trim(item.notes));
+    noteBits.push("From renewal · due " + due);
+    showMsg("Logging to Expenses…", true);
+    db.from("business_expenses").insert({
+      title: displayTitle(item),
+      amount: amount,
+      year: year,
+      date: due,
+      is_recurring: true,
+      recurrence: "yearly",
+      recurring_month_count: 0,
+      notes: noteBits.join("\n"),
+      receipt_path: "",
+      receipt_file_name: ""
+    }).select("*").single().then(function (res) {
+      if (res.error) {
+        var msg = res.error.message || "Could not create expense.";
+        if (/amount|logged_expense|column/i.test(msg) && /renewal/i.test(msg)) {
+          msg = "Run sql/020_renewals_expense.sql in Supabase, then refresh.";
+        } else if (missingTable(res.error) || /business_expenses/i.test(msg)) {
+          msg = "Run sql/009_money.sql in Supabase, then refresh.";
+        }
+        showMsg(msg, false);
+        return null;
+      }
+      return db.from("renewal_items").update({
+        amount: amount,
+        logged_expense_id: res.data.id
+      }).eq("id", id).select("*").single().then(function (up) {
+        if (up.error) {
+          var hint = up.error.message || "Expense created, but could not mark the renewal.";
+          if (/amount|logged_expense|column|schema cache/i.test(hint)) {
+            hint = "Expense created. Run sql/020_renewals_expense.sql so Studio can remember it was logged.";
+          }
+          showMsg(hint, false);
+          return;
+        }
+        renewals = renewals.map(function (row) {
+          return row.id === id ? up.data : row;
+        });
+        clearDirty();
+        render();
+        showMsg("Logged to Expenses for " + year + ". Open Expenses to attach a receipt.", true);
+      });
+    }).catch(function (err) {
+      showMsg((err && err.message) || "Could not log expense.", false);
+    });
   }
 
   function addRenewal() {
@@ -340,13 +427,17 @@
       category: "other",
       due_date: addDaysISO(30),
       remind_days_before: 30,
+      amount: 0,
       notes: "",
       notification_id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now())
     }).select("*").single().then(function (res) {
       if (res.error) {
-        showMsg(missingTable(res.error)
-          ? "Run sql/008_renewals.sql in Supabase, then refresh."
-          : res.error.message, false);
+        var msg = res.error.message || "";
+        if (missingTable(res.error)) msg = "Run sql/008_renewals.sql in Supabase, then refresh.";
+        else if (/amount|logged_expense|column|schema cache/i.test(msg)) {
+          msg = "Run sql/020_renewals_expense.sql in Supabase, then refresh.";
+        }
+        showMsg(msg, false);
         return;
       }
       renewals.push(res.data);
@@ -365,15 +456,19 @@
         category: s.category,
         due_date: addDaysISO(s.days),
         remind_days_before: 30,
+        amount: 0,
         notes: "",
         notification_id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()
       };
     });
     db.from("renewal_items").insert(rows).select("*").then(function (res) {
       if (res.error) {
-        showMsg(missingTable(res.error)
-          ? "Run sql/008_renewals.sql in Supabase, then refresh."
-          : res.error.message, false);
+        var msg = res.error.message || "";
+        if (missingTable(res.error)) msg = "Run sql/008_renewals.sql in Supabase, then refresh.";
+        else if (/amount|logged_expense|column|schema cache/i.test(msg)) {
+          msg = "Run sql/020_renewals_expense.sql in Supabase, then refresh.";
+        }
+        showMsg(msg, false);
         return;
       }
       renewals = renewals.concat(res.data || []);
@@ -395,14 +490,20 @@
         category: item.category || "other",
         due_date: item.due_date || todayISO(),
         notes: item.notes || "",
-        remind_days_before: Math.max(0, Number(item.remind_days_before) || 0)
+        remind_days_before: Math.max(0, Number(item.remind_days_before) || 0),
+        amount: Number(item.amount) || 0,
+        logged_expense_id: item.logged_expense_id || null
       }).eq("id", item.id);
     });
     Promise.all(jobs).then(function (results) {
       saving = false;
       var err = results.map(function (r) { return r && r.error; }).filter(Boolean)[0];
       if (err) {
-        showMsg(err.message || "Save failed.", false);
+        var msg = err.message || "Save failed.";
+        if (/amount|logged_expense|column|schema cache/i.test(msg)) {
+          msg = "Run sql/020_renewals_expense.sql in Supabase, then refresh.";
+        }
+        showMsg(msg, false);
         syncSaveButton();
         return;
       }

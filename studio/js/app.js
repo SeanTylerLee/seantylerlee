@@ -16,7 +16,8 @@
       { id: "expenses", title: "Expenses", icon: "creditcard-fill", tint: "#26856B", body: "Business costs by year." },
       { id: "income", title: "Income", icon: "checkmark-seal-fill", tint: "#38B375", body: "LLC revenue by year." },
       { id: "ownerDraws", title: "Owner Draw", icon: "banknote-fill", tint: "#B87A38", body: "Money you pulled from the LLC." },
-      { id: "inventory", title: "Inventory", icon: "shippingbox-fill", tint: "#7361D9", body: "Gear list: purchase date, cost, purpose, serial." }
+      { id: "inventory", title: "Inventory", icon: "shippingbox-fill", tint: "#7361D9", body: "Gear list: purchase date, cost, purpose, serial." },
+      { id: "mileage", title: "Mileage", icon: "car-fill", tint: "#3D6B99", body: "Business trips, miles, and standard mileage deduction." }
     ],
     [
       { id: "apps", title: "Apps", icon: "square-stack-3d-up-fill", tint: "#2E9E7A", body: "Products, versions, issues, and store logins." },
@@ -82,7 +83,8 @@
     emails: "is-emails",
     notifications: "is-notifications",
     leads: "is-leads",
-    inventory: "is-inventory"
+    inventory: "is-inventory",
+    mileage: "is-mileage"
   };
 
   var PAGE_MODULE = {
@@ -107,7 +109,8 @@
     emails: "STLEmails",
     notifications: "STLNotifications",
     leads: "STLLeads",
-    inventory: "STLInventory"
+    inventory: "STLInventory",
+    mileage: "STLMileage"
   };
 
   function moduleFor(id) {
@@ -133,7 +136,8 @@
       support: window.STLSupport,
       emails: window.STLEmails,
       leads: window.STLLeads,
-      inventory: window.STLInventory
+      inventory: window.STLInventory,
+      mileage: window.STLMileage
     };
   }
 
@@ -379,7 +383,8 @@
         support: window.STLSupport,
         emails: window.STLEmails,
         leads: window.STLLeads,
-        inventory: window.STLInventory
+        inventory: window.STLInventory,
+        mileage: window.STLMileage
       };
       var mod = saversMap()[currentSection];
       if (mod && mod.saveAll) mod.saveAll();

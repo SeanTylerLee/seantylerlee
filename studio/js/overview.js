@@ -18,6 +18,8 @@
   var apps = [];
   var appIssues = [];
   var companyDocs = [];
+  var mileageTrips = [];
+  var mileageRate = 0.70;
   var exporting = false;
 
   function M() { return window.STLMoney; }
@@ -147,7 +149,33 @@
       + unbilledProjects().length
       + overdueProjects().length
       + attentionRenewals().length
-      + openProjectIssues().length;
+      + openProjectIssues().length
+      + unloggedRenewalsDueThisMonth().length;
+  }
+
+  function unloggedRenewalsDueThisMonth() {
+    var prefix = selectedYear + "-" + String(selectedMonth).padStart(2, "0");
+    return renewals.filter(function (item) {
+      var due = String(item.due_date || "").slice(0, 7);
+      return due === prefix && Number(item.amount) > 0 && !item.logged_expense_id;
+    }).sort(function (a, b) {
+      return String(a.due_date || "") < String(b.due_date || "") ? -1 : 1;
+    });
+  }
+
+  function renewalsDueThisMonth() {
+    var prefix = selectedYear + "-" + String(selectedMonth).padStart(2, "0");
+    return renewals.filter(function (item) {
+      return String(item.due_date || "").slice(0, 7) === prefix && Number(item.amount) > 0;
+    }).sort(function (a, b) {
+      return String(a.due_date || "") < String(b.due_date || "") ? -1 : 1;
+    });
+  }
+
+  function renewalsDueMonthTotal() {
+    return M().round2(renewalsDueThisMonth().reduce(function (s, item) {
+      return s + (Number(item.amount) || 0);
+    }, 0));
   }
 
   function shell() {
@@ -204,6 +232,26 @@
         "</div>" +
       "</div>";
 
+    var dueMonth = renewalsDueThisMonth();
+    if (dueMonth.length) {
+      html +=
+        '<div class="ov-card">' +
+          '<div style="display:flex;align-items:baseline;gap:10px">' +
+            "<h2>Expected renewals · " + MONTHS[selectedMonth - 1] + "</h2>" +
+            '<span class="ov-count busy" style="margin-left:auto">' + M().money(renewalsDueMonthTotal()) + "</span>" +
+          "</div>" +
+          '<p class="ov-note" style="margin-top:8px">From Renewals with an amount set. Log as expense when you pay so the P&amp;L stays accurate.</p>';
+      dueMonth.forEach(function (item) {
+        html += row(
+          item.title || "Renewal",
+          M().money(item.amount) + " · due " + (item.due_date || "—") + (item.logged_expense_id ? " · logged" : " · not logged"),
+          item.logged_expense_id ? "#38B375" : "#8C59D9",
+          "renewals"
+        );
+      });
+      html += "</div>";
+    }
+
     html +=
       '<div class="ov-card">' +
         '<div style="display:flex;align-items:baseline;gap:10px">' +
@@ -228,6 +276,20 @@
             label + " · " + M().money(t.balance) + " remaining" + (doc.due_on ? " · due " + doc.due_on : ""),
             overdue ? "#e64747" : "#f29e2e",
             "billing"
+          );
+        });
+        html += "</div>";
+      }
+
+      var unlogged = unloggedRenewalsDueThisMonth();
+      if (unlogged.length) {
+        html += '<div class="ov-section"><h3>Renewals to log as expenses</h3>';
+        unlogged.slice(0, 8).forEach(function (item) {
+          html += row(
+            item.title || "Renewal",
+            M().money(item.amount) + " due " + (item.due_date || "—") + " · not logged yet",
+            "#8C59D9",
+            "renewals"
           );
         });
         html += "</div>";
@@ -504,7 +566,7 @@
         ["Owner draws", window.STLStudioPdf.money(yearDraws())]
       ]);
       pdf.heading("What’s in this zip", 12);
-      pdf.note("00-Profit-and-Loss.pdf · 01-Monthly-Summary.pdf · Paid-Invoices · Company-Documents. Income and expense receipt reports can also be exported from Income and Expenses.");
+      pdf.note("00-Profit-and-Loss.pdf · 01-Monthly-Summary.pdf · 02-Mileage.pdf · Paid-Invoices · Company-Documents. Income and expense receipt reports can also be exported from Income and Expenses.");
       pdf.heading("Summary", 12);
       var sumW = [pdf.maxW - 120, 120];
       pdf.tableHeader(["Line", "Amount"], sumW, 1);
@@ -549,6 +611,53 @@
       return pdf.blob();
     });
 
+    var yearMiles = mileageTrips.filter(function (t) {
+      return Number(String(t.trip_date || "").slice(0, 4)) === selectedYear;
+    });
+    var milesTotal = M().round2(yearMiles.reduce(function (s, t) { return s + (Number(t.miles) || 0); }, 0));
+    var milesDeduction = M().round2(milesTotal * mileageRate);
+    var mileagePdf = window.STLStudioPdf.open({
+      db: db,
+      word: "MILEAGE LOG",
+      yearLabel: "Tax year " + selectedYear
+    }).then(function (pdf) {
+      pdf.heading("Business mileage — " + selectedYear, 13);
+      pdf.note("Prepared " + window.STLStudioPdf.prepared() + ". Rate " + window.STLStudioPdf.money(mileageRate) + " per mile.");
+      pdf.chips([
+        ["Trips", String(yearMiles.length)],
+        ["Miles", milesTotal.toLocaleString("en-US")],
+        ["Rate", window.STLStudioPdf.money(mileageRate) + "/mi"],
+        ["Deduction", window.STLStudioPdf.money(milesDeduction)]
+      ]);
+      var colW = [70, 120, pdf.maxW - 70 - 120 - 55 - 70, 55, 70];
+      pdf.tableHeader(["Date", "Purpose", "Route", "Miles", "Amount"], colW, 1);
+      if (!yearMiles.length) {
+        pdf.note("No trips logged for this year.");
+      } else {
+        yearMiles.slice().sort(function (a, b) {
+          return String(b.trip_date || "") < String(a.trip_date || "") ? -1 : 1;
+        }).forEach(function (trip, i) {
+          var miles = Number(trip.miles) || 0;
+          var start = String(trip.start_place || "").trim();
+          var end = String(trip.end_place || "").trim();
+          var route = start && end ? start + " → " + end : (start || end || "—");
+          pdf.tableRow(
+            [
+              String(trip.trip_date || "").slice(0, 10),
+              trip.purpose || "Trip",
+              route,
+              miles.toLocaleString("en-US"),
+              window.STLStudioPdf.money(M().round2(miles * mileageRate))
+            ],
+            colW,
+            { sizes: [8, 8, 8, 8, 8], aligns: ["left", "left", "left", "right", "right"], stripe: i % 2 === 1 }
+          );
+        });
+      }
+      pdf.totalLine(selectedYear + " mileage deduction", window.STLStudioPdf.money(milesDeduction));
+      return pdf.blob();
+    });
+
     var invoicePdfs = Promise.all(paid.map(function (doc) {
       if (!window.STLBillingDoc || !window.STLBillingDoc.buildPdf) return null;
       var payload = Object.assign({}, doc.payload || {}, {
@@ -578,15 +687,16 @@
       return list.filter(Boolean);
     });
 
-    Promise.all([pl, monthly, invoicePdfs, companyFiles]).then(function (parts) {
+    Promise.all([pl, monthly, mileagePdf, invoicePdfs, companyFiles]).then(function (parts) {
       var zip = new window.JSZip();
       var folder = zip.folder("STL-Apps-LLC-Tax-Packet-" + selectedYear);
       folder.file("00-Profit-and-Loss.pdf", parts[0]);
       folder.file("01-Monthly-Summary.pdf", parts[1]);
+      folder.file("02-Mileage.pdf", parts[2]);
       var inv = folder.folder("Paid-Invoices");
-      (parts[2] || []).forEach(function (file) { inv.file(file.name, file.blob); });
+      (parts[3] || []).forEach(function (file) { inv.file(file.name, file.blob); });
       var co = folder.folder("Company-Documents");
-      (parts[3] || []).forEach(function (file) { co.file(file.name, file.blob); });
+      (parts[4] || []).forEach(function (file) { co.file(file.name, file.blob); });
       return zip.generateAsync({ type: "blob" });
     }).then(function (blob) {
       downloadBlob(blob, "STL-Apps-LLC_Tax-Packet_" + selectedYear + ".zip");
@@ -619,7 +729,15 @@
       safe("project_issues"),
       safe("managed_apps"),
       safe("app_issues"),
-      safe("business_documents")
+      safe("business_documents"),
+      safe("mileage_trips"),
+      db.from("studio_settings").select("value").eq("key", "mileage_rate").maybeSingle()
+        .then(function (res) {
+          if (res.error || !res.data) return 0.70;
+          var n = Number(res.data.value);
+          return Number.isFinite(n) && n >= 0 ? n : 0.70;
+        })
+        .catch(function () { return 0.70; })
     ]).then(function (pair) {
       incomes = pair[0];
       expenses = pair[1];
@@ -632,6 +750,8 @@
       apps = pair[8];
       appIssues = pair[9];
       companyDocs = pair[10] || [];
+      mileageTrips = pair[11] || [];
+      mileageRate = pair[12] == null ? 0.70 : pair[12];
       var paths = [];
       apps.forEach(function (app) {
         if (app.icon_path && paths.indexOf(app.icon_path) < 0) paths.push(app.icon_path);

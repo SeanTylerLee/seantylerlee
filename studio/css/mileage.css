@@ -1,0 +1,55 @@
+.app.is-mileage .main {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--window);
+}
+
+.mileage-filters {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mileage-year-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mileage-rate-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mileage-rate-wrap label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mileage-rate-wrap input {
+  width: 88px;
+  min-height: 28px;
+  padding: 6px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mileage-rate-wrap input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(26, 112, 235, 0.18);
+}
+
+.mileage-workspace .ops-field input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
