@@ -176,8 +176,10 @@
           '<input data-line="' + i + '" type="text" maxlength="400" placeholder="Line ' + (i + 1) + '"' +
             ' value="' + esc(ln.text || "") + '"' +
             ' style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid ' +
-            (on ? "#2966EB" : "rgba(60,60,67,.18)") + ";font-family:" + fontCss(ln.font) +
-            ";font-size:" + sizePx(ln.size) + ";color:" + esc(ln.color || "#555555") + '" />' +
+            (on ? "#2966EB" : "rgba(60,60,67,.18)") +
+            ";font-size:" + sizePx(ln.size) +
+            ";color:" + esc(ln.color || "#555555") +
+            ";font-family:" + fontCss(ln.font) + '" />' +
           (lines.length > 1
             ? '<button class="btn" type="button" data-remove-line="' + i + '" style="flex-shrink:0">×</button>'
             : "") +
