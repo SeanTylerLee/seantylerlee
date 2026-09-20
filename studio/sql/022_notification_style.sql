@@ -5,7 +5,8 @@ alter table public.app_notifications
   add column if not exists image_url text not null default '',
   add column if not exists message_font text not null default 'system',
   add column if not exists message_size text not null default 'medium',
-  add column if not exists message_color text not null default '';
+  add column if not exists message_color text not null default '',
+  add column if not exists message_blocks jsonb not null default '[]'::jsonb;
 
 insert into storage.buckets (id, name, public)
 values ('announcement-images', 'announcement-images', true)
