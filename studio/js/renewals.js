@@ -179,7 +179,7 @@
       '<div class="renewals-workspace">' +
         '<div class="renewals-header">' +
           "<h1>Renewals</h1>" +
-          "<p>LLC filings, Apple Developer, domains, insurance. Set an amount, then Log as expense when you pay.</p>" +
+          "<p>LLC filings, Apple Developer, domains, insurance. Set an amount, then use Log as expense when you pay.</p>" +
         "</div>" +
         '<p class="status renewals-banner" data-el="banner"></p>' +
         '<div class="renewals-body" data-el="body"></div>' +
