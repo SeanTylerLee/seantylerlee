@@ -187,18 +187,18 @@
   function phonePreviewHtml() {
     var photoSrc = imagePreview || imageUrl;
     var blocks = "";
-    var anyText = false;
-    lines.forEach(function (ln) {
+    lines.forEach(function (ln, i) {
       var t = ln.text || "";
-      if (trim(t)) anyText = true;
+      var hasText = !!trim(t);
+      var display = hasText ? t : "Sample line text";
       blocks +=
-        '<div style="white-space:pre-wrap;line-height:1.4;margin:0 0 4px;font-family:' +
+        '<div style="white-space:pre-wrap;line-height:1.4;margin:0 0 4px;opacity:' +
+        (hasText ? "1" : "0.45") + ";font-family:" +
         fontCss(ln.font) + ";font-size:" + sizePx(ln.size) + ";color:" +
-        esc(ln.color || "#555555") + '">' + (t ? esc(t) : "&nbsp;") + "</div>";
+        esc(ln.color || "#555555") +
+        (i === selectedLine ? ";outline:1px dashed rgba(41,102,235,.45);outline-offset:2px" : "") +
+        '">' + esc(display) + "</div>";
     });
-    if (!anyText) {
-      blocks = '<div style="color:#8f8f93;font-size:16px">Your message will show here.</div>';
-    }
     return (
       '<div style="width:100%;max-width:340px;margin:0 auto;background:linear-gradient(180deg,#1A2659,#0D1433);border-radius:36px;padding:16px 14px 22px;box-shadow:0 18px 40px rgba(0,0,0,.28)">' +
         '<div style="width:72px;height:5px;background:rgba(255,255,255,.25);border-radius:99px;margin:4px auto 18px"></div>' +
@@ -280,11 +280,13 @@
     if (box) box.innerHTML = phonePreviewHtml();
   }
 
-  function refreshLineChrome() {
-    var styleBox = el("line-style");
-    if (styleBox) {
-      styleBox.innerHTML = styleControlsHtml();
-      bindStyleControls();
+  function refreshLineChrome(rebuildControls) {
+    if (rebuildControls) {
+      var styleBox = el("line-style");
+      if (styleBox) {
+        styleBox.innerHTML = styleControlsHtml();
+        bindStyleControls();
+      }
     }
     var inputs = root ? root.querySelectorAll("[data-line]") : [];
     for (var i = 0; i < inputs.length; i++) {
@@ -301,10 +303,28 @@
 
   function applyStyleToSelected(patch) {
     var ln = currentLine();
-    if (patch.font) ln.font = patch.font;
-    if (patch.size) ln.size = patch.size;
-    if (patch.color) ln.color = patch.color;
-    refreshLineChrome();
+    if (Object.prototype.hasOwnProperty.call(patch, "font")) ln.font = patch.font;
+    if (Object.prototype.hasOwnProperty.call(patch, "size")) ln.size = patch.size;
+    if (Object.prototype.hasOwnProperty.call(patch, "color")) ln.color = patch.color;
+    // Do not rebuild the style controls here — that was killing the color picker
+    // and made the phone preview look like it was not updating.
+    var fontEl = el("font");
+    var sizeEl = el("size");
+    var colorEl = el("color");
+    if (fontEl && Object.prototype.hasOwnProperty.call(patch, "font")) fontEl.value = ln.font;
+    if (sizeEl && Object.prototype.hasOwnProperty.call(patch, "size")) sizeEl.value = ln.size;
+    if (colorEl && Object.prototype.hasOwnProperty.call(patch, "color") && document.activeElement !== colorEl) {
+      colorEl.value = ln.color || "#555555";
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "color") && root) {
+      var swatches = root.querySelectorAll("[data-swatch]");
+      for (var s = 0; s < swatches.length; s++) {
+        var hex = (swatches[s].getAttribute("data-swatch") || "").toLowerCase();
+        var on = hex === String(ln.color || "").toLowerCase();
+        swatches[s].style.border = on ? "2px solid #111" : "1px solid rgba(0,0,0,.2)";
+      }
+    }
+    refreshLineChrome(false);
   }
 
   function bindStyleControls() {
@@ -327,7 +347,7 @@
     for (var i = 0; i < inputs.length; i++) {
       inputs[i].onfocus = function (ev) {
         selectedLine = parseInt(ev.currentTarget.getAttribute("data-line"), 10) || 0;
-        refreshLineChrome();
+        refreshLineChrome(true);
       };
       inputs[i].oninput = function (ev) {
         var idx = parseInt(ev.currentTarget.getAttribute("data-line"), 10);
