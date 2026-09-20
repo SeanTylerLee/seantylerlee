@@ -96,9 +96,11 @@
     }
   }
   function fontCss(id) {
-    if (id === "serif") return 'Georgia, "Times New Roman", serif';
-    if (id === "rounded") return 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", sans-serif';
-    return 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    // Use single quotes inside font names — double quotes break HTML style="" attributes
+    // and silently drop font-size/color that come after font-family in the preview.
+    if (id === "serif") return "Georgia, 'Times New Roman', serif";
+    if (id === "rounded") return "ui-rounded, 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', sans-serif";
+    return "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
   }
   function sizePx(id) {
     if (id === "small") return "14px";
@@ -193,9 +195,10 @@
       var display = hasText ? t : "Sample line text";
       blocks +=
         '<div style="white-space:pre-wrap;line-height:1.4;margin:0 0 4px;opacity:' +
-        (hasText ? "1" : "0.45") + ";font-family:" +
-        fontCss(ln.font) + ";font-size:" + sizePx(ln.size) + ";color:" +
-        esc(ln.color || "#555555") +
+        (hasText ? "1" : "0.45") +
+        ";font-size:" + sizePx(ln.size) +
+        ";color:" + esc(ln.color || "#555555") +
+        ";font-family:" + fontCss(ln.font) +
         (i === selectedLine ? ";outline:1px dashed rgba(41,102,235,.45);outline-offset:2px" : "") +
         '">' + esc(display) + "</div>";
     });
