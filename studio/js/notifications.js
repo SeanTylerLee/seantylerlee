@@ -5,18 +5,38 @@
     { id: "permit-path", name: "Permit Path" }
   ];
   var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  var SCHEMA_HINT = "Run sql/018_notifications.sql in Supabase.";
-  var PP_SQL_HINT = "Run supabase_announcements.sql in the Permit Path Supabase SQL Editor.";
+  var SCHEMA_HINT = "Run sql/018_notifications.sql and sql/022_notification_style.sql in Supabase.";
+  var PP_SQL_HINT = "Run supabase_announcements.sql then supabase_announcements_style.sql in the Permit Path Supabase SQL Editor.";
   var PP_KEYS_HINT =
     "Add Permit Path URL + service_role key to secrets/permitpath_*.txt on this Mac, run sql/019_permitpath_announce.sql, then open Studio once while signed in.";
+  var STYLE_SQL_HINT = "Run sql/022_notification_style.sql in Studio Supabase, then refresh.";
+  var FONTS = [
+    { id: "system", label: "System" },
+    { id: "serif", label: "Serif" },
+    { id: "rounded", label: "Rounded" }
+  ];
+  var SIZES = [
+    { id: "small", label: "Small" },
+    { id: "medium", label: "Medium" },
+    { id: "large", label: "Large" },
+    { id: "xlarge", label: "Extra large" }
+  ];
+  var COLOR_PRESETS = ["#555555", "#111111", "#1A2659", "#2966EB", "#CC1A1A", "#148F54"];
 
   var root = null;
   var db = null;
+  var userId = null;
   var apps = FALLBACK_APPS.slice();
   var history = [];
   var selectedAppId = "permit-path";
   var subject = "";
   var message = "";
+  var imageUrl = "";
+  var imagePreview = "";
+  var pendingFile = null;
+  var messageFont = "system";
+  var messageSize = "medium";
+  var messageColor = "#555555";
   var sending = false;
   var deletingId = null;
 
@@ -61,6 +81,18 @@
     }
   }
 
+  function fontCss(id) {
+    if (id === "serif") return 'Georgia, "Times New Roman", serif';
+    if (id === "rounded") return 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", sans-serif';
+    return 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  }
+  function sizePx(id) {
+    if (id === "small") return "14px";
+    if (id === "large") return "20px";
+    if (id === "xlarge") return "24px";
+    return "16px";
+  }
+
   function shell() {
     return (
       '<div class="ops-workspace">' +
@@ -88,9 +120,22 @@
     var appSel = el("app");
     var subjectEl = el("subject");
     var messageEl = el("message");
+    var fontEl = el("font");
+    var sizeEl = el("size");
+    var colorEl = el("color");
     if (appSel) selectedAppId = appSel.value || selectedAppId;
     if (subjectEl) subject = subjectEl.value;
     if (messageEl) message = messageEl.value;
+    if (fontEl) messageFont = fontEl.value || "system";
+    if (sizeEl) messageSize = sizeEl.value || "medium";
+    if (colorEl) messageColor = colorEl.value || "#555555";
+  }
+
+  function optionsHtml(list, selected) {
+    return list.map(function (item) {
+      return '<option value="' + esc(item.id) + '"' + (item.id === selected ? " selected" : "") + ">" +
+        esc(item.label) + "</option>";
+    }).join("");
   }
 
   function historyHtml() {
@@ -120,8 +165,14 @@
               ' style="flex-shrink:0;background:#fff;border:1px solid rgba(242,69,69,.35);color:#CC1A1A">' +
               (busy ? "Deleting…" : "Delete") +
             "</button>" +
-          "</div>" +
-          '<p style="margin:10px 0 0;font-size:13px;line-height:1.45;white-space:pre-wrap">' + esc(item.message || "") + "</p>" +
+          "</div>";
+      if (item.image_url) {
+        html += '<img src="' + esc(item.image_url) + '" alt="" style="display:block;width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin:10px 0 0" />';
+      }
+      html +=
+          '<p style="margin:10px 0 0;line-height:1.45;white-space:pre-wrap;font-family:' +
+            fontCss(item.message_font) + ";font-size:" + sizePx(item.message_size) + ";color:" +
+            esc(item.message_color || "#555555") + '">' + esc(item.message || "") + "</p>" +
         "</div>";
     });
 
@@ -129,19 +180,63 @@
     return html;
   }
 
+  function photoHtml() {
+    var src = imagePreview || imageUrl;
+    if (!src) {
+      return (
+        '<div class="ops-field"><label>Photo (optional)</label>' +
+          '<input data-el="photo" type="file" accept="image/*" />' +
+          '<p class="sub">Shown at the top of the card in Permit Path.</p>' +
+        "</div>"
+      );
+    }
+    return (
+      '<div class="ops-field"><label>Photo</label>' +
+        '<img src="' + esc(src) + '" alt="" style="display:block;width:100%;max-height:180px;object-fit:cover;border-radius:12px;margin:0 0 8px" />' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          '<input data-el="photo" type="file" accept="image/*" />' +
+          '<button class="btn" type="button" data-el="clear-photo">Remove photo</button>' +
+        "</div>" +
+      "</div>"
+    );
+  }
+
   function bindCompose() {
     var appSel = el("app");
     var subjectEl = el("subject");
     var messageEl = el("message");
+    var fontEl = el("font");
+    var sizeEl = el("size");
+    var colorEl = el("color");
     var sendBtn = el("send");
+    var photoEl = el("photo");
+    var clearPhoto = el("clear-photo");
 
     if (appSel) appSel.onchange = function () { harvest(); };
     if (subjectEl) subjectEl.oninput = function () { harvest(); };
     if (messageEl) messageEl.oninput = function () { harvest(); };
+    if (fontEl) fontEl.onchange = function () { harvest(); };
+    if (sizeEl) sizeEl.onchange = function () { harvest(); };
+    if (colorEl) colorEl.oninput = function () { harvest(); };
+    if (photoEl) photoEl.onchange = onPickPhoto;
+    if (clearPhoto) clearPhoto.onclick = function () {
+      pendingFile = null;
+      imageUrl = "";
+      imagePreview = "";
+      render();
+    };
     if (sendBtn) {
       sendBtn.disabled = sending || !!deletingId;
       sendBtn.textContent = sending ? "Sending…" : "Send notification";
       sendBtn.onclick = sendNotification;
+    }
+
+    var swatches = root ? root.querySelectorAll("[data-swatch]") : [];
+    for (var s = 0; s < swatches.length; s++) {
+      swatches[s].onclick = function (ev) {
+        messageColor = ev.currentTarget.getAttribute("data-swatch") || "#555555";
+        render();
+      };
     }
 
     var deleteBtns = root ? root.querySelectorAll('[data-el="delete"]') : [];
@@ -153,6 +248,24 @@
     }
   }
 
+  function onPickPhoto(ev) {
+    var file = ev.target && ev.target.files && ev.target.files[0];
+    if (!file) return;
+    if (!/^image\//i.test(file.type || "") && !/\.(png|jpe?g|webp|heic)$/i.test(file.name || "")) {
+      return showMsg("Use a PNG, JPEG, or WebP photo.", false);
+    }
+    var ready = window.STLImageCompress && window.STLImageCompress.file
+      ? window.STLImageCompress.file(file)
+      : Promise.resolve(file);
+    ready.then(function (out) {
+      pendingFile = out || file;
+      if (imagePreview) try { URL.revokeObjectURL(imagePreview); } catch (e) { /* ignore */ }
+      imagePreview = URL.createObjectURL(pendingFile);
+      imageUrl = "";
+      render();
+    });
+  }
+
   function render() {
     var body = el("body");
     if (!body) return;
@@ -161,13 +274,30 @@
       return '<option value="' + esc(app.id) + '"' + (app.id === selectedAppId ? " selected" : "") + ">" + esc(app.name || "App") + "</option>";
     }).join("");
 
+    var swatchHtml = COLOR_PRESETS.map(function (hex) {
+      var on = hex.toLowerCase() === String(messageColor || "").toLowerCase();
+      return '<button type="button" data-swatch="' + hex + '" title="' + hex + '" style="width:22px;height:22px;border-radius:50%;border:' +
+        (on ? "2px solid #111" : "1px solid rgba(0,0,0,.2)") + ";background:" + hex + ';padding:0;cursor:pointer"></button>';
+    }).join("");
+
     body.innerHTML =
       '<div class="ops-card">' +
         "<h3>Compose</h3>" +
-        '<p class="sub">Choose Permit Path, write a subject and message, then send. Users must clear it on next open.</p>' +
+        '<p class="sub">Photo optional. Font, size, and color apply to the message users see under the photo.</p>' +
         '<div class="ops-field"><label>App</label><select data-el="app">' + options + "</select></div>" +
         '<div class="ops-field"><label>Subject</label><input data-el="subject" type="text" maxlength="120" placeholder="Short title users will see" value="' + esc(subject) + '" /></div>' +
+        photoHtml() +
         '<div class="ops-field"><label>Message</label><textarea data-el="message" rows="8" maxlength="2000" placeholder="Notification body">' + esc(message) + "</textarea></div>" +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">' +
+          '<div class="ops-field"><label>Font</label><select data-el="font">' + optionsHtml(FONTS, messageFont) + "</select></div>" +
+          '<div class="ops-field"><label>Size</label><select data-el="size">' + optionsHtml(SIZES, messageSize) + "</select></div>" +
+          '<div class="ops-field"><label>Color</label>' +
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+              '<input data-el="color" type="color" value="' + esc(messageColor || "#555555") + '" style="width:42px;height:32px;padding:0;border:none;background:transparent" />' +
+              swatchHtml +
+            "</div>" +
+          "</div>" +
+        "</div>" +
         '<div class="ops-actions">' +
           '<button class="btn btn-primary" type="button" data-el="send"' + (sending ? " disabled" : "") + ">" +
             (sending ? "Sending…" : "Send notification") +
@@ -192,8 +322,31 @@
   function publishErrorMessage(err) {
     var msg = (err && err.message) || String(err || "Publish failed.");
     if (/permitpath_|service_role|keys missing|permitpath_supabase/i.test(msg)) return PP_KEYS_HINT;
+    if (/image_url|message_font|022_notification/i.test(msg)) return STYLE_SQL_HINT;
     if (/app_announcements|supabase_announcements|table missing|schema cache/i.test(msg)) return PP_SQL_HINT;
     return msg;
+  }
+
+  function uploadPhoto() {
+    if (!pendingFile) return Promise.resolve(trim(imageUrl));
+    if (!db || !db.storage) return Promise.reject(new Error(STYLE_SQL_HINT));
+    if (!userId) return Promise.reject(new Error("Not signed in."));
+    var ext = (String(pendingFile.name || "jpg").split(".").pop() || "jpg").toLowerCase();
+    if (["png", "jpg", "jpeg", "webp"].indexOf(ext) < 0) ext = "jpg";
+    var path = userId + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
+    return db.storage.from("announcement-images").upload(path, pendingFile, {
+      upsert: false,
+      contentType: pendingFile.type || "image/jpeg"
+    }).then(function (up) {
+      if (up && up.error) {
+        var m = up.error.message || "";
+        throw new Error(/bucket|not found|row-level|policy/i.test(m) ? STYLE_SQL_HINT : m);
+      }
+      var pub = db.storage.from("announcement-images").getPublicUrl(path);
+      var url = pub && pub.data && pub.data.publicUrl;
+      if (!url) throw new Error("Could not get a public photo URL.");
+      return url;
+    });
   }
 
   function publishToPermitPath(row, studioId) {
@@ -203,6 +356,10 @@
     return window.STLLocalApi.post("/api/announcements/publish", {
       subject: row.subject,
       message: row.message,
+      image_url: row.image_url || "",
+      message_font: row.message_font || "system",
+      message_size: row.message_size || "medium",
+      message_color: row.message_color || "",
       studio_notification_id: studioId || null
     }).then(function (res) {
       if (!res.ok) {
@@ -241,8 +398,6 @@
     render();
     showMsg("Deleting…", true);
 
-    // Remove from Permit Path first so the app gate cannot still show it.
-    // Empty delete (never published) is still ok — then clear Studio history.
     deleteFromPermitPath(id).then(function () {
       return db.from("app_notifications").delete().eq("id", id).then(function (res) {
         if (res.error) throw res.error;
@@ -258,6 +413,17 @@
     });
   }
 
+  function resetCompose() {
+    subject = "";
+    message = "";
+    imageUrl = "";
+    imagePreview = "";
+    pendingFile = null;
+    messageFont = "system";
+    messageSize = "medium";
+    messageColor = "#555555";
+  }
+
   function sendNotification() {
     harvest();
     var app = selectedApp();
@@ -270,44 +436,38 @@
     if (!db || !db.from) return showMsg("Not signed in.", false);
     if (sending) return;
 
-    var row = {
-      app_id: isUuid(app.id) ? app.id : null,
-      app_name: app.name || "App",
-      subject: trim(subject),
-      message: trim(message)
-    };
-
     sending = true;
     render();
     showMsg("Saving and sending to Permit Path…", true);
 
-    db.from("app_notifications").insert(row).select("*").single().then(function (res) {
-      if (res.error) {
-        sending = false;
-        render();
-        return showMsg(schemaMissing(res.error) ? SCHEMA_HINT : res.error.message, false);
-      }
-
-      var saved = res.data;
-      history = [saved].concat(history);
-
-      return publishToPermitPath(row, saved && saved.id).then(function () {
-        sending = false;
-        subject = "";
-        message = "";
-        render();
-        showMsg("Sent to Permit Path. Users will see it the next time they open the app.", true);
-      }).catch(function (err) {
-        sending = false;
-        subject = "";
-        message = "";
-        render();
-        showMsg("Saved in Studio, but Permit Path delivery failed: " + publishErrorMessage(err), false);
+    uploadPhoto().then(function (url) {
+      var row = {
+        app_id: isUuid(app.id) ? app.id : null,
+        app_name: app.name || "App",
+        subject: trim(subject),
+        message: trim(message),
+        image_url: url || "",
+        message_font: messageFont || "system",
+        message_size: messageSize || "medium",
+        message_color: messageColor || ""
+      };
+      return db.from("app_notifications").insert(row).select("*").single().then(function (res) {
+        if (res.error) throw res.error;
+        var saved = res.data;
+        history = [saved].concat(history);
+        return publishToPermitPath(row, saved && saved.id);
       });
+    }).then(function () {
+      sending = false;
+      resetCompose();
+      render();
+      showMsg("Sent to Permit Path. Users will see it the next time they open the app.", true);
     }).catch(function (err) {
       sending = false;
       render();
-      showMsg((err && err.message) || "Could not save notification.", false);
+      var msg = (err && err.message) || "Could not save notification.";
+      if (/image_url|message_font|column/i.test(msg)) showMsg(STYLE_SQL_HINT, false);
+      else showMsg(schemaMissing(err) ? SCHEMA_HINT : publishErrorMessage(err), false);
     });
   }
 
@@ -322,10 +482,18 @@
       return;
     }
 
-    Promise.all([
-      db.from("managed_apps").select("id,name").order("name"),
-      db.from("app_notifications").select("*").order("created_at", { ascending: false })
-    ]).then(function (pair) {
+    var userReady = db.auth && db.auth.getUser
+      ? db.auth.getUser().then(function (res) {
+          userId = res && res.data && res.data.user && res.data.user.id;
+        })
+      : Promise.resolve();
+
+    userReady.then(function () {
+      return Promise.all([
+        db.from("managed_apps").select("id,name").order("name"),
+        db.from("app_notifications").select("*").order("created_at", { ascending: false })
+      ]);
+    }).then(function (pair) {
       var appsRes = pair[0];
       var histRes = pair[1];
 
@@ -360,8 +528,8 @@
     mount: function (panel, client) {
       db = client;
       root = panel;
-      subject = "";
-      message = "";
+      userId = null;
+      resetCompose();
       sending = false;
       deletingId = null;
       history = [];
