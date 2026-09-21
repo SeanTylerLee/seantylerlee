@@ -86,7 +86,8 @@
         !d.mercury_token &&
         !d.asc_private_key &&
         !d.play_service_account_json &&
-        !d.permitpath_service_role_key
+        !d.permitpath_service_role_key &&
+        !d.pilotcar4hire_service_role_key
       ) return;
       return client.auth.getUser().then(function (auth) {
         var user = auth.data && auth.data.user;
@@ -99,7 +100,9 @@
           asc_private_key: d.asc_private_key || "",
           play_service_account_json: d.play_service_account_json || "",
           permitpath_supabase_url: d.permitpath_supabase_url || "",
-          permitpath_service_role_key: d.permitpath_service_role_key || ""
+          permitpath_service_role_key: d.permitpath_service_role_key || "",
+          pilotcar4hire_supabase_url: d.pilotcar4hire_supabase_url || "",
+          pilotcar4hire_service_role_key: d.pilotcar4hire_service_role_key || ""
         }, { onConflict: "user_id" });
       });
     }).catch(function () {});

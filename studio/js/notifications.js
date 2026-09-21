@@ -2,13 +2,17 @@
   "use strict";
 
   var FALLBACK_APPS = [
-    { id: "permit-path", name: "Permit Path" }
+    { id: "permit-path", name: "Permit Path" },
+    { id: "pilotcar4hire", name: "Pilot Car 4 Hire" }
   ];
   var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   var SCHEMA_HINT = "Run sql/018_notifications.sql and sql/022_notification_style.sql in Supabase.";
   var PP_SQL_HINT = "Run supabase_announcements.sql then supabase_announcements_style.sql in the Permit Path Supabase SQL Editor.";
+  var PC4H_SQL_HINT = "Run supabase/migrations/006_app_announcements.sql in the Pilot Car 4 Hire Supabase SQL Editor.";
   var PP_KEYS_HINT =
     "Add Permit Path URL + service_role key to secrets/permitpath_*.txt on this Mac, run sql/019_permitpath_announce.sql, then open Studio once while signed in.";
+  var PC4H_KEYS_HINT =
+    "Add Pilot Car 4 Hire URL + service_role key to secrets/pilotcar4hire_*.txt on this Mac, run sql/024_pilotcar4hire_announce.sql, then open Studio once while signed in.";
   var STYLE_SQL_HINT = "Run sql/022_notification_style.sql (and sql/023_notification_blocks.sql if you already ran 022) in Studio Supabase, then refresh.";
   var FONTS = [
     { id: "system", label: "System" },
@@ -120,7 +124,7 @@
       '<div class="ops-workspace">' +
         '<div class="ops-header">' +
           "<h1>Notifications</h1>" +
-          "<p>Send a message to Permit Path. The card on the right is what users see on their phones.</p>" +
+          "<p>Send a message to Permit Path or Pilot Car 4 Hire. The card on the right is what users see on their phones.</p>" +
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-body" data-el="body"></div>' +
@@ -135,6 +139,33 @@
     if (!app) return false;
     if (app.id === "permit-path") return true;
     return /permit\s*path/i.test(app.name || "");
+  }
+  function isPilotCarApp(app) {
+    if (!app) return false;
+    var id = String(app.id || "").toLowerCase();
+    if (id === "pilotcar4hire" || id === "pilot-car-4-hire" || id === "pc4h") return true;
+    return /pilot\s*car|pc4h/i.test(app.name || "");
+  }
+  function isWiredApp(app) {
+    return isPermitPathApp(app) || isPilotCarApp(app);
+  }
+  function targetForApp(app) {
+    return isPilotCarApp(app) ? "pilotcar4hire" : "permit-path";
+  }
+  function targetForHistoryItem(item) {
+    if (!item) return "permit-path";
+    return isPilotCarApp({ id: item.app_id, name: item.app_name }) ? "pilotcar4hire" : "permit-path";
+  }
+  function appKicker() {
+    return isPilotCarApp(selectedApp()) ? "Message From Pilot Car 4 Hire" : "Message From Permit Path";
+  }
+  function previewGradient() {
+    return isPilotCarApp(selectedApp())
+      ? "linear-gradient(180deg,#1A2D4D,#0F1A2E)"
+      : "linear-gradient(180deg,#1A2659,#0D1433)";
+  }
+  function previewAccent() {
+    return isPilotCarApp(selectedApp()) ? "#0F1A2E" : "#2966EB";
   }
 
   function harvestMeta() {
@@ -205,21 +236,22 @@
         '">' + esc(display) + "</div>";
     });
     return (
-      '<div style="width:100%;max-width:340px;margin:0 auto;background:linear-gradient(180deg,#1A2659,#0D1433);border-radius:36px;padding:16px 14px 22px;box-shadow:0 18px 40px rgba(0,0,0,.28)">' +
+      '<div style="width:100%;max-width:340px;margin:0 auto;background:' + previewGradient() + ';border-radius:36px;padding:16px 14px 22px;box-shadow:0 18px 40px rgba(0,0,0,.28)">' +
         '<div style="width:72px;height:5px;background:rgba(255,255,255,.25);border-radius:99px;margin:4px auto 18px"></div>' +
         '<div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.22)">' +
           (photoSrc
             ? '<img src="' + esc(photoSrc) + '" alt="" style="display:block;width:100%;height:180px;object-fit:cover" />'
             : "") +
           '<div style="padding:24px">' +
-            '<div style="font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#2966EB">Message From Permit Path</div>' +
+            '<div style="font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:' + previewAccent() + '">' +
+              esc(appKicker()) + "</div>" +
             '<div style="margin-top:12px;font-size:22px;font-weight:700;color:#111;line-height:1.25">' +
               esc(trim(subject) || "Announcement") +
             "</div>" +
             '<div style="margin-top:12px;max-height:220px;overflow:auto">' + blocks + "</div>" +
           "</div>" +
         "</div>" +
-        '<div style="margin-top:16px;background:#2966EB;color:#fff;text-align:center;font-weight:700;padding:14px 12px;border-radius:12px">Clear</div>' +
+        '<div style="margin-top:16px;background:' + previewAccent() + ';color:#fff;text-align:center;font-weight:700;padding:14px 12px;border-radius:12px">Clear</div>' +
       "</div>"
     );
   }
@@ -228,7 +260,7 @@
     var html =
       '<div class="ops-card" style="margin-top:18px">' +
         "<h3>Sent</h3>" +
-        '<p class="sub">Newest first. Delete removes it from Studio and from Permit Path, including for users who have not opened it yet.</p>';
+        '<p class="sub">Newest first. Delete removes it from Studio and from the app, including for users who have not opened it yet.</p>';
     if (!history.length) {
       html += '<p class="sub">No notifications sent yet.</p></div>';
       return html;
@@ -407,7 +439,7 @@
     var photoEl = el("photo");
     var clearPhoto = el("clear-photo");
     var addLine = el("add-line");
-    if (appSel) appSel.onchange = function () { harvestMeta(); };
+    if (appSel) appSel.onchange = function () { harvestMeta(); updatePreview(); };
     if (subjectEl) {
       subjectEl.oninput = function () { harvestMeta(); updatePreview(); };
     }
@@ -494,7 +526,7 @@
         '<div>' +
           '<div class="ops-card" style="position:sticky;top:16px">' +
             "<h3>Phone preview</h3>" +
-            '<p class="sub">This is the card users see in Permit Path.</p>' +
+            '<p class="sub">This is the card signed-in users see in the selected app.</p>' +
             '<div data-el="preview">' + phonePreviewHtml() + "</div>" +
           "</div>" +
         "</div>" +
@@ -510,10 +542,15 @@
     }
   }
 
-  function publishErrorMessage(err) {
+  function publishErrorMessage(err, target) {
     var msg = (err && err.message) || String(err || "Publish failed.");
-    if (/permitpath_|service_role|keys missing|permitpath_supabase/i.test(msg)) return PP_KEYS_HINT;
+    var pc4h = target === "pilotcar4hire" || /pilot\s*car|pilotcar4hire/i.test(msg);
     if (/image_url|message_font|message_blocks|022_notification|023_notification/i.test(msg)) return STYLE_SQL_HINT;
+    if (pc4h) {
+      if (/service_role|keys missing|pilotcar4hire_supabase/i.test(msg)) return PC4H_KEYS_HINT;
+      if (/app_announcements|table missing|schema cache/i.test(msg)) return PC4H_SQL_HINT;
+    }
+    if (/permitpath_|service_role|keys missing|permitpath_supabase/i.test(msg)) return PP_KEYS_HINT;
     if (/app_announcements|supabase_announcements|table missing|schema cache/i.test(msg)) return PP_SQL_HINT;
     return msg;
   }
@@ -540,11 +577,14 @@
     });
   }
 
-  function publishToPermitPath(row, studioId) {
+  function publishToApp(row, studioId, target) {
+    var keysHint = target === "pilotcar4hire" ? PC4H_KEYS_HINT : PP_KEYS_HINT;
     if (!window.STLLocalApi || typeof window.STLLocalApi.post !== "function") {
-      return Promise.reject(new Error(PP_KEYS_HINT));
+      return Promise.reject(new Error(keysHint));
     }
     return window.STLLocalApi.post("/api/announcements/publish", {
+      target: target,
+      app_name: row.app_name || "",
       subject: row.subject,
       message: row.message,
       image_url: row.image_url || "",
@@ -562,11 +602,13 @@
     });
   }
 
-  function deleteFromPermitPath(studioId) {
+  function deleteFromApp(studioId, target) {
+    var keysHint = target === "pilotcar4hire" ? PC4H_KEYS_HINT : PP_KEYS_HINT;
     if (!window.STLLocalApi || typeof window.STLLocalApi.post !== "function") {
-      return Promise.reject(new Error(PP_KEYS_HINT));
+      return Promise.reject(new Error(keysHint));
     }
     return window.STLLocalApi.post("/api/announcements/delete", {
+      target: target,
       studio_notification_id: studioId
     }).then(function (res) {
       if (!res.ok) {
@@ -582,13 +624,15 @@
     if (!db || !db.from) return showMsg("Not signed in.", false);
     var item = history.filter(function (h) { return h.id === id; })[0];
     var label = item && item.subject ? item.subject : "this notification";
-    if (!window.confirm('Delete "' + label + '"?\n\nIt will be removed from Studio and from Permit Path. Users who have not opened it yet will not see it.')) {
+    var target = targetForHistoryItem(item);
+    var appLabel = isPilotCarApp({ id: item && item.app_id, name: item && item.app_name }) ? "Pilot Car 4 Hire" : "Permit Path";
+    if (!window.confirm('Delete "' + label + '"?\n\nIt will be removed from Studio and from ' + appLabel + '. Users who have not opened it yet will not see it.')) {
       return;
     }
     deletingId = id;
     render();
     showMsg("Deleting…", true);
-    deleteFromPermitPath(id).then(function () {
+    deleteFromApp(id, target).then(function () {
       return db.from("app_notifications").delete().eq("id", id).then(function (res) {
         if (res.error) throw res.error;
         history = history.filter(function (h) { return h.id !== id; });
@@ -599,7 +643,7 @@
     }).catch(function (err) {
       deletingId = null;
       render();
-      showMsg(schemaMissing(err) ? SCHEMA_HINT : publishErrorMessage(err), false);
+      showMsg(schemaMissing(err) ? SCHEMA_HINT : publishErrorMessage(err, target), false);
     });
   }
 
@@ -618,8 +662,8 @@
     harvestLinesFromDom();
     var app = selectedApp();
     if (!app) return showMsg("Select an app.", false);
-    if (!isPermitPathApp(app)) {
-      return showMsg("Delivery is only wired for Permit Path right now. Select Permit Path.", false);
+    if (!isWiredApp(app)) {
+      return showMsg("Delivery is wired for Permit Path and Pilot Car 4 Hire. Select one of those apps.", false);
     }
     if (!trim(subject)) return showMsg("Add a subject.", false);
     var message = plainMessage();
@@ -627,10 +671,12 @@
     if (!db || !db.from) return showMsg("Not signed in.", false);
     if (sending) return;
 
+    var target = targetForApp(app);
+    var destName = isPilotCarApp(app) ? "Pilot Car 4 Hire" : "Permit Path";
     var first = lines.filter(function (ln) { return trim(ln.text); })[0] || currentLine();
     sending = true;
     render();
-    showMsg("Saving and sending to Permit Path…", true);
+    showMsg("Saving and sending to " + destName + "…", true);
 
     uploadPhoto().then(function (url) {
       var row = {
@@ -648,19 +694,22 @@
         if (res.error) throw res.error;
         var saved = res.data;
         history = [saved].concat(history);
-        return publishToPermitPath(row, saved && saved.id);
+        return publishToApp(row, saved && saved.id, target);
       });
     }).then(function () {
       sending = false;
       resetCompose();
       render();
-      showMsg("Sent to Permit Path. Users will see it the next time they open the app.", true);
+      var seen = isPilotCarApp(app)
+        ? "Sent to Pilot Car 4 Hire. Signed-in users will see it the next time they open the app."
+        : "Sent to Permit Path. Users will see it the next time they open the app.";
+      showMsg(seen, true);
     }).catch(function (err) {
       sending = false;
       render();
       var msg = (err && err.message) || "Could not save notification.";
       if (/image_url|message_font|message_blocks|column/i.test(msg)) showMsg(STYLE_SQL_HINT, false);
-      else showMsg(schemaMissing(err) ? SCHEMA_HINT : publishErrorMessage(err), false);
+      else showMsg(schemaMissing(err) ? SCHEMA_HINT : publishErrorMessage(err, target), false);
     });
   }
 
