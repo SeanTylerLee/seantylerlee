@@ -6,6 +6,7 @@
   var lastBusy = false;
   var current = "";
   var timer = null;
+  var shownGood = "";
 
   var BUSY = /loading|saving|sending|upload|building|publish|deleting|zipping|collecting|writing restore|signing/i;
   var SKIP = /unsaved changes/i;
@@ -49,7 +50,7 @@
     node.classList.add("is-" + mode);
     node.setAttribute("aria-hidden", "true");
     if (mode === "ok" || mode === "bad") {
-      hideTimer = setTimeout(function () { setMode(""); }, mode === "bad" ? 1200 : 900);
+      hideTimer = setTimeout(function () { setMode(""); }, mode === "bad" ? 700 : 380);
     }
   }
 
@@ -71,19 +72,29 @@
     if (save && !save.classList.contains("hidden") && BUSY.test(save.textContent || "")) busy = true;
     if (fail) {
       lastBusy = false;
+      shownGood = "";
       setMode("bad");
       return;
     }
     if (busy) {
       lastBusy = true;
+      shownGood = "";
       setMode("spin");
       return;
     }
     if (good) {
-      lastBusy = false;
-      setMode("ok");
+      var key = "";
+      for (i = 0; i < nodes.length; i += 1) {
+        if (nodes[i].classList.contains("is-ok")) key += (nodes[i].textContent || "") + "|";
+      }
+      if (lastBusy || shownGood !== key) {
+        shownGood = key;
+        lastBusy = false;
+        setMode("ok");
+      }
       return;
     }
+    shownGood = "";
     if (lastBusy) lastBusy = false;
     if (current === "spin") setMode("");
   }
