@@ -14,6 +14,7 @@
 .app.is-emails .main,
 .app.is-notifications .main,
 .app.is-promos .main,
+.app.is-subscribed .main,
 .app.is-leads .main,
 .app.is-inventory .main,
 .app.is-mileage .main {
@@ -240,6 +241,18 @@
   height: 24px;
   font-size: 11px;
   padding: 0 8px;
+}
+
+.app.is-subscribed .ops-chips {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.app.is-subscribed .ops-chip .k {
+  min-height: 28px;
+}
+
+.app.is-subscribed img.app-icon {
+  object-fit: cover;
 }
 
 .ops-empty {

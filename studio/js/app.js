@@ -24,6 +24,7 @@
       { id: "promos", title: "Promos", icon: "tag-fill", tint: "#C45C2A", body: "Free trials, intro prices, and promo codes per app." },
       { id: "sop", title: "SOP", icon: "list-clipboard-fill", tint: "#336BB3", body: "How-to guides with checkable steps." },
       { id: "appleAnalytics", title: "Analytics", icon: "chart-bar-xaxis", tint: "#337AC7", body: "App Store Connect and Google Play vitals." },
+      { id: "subscribed", title: "Subscribed", icon: "person-crop-circle-fill", tint: "#2E7D4F", body: "Current Apple and Google subscribers per app." },
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
       { id: "emails", title: "Emails", icon: "envelope-fill", tint: "#738094", body: "Mailing lists and templates." },
       { id: "notifications", title: "Notifications", icon: "bell-fill", tint: "#5B6B8C", body: "Push messages to app users." }
@@ -78,6 +79,7 @@
     ownerDraws: "is-ownerDraws",
     taxes: "is-taxes",
     appleAnalytics: "is-analytics",
+    subscribed: "is-subscribed",
     sop: "is-sop",
     apps: "is-apps",
     promos: "is-promos",
@@ -105,6 +107,7 @@
     ownerDraws: "STLOwnerDraws",
     taxes: "STLTaxes",
     appleAnalytics: "STLAnalytics",
+    subscribed: "STLSubscribed",
     sop: "STLSOP",
     apps: "STLApps",
     promos: "STLPromos",
