@@ -195,12 +195,12 @@
     if (appleReady) {
       html +=
         '<div class="ops-card"><h3>Apple mix</h3>' +
-        '<p class="sub">Paid, trials, offers, and grace period. Billing retry is shown and is not added to the total.</p>' +
+        '<p class="sub">Paid plans and trials/offers. This matches App Store Connect Analytics → Subscriptions.</p>' +
         '<div class="app-metrics">' +
-          "<span>Paid <b>" + formatted(b.standard) + "</b></span>" +
+          "<span>Paid plans <b>" + formatted(b.standard) + "</b></span>" +
+          "<span>Trials / offers <b>" + formatted(b.offerCode) + "</b></span>" +
           "<span>Intro <b>" + formatted(b.introductory) + "</b></span>" +
           "<span>Promo <b>" + formatted(b.promotional) + "</b></span>" +
-          "<span>Offer code <b>" + formatted(b.offerCode) + "</b></span>" +
           "<span>Win-back <b>" + formatted(b.winBack) + "</b></span>" +
           "<span>Grace <b>" + formatted(b.gracePeriod) + "</b></span>" +
           "<span>Billing retry <b>" + formatted(b.billingRetry) + "</b></span>" +
