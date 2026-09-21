@@ -4,9 +4,8 @@
   var root = null;
   var hideTimer = null;
   var lastBusy = false;
-  var observer = null;
   var current = "";
-  var scheduled = false;
+  var timer = null;
 
   var BUSY = /loading|saving|sending|upload|building|publish|deleting|zipping|collecting|writing restore|signing/i;
   var SKIP = /unsaved changes/i;
@@ -48,7 +47,7 @@
     node.hidden = false;
     node.classList.remove("is-spin", "is-ok", "is-bad");
     node.classList.add("is-" + mode);
-    node.setAttribute("aria-hidden", "false");
+    node.setAttribute("aria-hidden", "true");
     if (mode === "ok" || mode === "bad") {
       hideTimer = setTimeout(function () { setMode(""); }, mode === "bad" ? 1200 : 900);
     }
@@ -89,43 +88,15 @@
     if (current === "spin") setMode("");
   }
 
-  function queueRead() {
-    if (scheduled) return;
-    scheduled = true;
-    setTimeout(function () {
-      scheduled = false;
-      readState();
-    }, 40);
-  }
-
-  function fromHud(node) {
-    if (!node || !root) return false;
-    return node === root || (root.contains && root.contains(node));
-  }
-
-  function watch() {
-    if (observer) observer.disconnect();
-    observer = new MutationObserver(function (records) {
-      var i;
-      for (i = 0; i < records.length; i += 1) {
-        if (!fromHud(records[i].target)) {
-          queueRead();
-          return;
-        }
-      }
-    });
-    var gate = document.getElementById("gate");
-    var app = document.getElementById("app");
-    var opts = { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["class"] };
-    if (gate) observer.observe(gate, opts);
-    if (app) observer.observe(app, opts);
-    else observer.observe(document.body, opts);
+  function start() {
+    if (timer) return;
+    timer = setInterval(readState, 300);
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", watch);
+    document.addEventListener("DOMContentLoaded", start);
   } else {
-    watch();
+    start();
   }
 
   window.STLHud = {

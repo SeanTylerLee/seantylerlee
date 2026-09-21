@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  // Same order and grouping as the Mac app sidebar.
+  // Same order and grouping as the Mac app sidebar. Cache bust 43.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Profit, needs-you board, and studio snapshot." },
