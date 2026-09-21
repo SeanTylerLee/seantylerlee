@@ -41,6 +41,7 @@
   var pendingFile = null;
   var sending = false;
   var deletingId = null;
+  var clearCounts = {};
 
   function blankLine() {
     return { text: "", font: "system", size: "medium", color: "#555555" };
@@ -260,7 +261,7 @@
     var html =
       '<div class="ops-card" style="margin-top:18px">' +
         "<h3>Sent</h3>" +
-        '<p class="sub">Newest first. Delete removes it from Studio and from the app, including for users who have not opened it yet.</p>';
+        '<p class="sub">Newest first. Cleared is signed-in users who tapped Clear. Delete removes it from Studio and from the app, including for users who have not opened it yet.</p>';
     if (!history.length) {
       html += '<p class="sub">No notifications sent yet.</p></div>';
       return html;
@@ -274,6 +275,7 @@
               "<strong style=\"font-size:13px\">" + esc(item.subject || "(No subject)") + "</strong>" +
               '<span class="sub" style="display:block;margin:2px 0 0">' +
                 esc(item.app_name || "App") + " · " + esc(formatWhen(item.created_at)) +
+                '<span data-cleared="' + esc(item.id) + '">' + clearedText(item) + "</span>" +
               "</span>" +
             "</div>" +
             '<button class="btn" type="button" data-el="delete" data-id="' + esc(item.id) + '"' +
@@ -534,6 +536,52 @@
     bindCompose();
   }
 
+  function clearedText(item) {
+    if (!item || !item.id) return "";
+    if (!isWiredApp({ id: item.app_id, name: item.app_name })) return "";
+    if (!Object.prototype.hasOwnProperty.call(clearCounts, item.id)) return " · Counting…";
+    var n = Number(clearCounts[item.id] || 0);
+    return " · " + n + " cleared";
+  }
+
+  function paintClearCounts() {
+    if (!root) return;
+    history.forEach(function (item) {
+      var span = root.querySelector('[data-cleared="' + item.id + '"]');
+      if (span) span.textContent = clearedText(item);
+    });
+  }
+
+  function loadClearCounts() {
+    if (!window.STLLocalApi || typeof window.STLLocalApi.post !== "function") return;
+    var items = history.filter(function (item) {
+      return isWiredApp({ id: item.app_id, name: item.app_name });
+    }).map(function (item) {
+      return {
+        studio_notification_id: item.id,
+        target: targetForHistoryItem(item),
+        app_name: item.app_name || ""
+      };
+    });
+    if (!items.length) return;
+    window.STLLocalApi.post("/api/announcements/clears", { items: items }).then(function (res) {
+      if (!res || !res.ok) return;
+      var map = (res.data && res.data.counts) || {};
+      items.forEach(function (row) {
+        var n = map[row.studio_notification_id];
+        clearCounts[row.studio_notification_id] = Number(n || 0);
+      });
+      paintClearCounts();
+    }).catch(function () {
+      items.forEach(function (row) {
+        if (!Object.prototype.hasOwnProperty.call(clearCounts, row.studio_notification_id)) {
+          clearCounts[row.studio_notification_id] = 0;
+        }
+      });
+      paintClearCounts();
+    });
+  }
+
   function preferPermitPath(list) {
     var match = list.filter(function (a) { return /permit\s*path/i.test(a.name || ""); })[0];
     if (match) selectedAppId = match.id;
@@ -700,6 +748,7 @@
       sending = false;
       resetCompose();
       render();
+      loadClearCounts();
       var seen = isPilotCarApp(app)
         ? "Sent to Pilot Car 4 Hire. Signed-in users will see it the next time they open the app."
         : "Sent to Permit Path. Users will see it the next time they open the app.";
@@ -753,6 +802,7 @@
       history = histRes.data || [];
       showMsg("");
       render();
+      loadClearCounts();
     }).catch(function (err) {
       apps = FALLBACK_APPS.slice();
       history = [];
@@ -771,6 +821,7 @@
       sending = false;
       deletingId = null;
       history = [];
+      clearCounts = {};
       selectedAppId = "permit-path";
       apps = FALLBACK_APPS.slice();
       panel.classList.add("ops-wide");

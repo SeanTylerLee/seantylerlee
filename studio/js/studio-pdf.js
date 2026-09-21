@@ -289,35 +289,70 @@
     this.y += 20;
   };
 
+  Report.prototype.exhibitHead = function (meta) {
+    var label = "EXHIBIT  " + String(meta.number || "");
+    this.text(label, this.mL, this.y, { width: this.maxW, size: 9, bold: true, color: BLUE });
+    this.y += 16;
+    this.text(meta.title || "Proof", this.mL, this.y, { width: this.maxW, size: 14, bold: true, color: NAVY });
+    this.y += 18;
+    if (meta.line) {
+      this.y += this.wrap(meta.line, this.mL, this.y, this.maxW, { size: 9, color: MUTED }) + 8;
+    }
+  };
+
   Report.prototype.proofImage = function (dataUrl, meta) {
     this.beginPage();
-    this.text("PROOF " + meta.number + (meta.pageNote || ""), this.mL, this.y, { width: this.maxW, size: 11, bold: true, color: BLUE });
-    this.y += 18;
-    this.text(meta.title || "Proof", this.mL, this.y, { width: this.maxW, size: 13, bold: true, color: NAVY });
-    this.y += 18;
-    this.wrap(meta.line || "", this.mL, this.y, this.maxW, { size: 9, color: MUTED });
-    this.y += 22;
-    var destH = Math.max(120, this.pageH - this.mB - this.y - 8);
+    this.exhibitHead(meta);
+    var boxH = Math.max(160, this.pageH - this.mB - this.y - 6);
+    this.fill(ICE);
+    this.doc.roundedRect(this.mL, this.y, this.maxW, boxH, 8, 8, "F");
     this.doc.setDrawColor(LINE[0], LINE[1], LINE[2]);
-    this.doc.setLineWidth(0.8);
-    this.doc.rect(this.mL, this.y, this.maxW, destH);
-    if (dataUrl) {
-      try {
-        var fmt = /image\/png/i.test(dataUrl) ? "PNG" : "JPEG";
-        this.doc.addImage(dataUrl, fmt, this.mL + 8, this.y + 8, this.maxW - 16, destH - 16, undefined, "FAST");
-      } catch (e) {
-        this.text("Proof image could not be placed.", this.mL + 12, this.y + 16, { size: 10, color: MUTED });
-      }
+    this.doc.setLineWidth(0.7);
+    this.doc.roundedRect(this.mL, this.y, this.maxW, boxH, 8, 8, "S");
+    if (!dataUrl) {
+      this.text("Receipt image is on file in Studio.", this.mL + 16, this.y + 20, { size: 10, color: MUTED });
+      return;
+    }
+    var pad = 14;
+    var innerW = this.maxW - pad * 2;
+    var innerH = boxH - pad * 2;
+    var srcW = Number(meta.width) || 0;
+    var srcH = Number(meta.height) || 0;
+    var dw = innerW;
+    var dh = innerH;
+    if (srcW > 0 && srcH > 0) {
+      var scale = Math.min(innerW / srcW, innerH / srcH);
+      dw = srcW * scale;
+      dh = srcH * scale;
+    }
+    var x = this.mL + pad + (innerW - dw) / 2;
+    var y = this.y + pad + (innerH - dh) / 2;
+    try {
+      var fmt = /image\/png/i.test(dataUrl) ? "PNG" : "JPEG";
+      this.doc.addImage(dataUrl, fmt, x, y, dw, dh, undefined, "FAST");
+    } catch (e) {
+      this.text("Receipt image could not be placed on this page.", this.mL + 16, this.y + 20, { size: 10, color: MUTED });
     }
   };
 
   Report.prototype.proofNote = function (meta) {
     this.beginPage();
-    this.text("PROOF " + meta.number, this.mL, this.y, { width: this.maxW, size: 11, bold: true, color: BLUE });
-    this.y += 18;
-    this.text(meta.title || "Proof", this.mL, this.y, { width: this.maxW, size: 13, bold: true, color: NAVY });
-    this.y += 20;
-    this.note(meta.line || "This proof is a PDF on file in the studio. Open the item to view it.");
+    this.exhibitHead(meta);
+    var boxH = 120;
+    this.fill(ICE);
+    this.doc.roundedRect(this.mL, this.y, this.maxW, boxH, 8, 8, "F");
+    this.doc.setDrawColor(LINE[0], LINE[1], LINE[2]);
+    this.doc.setLineWidth(0.7);
+    this.doc.roundedRect(this.mL, this.y, this.maxW, boxH, 8, 8, "S");
+    this.text("Original PDF receipt", this.mL + 16, this.y + 18, { size: 11, bold: true, color: NAVY });
+    this.wrap(
+      meta.fileNote ||
+        "This exhibit is a PDF receipt on file in STL Studio. The original file is included in the tax packet under Receipts.",
+      this.mL + 16,
+      this.y + 40,
+      this.maxW - 32,
+      { size: 9, color: MUTED }
+    );
   };
 
   Report.prototype.blob = function () {

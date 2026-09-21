@@ -566,7 +566,7 @@
         ["Owner draws", window.STLStudioPdf.money(yearDraws())]
       ]);
       pdf.heading("What’s in this zip", 12);
-      pdf.note("00-Profit-and-Loss.pdf · 01-Monthly-Summary.pdf · 02-Mileage.pdf · Paid-Invoices · Company-Documents. Income and expense receipt reports can also be exported from Income and Expenses.");
+      pdf.note("00-Profit-and-Loss.pdf · 01-Monthly-Summary.pdf · 02-Mileage.pdf · 03-Expenses.pdf · 04-Income.pdf · Receipts · Paid-Invoices · Company-Documents. Expense and income reports include labeled exhibit pages for every attached receipt.");
       pdf.heading("Summary", 12);
       var sumW = [pdf.maxW - 120, 120];
       pdf.tableHeader(["Line", "Amount"], sumW, 1);
@@ -687,12 +687,38 @@
       return list.filter(Boolean);
     });
 
-    Promise.all([pl, monthly, mileagePdf, invoicePdfs, companyFiles]).then(function (parts) {
+    function ledgerReport(kind, rows) {
+      if (!window.STLLedgerPdf) return Promise.resolve(null);
+      var has = (rows || []).some(function (r) { return Number(r.year) === selectedYear; });
+      if (!has) return Promise.resolve(null);
+      return window.STLLedgerPdf.buildYear({
+        db: db,
+        rows: rows,
+        year: selectedYear,
+        kind: kind
+      }).catch(function () { return null; });
+    }
+
+    Promise.all([
+      pl,
+      monthly,
+      mileagePdf,
+      invoicePdfs,
+      companyFiles,
+      ledgerReport("expenses", expenses),
+      ledgerReport("income", incomes)
+    ]).then(function (parts) {
       var zip = new window.JSZip();
       var folder = zip.folder("STL-Apps-LLC-Tax-Packet-" + selectedYear);
       folder.file("00-Profit-and-Loss.pdf", parts[0]);
       folder.file("01-Monthly-Summary.pdf", parts[1]);
       folder.file("02-Mileage.pdf", parts[2]);
+      if (parts[5] && parts[5].blob) folder.file("03-Expenses.pdf", parts[5].blob);
+      if (parts[6] && parts[6].blob) folder.file("04-Income.pdf", parts[6].blob);
+      var recEx = folder.folder("Receipts/Expenses");
+      ((parts[5] && parts[5].receipts) || []).forEach(function (file) { recEx.file(file.name, file.blob); });
+      var recIn = folder.folder("Receipts/Income");
+      ((parts[6] && parts[6].receipts) || []).forEach(function (file) { recIn.file(file.name, file.blob); });
       var inv = folder.folder("Paid-Invoices");
       (parts[3] || []).forEach(function (file) { inv.file(file.name, file.blob); });
       var co = folder.folder("Company-Documents");

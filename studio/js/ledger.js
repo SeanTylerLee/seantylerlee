@@ -626,94 +626,25 @@
     }
 
     function exportPdf() {
-      if (!window.STLStudioPdf) return showMsg("PDF library missing.", false);
-      var list = yearRows().slice().sort(function (a, b) {
-        if (String(a.date) !== String(b.date)) return String(a.date) < String(b.date) ? -1 : 1;
-        return String(a.title || "").localeCompare(String(b.title || ""));
-      });
-      if (!list.length) return showMsg("Add at least one item for this year first.", false);
-      var t = totals();
-      var word = config.kind === "income" ? "INCOME REPORT" : "EXPENSE REPORT";
-      var stem = config.kind === "income" ? "Income" : "Expenses";
-      var column = config.kind === "income" ? "Income" : "Expense";
-      var noun = config.kind === "income" ? "income item" : "expense";
+      if (!window.STLLedgerPdf) return showMsg("PDF library missing.", false);
       showMsg("Building PDF…", true);
-      var numbered = [];
-      var proofCount = 0;
-      list.forEach(function (item, i) {
-        var proofs = proofsOf(item);
-        var n = proofs.length ? (proofCount += proofs.length, proofCount - proofs.length + 1) : null;
-        numbered.push({ item: item, number: i + 1, proofStart: n, proofs: proofs });
-      });
-      Promise.all(numbered.map(function (row) {
-        return loadProofAssets(row.item).then(function (assets) {
-          row.assets = assets;
-          return row;
-        });
-      })).then(function (rows) {
-        return window.STLStudioPdf.open({
-          db: db,
-          word: word,
-          yearLabel: "Tax year " + selectedYear
-        }).then(function (pdf) {
-          pdf.heading((config.kind === "income" ? "Yearly income summary" : "Yearly expense summary"), 13);
-          pdf.note("Prepared " + window.STLStudioPdf.prepared() + " for tax records. Amounts are the total counted in " + selectedYear + ".");
-          pdf.chips([
-            ["Year total", window.STLStudioPdf.money(t.year)],
-            ["One-time", window.STLStudioPdf.money(t.one)],
-            ["Yearly recurring", window.STLStudioPdf.money(t.yearly)],
-            ["Monthly recurring", window.STLStudioPdf.money(t.monthly)]
-          ]);
-          pdf.heading(config.kind === "income" ? "Income list" : "Expense list", 12);
-          var attached = numbered.filter(function (r) { return r.proofs.length; }).length;
-          pdf.note(attached
-            ? "Proof numbers match the receipt pages that follow this list."
-            : "No receipt images are attached. Add photos or PDFs on each " + noun + " to include proof pages.");
-          var colW = [28, 78, pdf.maxW - 28 - 78 - 88 - 78 - 48, 88, 78, 48];
-          pdf.tableHeader(["#", "Date", column, "Type", "Amount", "Proof"], colW, 4);
-          rows.forEach(function (row, i) {
-            var item = row.item;
-            var proof = row.proofStart
-              ? (row.proofs.length > 1 ? row.proofStart + "–" + (row.proofStart + row.proofs.length - 1) : String(row.proofStart))
-              : "—";
-            pdf.tableRow(
-              [
-                String(row.number),
-                M().formatDate(item.date),
-                M().trim(item.title) || config.untitled,
-                typeLabel(item),
-                window.STLStudioPdf.money(M().yearTotal(item)),
-                proof
-              ],
-              colW,
-              {
-                sizes: [9, 8.5, 9, 8.5, 9, 9],
-                bolds: [false, false, false, false, false, true],
-                aligns: ["center", "left", "left", "left", "right", "center"],
-                stripe: row.number % 2 === 0
-              }
-            );
-          });
-          pdf.totalLine("Total " + selectedYear, window.STLStudioPdf.money(t.year));
-          if (attached) {
-            pdf.note("The following pages are labeled Proof 1 through Proof " + proofCount + ". Each proof is the receipt photo or PDF attached to that " + noun + ".");
-          }
-          var proofNo = 0;
-          rows.forEach(function (row) {
-            (row.assets || []).forEach(function (asset) {
-              proofNo += 1;
-              var meta = {
-                number: proofNo,
-                title: M().trim(row.item.title) || config.untitled,
-                line: M().formatDate(row.item.date) + "  ·  " + window.STLStudioPdf.money(M().yearTotal(row.item)) + (asset.name ? "  ·  " + asset.name : "")
-              };
-              if (asset.kind === "image" && asset.url) pdf.proofImage(asset.url, meta);
-              else pdf.proofNote(meta);
-            });
-          });
-          pdf.save("STL-Apps-LLC_" + stem + "_" + selectedYear + ".pdf");
-          showMsg("PDF downloaded.", true);
-        });
+      window.STLLedgerPdf.buildYear({
+        db: db,
+        rows: rows,
+        year: selectedYear,
+        kind: config.kind,
+        untitled: config.untitled
+      }).then(function (out) {
+        var stem = config.kind === "income" ? "Income" : "Expenses";
+        var url = URL.createObjectURL(out.blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "STL-Apps-LLC_" + stem + "_" + selectedYear + ".pdf";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+        showMsg("PDF downloaded.", true);
       }).catch(function (err) {
         showMsg((err && err.message) || "Could not build the PDF.", false);
       });
@@ -849,6 +780,224 @@
       isDirty: function () { return dirty; }
     };
   }
+
+  function ledgerProofsOf(item) {
+    var list = [];
+    var raw = item && item.proofs;
+    if (Array.isArray(raw)) list = raw.slice();
+    else if (typeof raw === "string") {
+      try {
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) list = parsed;
+      } catch (e) {}
+    }
+    if (!list.length && item && item.receipt_path) {
+      list = [{ path: item.receipt_path, file_name: item.receipt_file_name || "receipt", bytes: 0 }];
+    }
+    return list.filter(function (p) { return p && p.path; });
+  }
+
+  function ledgerIsImageName(name) {
+    return /\.(png|jpe?g|webp|gif)$/i.test(String(name || ""));
+  }
+
+  function ledgerTypeLabel(item) {
+    var M = window.STLMoney;
+    var rec = M.resolvedRecurrence(item);
+    if (rec === "monthly") {
+      var n = M.resolvedMonthCount ? M.resolvedMonthCount(item) : 12;
+      return "Monthly × " + (n || 12);
+    }
+    if (rec === "yearly") return "Yearly";
+    return "One-time";
+  }
+
+  function ledgerBlobToDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = function () { reject(new Error("Could not read proof")); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function ledgerMeasureDataUrl(dataUrl) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        resolve({ url: dataUrl, width: img.naturalWidth || img.width || 0, height: img.naturalHeight || img.height || 0 });
+      };
+      img.onerror = function () { resolve({ url: dataUrl, width: 0, height: 0 }); };
+      img.src = dataUrl;
+    });
+  }
+
+  function ledgerSafeFile(name) {
+    return String(name || "file").replace(/[\/\\?%*:|"<>]/g, "-").replace(/\s+/g, " ").trim() || "file";
+  }
+
+  function ledgerYearTotals(list) {
+    var M = window.STLMoney;
+    var one = 0;
+    var yearly = 0;
+    var monthly = 0;
+    list.forEach(function (item) {
+      var rec = M.resolvedRecurrence(item);
+      var total = M.yearTotal(item);
+      if (rec === "monthly") monthly += total;
+      else if (rec === "yearly") yearly += total;
+      else one += total;
+    });
+    return {
+      one: M.round2(one),
+      yearly: M.round2(yearly),
+      monthly: M.round2(monthly),
+      year: M.round2(one + yearly + monthly)
+    };
+  }
+
+  function ledgerLoadProofAssets(db, item) {
+    var list = ledgerProofsOf(item);
+    if (!list.length) return Promise.resolve([]);
+    return list.reduce(function (chain, proof) {
+      return chain.then(function (out) {
+        return db.storage.from("ledger-receipts").createSignedUrl(proof.path, 180).then(function (res) {
+          if (res.error || !res.data || !res.data.signedUrl) {
+            out.push({ kind: "note", name: proof.file_name || "Proof" });
+            return out;
+          }
+          var url = res.data.signedUrl;
+          var fileName = proof.file_name || proof.path || "proof";
+          return fetch(url).then(function (r) { return r.blob(); }).then(function (blob) {
+            var asset = { name: fileName, blob: blob };
+            if (!ledgerIsImageName(fileName)) {
+              asset.kind = "pdf";
+              out.push(asset);
+              return out;
+            }
+            return ledgerBlobToDataUrl(blob).then(ledgerMeasureDataUrl).then(function (measured) {
+              asset.kind = "image";
+              asset.url = measured.url;
+              asset.width = measured.width;
+              asset.height = measured.height;
+              out.push(asset);
+              return out;
+            });
+          }).catch(function () {
+            out.push({ kind: "note", name: fileName });
+            return out;
+          });
+        });
+      });
+    }, Promise.resolve([]));
+  }
+
+  function ledgerBuildYear(opts) {
+    opts = opts || {};
+    var M = window.STLMoney;
+    if (!window.STLStudioPdf) return Promise.reject(new Error("PDF library missing."));
+    var db = opts.db;
+    var year = Number(opts.year) || new Date().getFullYear();
+    var kind = opts.kind === "income" ? "income" : "expenses";
+    var untitled = opts.untitled || (kind === "income" ? "Untitled income" : "Untitled expense");
+    var list = (opts.rows || []).filter(function (r) { return Number(r.year) === year; }).slice().sort(function (a, b) {
+      if (String(a.date) !== String(b.date)) return String(a.date) < String(b.date) ? -1 : 1;
+      return String(a.title || "").localeCompare(String(b.title || ""));
+    });
+    if (!list.length) return Promise.reject(new Error("Add at least one item for this year first."));
+    var t = ledgerYearTotals(list);
+    var word = kind === "income" ? "INCOME REPORT" : "EXPENSE REPORT";
+    var column = kind === "income" ? "Income" : "Expense";
+    var noun = kind === "income" ? "income item" : "expense";
+    var numbered = [];
+    var proofCount = 0;
+    list.forEach(function (item, i) {
+      var proofs = ledgerProofsOf(item);
+      var n = proofs.length ? (proofCount += proofs.length, proofCount - proofs.length + 1) : null;
+      numbered.push({ item: item, number: i + 1, proofStart: n, proofs: proofs });
+    });
+    return Promise.all(numbered.map(function (row) {
+      return ledgerLoadProofAssets(db, row.item).then(function (assets) {
+        row.assets = assets;
+        return row;
+      });
+    })).then(function (rows) {
+      return window.STLStudioPdf.open({
+        db: db,
+        word: word,
+        yearLabel: "Tax year " + year
+      }).then(function (pdf) {
+        pdf.heading(kind === "income" ? "Yearly income summary" : "Yearly expense summary", 13);
+        pdf.note("Prepared " + window.STLStudioPdf.prepared() + " for tax records. Amounts are the total counted in " + year + ". Receipt photos are printed at true proportion on the exhibit pages that follow.");
+        pdf.chips([
+          ["Year total", window.STLStudioPdf.money(t.year)],
+          ["One-time", window.STLStudioPdf.money(t.one)],
+          ["Yearly recurring", window.STLStudioPdf.money(t.yearly)],
+          ["Monthly recurring", window.STLStudioPdf.money(t.monthly)]
+        ]);
+        pdf.heading(kind === "income" ? "Income list" : "Expense list", 12);
+        var attached = numbered.filter(function (r) { return r.proofs.length; }).length;
+        pdf.note(attached
+          ? "Exhibit numbers match the receipt pages that follow this list. Original files are also included in the tax packet under Receipts."
+          : "No receipts are attached. Add photos or PDFs on each " + noun + " to include exhibit pages.");
+        var colW = [28, 78, pdf.maxW - 28 - 78 - 88 - 78 - 48, 88, 78, 48];
+        pdf.tableHeader(["#", "Date", column, "Type", "Amount", "Exh."], colW, 4);
+        rows.forEach(function (row) {
+          var item = row.item;
+          var proof = row.proofStart
+            ? (row.proofs.length > 1 ? row.proofStart + "–" + (row.proofStart + row.proofs.length - 1) : String(row.proofStart))
+            : "—";
+          pdf.tableRow(
+            [
+              String(row.number),
+              M.formatDate(item.date),
+              M.trim(item.title) || untitled,
+              ledgerTypeLabel(item),
+              window.STLStudioPdf.money(M.yearTotal(item)),
+              proof
+            ],
+            colW,
+            {
+              sizes: [9, 8.5, 9, 8.5, 9, 9],
+              bolds: [false, false, false, false, false, true],
+              aligns: ["center", "left", "left", "left", "right", "center"],
+              stripe: row.number % 2 === 0
+            }
+          );
+        });
+        pdf.totalLine("Total " + year, window.STLStudioPdf.money(t.year));
+        if (attached) {
+          pdf.note("The following pages are Exhibit 1 through Exhibit " + proofCount + ". Each exhibit is the receipt photo or original PDF attached to that " + noun + ".");
+        }
+        var proofNo = 0;
+        var receipts = [];
+        rows.forEach(function (row) {
+          (row.assets || []).forEach(function (asset) {
+            proofNo += 1;
+            var meta = {
+              number: proofNo,
+              title: M.trim(row.item.title) || untitled,
+              line: M.formatDate(row.item.date) + "  ·  " + window.STLStudioPdf.money(M.yearTotal(row.item)) + (asset.name ? "  ·  " + asset.name : ""),
+              width: asset.width,
+              height: asset.height
+            };
+            if (asset.kind === "image" && asset.url) pdf.proofImage(asset.url, meta);
+            else pdf.proofNote(meta);
+            if (asset.blob) {
+              var ext = String(asset.name || "file").split(".").pop() || "bin";
+              receipts.push({
+                name: String(proofNo).padStart(2, "0") + "-" + ledgerSafeFile((M.trim(row.item.title) || untitled) + "." + ext),
+                blob: asset.blob
+              });
+            }
+          });
+        });
+        return { blob: pdf.blob(), receipts: receipts };
+      });
+    });
+  }
+
+  window.STLLedgerPdf = { buildYear: ledgerBuildYear };
 
   window.STLExpenses = createLedger({
     kind: "expenses",
