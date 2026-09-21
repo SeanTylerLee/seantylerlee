@@ -135,17 +135,16 @@
     var google = (snapshot && snapshot.google) || {};
     var appleErr = apple.error || "";
     var googleErr = google.error || "";
-    if (err && needsVendor(err)) {
-      html += vendorForm(err);
-    } else if (loading && !snapshot) {
+    var appleReady = !!apple.ready && apple.total != null;
+    var googleReady = !!google.ready && google.total != null;
+
+    if (loading && !snapshot) {
       html += '<div class="ops-empty">Loading subscriber counts…</div>';
-    } else if (err) {
+    } else if (err && !snapshot.apple && !snapshot.google) {
       html += '<div class="ops-card"><p class="sub" style="margin:0">' + esc(err) + "</p></div>";
-      if (needsVendor(err)) html += vendorForm(err);
-      if (needsBucket(err)) html += bucketForm(err);
-    } else if (snapshot) {
-      var appleReady = !!apple.ready && apple.total != null;
-      var googleReady = !!google.ready && google.total != null;
+    } else if (!snapshot) {
+      html += '<div class="ops-empty">Pick an app to load subscriber counts.</div>';
+    } else {
       html +=
         '<div class="ops-chips">' +
           '<div class="ops-chip ok"><span class="k">Apple total subscribed</span><span class="v">' +
@@ -159,51 +158,53 @@
       if (apple.reportDate) dates.push("Apple " + apple.reportDate);
       if (google.reportDate) dates.push("Google " + google.reportDate);
       if (dates.length) html += '<p class="sub" style="margin:0 0 12px">' + esc(dates.join(" · ")) + "</p>";
-      if (needsVendor(appleErr)) html += vendorForm(appleErr);
-      else if (appleErr) html += '<div class="ops-card"><p class="sub" style="margin:0">' + esc(appleErr) + "</p></div>";
-      else if (apple.note) html += '<div class="ops-card"><p class="sub" style="margin:0">' + esc(apple.note) + "</p></div>";
-      if (needsBucket(googleErr)) html += bucketForm(googleErr);
-      else if (googleErr) html += '<div class="ops-card"><p class="sub" style="margin:0">' + esc(googleErr) + "</p></div>";
-      else if (google.note) html += '<div class="ops-card"><p class="sub" style="margin:0">' + esc(google.note) + "</p></div>";
-      var products = apple.products || [];
-      if (products.length) {
-        html += '<div class="ops-card"><h3>Apple products</h3>';
-        products.forEach(function (product) {
-          html +=
-            '<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line)">' +
-              "<span>" + esc(product.name || "Subscription") + "</span>" +
-              "<strong>" + formatted(product.total) + "</strong></div>";
-        });
-        html += "</div>";
-      }
-      var gProducts = google.products || [];
-      if (gProducts.length) {
-        html += '<div class="ops-card"><h3>Google products</h3>';
-        gProducts.forEach(function (product) {
-          html +=
-            '<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line)">' +
-              "<span>" + esc(product.name || "Subscription") + "</span>" +
-              "<strong>" + formatted(product.total) + "</strong></div>";
-        });
-        html += "</div>";
-      }
-      var b = apple.breakdown || {};
-      if (appleReady) {
+    }
+
+    if (!googleReady) html += bucketForm(googleErr);
+    if (!appleReady && needsVendor(appleErr || err || "")) html += vendorForm(appleErr || err);
+    else if (appleErr && !needsVendor(appleErr)) {
+      html += '<div class="ops-card"><p class="sub" style="margin:0">' + esc(appleErr) + "</p></div>";
+    }
+    if (googleReady && google.note) {
+      html += '<div class="ops-card"><p class="sub" style="margin:0">' + esc(google.note) + "</p></div>";
+    }
+
+    var products = apple.products || [];
+    if (products.length) {
+      html += '<div class="ops-card"><h3>Apple products</h3>';
+      products.forEach(function (product) {
         html +=
-          '<div class="ops-card"><h3>Apple mix</h3>' +
-          '<p class="sub">Paid, trials, offers, and grace period. Billing retry is shown and is not added to the total.</p>' +
-          '<div class="app-metrics">' +
-            "<span>Paid <b>" + formatted(b.standard) + "</b></span>" +
-            "<span>Intro <b>" + formatted(b.introductory) + "</b></span>" +
-            "<span>Promo <b>" + formatted(b.promotional) + "</b></span>" +
-            "<span>Offer code <b>" + formatted(b.offerCode) + "</b></span>" +
-            "<span>Win-back <b>" + formatted(b.winBack) + "</b></span>" +
-            "<span>Grace <b>" + formatted(b.gracePeriod) + "</b></span>" +
-            "<span>Billing retry <b>" + formatted(b.billingRetry) + "</b></span>" +
-          "</div></div>";
-      }
-    } else {
-      html += '<div class="ops-empty">Pick an app to load subscriber counts.</div>';
+          '<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line)">' +
+            "<span>" + esc(product.name || "Subscription") + "</span>" +
+            "<strong>" + formatted(product.total) + "</strong></div>";
+      });
+      html += "</div>";
+    }
+    var gProducts = google.products || [];
+    if (gProducts.length) {
+      html += '<div class="ops-card"><h3>Google products</h3>';
+      gProducts.forEach(function (product) {
+        html +=
+          '<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line)">' +
+            "<span>" + esc(product.name || "Subscription") + "</span>" +
+            "<strong>" + formatted(product.total) + "</strong></div>";
+      });
+      html += "</div>";
+    }
+    var b = apple.breakdown || {};
+    if (appleReady) {
+      html +=
+        '<div class="ops-card"><h3>Apple mix</h3>' +
+        '<p class="sub">Paid, trials, offers, and grace period. Billing retry is shown and is not added to the total.</p>' +
+        '<div class="app-metrics">' +
+          "<span>Paid <b>" + formatted(b.standard) + "</b></span>" +
+          "<span>Intro <b>" + formatted(b.introductory) + "</b></span>" +
+          "<span>Promo <b>" + formatted(b.promotional) + "</b></span>" +
+          "<span>Offer code <b>" + formatted(b.offerCode) + "</b></span>" +
+          "<span>Win-back <b>" + formatted(b.winBack) + "</b></span>" +
+          "<span>Grace <b>" + formatted(b.gracePeriod) + "</b></span>" +
+          "<span>Billing retry <b>" + formatted(b.billingRetry) + "</b></span>" +
+        "</div></div>";
     }
 
     body.innerHTML = html;
