@@ -88,7 +88,8 @@
         !d.play_service_account_json &&
         !d.permitpath_service_role_key &&
         !d.pilotcar4hire_service_role_key &&
-        !d.asc_vendor_number
+        !d.asc_vendor_number &&
+        !d.play_gcs_bucket
       ) return;
       return client.auth.getUser().then(function (auth) {
         var user = auth.data && auth.data.user;
@@ -106,6 +107,7 @@
           pilotcar4hire_service_role_key: d.pilotcar4hire_service_role_key || ""
         };
         if (d.asc_vendor_number) row.asc_vendor_number = d.asc_vendor_number;
+        if (d.play_gcs_bucket) row.play_gcs_bucket = d.play_gcs_bucket;
         return client.from("studio_secrets").upsert(row, { onConflict: "user_id" });
       });
     }).catch(function () {});
