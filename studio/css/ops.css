@@ -15,6 +15,7 @@
 .app.is-notifications .main,
 .app.is-promos .main,
 .app.is-subscribed .main,
+.app.is-settings .main,
 .app.is-leads .main,
 .app.is-inventory .main,
 .app.is-mileage .main {
@@ -241,6 +242,42 @@
   height: 24px;
   font-size: 11px;
   padding: 0 8px;
+}
+
+.settings-status {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-status li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.settings-status em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.settings-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c9c9c9;
+  flex-shrink: 0;
+}
+
+.settings-dot.is-ok {
+  background: var(--success, #2f9e6b);
 }
 
 .app.is-subscribed .ops-chips {

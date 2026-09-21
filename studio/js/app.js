@@ -42,9 +42,17 @@
     ]
   ];
 
+  var SETTINGS_SECTION = {
+    id: "settings",
+    title: "Settings",
+    icon: "gearshape-fill",
+    tint: "#5A6578",
+    body: "Studio defaults, store report IDs, and connection status."
+  };
+
   var SECTIONS = NAV_GROUPS.reduce(function (all, group) {
     return all.concat(group);
-  }, []);
+  }, []).concat([SETTINGS_SECTION]);
 
   var gate = document.getElementById("gate");
   var app = document.getElementById("app");
@@ -88,7 +96,8 @@
     notifications: "is-notifications",
     leads: "is-leads",
     inventory: "is-inventory",
-    mileage: "is-mileage"
+    mileage: "is-mileage",
+    settings: "is-settings"
   };
 
   var PAGE_MODULE = {
@@ -116,7 +125,8 @@
     notifications: "STLNotifications",
     leads: "STLLeads",
     inventory: "STLInventory",
-    mileage: "STLMileage"
+    mileage: "STLMileage",
+    settings: "STLSettings"
   };
 
   function moduleFor(id) {
@@ -144,7 +154,8 @@
       emails: window.STLEmails,
       leads: window.STLLeads,
       inventory: window.STLInventory,
-      mileage: window.STLMileage
+      mileage: window.STLMileage,
+      settings: window.STLSettings
     };
   }
 
@@ -218,6 +229,12 @@
     if (window.STLLocalApi && window.STLLocalApi.syncSecretsFromMac) {
       window.STLLocalApi.syncSecretsFromMac();
     }
+    if (window.STLSettings && typeof window.STLSettings.defaultSection === "function") {
+      var preferred = window.STLSettings.defaultSection();
+      if (preferred && SECTIONS.some(function (s) { return s.id === preferred; })) {
+        currentSection = preferred;
+      }
+    }
     renderNav();
     renderPanel();
   }
@@ -267,6 +284,24 @@
     });
     pricingWrap.appendChild(pricingBtn);
     sidebar.appendChild(pricingWrap);
+
+    var settingsWrap = document.createElement("div");
+    settingsWrap.className = "sidebar-group sidebar-settings";
+    var settingsBtn = document.createElement("button");
+    settingsBtn.type = "button";
+    settingsBtn.className = "sidebar-item" + (currentSection === "settings" ? " is-on" : "");
+    settingsBtn.innerHTML =
+      '<span class="sidebar-icon" style="background:linear-gradient(135deg,' + SETTINGS_SECTION.tint + "," + SETTINGS_SECTION.tint + 'bf)">' +
+      '<img src="images/sidebar/' + SETTINGS_SECTION.icon + '.png" alt="" />' +
+      "</span>" +
+      '<span class="sidebar-label">' + SETTINGS_SECTION.title + "</span>";
+    settingsBtn.addEventListener("click", function () {
+      currentSection = "settings";
+      renderNav();
+      renderPanel();
+    });
+    settingsWrap.appendChild(settingsBtn);
+    sidebar.appendChild(settingsWrap);
 
     var titleEl = document.querySelector(".topbar-title");
     var current = SECTIONS.filter(function (s) { return s.id === currentSection; })[0];
@@ -373,26 +408,6 @@
 
   if (globalSaveBtn) {
     globalSaveBtn.addEventListener("click", function () {
-      var savers = {
-        billing: window.STLBilling,
-        projects: window.STLProjects,
-        clients: window.STLClients,
-        business: window.STLBusiness,
-        loginVault: window.STLVault,
-        renewals: window.STLRenewals,
-        notes: window.STLNotes,
-        expenses: window.STLExpenses,
-        income: window.STLIncome,
-        ownerDraws: window.STLOwnerDraws,
-        taxes: window.STLTaxes,
-        sop: window.STLSOP,
-        apps: window.STLApps,
-        support: window.STLSupport,
-        emails: window.STLEmails,
-        leads: window.STLLeads,
-        inventory: window.STLInventory,
-        mileage: window.STLMileage
-      };
       var mod = saversMap()[currentSection];
       if (mod && mod.saveAll) mod.saveAll();
     });
