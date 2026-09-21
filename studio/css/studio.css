@@ -359,7 +359,9 @@ textarea {
 }
 
 .sidebar-settings {
+  padding-top: 8px;
   padding-bottom: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.14);
 }
 
 /* Light content toolbar (Mac detail toolbar) */

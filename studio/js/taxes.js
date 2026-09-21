@@ -391,6 +391,13 @@
   }
 
   window.STLTaxes = {
+    applyReserve: function (n) {
+      var v = Number(n);
+      if (!Number.isFinite(v)) return;
+      reservePercent = Math.min(100, Math.max(0, v));
+      dirty = false;
+      if (root) render();
+    },
     mount: function (panel, client) {
       db = client;
       root = panel;

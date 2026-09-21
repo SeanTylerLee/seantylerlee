@@ -229,14 +229,26 @@
     if (window.STLLocalApi && window.STLLocalApi.syncSecretsFromMac) {
       window.STLLocalApi.syncSecretsFromMac();
     }
+    var cachedStart = "overview";
     if (window.STLSettings && typeof window.STLSettings.defaultSection === "function") {
-      var preferred = window.STLSettings.defaultSection();
-      if (preferred && SECTIONS.some(function (s) { return s.id === preferred; })) {
-        currentSection = preferred;
+      cachedStart = window.STLSettings.defaultSection() || "overview";
+      if (SECTIONS.some(function (s) { return s.id === cachedStart; })) {
+        currentSection = cachedStart;
       }
     }
     renderNav();
     renderPanel();
+    if (window.STLSettings && typeof window.STLSettings.hydrate === "function") {
+      window.STLSettings.hydrate(client).then(function (preferred) {
+        if (!appReady) return;
+        if (!preferred || !SECTIONS.some(function (s) { return s.id === preferred; })) return;
+        if (currentSection === cachedStart && preferred !== currentSection) {
+          currentSection = preferred;
+          renderNav();
+          renderPanel();
+        }
+      }).catch(function () {});
+    }
   }
 
   function renderNav() {
@@ -331,6 +343,9 @@
       else {
         el.innerHTML = "<h1>" + section.title + "</h1><p>" + section.body + "</p>";
       }
+    } else {
+      var shown = moduleFor(section.id);
+      if (shown && typeof shown.shown === "function") shown.shown();
     }
     refreshSave();
   }

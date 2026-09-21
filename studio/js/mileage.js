@@ -512,6 +512,13 @@
   }
 
   window.STLMileage = {
+    applyRate: function (n) {
+      var v = Number(n);
+      if (!Number.isFinite(v) || v < 0) return;
+      rate = v;
+      rateDirty = false;
+      if (root) render();
+    },
     mount: function (panel, client) {
       db = client;
       root = panel;

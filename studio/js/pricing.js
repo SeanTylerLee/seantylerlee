@@ -315,6 +315,13 @@
     ready: function () { return loaded; },
     isOpen: function () {
       return !!(panel && !panel.classList.contains("hidden"));
+    },
+    applyDefaults: function (deposit, days) {
+      var d = Number(deposit);
+      var v = Number(days);
+      if (Number.isFinite(d)) depositPercent = Math.max(0, Math.min(100, d));
+      if (Number.isFinite(v) && v >= 1) validDays = v;
+      if (panel && !panel.classList.contains("hidden")) render();
     }
   };
 })();
