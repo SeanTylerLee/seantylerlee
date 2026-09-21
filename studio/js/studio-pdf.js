@@ -206,6 +206,49 @@
     this.y += (size || 13) + 10;
   };
 
+  Report.prototype.newSection = function (title, blurb) {
+    this.yearLabel = title || "";
+    this.beginPage();
+    this.heading(title || "Section", 16);
+    if (blurb) this.note(blurb);
+  };
+
+  Report.prototype.fields = function (pairs) {
+    var labelW = 148;
+    var valueW = this.maxW - labelW;
+    var i;
+    for (i = 0; i < (pairs || []).length; i += 1) {
+      var pair = pairs[i] || [];
+      var label = String(pair[0] == null ? "" : pair[0]);
+      var value = pair[1] == null || pair[1] === "" ? "—" : String(pair[1]);
+      var h = Math.max(this.measure(label, labelW - 8, 8), this.measure(value, valueW - 8, 9)) + 10;
+      this.ensure(h);
+      this.wrap(label, this.mL, this.y + 2, labelW - 8, { size: 8, bold: true, color: MUTED });
+      this.wrap(value, this.mL + labelW, this.y + 2, valueW - 8, { size: 9, color: INK });
+      this.y += h;
+      this.hairline(this.y);
+    }
+  };
+
+  Report.prototype.bullets = function (lines) {
+    var i;
+    var n = 0;
+    for (i = 0; i < (lines || []).length; i += 1) {
+      var raw = String(lines[i] == null ? "" : lines[i]);
+      if (!raw.trim()) continue;
+      var isHead = /^\s*##/.test(raw);
+      var label = isHead ? raw.replace(/^\s*##\s*/, "") : ((n += 1) + ". " + raw);
+      var size = isHead ? 10 : 9;
+      var h = this.measure(label, this.maxW, size) + 6;
+      this.ensure(h);
+      this.y += this.wrap(label, this.mL, this.y, this.maxW, {
+        size: size,
+        bold: isHead,
+        color: isHead ? NAVY : INK
+      }) + 4;
+    }
+  };
+
   Report.prototype.note = function (str) {
     var h = this.measure(str, this.maxW, 9);
     this.ensure(h + 8);

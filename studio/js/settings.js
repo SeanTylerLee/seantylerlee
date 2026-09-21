@@ -21,6 +21,7 @@
   var vendorDraft = "";
   var bucketDraft = "";
   var connections = null;
+  var backingUp = false;
 
   var SECTION_CHOICES = [
     { id: "overview", title: "Overview" },
@@ -253,6 +254,16 @@
       "</div>" +
 
       '<div class="ops-card">' +
+        "<h3>Backup Log</h3>" +
+        '<p class="sub">Download a PDF of every Studio menu. Each menu starts on its own page so you can type the information back in if this studio is ever empty. The PDF includes Login Vault, Apps, and project passwords — keep it private.</p>' +
+        '<div class="ops-actions">' +
+          '<button class="btn btn-primary" type="button" data-el="backup-log"' + (backingUp ? " disabled" : "") + ">" +
+            (backingUp ? "Building PDF…" : "Backup Log") +
+          "</button>" +
+        "</div>" +
+      "</div>" +
+
+      '<div class="ops-card">' +
         "<h3>About</h3>" +
         '<p class="sub" style="margin:0">STL Studio · private ops for STL Apps LLC. Live UI at seantylerlee.com/studio. Local Mac app serves this folder via <code>server.py</code>.</p>' +
       "</div>";
@@ -274,6 +285,35 @@
         if (db && db.auth) db.auth.signOut();
       };
     }
+    var backup = el("backup-log");
+    if (backup) backup.onclick = runBackup;
+  }
+
+  function runBackup() {
+    if (backingUp) return;
+    if (!window.STLBackupLog || typeof window.STLBackupLog.download !== "function") {
+      showMsg("Backup Log is missing. Refresh the page.", false);
+      return;
+    }
+    backingUp = true;
+    var btn = el("backup-log");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Building PDF…";
+    }
+    showMsg("Building Backup Log PDF…", true);
+    window.STLBackupLog.download(db, {
+      onStatus: function (msg) { showMsg(msg || "Building Backup Log PDF…", true); }
+    }).then(function () {
+      backingUp = false;
+      if (root) render();
+      showMsg("Backup Log downloaded.", true);
+      setTimeout(function () { if (!backingUp) showMsg(""); }, 1600);
+    }).catch(function (err) {
+      backingUp = false;
+      if (root) render();
+      showMsg((err && err.message) || "Could not build Backup Log.", false);
+    });
   }
 
   function upsertSetting(uid, key, value) {
