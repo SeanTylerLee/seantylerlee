@@ -2,85 +2,23 @@
   "use strict";
 
   var TABLES = [
-    "business_profile",
-    "business_documents",
-    "vault_logins",
-    "renewal_items",
-    "calendar_day_notes",
-    "studio_settings",
-    "business_expenses",
-    "business_expense_skips",
-    "business_incomes",
-    "business_income_skips",
-    "owner_draws",
-    "inventory_items",
-    "mileage_trips",
-    "managed_apps",
-    "app_logins",
-    "app_issues",
-    "app_promos",
-    "sop_guides",
-    "support_tickets",
-    "email_lists",
-    "email_contacts",
-    "email_templates",
-    "app_notifications",
-    "studio_clients",
-    "studio_leads",
-    "client_projects",
-    "project_logins",
-    "project_costs",
-    "project_hour_entries",
-    "project_issues",
-    "project_handoff_items",
-    "meeting_logs",
-    "billing_documents",
-    "studio_notes",
-    "studio_pricing_items",
-    "studio_pricing_settings"
-  ];
-
-  var MENUS = [
-    "Overview",
-    "Bank",
-    "Business Info",
-    "Login Vault",
-    "Renewals",
-    "Calendar",
-    "Taxes",
-    "Expenses",
-    "Income",
-    "Owner Draw",
-    "Inventory",
-    "Mileage",
-    "Apps",
-    "Promos",
-    "SOP",
-    "Analytics",
-    "Subscribed",
-    "Support",
-    "Emails",
-    "Notifications",
-    "Clients",
-    "Leads",
-    "Projects",
-    "Billing",
-    "Notes",
-    "Pricing",
-    "Settings"
+    "business_profile", "business_documents", "vault_logins", "renewal_items",
+    "calendar_day_notes", "studio_settings", "business_expenses", "business_expense_skips",
+    "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
+    "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos",
+    "sop_guides", "support_tickets", "email_lists", "email_contacts", "email_templates",
+    "app_notifications", "studio_clients", "studio_leads", "client_projects",
+    "project_logins", "project_costs", "project_hour_entries", "project_issues",
+    "project_handoff_items", "meeting_logs", "billing_documents", "studio_notes",
+    "studio_pricing_items", "studio_pricing_settings"
   ];
 
   function money(n) {
     return window.STLStudioPdf ? window.STLStudioPdf.money(n) : String(n || 0);
   }
 
-  function dash(v) {
-    if (v == null || v === "") return "—";
-    return String(v);
-  }
-
   function day(iso) {
-    if (!iso) return "—";
+    if (!iso) return "";
     return String(iso).slice(0, 10);
   }
 
@@ -89,15 +27,15 @@
   }
 
   function platforms(v) {
-    if (Array.isArray(v)) return v.filter(Boolean).join(", ") || "—";
+    if (Array.isArray(v)) return v.filter(Boolean).join(", ");
     if (typeof v === "string") {
       try {
         var parsed = JSON.parse(v);
-        if (Array.isArray(parsed)) return parsed.filter(Boolean).join(", ") || "—";
+        if (Array.isArray(parsed)) return parsed.filter(Boolean).join(", ");
       } catch (err) {}
-      return v || "—";
+      return v;
     }
-    return "—";
+    return "";
   }
 
   function stepsOf(guide) {
@@ -109,18 +47,6 @@
         if (Array.isArray(parsed)) return parsed;
       } catch (err) {}
       return raw.split(/\n/);
-    }
-    return [];
-  }
-
-  function cellsOf(row) {
-    var raw = row && row.cells;
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw === "string") {
-      try {
-        var parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (err) {}
     }
     return [];
   }
@@ -146,11 +72,20 @@
     return [];
   }
 
-  function yearTotal(item) {
-    if (window.STLMoney && typeof window.STLMoney.yearTotal === "function") {
-      return window.STLMoney.yearTotal(item);
+  function proofsOf(item) {
+    var list = [];
+    var raw = item && item.proofs;
+    if (Array.isArray(raw)) list = raw.slice();
+    else if (typeof raw === "string") {
+      try {
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) list = parsed;
+      } catch (err) {}
     }
-    return Number(item && item.amount) || 0;
+    if (!list.length && item && item.receipt_path) {
+      list = [{ path: item.receipt_path, file_name: item.receipt_file_name || "receipt" }];
+    }
+    return list.filter(function (p) { return p && p.path; });
   }
 
   function recTitle(item) {
@@ -171,8 +106,17 @@
     return map;
   }
 
+  function setting(rows, key, fallback) {
+    var found = (rows || []).filter(function (r) { return r.key === key; })[0];
+    return found ? found.value : fallback;
+  }
+
   function empty(pdf, msg) {
-    pdf.note(msg || "Nothing saved on this menu.");
+    pdf.note(msg || "Nothing to type on this menu.");
+  }
+
+  function filled(pdf, pairs) {
+    return pdf.fields(pairs, { skipEmpty: true });
   }
 
   function table(pdf, headers, rows, widths, rightFrom) {
@@ -186,22 +130,26 @@
   function longText(pdf, str) {
     var text = String(str == null ? "" : str);
     if (!text.trim()) {
-      empty(pdf, "Empty.");
+      empty(pdf);
       return;
     }
     text.split(/\n/).forEach(function (line) {
       var chunk = line === "" ? " " : line;
-      var h = pdf.measure(chunk, pdf.maxW, 9) + 4;
+      var h = pdf.measure(chunk, pdf.maxW, 10) + 4;
       pdf.ensure(h);
-      pdf.y += pdf.wrap(chunk, pdf.mL, pdf.y, pdf.maxW, { size: 9 }) + 3;
+      pdf.y += pdf.wrap(chunk, pdf.mL, pdf.y, pdf.maxW, { size: 10 }) + 3;
     });
   }
 
-  function fetchTable(db, table) {
+  function openMenu(pdf, title, how) {
+    pdf.newSection(title, how);
+  }
+
+  function fetchTable(db, tableName) {
     var page = 1000;
     var all = [];
     function next(from) {
-      return db.from(table).select("*").range(from, from + page - 1).then(function (res) {
+      return db.from(tableName).select("*").range(from, from + page - 1).then(function (res) {
         if (res.error) return [];
         var rows = res.data || [];
         all = all.concat(rows);
@@ -212,62 +160,6 @@
     return next(0).catch(function () { return []; });
   }
 
-  function apiGet(path) {
-    if (!window.STLLocalApi || !window.STLLocalApi.available()) {
-      return Promise.resolve(null);
-    }
-    return window.STLLocalApi.get(path).then(function (res) {
-      if (!res || !res.ok) return { error: (res && res.data && res.data.error) || "Could not load." };
-      return res.data || null;
-    }).catch(function (err) {
-      return { error: (err && err.message) || "Could not reach the studio server." };
-    });
-  }
-
-  function withTimeout(promise, ms) {
-    return new Promise(function (resolve) {
-      var done = false;
-      var timer = setTimeout(function () {
-        if (done) return;
-        done = true;
-        resolve({ error: "Timed out." });
-      }, ms);
-      promise.then(function (value) {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        resolve(value);
-      }, function (err) {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        resolve({ error: (err && err.message) || "Failed." });
-      });
-    });
-  }
-
-  function loadSecretsMeta(db) {
-    if (!db) return Promise.resolve({});
-    return db.from("studio_secrets").select(
-      "asc_issuer_id,asc_key_id,asc_vendor_number,play_gcs_bucket,permitpath_supabase_url,pilotcar4hire_supabase_url,mercury_token,asc_private_key,play_service_account_json,permitpath_service_role_key,pilotcar4hire_service_role_key"
-    ).limit(1).maybeSingle().then(function (res) {
-      var d = (res && res.data) || {};
-      return {
-        asc_issuer_id: d.asc_issuer_id || "",
-        asc_key_id: d.asc_key_id || "",
-        asc_vendor_number: d.asc_vendor_number || "",
-        play_gcs_bucket: d.play_gcs_bucket || "",
-        permitpath_supabase_url: d.permitpath_supabase_url || "",
-        pilotcar4hire_supabase_url: d.pilotcar4hire_supabase_url || "",
-        mercury: !!d.mercury_token,
-        asc: !!d.asc_private_key,
-        play: !!d.play_service_account_json,
-        permitpath: !!d.permitpath_service_role_key,
-        pc4h: !!d.pilotcar4hire_service_role_key
-      };
-    }).catch(function () { return {}; });
-  }
-
   function loadUserEmail(db) {
     if (!db || !db.auth) return Promise.resolve("");
     return db.auth.getUser().then(function (auth) {
@@ -276,31 +168,19 @@
     }).catch(function () { return ""; });
   }
 
-  function loadLive(apps, onStatus) {
-    onStatus("Loading Bank, Analytics, and Subscribed snapshots…");
-    var jobs = [
-      withTimeout(apiGet("/api/mercury/snapshot"), 20000),
-      withTimeout(apiGet("/api/asc/snapshot?metrics=0"), 25000),
-      withTimeout(apiGet("/api/play/snapshot"), 20000)
-    ];
-    var subJobs = (apps || []).map(function (app) {
-      var params = new URLSearchParams();
-      if (app.name) params.set("name", app.name);
-      if (app.apple_app_id) params.set("appleAppId", app.apple_app_id);
-      if (app.bundle_identifier) params.set("bundleId", app.bundle_identifier);
-      if (app.google_package_name) params.set("googlePackage", app.google_package_name);
-      return withTimeout(apiGet("/api/subscriptions?" + params.toString()), 20000).then(function (data) {
-        return { app: app, data: data };
-      });
-    });
-    return Promise.all(jobs.concat(subJobs)).then(function (parts) {
-      return {
-        bank: parts[0],
-        apple: parts[1],
-        play: parts[2],
-        subscribed: parts.slice(3)
-      };
-    });
+  function loadSecretsRow(db) {
+    var api = window.STLLocalApi;
+    if (api && api.isLocal && api.isLocal()) {
+      return api.get("/api/export-secrets").then(function (res) {
+        return (res && res.ok && res.data) || {};
+      }).catch(function () { return {}; });
+    }
+    if (!db) return Promise.resolve({});
+    return db.from("studio_secrets").select(
+      "mercury_token,asc_issuer_id,asc_key_id,asc_private_key,asc_vendor_number,play_gcs_bucket,play_service_account_json,permitpath_supabase_url,permitpath_service_role_key,pilotcar4hire_supabase_url,pilotcar4hire_service_role_key"
+    ).limit(1).maybeSingle().then(function (res) {
+      return (res && res.data) || {};
+    }).catch(function () { return {}; });
   }
 
   function loadAll(db, onStatus) {
@@ -311,177 +191,83 @@
         tables[name] = rows || [];
       });
     })).then(function () {
-      return Promise.all([
-        loadLive(tables.managed_apps || [], onStatus),
-        loadSecretsMeta(db),
-        loadUserEmail(db)
-      ]);
+      return Promise.all([loadSecretsRow(db), loadUserEmail(db)]);
     }).then(function (extra) {
-      return {
-        tables: tables,
-        live: extra[0] || {},
-        secrets: extra[1] || {},
-        email: extra[2] || ""
-      };
+      return { tables: tables, secrets: extra[0] || {}, email: extra[1] || "" };
     });
-  }
-
-  function setting(rows, key, fallback) {
-    var found = (rows || []).filter(function (r) { return r.key === key; })[0];
-    return found ? found.value : fallback;
   }
 
   function cover(pdf, pack) {
     var t = pack.tables;
-    pdf.heading("Studio Backup Log", 18);
-    pdf.note("Prepared " + window.STLStudioPdf.prepared() + ". Print or keep this PDF somewhere safe. If Studio is ever empty, open each sidebar menu and type the matching pages back in.");
-    pdf.note("This file includes Login Vault, Apps, Projects, and Business Info passwords. Keep it private.");
-    pdf.chips([
-      ["Signed in", pack.email || "—"],
-      ["Menus", String(MENUS.length)]
+    pdf.heading("Restore guide", 18);
+    pdf.note("Prepared " + window.STLStudioPdf.prepared() + ". Keep this zip private. It has passwords, receipts, company files, and API keys.");
+    pdf.heading("How to restore", 13);
+    pdf.bullets([
+      "Sign in to Studio with " + (pack.email || "your usual email") + ".",
+      "Copy every file from Secrets/ into the Mac folder stl-studio/secrets/, then open Studio signed in so the keys sync.",
+      "Open each sidebar menu named on the following pages. Type each record exactly as printed.",
+      "Re-upload files from Company-Documents/, Receipts/, App-Icons/, and Notification-Images/ onto the matching records.",
+      "Bank, Analytics, and Subscribed fill themselves once the keys in Secrets/ are in place."
     ]);
-    pdf.heading("Pages in this file", 12);
-    var counts = [
-      ["Overview", "snapshot"],
-      ["Bank", ((pack.live.bank && pack.live.bank.accounts) || []).length + " accounts"],
-      ["Business Info", (t.business_profile || []).length ? "profile" : "empty"],
-      ["Login Vault", (t.vault_logins || []).length + " logins"],
-      ["Renewals", (t.renewal_items || []).length],
-      ["Calendar", (t.calendar_day_notes || []).length + " day notes"],
-      ["Taxes", "P&L from books"],
-      ["Expenses", (t.business_expenses || []).length],
-      ["Income", (t.business_incomes || []).length],
-      ["Owner Draw", (t.owner_draws || []).length],
-      ["Inventory", (t.inventory_items || []).length],
-      ["Mileage", (t.mileage_trips || []).length],
-      ["Apps", (t.managed_apps || []).length],
-      ["Promos", (t.app_promos || []).length],
-      ["SOP", (t.sop_guides || []).length],
-      ["Analytics", "store snapshot"],
-      ["Subscribed", (t.managed_apps || []).length + " apps"],
-      ["Support", (t.support_tickets || []).length],
-      ["Emails", (t.email_contacts || []).length + " contacts"],
-      ["Notifications", (t.app_notifications || []).length],
-      ["Clients", (t.studio_clients || []).length],
-      ["Leads", (t.studio_leads || []).length],
-      ["Projects", (t.client_projects || []).length],
-      ["Billing", (t.billing_documents || []).length],
-      ["Notes", (t.studio_notes || []).length ? "notepad" : "empty"],
-      ["Pricing", (t.studio_pricing_items || []).length + " items"],
-      ["Settings", (t.studio_settings || []).length + " prefs"]
-    ];
+    pdf.heading("What is in this zip", 13);
     table(
       pdf,
-      ["Menu", "What is here"],
-      counts.map(function (row) { return [row[0], String(row[1])]; }),
+      ["Folder / file", "Put it back here"],
+      [
+        ["01-Restore-Guide.pdf", "This booklet. Type from it."],
+        ["Secrets/", "stl-studio/secrets/ on this Mac"],
+        ["Company-Documents/", "Business Info documents"],
+        ["Receipts/Expenses/", "Expense proofs"],
+        ["Receipts/Income/", "Income proofs"],
+        ["App-Icons/", "App icons"],
+        ["Notification-Images/", "Notification photos"]
+      ],
+      [200, pdf.maxW - 200],
+      1
+    );
+    pdf.heading("Records to type", 13);
+    table(
+      pdf,
+      ["Menu", "Records"],
+      [
+        ["Business Info", (t.business_profile || []).length ? "1 profile" : "empty"],
+        ["Login Vault", String((t.vault_logins || []).length)],
+        ["Renewals", String((t.renewal_items || []).length)],
+        ["Calendar", String((t.calendar_day_notes || []).length) + " day notes"],
+        ["Expenses", String((t.business_expenses || []).length)],
+        ["Income", String((t.business_incomes || []).length)],
+        ["Owner Draw", String((t.owner_draws || []).length)],
+        ["Inventory", String((t.inventory_items || []).length)],
+        ["Mileage", String((t.mileage_trips || []).length)],
+        ["Apps", String((t.managed_apps || []).length)],
+        ["Promos", String((t.app_promos || []).length)],
+        ["SOP", String((t.sop_guides || []).length)],
+        ["Support", String((t.support_tickets || []).length)],
+        ["Emails", String((t.email_contacts || []).length) + " contacts"],
+        ["Notifications", String((t.app_notifications || []).length)],
+        ["Clients", String((t.studio_clients || []).length)],
+        ["Leads", String((t.studio_leads || []).length)],
+        ["Projects", String((t.client_projects || []).length)],
+        ["Billing", String((t.billing_documents || []).length)],
+        ["Notes", (t.studio_notes || []).length ? "notepad" : "empty"],
+        ["Pricing", String((t.studio_pricing_items || []).length)],
+        ["Settings", "defaults + store IDs"]
+      ],
       [180, pdf.maxW - 180],
       1
     );
   }
 
-  function overview(pdf, pack) {
-    pdf.newSection("Overview", "Year snapshot from Income, Expenses, Owner Draw, Mileage, and what still needs you.");
-    var year = new Date().getFullYear();
-    var incomes = pack.tables.business_incomes || [];
-    var expenses = pack.tables.business_expenses || [];
-    var draws = pack.tables.owner_draws || [];
-    var trips = pack.tables.mileage_trips || [];
-    var rate = Number(setting(pack.tables.studio_settings, "mileage_rate", 0.70)) || 0.70;
-    var inc = incomes.filter(function (r) { return Number(r.year) === year; }).reduce(function (s, r) { return s + yearTotal(r); }, 0);
-    var exp = expenses.filter(function (r) { return Number(r.year) === year; }).reduce(function (s, r) { return s + yearTotal(r); }, 0);
-    var draw = draws.filter(function (r) { return Number(r.year) === year; }).reduce(function (s, r) { return s + (Number(r.amount) || 0); }, 0);
-    var miles = trips.filter(function (r) { return String(r.trip_date || "").slice(0, 4) === String(year); }).reduce(function (s, r) { return s + (Number(r.miles) || 0); }, 0);
-    pdf.chips([
-      [year + " income", money(inc)],
-      [year + " expenses", money(exp)],
-      [year + " profit", money(inc - exp)],
-      [year + " owner draw", money(draw)],
-      [year + " miles", String(Math.round(miles * 10) / 10)],
-      ["Mileage $", money(miles * rate)]
-    ]);
-    var today = new Date();
-    today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    var due = (pack.tables.renewal_items || []).filter(function (item) {
-      var dueDate = String(item.due_date || "").slice(0, 10).split("-");
-      if (dueDate.length !== 3) return false;
-      var d = new Date(Number(dueDate[0]), Number(dueDate[1]) - 1, Number(dueDate[2]));
-      var days = Math.round((d - today) / 86400000);
-      var remind = Math.max(0, Number(item.remind_days_before) || 0);
-      return days < 0 || days <= remind;
-    });
-    pdf.heading("Needs you — renewals", 12);
-    if (!due.length) empty(pdf, "No renewals in the reminder window.");
-    else {
-      table(
-        pdf,
-        ["Title", "Due", "Amount"],
-        due.map(function (r) { return [r.title || "Untitled", day(r.due_date), money(r.amount)]; }),
-        [pdf.maxW - 160, 80, 80],
-        1
-      );
-    }
-    var openIssues = (pack.tables.project_issues || []).concat(pack.tables.app_issues || []).filter(function (i) {
-      return i.status !== "fixed" && i.status !== "wontFix";
-    });
-    pdf.heading("Open issues", 12);
-    if (!openIssues.length) empty(pdf, "No open issues.");
-    else {
-      table(
-        pdf,
-        ["Title", "Status", "Priority"],
-        openIssues.slice(0, 40).map(function (i) { return [i.title || "Untitled", i.status || "", i.priority || ""]; }),
-        [pdf.maxW - 180, 90, 90],
-        1
-      );
-    }
-  }
-
-  function bank(pdf, pack) {
-    pdf.newSection("Bank", "Live Mercury snapshot. Type account nicknames into Bank only if you keep notes there; cash itself lives at Mercury.");
-    var snap = pack.live.bank;
-    if (!snap || snap.error || !snap.accounts) {
-      empty(pdf, (snap && snap.error) || "Bank snapshot was not available. Open Bank on this Mac while signed in, then run Backup Log again.");
-      return;
-    }
-    var accounts = snap.accounts || [];
-    pdf.chips([
-      ["Accounts", String(accounts.length)],
-      ["Fetched", dash(snap.fetchedAt)]
-    ]);
-    table(
-      pdf,
-      ["Account", "Status", "Last 4", "Balance"],
-      accounts.map(function (a) {
-        var digits = String(a.accountNumber || "").replace(/\D/g, "");
-        return [a.nickname || a.name || "Account", a.status || "", digits.slice(-4) || "—", money(a.currentBalance)];
-      }),
-      [pdf.maxW - 220, 70, 60, 90],
-      2
-    );
-    var txs = (snap.transactions || []).slice(0, 200);
-    pdf.heading("Recent activity", 12);
-    if (!txs.length) empty(pdf, "No transactions in the snapshot.");
-    else {
-      table(
-        pdf,
-        ["Date", "Name", "Amount"],
-        txs.map(function (row) {
-          var name = row.counterpartyName || row.note || row.bankDescription || row.kind || "Transfer";
-          var amt = row.amount != null ? row.amount : row.mercuryAmount;
-          return [day(row.createdAt || row.postedAt), name, money(amt)];
-        }),
-        [80, pdf.maxW - 170, 90],
-        2
-      );
-    }
+  function skipPage(pdf, title, why) {
+    openMenu(pdf, title, why);
   }
 
   function business(pdf, pack) {
-    pdf.newSection("Business Info", "Company profile, bank details for invoices, and the document list.");
+    openMenu(pdf, "Business Info", "Open Business Info. Type the company fields, then upload each file from Company-Documents/.");
     var profile = (pack.tables.business_profile || [])[0];
-    if (!profile) empty(pdf, "No company profile saved.");
+    if (!profile) empty(pdf);
     else {
-      pdf.fields([
+      filled(pdf, [
         ["Name", profile.name],
         ["Contact", profile.contact],
         ["Signer title", profile.signer_title],
@@ -503,14 +289,16 @@
         ["Payment notes", profile.payment_notes]
       ]);
     }
-    pdf.heading("Company documents", 12);
     var docs = pack.tables.business_documents || [];
-    if (!docs.length) empty(pdf, "No files listed. Original files live in Studio storage, not in this PDF.");
+    pdf.heading("Documents to re-upload", 12);
+    if (!docs.length) empty(pdf, "No company files.");
     else {
       table(
         pdf,
-        ["Name", "File"],
-        docs.map(function (d) { return [d.name || "Untitled", d.file_name || d.storage_path || "—"]; }),
+        ["Name in Studio", "File in zip"],
+        docs.map(function (d) {
+          return [d.name || "Untitled", d.file_name || d.storage_path || "-"];
+        }),
         [240, pdf.maxW - 240],
         1
       );
@@ -518,12 +306,13 @@
   }
 
   function vault(pdf, pack) {
-    pdf.newSection("Login Vault", "Every saved login. Type these back into Login Vault.");
+    openMenu(pdf, "Login Vault", "Open Login Vault. Add a login for each record and type these fields.");
     var rows = pack.tables.vault_logins || [];
     if (!rows.length) { empty(pdf); return; }
-    rows.forEach(function (row) {
-      pdf.heading(row.topic || "Untitled login", 12);
-      pdf.fields([
+    rows.forEach(function (row, i) {
+      pdf.recordHead(row.topic || "Untitled login", i + 1, rows.length);
+      filled(pdf, [
+        ["Topic", row.topic],
         ["URL", row.url],
         ["Username", row.username],
         ["Password", row.password]
@@ -532,79 +321,41 @@
   }
 
   function renewals(pdf, pack) {
-    pdf.newSection("Renewals", "Filings, domains, Apple Developer, insurance, and other due dates.");
+    openMenu(pdf, "Renewals", "Open Renewals. Add each item.");
     var rows = pack.tables.renewal_items || [];
     if (!rows.length) { empty(pdf); return; }
     table(
       pdf,
-      ["Title", "Category", "Due", "Remind", "Amount", "Notes"],
+      ["Title", "Category", "Due", "Remind days", "Amount", "Notes"],
       rows.map(function (r) {
-        return [
-          r.title || "Untitled",
-          r.category || "",
-          day(r.due_date),
-          String(r.remind_days_before == null ? "" : r.remind_days_before),
-          money(r.amount),
-          r.notes || ""
-        ];
+        return [r.title || "Untitled", r.category || "", day(r.due_date), String(r.remind_days_before == null ? "" : r.remind_days_before), money(r.amount), r.notes || ""];
       }),
-      [120, 70, 70, 50, 70, pdf.maxW - 380],
+      [110, 70, 72, 70, 70, pdf.maxW - 392],
       4
     );
   }
 
   function calendar(pdf, pack) {
-    pdf.newSection("Calendar", "Day notes you typed. Invoice, project, meeting, renewal, and lead dates already appear on those other menus.");
+    openMenu(pdf, "Calendar", "Open Calendar. Click each date and paste the note.");
     var rows = (pack.tables.calendar_day_notes || []).slice().sort(function (a, b) {
       return String(a.day || "").localeCompare(String(b.day || ""));
     });
     if (!rows.length) { empty(pdf, "No day notes."); return; }
-    rows.forEach(function (row) {
-      pdf.heading(day(row.day), 12);
+    rows.forEach(function (row, i) {
+      pdf.recordHead(day(row.day), i + 1, rows.length);
       longText(pdf, row.body || "");
     });
   }
 
-  function yearsFrom(pack) {
-    var set = {};
-    function add(y) {
-      var n = Number(y);
-      if (n) set[n] = true;
-    }
-    (pack.tables.business_incomes || []).forEach(function (r) { add(r.year); });
-    (pack.tables.business_expenses || []).forEach(function (r) { add(r.year); });
-    (pack.tables.owner_draws || []).forEach(function (r) { add(r.year); });
-    add(new Date().getFullYear());
-    return Object.keys(set).map(Number).sort(function (a, b) { return b - a; });
-  }
-
-  function taxes(pdf, pack) {
-    pdf.newSection("Taxes", "Profit and loss by year from Income minus Expenses. Owner draws are listed and are not expenses.");
-    var reserve = setting(pack.tables.studio_settings, "tax_reserve_percent", "30");
-    pdf.note("Tax reserve setting: " + reserve + "%.");
-    var years = yearsFrom(pack);
-    table(
-      pdf,
-      ["Year", "Income", "Expenses", "Profit", "Owner draw"],
-      years.map(function (year) {
-        var inc = (pack.tables.business_incomes || []).filter(function (r) { return Number(r.year) === year; }).reduce(function (s, r) { return s + yearTotal(r); }, 0);
-        var exp = (pack.tables.business_expenses || []).filter(function (r) { return Number(r.year) === year; }).reduce(function (s, r) { return s + yearTotal(r); }, 0);
-        var draw = (pack.tables.owner_draws || []).filter(function (r) { return Number(r.year) === year; }).reduce(function (s, r) { return s + (Number(r.amount) || 0); }, 0);
-        return [String(year), money(inc), money(exp), money(inc - exp), money(draw)];
-      }),
-      [70, (pdf.maxW - 70) / 4, (pdf.maxW - 70) / 4, (pdf.maxW - 70) / 4, (pdf.maxW - 70) / 4],
-      1
-    );
-  }
-
-  function ledgerSection(pdf, title, blurb, rows, kind) {
-    pdf.newSection(title, blurb);
+  function ledgerPage(pdf, title, how, rows, kind, skips) {
+    openMenu(pdf, title, how);
     if (!rows.length) { empty(pdf); return; }
     table(
       pdf,
-      ["Date", "Title", "Year", "Type", "Amount", "Notes / receipt"],
+      ["Date", "Title", "Year", "Type", "Amount", "Proof / notes"],
       rows.map(function (r) {
-        var extra = [r.notes, r.receipt_file_name, r.source_invoice_number].filter(Boolean).join(" · ");
+        var proofs = proofsOf(r).map(function (p) { return p.file_name || p.path; }).join(", ");
+        var extra = [r.notes, proofs, r.source_invoice_number].filter(Boolean).join(" · ");
         return [
           day(r.date),
           r.title || (kind === "draw" ? (r.reason || "Draw") : "Untitled"),
@@ -614,13 +365,23 @@
           extra
         ];
       }),
-      [70, 130, 40, 80, 70, pdf.maxW - 390],
+      [70, 120, 40, 78, 70, pdf.maxW - 378],
       4
     );
+    if (skips && skips.length) {
+      pdf.heading("Skipped recurring years", 12);
+      table(
+        pdf,
+        ["Series", "Year skipped"],
+        skips.map(function (s) { return [String(s.series_id || "").slice(0, 8), String(s.year || "")]; }),
+        [pdf.maxW - 120, 120],
+        1
+      );
+    }
   }
 
   function inventory(pdf, pack) {
-    pdf.newSection("Inventory", "Gear list: purchase date, cost, purpose, serial.");
+    openMenu(pdf, "Inventory", "Open Inventory. Add each piece of gear.");
     var rows = pack.tables.inventory_items || [];
     if (!rows.length) { empty(pdf); return; }
     table(
@@ -629,39 +390,38 @@
       rows.map(function (r) {
         return [r.name || "Untitled", day(r.purchased_on), money(r.amount), r.serial_number || "", r.purpose || ""];
       }),
-      [120, 70, 70, 90, pdf.maxW - 350],
+      [120, 78, 70, 90, pdf.maxW - 358],
       2
     );
   }
 
   function mileage(pdf, pack) {
-    pdf.newSection("Mileage", "Business trips. Rate is also in Settings.");
+    openMenu(pdf, "Mileage", "Open Mileage. Add each trip. Rate is also in Settings.");
     var rate = Number(setting(pack.tables.studio_settings, "mileage_rate", 0.70)) || 0.70;
-    var rows = pack.tables.mileage_trips || [];
     pdf.note("Mileage rate: " + money(rate) + " per mile.");
+    var rows = pack.tables.mileage_trips || [];
     if (!rows.length) { empty(pdf); return; }
     table(
       pdf,
-      ["Date", "Purpose", "Route", "Miles", "Amount"],
+      ["Date", "Purpose", "From", "To", "Miles", "Notes"],
       rows.map(function (r) {
-        var route = [r.start_place, r.end_place].filter(Boolean).join(" to ");
-        var miles = Number(r.miles) || 0;
-        return [day(r.trip_date), r.purpose || "", route || (r.notes || ""), String(miles), money(miles * rate)];
+        return [day(r.trip_date), r.purpose || "", r.start_place || "", r.end_place || "", String(Number(r.miles) || 0), r.notes || ""];
       }),
-      [70, 110, pdf.maxW - 70 - 110 - 55 - 70, 55, 70],
-      3
+      [70, 100, 90, 90, 50, pdf.maxW - 400],
+      4
     );
   }
 
   function apps(pdf, pack) {
-    pdf.newSection("Apps", "Products, store IDs, versions, logins, and issues.");
+    openMenu(pdf, "Apps", "Open Apps. Add each app, then its logins and issues. Re-upload the icon from App-Icons/.");
     var list = pack.tables.managed_apps || [];
     var logins = groupBy(pack.tables.app_logins, "app_id");
     var issues = groupBy(pack.tables.app_issues, "app_id");
     if (!list.length) { empty(pdf); return; }
-    list.forEach(function (app) {
-      pdf.heading(app.name || "Untitled app", 13);
-      pdf.fields([
+    list.forEach(function (app, i) {
+      pdf.recordHead(app.name || "Untitled app", i + 1, list.length);
+      filled(pdf, [
+        ["Name", app.name],
         ["Summary", app.summary],
         ["Status", app.status],
         ["Platforms", platforms(app.platforms)],
@@ -673,29 +433,28 @@
         ["Play version", app.google_play_version],
         ["Website", app.website_url],
         ["Accent hex", app.accent_hex],
+        ["Icon file", app.icon_path],
         ["Notes", app.notes]
       ]);
       var appLogins = logins[app.id] || [];
-      if (appLogins.length) {
-        pdf.heading("Logins", 12);
-        appLogins.forEach(function (row) {
-          pdf.fields([
-            ["Site", row.site_name],
-            ["URL", row.url],
-            ["Username", row.username],
-            ["Password", row.password],
-            ["Notes", row.notes]
-          ]);
-        });
-      }
+      appLogins.forEach(function (row) {
+        pdf.heading("Login: " + (row.site_name || "untitled"), 12);
+        filled(pdf, [
+          ["Site", row.site_name],
+          ["URL", row.url],
+          ["Username", row.username],
+          ["Password", row.password],
+          ["Notes", row.notes]
+        ]);
+      });
       var appIssues = issues[app.id] || [];
       if (appIssues.length) {
         pdf.heading("Issues", 12);
         table(
           pdf,
           ["Title", "Status", "Priority", "Platform", "Details"],
-          appIssues.map(function (i) {
-            return [i.title || "Untitled", i.status || "", i.priority || "", i.platform || "", i.details || ""];
+          appIssues.map(function (issue) {
+            return [issue.title || "Untitled", issue.status || "", issue.priority || "", issue.platform || "", issue.details || ""];
           }),
           [110, 70, 60, 60, pdf.maxW - 300],
           1
@@ -705,31 +464,20 @@
   }
 
   function promos(pdf, pack) {
-    pdf.newSection("Promos", "Free trials, intro prices, and promo codes per app.");
+    openMenu(pdf, "Promos", "Open Promos. Add each offer.");
     var rows = pack.tables.app_promos || [];
     if (!rows.length) { empty(pdf); return; }
-    table(
-      pdf,
-      ["App", "Platform", "Kind", "Title", "Duration", "Status", "Dates"],
-      rows.map(function (r) {
-        return [
-          r.app_name || "",
-          r.platform || "",
-          r.kind || "",
-          r.title || "",
-          r.duration || "",
-          r.status || "",
-          [day(r.start_date), day(r.end_date)].join(" to ")
-        ];
-      }),
-      [90, 55, 70, 90, 60, 55, pdf.maxW - 420],
-      1
-    );
-    rows.forEach(function (r) {
-      if (!r.store_ref && !r.notes && !r.eligibility) return;
-      pdf.heading((r.title || "Promo") + " — extra", 12);
-      pdf.fields([
+    rows.forEach(function (r, i) {
+      pdf.recordHead(r.title || "Promo", i + 1, rows.length);
+      filled(pdf, [
+        ["App", r.app_name],
+        ["Platform", r.platform],
+        ["Kind", r.kind],
+        ["Duration", r.duration],
         ["Eligibility", r.eligibility],
+        ["Status", r.status],
+        ["Start", day(r.start_date)],
+        ["End", day(r.end_date)],
         ["Store ref", r.store_ref],
         ["Notes", r.notes]
       ]);
@@ -737,15 +485,16 @@
   }
 
   function sop(pdf, pack) {
-    pdf.newSection("SOP", "How-to guides with steps.");
+    openMenu(pdf, "SOP", "Open SOP. Add each guide and paste the steps, one per line.");
     var rows = pack.tables.sop_guides || [];
     if (!rows.length) { empty(pdf); return; }
-    rows.forEach(function (g) {
-      pdf.heading(g.title || "Untitled SOP", 13);
-      pdf.fields([
+    rows.forEach(function (g, i) {
+      pdf.recordHead(g.title || "Untitled SOP", i + 1, rows.length);
+      filled(pdf, [
         ["Category", g.category],
         ["Summary", g.summary],
-        ["Link", [g.link_title, g.link_url].filter(Boolean).join(" — ")]
+        ["Link title", g.link_title],
+        ["Link URL", g.link_url]
       ]);
       pdf.heading("Steps", 12);
       var steps = stepsOf(g);
@@ -754,100 +503,20 @@
     });
   }
 
-  function analytics(pdf, pack) {
-    pdf.newSection("Analytics", "App Store Connect and Google Play snapshot. Live numbers; store IDs to type back are also on Apps.");
-    var apple = pack.live.apple;
-    if (!apple || apple.error) {
-      pdf.note((apple && apple.error) || "Apple snapshot was not available.");
-    } else {
-      var list = apple.apps || [];
-      pdf.heading("App Store Connect", 12);
-      if (!list.length) empty(pdf, "No apps on this App Store Connect key.");
-      else {
-        table(
-          pdf,
-          ["Name", "Apple ID", "Bundle", "Version", "State", "Reviews"],
-          list.map(function (a) {
-            return [
-              a.name || "",
-              a.id || "",
-              a.bundleID || "",
-              a.version || "",
-              a.versionState || "",
-              String(a.reviewCount || 0)
-            ];
-          }),
-          [110, 80, 130, 50, 80, pdf.maxW - 450],
-          5
-        );
-      }
-    }
-    var play = pack.live.play;
-    pdf.heading("Google Play", 12);
-    if (!play || play.error) {
-      pdf.note((play && play.error) || "Play snapshot was not available.");
-      return;
-    }
-    var pkgs = play.apps || [];
-    if (play.note) pdf.note(play.note);
-    if (!pkgs.length) empty(pdf, "No Play packages in the snapshot.");
-    else {
-      table(
-        pdf,
-        ["Package", "Crash rate", "ANR rate"],
-        pkgs.map(function (p) {
-          var crash = p.crash && p.crash.latest && p.crash.latest.rate;
-          var anr = p.anr && p.anr.latest && p.anr.latest.rate;
-          return [
-            p.packageName || p.name || "App",
-            crash == null ? "—" : String(crash),
-            anr == null ? "—" : String(anr)
-          ];
-        }),
-        [pdf.maxW - 180, 90, 90],
-        1
-      );
-    }
-  }
-
-  function subscribed(pdf, pack) {
-    pdf.newSection("Subscribed", "Apple and Google subscriber totals per app at the time of this backup.");
-    var rows = pack.live.subscribed || [];
-    if (!rows.length) { empty(pdf, "No apps to count."); return; }
-    table(
-      pdf,
-      ["App", "Apple", "Google", "Total", "Note"],
-      rows.map(function (row) {
-        var d = row.data || {};
-        var apple = d.apple || {};
-        var google = d.google || {};
-        var note = d.error || apple.error || google.error || [apple.reportDate, google.reportDate].filter(Boolean).join(" · ");
-        return [
-          (row.app && row.app.name) || "App",
-          apple.total != null ? String(apple.total) : "—",
-          google.total != null ? String(google.total) : "—",
-          d.total != null ? String(d.total) : "—",
-          note || ""
-        ];
-      }),
-      [120, 60, 60, 60, pdf.maxW - 300],
-      1
-    );
-  }
-
   function support(pdf, pack) {
-    pdf.newSection("Support", "Customer tickets by app.");
+    openMenu(pdf, "Support", "Open Support. Add each ticket.");
     var rows = pack.tables.support_tickets || [];
     if (!rows.length) { empty(pdf); return; }
-    rows.forEach(function (t) {
-      pdf.heading((t.ticket_number || "") + "  " + (t.title || "Untitled ticket"), 12);
-      pdf.fields([
+    rows.forEach(function (t, i) {
+      pdf.recordHead((t.ticket_number || "") + "  " + (t.title || "Untitled ticket"), i + 1, rows.length);
+      filled(pdf, [
         ["Status", t.status],
         ["Priority", t.priority],
         ["Category", t.category],
         ["Platform", t.platform],
         ["App version", t.app_version],
-        ["OS / device", [t.os_version, t.device].filter(Boolean).join(" · ")],
+        ["OS", t.os_version],
+        ["Device", t.device],
         ["Source", t.source],
         ["Customer", t.customer_name],
         ["Email", t.customer_email],
@@ -861,14 +530,14 @@
   }
 
   function emails(pdf, pack) {
-    pdf.newSection("Emails", "Mailing lists, contacts, and templates.");
+    openMenu(pdf, "Emails", "Open Emails. Recreate each list, then add contacts, then templates.");
     var lists = pack.tables.email_lists || [];
     var contacts = groupBy(pack.tables.email_contacts, "list_id");
     var templates = pack.tables.email_templates || [];
     if (!lists.length && !templates.length) { empty(pdf); return; }
-    lists.forEach(function (list) {
-      pdf.heading(list.name || "Untitled list", 13);
-      pdf.note(list.source_file_name ? "Imported from " + list.source_file_name : "Studio list.");
+    lists.forEach(function (list, i) {
+      pdf.recordHead(list.name || "Untitled list", i + 1, lists.length);
+      filled(pdf, [["Imported from", list.source_file_name]]);
       var people = contacts[list.id] || [];
       if (!people.length) empty(pdf, "No contacts on this list.");
       else {
@@ -876,40 +545,31 @@
           pdf,
           ["Name", "Email", "Company", "Phone", "Sent", "Notes"],
           people.map(function (c) {
-            var extra = cellsOf(c);
-            return [
-              c.name || extra[1] || "",
-              c.email || extra[0] || "",
-              c.company || extra[2] || "",
-              c.phone || extra[3] || "",
-              yesNo(c.is_sent),
-              c.notes || extra[4] || ""
-            ];
+            return [c.name || "", c.email || "", c.company || "", c.phone || "", yesNo(c.is_sent), c.notes || ""];
           }),
           [90, 130, 90, 80, 40, pdf.maxW - 430],
           1
         );
       }
     });
-    if (templates.length) {
-      pdf.heading("Templates", 13);
-      templates.forEach(function (tpl) {
-        pdf.heading(tpl.title || "Untitled template", 12);
-        longText(pdf, tpl.body || "");
-      });
-    }
+    templates.forEach(function (tpl, i) {
+      pdf.recordHead(tpl.title || "Untitled template", i + 1, templates.length);
+      longText(pdf, tpl.body || "");
+    });
   }
 
   function notifications(pdf, pack) {
-    pdf.newSection("Notifications", "Messages sent to apps. Photos stay in Studio storage.");
+    openMenu(pdf, "Notifications", "Open Notifications. These are already-sent messages. Re-upload photos from Notification-Images/ if you need the same card again.");
     var rows = pack.tables.app_notifications || [];
     if (!rows.length) { empty(pdf); return; }
-    rows.forEach(function (n) {
-      pdf.heading((n.app_name || "App") + " — " + (n.subject || "No subject"), 12);
-      pdf.fields([
+    rows.forEach(function (n, i) {
+      pdf.recordHead((n.app_name || "App") + ": " + (n.subject || "No subject"), i + 1, rows.length);
+      filled(pdf, [
         ["Sent", day(n.created_at)],
-        ["Font / size / color", [n.message_font, n.message_size, n.message_color].filter(Boolean).join(" · ")],
-        ["Image URL", n.image_url],
+        ["Font", n.message_font],
+        ["Size", n.message_size],
+        ["Color", n.message_color],
+        ["Image", n.image_url],
         ["Message", n.message]
       ]);
       var blocks = blocksOf(n);
@@ -917,19 +577,19 @@
         pdf.heading("Lines", 12);
         pdf.bullets(blocks.map(function (b) {
           if (typeof b === "string") return b;
-          return (b && (b.text || b.body || b.line)) || JSON.stringify(b);
+          return (b && (b.text || b.body || b.line)) || "";
         }));
       }
     });
   }
 
   function clients(pdf, pack) {
-    pdf.newSection("Clients", "People and companies you bill.");
+    openMenu(pdf, "Clients", "Open Clients. Add each person or company.");
     var rows = pack.tables.studio_clients || [];
     if (!rows.length) { empty(pdf); return; }
-    rows.forEach(function (c) {
-      pdf.heading((c.company_name || c.name || "Untitled client"), 12);
-      pdf.fields([
+    rows.forEach(function (c, i) {
+      pdf.recordHead(c.company_name || c.name || "Untitled client", i + 1, rows.length);
+      filled(pdf, [
         ["Name", c.name],
         ["Company", c.company_name],
         ["Email", c.email],
@@ -944,23 +604,19 @@
   }
 
   function leads(pdf, pack) {
-    pdf.newSection("Leads", "Incoming work and follow-ups.");
+    openMenu(pdf, "Leads", "Open Leads. Add each lead.");
     var rows = pack.tables.studio_leads || [];
     if (!rows.length) { empty(pdf); return; }
-    table(
-      pdf,
-      ["Name", "Company", "Status", "Follow-up", "Email", "Phone"],
-      rows.map(function (r) {
-        return [r.name || "", r.company_name || "", r.status || "", day(r.follow_up), r.email || "", r.phone || ""];
-      }),
-      [90, 90, 60, 70, 120, pdf.maxW - 430],
-      1
-    );
-    rows.forEach(function (r) {
-      if (!r.notes && !r.source) return;
-      pdf.heading((r.name || r.company_name || "Lead") + " — extra", 12);
-      pdf.fields([
+    rows.forEach(function (r, i) {
+      pdf.recordHead(r.name || r.company_name || "Lead", i + 1, rows.length);
+      filled(pdf, [
+        ["Name", r.name],
+        ["Company", r.company_name],
+        ["Email", r.email],
+        ["Phone", r.phone],
+        ["Status", r.status],
         ["Source", r.source],
+        ["Follow-up", day(r.follow_up)],
         ["Last touch", day(r.last_touch)],
         ["Notes", r.notes]
       ]);
@@ -968,7 +624,7 @@
   }
 
   function projects(pdf, pack) {
-    pdf.newSection("Projects", "Client jobs, logins, costs, hours, issues, meetings, and handoff.");
+    openMenu(pdf, "Projects", "Open Projects. Add each job, then fill Logins, Costs, Hours, Issues, Meetings, and Handoff.");
     var list = pack.tables.client_projects || [];
     if (!list.length) { empty(pdf); return; }
     var logins = groupBy(pack.tables.project_logins, "project_id");
@@ -982,30 +638,28 @@
       if (c.id) clientsMap[c.id] = c;
       if (c.link_id) clientsMap[c.link_id] = c;
     });
-    list.forEach(function (p) {
+    list.forEach(function (p, i) {
       var linked = clientsMap[p.linked_client_id];
       var linkedLabel = linked ? (linked.company_name || linked.name) : p.linked_client_id;
-      pdf.heading(p.name || "Untitled project", 13);
-      pdf.fields([
+      pdf.recordHead(p.name || "Untitled project", i + 1, list.length);
+      filled(pdf, [
+        ["Name", p.name],
         ["Company", p.company_name],
         ["Linked client", linkedLabel],
         ["Due", day(p.due_date)],
         ["Information", p.information],
         ["Discovery", p.discovery_json]
       ]);
-      var pLogins = logins[p.id] || [];
-      if (pLogins.length) {
-        pdf.heading("Logins", 12);
-        pLogins.forEach(function (row) {
-          pdf.fields([
-            ["Site", row.site_name],
-            ["URL", row.url],
-            ["Username", row.username],
-            ["Password", row.password],
-            ["Notes", row.notes]
-          ]);
-        });
-      }
+      (logins[p.id] || []).forEach(function (row) {
+        pdf.heading("Login: " + (row.site_name || "untitled"), 12);
+        filled(pdf, [
+          ["Site", row.site_name],
+          ["URL", row.url],
+          ["Username", row.username],
+          ["Password", row.password],
+          ["Notes", row.notes]
+        ]);
+      });
       var pCosts = costs[p.id] || [];
       if (pCosts.length) {
         pdf.heading("Costs", 12);
@@ -1034,23 +688,19 @@
         table(
           pdf,
           ["Title", "Status", "Priority", "Details"],
-          pIssues.map(function (i) { return [i.title || "", i.status || "", i.priority || "", i.details || ""]; }),
+          pIssues.map(function (issue) { return [issue.title || "", issue.status || "", issue.priority || "", issue.details || ""]; }),
           [120, 70, 60, pdf.maxW - 250],
           1
         );
       }
-      var pMeet = meetings[p.link_id] || [];
-      if (pMeet.length) {
-        pdf.heading("Meetings", 12);
-        pMeet.forEach(function (m) {
-          pdf.fields([
-            ["Date", day(m.meeting_date)],
-            ["Topic", m.topic],
-            ["Attendees", m.attendees],
-            ["Notes", m.notes]
-          ]);
-        });
-      }
+      (meetings[p.link_id] || []).forEach(function (m) {
+        pdf.heading("Meeting: " + day(m.meeting_date), 12);
+        filled(pdf, [
+          ["Topic", m.topic],
+          ["Attendees", m.attendees],
+          ["Notes", m.notes]
+        ]);
+      });
       var pHand = handoff[p.id] || [];
       if (pHand.length) {
         pdf.heading("Handoff", 12);
@@ -1066,13 +716,15 @@
   }
 
   function billing(pdf, pack) {
-    pdf.newSection("Billing", "Quotes and invoices, including line items and amounts paid.");
+    openMenu(pdf, "Billing", "Open Billing. Recreate each quote or invoice, including line items.");
     var rows = pack.tables.billing_documents || [];
     if (!rows.length) { empty(pdf); return; }
-    rows.forEach(function (doc) {
+    rows.forEach(function (doc, i) {
       var p = payloadOf(doc);
-      pdf.heading((doc.kind || "doc").toUpperCase() + " " + (doc.number || ""), 13);
-      pdf.fields([
+      pdf.recordHead((doc.kind || "doc").toUpperCase() + " " + (doc.number || ""), i + 1, rows.length);
+      filled(pdf, [
+        ["Kind", doc.kind],
+        ["Number", doc.number],
         ["Status", doc.status],
         ["Client", doc.client_name || p.clientName],
         ["Email", doc.client_email || p.clientEmail],
@@ -1083,11 +735,12 @@
         ["Due", day(doc.due_on || p.dueDate)],
         ["Paid on", day(doc.paid_on || p.paidDate)],
         ["Amount", money(doc.amount)],
-        ["Amount paid", money(p.amountPaid)],
+        ["Amount paid", p.amountPaid == null ? "" : money(p.amountPaid)],
         ["PO", p.poNumber],
         ["Terms", p.terms],
         ["Tax %", p.taxPercent],
-        ["Discount", [p.discountType, p.discountValue].filter(Boolean).join(" ")],
+        ["Discount type", p.discountType],
+        ["Discount value", p.discountValue],
         ["Deposit %", p.depositPercent],
         ["Notes", doc.notes || p.notes],
         ["Payment notes", p.paymentNotes]
@@ -1111,16 +764,16 @@
   }
 
   function notes(pdf, pack) {
-    pdf.newSection("Notes", "Private notepad.");
+    openMenu(pdf, "Notes", "Open Notes. Paste the notepad.");
     var row = (pack.tables.studio_notes || [])[0];
     if (!row || !String(row.body || "").trim()) empty(pdf, "Notepad is empty.");
     else longText(pdf, row.body);
   }
 
   function pricing(pdf, pack) {
-    pdf.newSection("Pricing", "Price book used on quotes and invoices.");
+    openMenu(pdf, "Pricing", "Open Pricing. Set deposit and quote days, then add each price.");
     var settings = (pack.tables.studio_pricing_settings || [])[0] || {};
-    pdf.fields([
+    filled(pdf, [
       ["Deposit %", settings.deposit_percent],
       ["Quote valid days", settings.valid_days]
     ]);
@@ -1137,88 +790,73 @@
     }
   }
 
-  function settings(pdf, pack) {
-    pdf.newSection("Settings", "Studio defaults and connection IDs. API keys live in the Mac secrets folder and are not printed here.");
+  function settingsPage(pdf, pack) {
+    openMenu(pdf, "Settings", "Open Settings. Type these defaults. Put API key files from Secrets/ on the Mac. Do not type those keys here.");
     var rows = pack.tables.studio_settings || [];
-    pdf.fields([
-      ["Signed in as", pack.email],
-      ["Default page", setting(rows, "default_section", "overview")],
-      ["Mileage rate", setting(rows, "mileage_rate", "0.70")],
-      ["Tax reserve %", setting(rows, "tax_reserve_percent", "30")]
-    ]);
-    var bill = (pack.tables.studio_pricing_settings || [])[0] || {};
-    pdf.heading("Billing defaults", 12);
-    pdf.fields([
-      ["Deposit %", bill.deposit_percent],
-      ["Quote valid days", bill.valid_days]
-    ]);
     var s = pack.secrets || {};
-    pdf.heading("Store report IDs", 12);
-    pdf.fields([
+    var bill = (pack.tables.studio_pricing_settings || [])[0] || {};
+    filled(pdf, [
+      ["Signed in as", pack.email],
+      ["Default page", setting(rows, "default_section", "")],
+      ["Mileage rate", setting(rows, "mileage_rate", "")],
+      ["Tax reserve %", setting(rows, "tax_reserve_percent", "")],
+      ["Deposit %", bill.deposit_percent],
+      ["Quote valid days", bill.valid_days],
       ["Apple vendor number", s.asc_vendor_number],
-      ["Play report bucket", s.play_gcs_bucket],
-      ["ASC issuer ID", s.asc_issuer_id],
-      ["ASC key ID", s.asc_key_id],
-      ["Permit Path Supabase URL", s.permitpath_supabase_url],
-      ["Pilot Car 4 Hire Supabase URL", s.pilotcar4hire_supabase_url]
+      ["Play report bucket", s.play_gcs_bucket]
     ]);
-    pdf.heading("Connections on file", 12);
-    pdf.fields([
-      ["Mercury token", s.mercury ? "Saved" : "Missing"],
-      ["App Store Connect key", s.asc ? "Saved" : "Missing"],
-      ["Play service account", s.play ? "Saved" : "Missing"],
-      ["Permit Path announcements", s.permitpath ? "Saved" : "Missing"],
-      ["Pilot Car 4 Hire announcements", s.pc4h ? "Saved" : "Missing"]
+    pdf.heading("Keys on file (use the Secrets folder)", 12);
+    filled(pdf, [
+      ["Mercury token", s.mercury_token ? "In Secrets/mercury.token" : "Missing"],
+      ["App Store Connect key", s.asc_private_key ? "In Secrets/asc_private_key.p8" : "Missing"],
+      ["ASC issuer ID", s.asc_issuer_id ? "In Secrets/asc_issuer_id.txt" : "Missing"],
+      ["ASC key ID", s.asc_key_id ? "In Secrets/asc_key_id.txt" : "Missing"],
+      ["Play service account", s.play_service_account_json ? "In Secrets/play_service_account.json" : "Missing"],
+      ["Permit Path announcements", s.permitpath_service_role_key ? "In Secrets/" : "Missing"],
+      ["Pilot Car 4 Hire announcements", s.pilotcar4hire_service_role_key ? "In Secrets/" : "Missing"]
     ]);
-    if (rows.length) {
-      pdf.heading("All setting keys", 12);
-      table(
-        pdf,
-        ["Key", "Value"],
-        rows.map(function (r) { return [r.key || "", r.value || ""]; }),
-        [180, pdf.maxW - 180],
-        1
-      );
-    }
   }
 
-  function build(pdf, pack) {
+  function buildPdf(pdf, pack) {
     cover(pdf, pack);
-    overview(pdf, pack);
-    bank(pdf, pack);
+    skipPage(pdf, "Overview", "Overview rebuilds itself from Income, Expenses, Mileage, and Renewals. Nothing to type.");
+    skipPage(pdf, "Bank", "Bank loads from Mercury. Put mercury.token in Secrets/ and open Studio on this Mac.");
     business(pdf, pack);
     vault(pdf, pack);
     renewals(pdf, pack);
     calendar(pdf, pack);
-    taxes(pdf, pack);
-    ledgerSection(
+    skipPage(pdf, "Taxes", "Taxes rebuilds from Expenses, Income, and Owner Draw. Type the tax reserve percent in Settings.");
+    ledgerPage(
       pdf,
       "Expenses",
-      "Business costs. Receipt photos stay in Studio; file names are listed so you know what was attached.",
+      "Open Expenses. Add each row, then attach the matching file from Receipts/Expenses/.",
       pack.tables.business_expenses || [],
-      "expense"
+      "expense",
+      pack.tables.business_expense_skips || []
     );
-    ledgerSection(
+    ledgerPage(
       pdf,
       "Income",
-      "LLC revenue. Receipt photos stay in Studio; file names are listed so you know what was attached.",
+      "Open Income. Add each row, then attach the matching file from Receipts/Income/.",
       pack.tables.business_incomes || [],
-      "income"
+      "income",
+      pack.tables.business_income_skips || []
     );
-    ledgerSection(
+    ledgerPage(
       pdf,
       "Owner Draw",
-      "Money pulled from the LLC.",
+      "Open Owner Draw. Add each draw.",
       pack.tables.owner_draws || [],
-      "draw"
+      "draw",
+      []
     );
     inventory(pdf, pack);
     mileage(pdf, pack);
     apps(pdf, pack);
     promos(pdf, pack);
     sop(pdf, pack);
-    analytics(pdf, pack);
-    subscribed(pdf, pack);
+    skipPage(pdf, "Analytics", "Analytics loads from App Store Connect and Google Play once the Secrets/ keys are in place.");
+    skipPage(pdf, "Subscribed", "Subscribed loads from Apple and Google once vendor number, Play bucket, and Secrets/ keys are in place.");
     support(pdf, pack);
     emails(pdf, pack);
     notifications(pdf, pack);
@@ -1228,7 +866,109 @@
     billing(pdf, pack);
     notes(pdf, pack);
     pricing(pdf, pack);
-    settings(pdf, pack);
+    settingsPage(pdf, pack);
+  }
+
+  function safeFile(name, fallback) {
+    var base = String(name || fallback || "file")
+      .replace(/[\/\\?%*:|"<>]/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+    return base || fallback || "file";
+  }
+
+  function uniqueName(used, name) {
+    var n = name;
+    var i = 2;
+    while (used[n]) {
+      var dot = name.lastIndexOf(".");
+      if (dot > 0) n = name.slice(0, dot) + "-" + i + name.slice(dot);
+      else n = name + "-" + i;
+      i += 1;
+    }
+    used[n] = true;
+    return n;
+  }
+
+  function storageBlob(db, bucket, path) {
+    if (!db || !path) return Promise.resolve(null);
+    return db.storage.from(bucket).download(path).then(function (res) {
+      if (res.error || !res.data) return null;
+      return res.data;
+    }).catch(function () { return null; });
+  }
+
+  function urlBlob(url) {
+    if (!url) return Promise.resolve(null);
+    return fetch(url).then(function (r) {
+      if (!r.ok) return null;
+      return r.blob();
+    }).catch(function () { return null; });
+  }
+
+  function addSecret(folder, filename, value) {
+    if (value == null || value === "") return;
+    folder.file(filename, String(value));
+  }
+
+  function collectFiles(db, pack, onStatus) {
+    onStatus("Collecting receipts and documents…");
+    var jobs = [];
+    var files = [];
+
+    function push(folder, name, blob) {
+      if (!blob) return;
+      files.push({ folder: folder, name: name, blob: blob });
+    }
+
+    var usedCo = {};
+    (pack.tables.business_documents || []).forEach(function (doc) {
+      if (!doc.storage_path) return;
+      jobs.push(storageBlob(db, "business-docs", doc.storage_path).then(function (blob) {
+        var ext = String(doc.file_name || doc.storage_path || "pdf").split(".").pop() || "pdf";
+        var name = uniqueName(usedCo, safeFile(doc.name || doc.file_name || "Document") + "." + ext.replace(/^\./, ""));
+        push("Company-Documents", name, blob);
+      }));
+    });
+
+    function ledgerFiles(rows, folder) {
+      var used = {};
+      (rows || []).forEach(function (row) {
+        proofsOf(row).forEach(function (proof) {
+          jobs.push(storageBlob(db, "ledger-receipts", proof.path).then(function (blob) {
+            var name = uniqueName(used, safeFile(proof.file_name || proof.path.split("/").pop() || "receipt"));
+            push(folder, name, blob);
+          }));
+        });
+      });
+    }
+    ledgerFiles(pack.tables.business_expenses, "Receipts/Expenses");
+    ledgerFiles(pack.tables.business_incomes, "Receipts/Income");
+
+    var usedIcons = {};
+    (pack.tables.managed_apps || []).forEach(function (app) {
+      if (!app.icon_path) return;
+      jobs.push(storageBlob(db, "app-icons", app.icon_path).then(function (blob) {
+        var ext = String(app.icon_path).split(".").pop() || "png";
+        var name = uniqueName(usedIcons, safeFile(app.name || "app") + "." + ext);
+        push("App-Icons", name, blob);
+      }));
+    });
+
+    var usedNote = {};
+    (pack.tables.app_notifications || []).forEach(function (n) {
+      var url = n.image_url || "";
+      if (!url) return;
+      var job = /^https?:/i.test(url) ? urlBlob(url) : storageBlob(db, "announcement-images", url);
+      jobs.push(job.then(function (blob) {
+        var ext = String(url).split(".").pop() || "jpg";
+        if (ext.length > 5) ext = "jpg";
+        var name = uniqueName(usedNote, safeFile(n.subject || n.app_name || "notice") + "." + ext);
+        push("Notification-Images", name, blob);
+      }));
+    });
+
+    return Promise.all(jobs).then(function () { return files; });
   }
 
   function stamp() {
@@ -1236,27 +976,83 @@
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
 
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
+  function readme(pack) {
+    return [
+      "STL Studio Backup Log - " + stamp(),
+      "Signed in as: " + (pack.email || ""),
+      "",
+      "KEEP THIS ZIP PRIVATE. It has passwords and API keys.",
+      "",
+      "How to restore",
+      "1. Sign in to Studio.",
+      "2. Copy files from Secrets/ into stl-studio/secrets/ on this Mac.",
+      "3. Open Studio signed in so the keys sync.",
+      "4. Type every record from 01-Restore-Guide.pdf, menu by menu.",
+      "5. Re-upload Company-Documents, Receipts, App-Icons, and Notification-Images."
+    ].join("\n");
+  }
+
   function download(db, opts) {
     opts = opts || {};
     var onStatus = opts.onStatus || function () {};
     if (!window.STLStudioPdf) return Promise.reject(new Error("PDF library missing."));
+    if (!window.JSZip) return Promise.reject(new Error("Zip library missing. Refresh the page."));
     if (!db) return Promise.reject(new Error("Sign in first."));
     return loadAll(db, onStatus).then(function (pack) {
-      onStatus("Writing PDF pages…");
+      onStatus("Writing restore guide…");
       return window.STLStudioPdf.open({
         db: db,
-        word: "BACKUP LOG",
+        word: "RESTORE GUIDE",
         yearLabel: window.STLStudioPdf.prepared()
       }).then(function (pdf) {
-        build(pdf, pack);
-        pdf.save("STL-Apps-LLC_Backup-Log_" + stamp() + ".pdf");
+        buildPdf(pdf, pack);
+        return collectFiles(db, pack, onStatus).then(function (files) {
+          onStatus("Zipping backup…");
+          var zip = new window.JSZip();
+          var root = zip.folder("STL-Apps-LLC_Backup-Log_" + stamp());
+          root.file("00-READ-ME.txt", readme(pack));
+          root.file("01-Restore-Guide.pdf", pdf.blob());
+          var secrets = root.folder("Secrets");
+          var s = pack.secrets || {};
+          addSecret(secrets, "mercury.token", s.mercury_token);
+          addSecret(secrets, "asc_issuer_id.txt", s.asc_issuer_id);
+          addSecret(secrets, "asc_key_id.txt", s.asc_key_id);
+          addSecret(secrets, "asc_private_key.p8", s.asc_private_key);
+          addSecret(secrets, "asc_vendor_number.txt", s.asc_vendor_number);
+          addSecret(secrets, "play_gcs_bucket.txt", s.play_gcs_bucket);
+          addSecret(secrets, "play_service_account.json", s.play_service_account_json);
+          addSecret(secrets, "permitpath_supabase_url.txt", s.permitpath_supabase_url);
+          addSecret(secrets, "permitpath_service_role_key.txt", s.permitpath_service_role_key);
+          addSecret(secrets, "pilotcar4hire_supabase_url.txt", s.pilotcar4hire_supabase_url);
+          addSecret(secrets, "pilotcar4hire_service_role_key.txt", s.pilotcar4hire_service_role_key);
+          secrets.file(
+            "README.txt",
+            "Copy these files into stl-studio/secrets/ on your Mac, then open Studio signed in."
+          );
+          files.forEach(function (file) {
+            root.folder(file.folder).file(file.name, file.blob);
+          });
+          return zip.generateAsync({ type: "blob" });
+        });
+      }).then(function (blob) {
+        downloadBlob(blob, "STL-Apps-LLC_Backup-Log_" + stamp() + ".zip");
       });
     });
   }
 
   window.STLBackupLog = {
     download: download,
-    build: build,
-    loadAll: loadAll
+    build: buildPdf
   };
 })();

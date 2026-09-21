@@ -255,10 +255,10 @@
 
       '<div class="ops-card">' +
         "<h3>Backup Log</h3>" +
-        '<p class="sub">Download a PDF of every Studio menu. Each menu starts on its own page so you can type the information back in if this studio is ever empty. The PDF includes Login Vault, Apps, and project passwords — keep it private.</p>' +
+        '<p class="sub">Download a zip: a restore guide PDF (one menu per page), receipts, company documents, app icons, notification photos, and the Secrets folder. Keep it private — it has passwords and API keys.</p>' +
         '<div class="ops-actions">' +
           '<button class="btn btn-primary" type="button" data-el="backup-log"' + (backingUp ? " disabled" : "") + ">" +
-            (backingUp ? "Building PDF…" : "Backup Log") +
+            (backingUp ? "Building backup…" : "Backup Log") +
           "</button>" +
         "</div>" +
       "</div>" +
@@ -299,11 +299,11 @@
     var btn = el("backup-log");
     if (btn) {
       btn.disabled = true;
-      btn.textContent = "Building PDF…";
+      btn.textContent = "Building backup…";
     }
-    showMsg("Building Backup Log PDF…", true);
+    showMsg("Building Backup Log…", true);
     window.STLBackupLog.download(db, {
-      onStatus: function (msg) { showMsg(msg || "Building Backup Log PDF…", true); }
+      onStatus: function (msg) { showMsg(msg || "Building Backup Log…", true); }
     }).then(function () {
       backingUp = false;
       if (root) render();

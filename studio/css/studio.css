@@ -922,3 +922,65 @@ textarea {
     display: none;
   }
 }
+
+.studio-hud {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.studio-hud[hidden] {
+  display: none !important;
+}
+
+.studio-hud-card {
+  width: 76px;
+  height: 76px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 32px rgba(18, 33, 61, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.studio-hud-spin,
+.studio-hud-mark {
+  display: none;
+}
+
+.studio-hud.is-spin .studio-hud-spin,
+.studio-hud.is-ok .studio-hud-ok,
+.studio-hud.is-bad .studio-hud-bad {
+  display: block;
+}
+
+.studio-hud-spin {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #d4d7de;
+  border-top-color: #4a5568;
+  border-radius: 50%;
+  animation: studio-hud-spin 0.7s linear infinite;
+}
+
+.studio-hud-mark {
+  width: 32px;
+  height: 32px;
+}
+
+.studio-hud-ok {
+  color: #1b6b32;
+}
+
+.studio-hud-bad {
+  color: #c13939;
+}
+
+@keyframes studio-hud-spin {
+  to { transform: rotate(360deg); }
+}

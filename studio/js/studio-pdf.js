@@ -213,21 +213,44 @@
     if (blurb) this.note(blurb);
   };
 
-  Report.prototype.fields = function (pairs) {
-    var labelW = 148;
+  Report.prototype.gap = function (n) {
+    this.y += n || 8;
+  };
+
+  Report.prototype.recordHead = function (title, index, total) {
+    this.ensure(34);
+    this.y += 8;
+    this.text(title || "Record", this.mL, this.y, { size: 12, bold: true, color: NAVY, width: this.maxW - 90 });
+    if (total) {
+      this.text(index + " of " + total, this.mL, this.y, { size: 9, color: MUTED, width: this.maxW, align: "right" });
+    }
+    this.y += 16;
+    this.hairline(this.y);
+    this.y += 6;
+  };
+
+  Report.prototype.fields = function (pairs, opts) {
+    opts = opts || {};
+    var skipEmpty = !!opts.skipEmpty;
+    var labelW = 150;
     var valueW = this.maxW - labelW;
     var i;
+    var shown = 0;
     for (i = 0; i < (pairs || []).length; i += 1) {
       var pair = pairs[i] || [];
       var label = String(pair[0] == null ? "" : pair[0]);
-      var value = pair[1] == null || pair[1] === "" ? "—" : String(pair[1]);
-      var h = Math.max(this.measure(label, labelW - 8, 8), this.measure(value, valueW - 8, 9)) + 10;
+      var raw = pair[1];
+      if (skipEmpty && (raw == null || raw === "")) continue;
+      var value = raw == null || raw === "" ? "—" : String(raw);
+      var h = Math.max(this.measure(label, labelW - 10, 9), this.measure(value, valueW - 10, 10)) + 12;
       this.ensure(h);
-      this.wrap(label, this.mL, this.y + 2, labelW - 8, { size: 8, bold: true, color: MUTED });
-      this.wrap(value, this.mL + labelW, this.y + 2, valueW - 8, { size: 9, color: INK });
+      this.wrap(label, this.mL, this.y + 3, labelW - 10, { size: 9, bold: true, color: MUTED });
+      this.wrap(value, this.mL + labelW, this.y + 3, valueW - 10, { size: 10, color: INK });
       this.y += h;
       this.hairline(this.y);
+      shown += 1;
     }
+    return shown;
   };
 
   Report.prototype.bullets = function (lines) {
