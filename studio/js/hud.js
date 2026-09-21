@@ -5,6 +5,8 @@
   var hideTimer = null;
   var lastBusy = false;
   var observer = null;
+  var current = "";
+  var scheduled = false;
 
   var BUSY = /loading|saving|sending|upload|building|publish|deleting|zipping|collecting|writing restore|signing/i;
   var SKIP = /unsaved changes/i;
@@ -33,22 +35,23 @@
   }
 
   function setMode(mode) {
+    if (current === mode) return;
+    current = mode;
     var node = el();
     clearTimeout(hideTimer);
+    if (!mode) {
+      node.hidden = true;
+      node.classList.remove("is-spin", "is-ok", "is-bad");
+      node.setAttribute("aria-hidden", "true");
+      return;
+    }
     node.hidden = false;
     node.classList.remove("is-spin", "is-ok", "is-bad");
     node.classList.add("is-" + mode);
     node.setAttribute("aria-hidden", "false");
     if (mode === "ok" || mode === "bad") {
-      hideTimer = setTimeout(hide, mode === "bad" ? 1200 : 900);
+      hideTimer = setTimeout(function () { setMode(""); }, mode === "bad" ? 1200 : 900);
     }
-  }
-
-  function hide() {
-    var node = el();
-    node.hidden = true;
-    node.classList.remove("is-spin", "is-ok", "is-bad");
-    node.setAttribute("aria-hidden", "true");
   }
 
   function readState() {
@@ -82,23 +85,41 @@
       setMode("ok");
       return;
     }
-    if (lastBusy) {
-      lastBusy = false;
-      hide();
-    }
+    if (lastBusy) lastBusy = false;
+    if (current === "spin") setMode("");
+  }
+
+  function queueRead() {
+    if (scheduled) return;
+    scheduled = true;
+    setTimeout(function () {
+      scheduled = false;
+      readState();
+    }, 40);
+  }
+
+  function fromHud(node) {
+    if (!node || !root) return false;
+    return node === root || (root.contains && root.contains(node));
   }
 
   function watch() {
     if (observer) observer.disconnect();
-    observer = new MutationObserver(function () { readState(); });
-    observer.observe(document.body, {
-      subtree: true,
-      childList: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ["class"]
+    observer = new MutationObserver(function (records) {
+      var i;
+      for (i = 0; i < records.length; i += 1) {
+        if (!fromHud(records[i].target)) {
+          queueRead();
+          return;
+        }
+      }
     });
-    readState();
+    var gate = document.getElementById("gate");
+    var app = document.getElementById("app");
+    var opts = { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["class"] };
+    if (gate) observer.observe(gate, opts);
+    if (app) observer.observe(app, opts);
+    else observer.observe(document.body, opts);
   }
 
   if (document.readyState === "loading") {
