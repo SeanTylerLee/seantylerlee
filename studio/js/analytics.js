@@ -93,7 +93,7 @@
       '<div class="analytics-workspace">' +
         '<div class="analytics-header">' +
           "<div><h1>Analytics</h1>" +
-          "<p>Apple App Store Connect and Google Play vitals. Keys stay on this Mac — never in the page.</p></div>" +
+          "<p>Apple App Store Connect plus Google Play vitals and install statistics.</p></div>" +
           '<div class="actions">' +
             '<button class="btn btn-ghost" type="button" data-el="refresh">Refresh</button>' +
           "</div>" +
@@ -267,7 +267,7 @@
     if (!playSnapshot) {
       body.innerHTML =
         '<div class="analytics-card"><h3>Google Play</h3>' +
-        '<p class="sub">' + (playLoading ? "Loading Play vitals…" : "Refresh to load crash and ANR rates from Play Console.") + "</p>" +
+        '<p class="sub">' + (playLoading ? "Loading Play vitals and installs…" : "Refresh to load crash, ANR, and install statistics from Play Console.") + "</p>" +
         (playLoading ? "" : '<button class="btn btn-primary" type="button" data-el="refresh-empty" style="min-height:32px;font-size:12px">Refresh</button>') +
         "</div>";
       return;
@@ -278,6 +278,19 @@
     var anrRates = apps.map(function (a) { return a.anr && a.anr.latest && a.anr.latest.rate; }).filter(function (v) { return v != null; });
     var avgCrash = crashRates.length ? crashRates.reduce(function (s, v) { return s + v; }, 0) / crashRates.length : null;
     var avgAnr = anrRates.length ? anrRates.reduce(function (s, v) { return s + v; }, 0) / anrRates.length : null;
+    var activeDevices = apps.reduce(function (s, a) {
+      var installs = a.installs || {};
+      return s + (installs.ready ? (Number(installs.activeDeviceInstalls) || 0) : 0);
+    }, 0);
+    var installs7d = apps.reduce(function (s, a) {
+      var installs = a.installs || {};
+      return s + (installs.ready ? (Number(installs.userInstalls7d) || 0) : 0);
+    }, 0);
+    var uninstalls7d = apps.reduce(function (s, a) {
+      var installs = a.installs || {};
+      return s + (installs.ready ? (Number(installs.userUninstalls7d) || 0) : 0);
+    }, 0);
+    var hasInstalls = apps.some(function (a) { return a.installs && a.installs.ready; });
 
     var html =
       '<div class="analytics-chips">' +
@@ -286,13 +299,22 @@
         '<div class="analytics-chip warn"><span class="k">Avg ANR rate</span><span class="v">' + pct(avgAnr) + "</span></div>" +
       "</div>";
 
+    if (hasInstalls) {
+      html +=
+        '<div class="analytics-chips">' +
+          '<div class="analytics-chip ok"><span class="k">Active devices</span><span class="v">' + formatted(activeDevices) + "</span></div>" +
+          '<div class="analytics-chip ok"><span class="k">User installs (7d)</span><span class="v">' + formatted(installs7d) + "</span></div>" +
+          '<div class="analytics-chip"><span class="k">User uninstalls (7d)</span><span class="v">' + formatted(uninstalls7d) + "</span></div>" +
+        "</div>";
+    }
+
     if (playSnapshot.note) {
       html += '<div class="analytics-card"><p class="sub" style="margin:0">' + esc(playSnapshot.note) + "</p></div>";
     }
 
     html +=
-      '<div class="analytics-card"><h3>Play vitals</h3>' +
-      '<p class="sub">Last 14 days, daily. Package names come from Apps (Google package) plus secrets/play_packages.txt.</p>';
+      '<div class="analytics-card"><h3>Play vitals and installs</h3>' +
+      '<p class="sub">Crash/ANR from the last 14 days. Install counts from Play Download reports overview. Package names come from Apps (Google package) plus secrets/play_packages.txt.</p>';
 
     if (!apps.length) {
       html +=
@@ -301,6 +323,7 @@
       apps.forEach(function (app) {
         var crash = app.crash || {};
         var anr = app.anr || {};
+        var installs = app.installs || {};
         var studio = studioMatchPlay(app.packageName);
         html +=
           '<div class="app-card">' +
@@ -318,8 +341,36 @@
               "<span>Crash 14-day avg <b>" + pct(crash.average) + "</b></span>" +
               "<span>ANR <b>" + pct(anr.latest && anr.latest.rate) + "</b></span>" +
               "<span>ANR 14-day avg <b>" + pct(anr.average) + "</b></span>" +
-            "</div>" +
-          "</div>";
+            "</div>";
+
+        if (installs.ready) {
+          html +=
+            '<div class="app-metrics">' +
+              "<span>Active devices <b>" + formatted(installs.activeDeviceInstalls) + "</b></span>" +
+              "<span>User installs (latest day) <b>" + formatted(installs.dailyUserInstalls) + "</b></span>" +
+              "<span>Device installs (latest day) <b>" + formatted(installs.dailyDeviceInstalls) + "</b></span>" +
+              "<span>User installs (7d) <b>" + formatted(installs.userInstalls7d) + "</b></span>" +
+              "<span>User uninstalls (7d) <b>" + formatted(installs.userUninstalls7d) + "</b></span>" +
+              (installs.reportDate ? "<span>Report date <b>" + esc(installs.reportDate) + "</b></span>" : "") +
+            "</div>";
+          if (installs.countries && installs.countries.length) {
+            html += '<div class="app-metrics">';
+            installs.countries.forEach(function (country) {
+              html +=
+                "<span>" + esc(country.code) +
+                " <b>" + formatted(country.activeDeviceInstalls) + "</b> active" +
+                (country.dailyUserInstalls
+                  ? " · " + formatted(country.dailyUserInstalls) + " installs"
+                  : "") +
+                "</span>";
+            });
+            html += "</div>";
+          }
+        } else if (installs.error) {
+          html += '<p class="sub" style="margin:8px 0 0">' + esc(installs.error) + "</p>";
+        }
+
+        html += "</div>";
       });
     }
     html += "</div>";
@@ -423,7 +474,7 @@
       return;
     }
     playLoading = true;
-    showMsg("Loading Google Play vitals…", true);
+    showMsg("Loading Google Play vitals and installs…", true);
     render();
     playPackages().then(function (names) {
       var q = names.length ? ("?packages=" + encodeURIComponent(names.join(","))) : "";
