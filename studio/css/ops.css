@@ -544,6 +544,12 @@
   font-size: 13px;
 }
 
+.mail-email-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .mail-add {
   display: flex;
   gap: 8px;

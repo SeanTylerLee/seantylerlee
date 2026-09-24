@@ -37,6 +37,24 @@
   function isEmail(s) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
   }
+  function composeHref(email, list) {
+    var href = "mailto:" + encodeURIComponent(trim(email));
+    var q = [];
+    if (trim(list && list.subject)) q.push("subject=" + encodeURIComponent(trim(list.subject)));
+    if (trim(list && list.notes)) q.push("body=" + encodeURIComponent(trim(list.notes)));
+    return q.length ? href + "?" + q.join("&") : href;
+  }
+  function saveListField(key, value) {
+    var list = selectedList();
+    if (!list) return;
+    var patch = {};
+    patch[key] = value;
+    db.from("email_lists").update(patch).eq("id", list.id).then(function (res) {
+      if (res.error) return showMsg(res.error.message, false);
+      list[key] = value;
+      if (key === "name") renderLists();
+    });
+  }
 
   function shell() {
     return (
@@ -95,6 +113,9 @@
         '<div class="ops-field"><label>List name</label>' +
           '<input data-el="list-name" type="text" value="' + esc(list.name || "") + '" />' +
         "</div>" +
+        '<div class="ops-field"><label>Subject</label>' +
+          '<input data-el="list-subject" type="text" value="' + esc(list.subject || "") + '" placeholder="Prefills the Mail subject" />' +
+        "</div>" +
         '<p class="inbox-letter-meta" style="margin:0 0 12px">' + rows.length + (rows.length === 1 ? " email" : " emails") + "</p>";
     if (!rows.length) {
       html += '<p class="inbox-empty" style="padding:8px 0">No emails on this list yet.</p>';
@@ -103,7 +124,10 @@
       rows.forEach(function (c) {
         html +=
           '<li><span>' + esc(c.email || "") + "</span>" +
-          '<button class="btn btn-ghost" type="button" data-remove="' + c.id + '">Remove</button></li>';
+          '<span class="mail-email-actions">' +
+            '<a class="btn btn-ghost" href="' + esc(composeHref(c.email, list)) + '">Mail</a>' +
+            '<button class="btn btn-ghost" type="button" data-remove="' + c.id + '">Remove</button>' +
+          "</span></li>";
       });
       html += "</ul>";
     }
@@ -112,6 +136,11 @@
         '<input data-el="new-email" type="email" placeholder="email@example.com" autocomplete="off" />' +
         '<button class="btn btn-primary" type="submit">Add email</button>' +
       "</form>" +
+      '<div class="ops-field" style="margin-top:16px"><label>Notes / template</label>' +
+        '<textarea data-el="list-notes" rows="8" placeholder="Paste a template. Mail uses this as the body.">' +
+          esc(list.notes || "") +
+        "</textarea>" +
+      "</div>" +
       '<div class="inbox-letter-more" style="margin-top:18px">' +
         '<button class="btn btn-ghost" type="button" data-el="remove-list">Delete list</button>' +
       "</div></div>";
@@ -126,11 +155,19 @@
         var list = selectedList();
         if (!list) return;
         var name = trim(nameEl.value) || "Untitled list";
-        db.from("email_lists").update({ name: name }).eq("id", list.id).then(function (res) {
-          if (res.error) return showMsg(res.error.message, false);
-          list.name = name;
-          renderLists();
-        });
+        saveListField("name", name);
+      });
+    }
+    var subjectEl = el("list-subject");
+    if (subjectEl) {
+      subjectEl.addEventListener("change", function () {
+        saveListField("subject", trim(subjectEl.value));
+      });
+    }
+    var notesEl = el("list-notes");
+    if (notesEl) {
+      notesEl.addEventListener("change", function () {
+        saveListField("notes", notesEl.value);
       });
     }
     var form = el("add-form");

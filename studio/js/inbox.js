@@ -191,6 +191,7 @@
           '<div class="inbox-list" data-el="list"></div>' +
           '<div class="inbox-read" data-el="read"></div>' +
         "</div>" +
+        '<div class="inbox-picker hidden" data-el="picker"></div>' +
       "</div>"
     );
   }
@@ -286,7 +287,6 @@
             '<button class="btn btn-ghost" type="button" data-el="delete">Delete</button>' +
           "</div>" +
         "</footer>" +
-        '<div class="inbox-picker hidden" data-el="picker"></div>' +
       "</article>";
     bindRead();
   }
@@ -475,9 +475,15 @@
       return;
     }
     var picker = el("picker");
-    if (!picker) return;
+    if (!picker) {
+      showMsg("Could not open lists.", false);
+      return;
+    }
     picker.classList.remove("hidden");
     picker.innerHTML = '<div class="inbox-picker-card"><p>Loading lists…</p></div>';
+    picker.onclick = function (e) {
+      if (e.target === picker) closePicker();
+    };
     db.from("email_lists").select("id,name").order("name").then(function (res) {
       if (res.error) {
         picker.innerHTML = '<div class="inbox-picker-card"><p>' + esc(res.error.message) + '</p><button class="btn btn-ghost" type="button" data-el="picker-close">Close</button></div>';
@@ -518,25 +524,27 @@
     picker.querySelectorAll("[data-list]").forEach(function (btn) {
       btn.onclick = function () {
         var listId = btn.getAttribute("data-list");
-        db.from("email_contacts").select("id").eq("list_id", listId).eq("email", email).then(function (found) {
+        showMsg("Adding to list…", true);
+        db.from("email_contacts").select("id,email").eq("list_id", listId).then(function (found) {
           if (found.error) return showMsg(found.error.message, false);
-          if (found.data && found.data.length) {
+          var exists = (found.data || []).some(function (c) {
+            return String(c.email || "").trim().toLowerCase() === email;
+          });
+          if (exists) {
             showMsg("Already on that list.", true);
             closePicker();
             return;
           }
-          db.from("email_contacts").select("id", { count: "exact", head: true }).eq("list_id", listId).then(function (countRes) {
-            db.from("email_contacts").insert({
-              list_id: listId,
-              email: email,
-              name: trim(row && row.name) || "",
-              cells: [email],
-              sort_order: countRes.count || 0
-            }).then(function (ins) {
-              if (ins.error) return showMsg(ins.error.message, false);
-              showMsg("Added to list.", true);
-              closePicker();
-            });
+          db.from("email_contacts").insert({
+            list_id: listId,
+            email: email,
+            name: trim(row && row.name) || "",
+            cells: [email],
+            sort_order: (found.data || []).length
+          }).select("id").single().then(function (ins) {
+            if (ins.error) return showMsg(ins.error.message, false);
+            showMsg("Added " + email + " to the list.", true);
+            closePicker();
           });
         });
       };
