@@ -46,6 +46,15 @@
     var found = TYPES.filter(function (t) { return t.id === source; })[0];
     return found ? found.title : "Message";
   }
+  function siteTitle(site) {
+    var s = String(site || "").toLowerCase();
+    if (s.indexOf("pilotcar") !== -1) return "Pilot Car 4 Hire";
+    if (s.indexOf("permitpath") !== -1) return "Permit Path";
+    return trim(site) || "Website";
+  }
+  function replySubject(site) {
+    return "Re: " + siteTitle(site);
+  }
   function when(iso) {
     if (!iso) return "";
     var t = new Date(iso).getTime();
@@ -72,7 +81,7 @@
     var q = trim(search).toLowerCase();
     if (q) {
       list = list.filter(function (row) {
-        return [row.name, row.email, row.message, row.site, typeTitle(row.source)]
+        return [row.name, row.email, row.message, row.site, typeTitle(row.source), siteTitle(row.site)]
           .some(function (v) { return String(v || "").toLowerCase().indexOf(q) !== -1; });
       });
     }
@@ -86,7 +95,7 @@
   function shell() {
     return (
       '<div class="ops-workspace">' +
-        '<div class="ops-header"><h1>Inbox</h1><p>Website contact messages and notify-me signups. Reply from your own email using their address.</p></div>' +
+        '<div class="ops-header"><h1>Inbox</h1><p>Contact messages from Permit Path and Pilot Car 4 Hire, plus notify-me signups. Reply from your own email using their address.</p></div>' +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-body" data-el="body"></div>' +
       "</div>"
@@ -117,7 +126,7 @@
 
     if (!list.length) {
       html += '<p class="sub" style="padding:8px;color:#6b7388">' +
-        (items.length ? "Nothing in this filter." : "No messages yet. Contact form and notify-me signups from the website show up here.") +
+        (items.length ? "Nothing in this filter." : "No messages yet. Contact forms and notify-me signups from your websites show up here.") +
         "</p>";
     } else {
       list.forEach(function (item) {
@@ -128,7 +137,7 @@
             (item.status === "unread" ? " is-unread" : "") +
             '" data-id="' + item.id + '">' +
             "<strong>" + esc(label) + "</strong>" +
-            "<span>" + esc(typeTitle(item.source)) + " · " + esc(when(item.created_at)) + "</span>" +
+            "<span>" + esc(typeTitle(item.source)) + " · " + esc(siteTitle(item.site)) + " · " + esc(when(item.created_at)) + "</span>" +
           "</button>";
       });
     }
@@ -139,7 +148,7 @@
     } else {
       html +=
         '<p class="sub" style="margin-bottom:12px">' + esc(typeTitle(row.source)) +
-          (row.site ? " · " + esc(row.site) : "") +
+          " · " + esc(siteTitle(row.site)) +
           " · " + esc(stamp(row.created_at)) +
         "</p>" +
         '<div class="ops-grid">' +
@@ -154,7 +163,7 @@
           esc(row.message || "").replace(/\n/g, "<br>") +
         "</div></div>" +
         '<div class="ops-actions">' +
-          (trim(row.email) ? '<a class="btn btn-ghost" data-el="reply" href="mailto:' + esc(row.email) + '?subject=' + encodeURIComponent("Re: Permit Path") + '">Reply</a>' : "") +
+          (trim(row.email) ? '<a class="btn btn-ghost" data-el="reply" href="mailto:' + esc(row.email) + '?subject=' + encodeURIComponent(replySubject(row.site)) + '">Reply</a>' : "") +
           (row.status === "unread"
             ? '<button class="btn btn-ghost" type="button" data-el="read">Mark read</button>'
             : '<button class="btn btn-ghost" type="button" data-el="unread">Mark unread</button>') +
