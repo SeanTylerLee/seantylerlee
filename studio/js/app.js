@@ -5,7 +5,7 @@
     event.preventDefault();
   });
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 47.
+  // Same order and grouping as the Mac app sidebar. Cache bust 48.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Profit, needs-you board, and studio snapshot." },
@@ -31,7 +31,7 @@
       { id: "subscribed", title: "Subscribed", icon: "person-crop-circle-fill", tint: "#2E7D4F", body: "Current Apple and Google subscribers per app." },
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
       { id: "inbox", title: "WebForm Submits", icon: "tray-fill", tint: "#3D6B99", body: "Website contact and notify-me messages." },
-      { id: "emails", title: "Emails", icon: "envelope-fill", tint: "#738094", body: "Mailing lists and templates." },
+      { id: "emails", title: "Email Lists", icon: "envelope-fill", tint: "#738094", body: "Named lists of emails." },
       { id: "notifications", title: "Notifications", icon: "bell-fill", tint: "#5B6B8C", body: "Push messages to app users." }
     ],
     [

@@ -43,7 +43,7 @@
     { id: "subscribed", title: "Subscribed" },
     { id: "support", title: "Support" },
     { id: "inbox", title: "WebForm Submits" },
-    { id: "emails", title: "Emails" },
+    { id: "emails", title: "Email Lists" },
     { id: "notifications", title: "Notifications" },
     { id: "clients", title: "Clients" },
     { id: "leads", title: "Leads" },

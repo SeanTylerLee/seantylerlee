@@ -244,7 +244,7 @@
         ["SOP", String((t.sop_guides || []).length)],
         ["Support", String((t.support_tickets || []).length)],
         ["WebForm Submits", String((t.studio_inbox || []).length)],
-        ["Emails", String((t.email_contacts || []).length) + " contacts"],
+        ["Email Lists", String((t.email_contacts || []).length) + " emails"],
         ["Notifications", String((t.app_notifications || []).length)],
         ["Clients", String((t.studio_clients || []).length)],
         ["Leads", String((t.studio_leads || []).length)],
@@ -549,31 +549,23 @@
   }
 
   function emails(pdf, pack) {
-    openMenu(pdf, "Emails", "Open Emails. Recreate each list, then add contacts, then templates.");
+    openMenu(pdf, "Email Lists", "Open Email Lists. Recreate each list, then add emails.");
     var lists = pack.tables.email_lists || [];
     var contacts = groupBy(pack.tables.email_contacts, "list_id");
-    var templates = pack.tables.email_templates || [];
-    if (!lists.length && !templates.length) { empty(pdf); return; }
+    if (!lists.length) { empty(pdf); return; }
     lists.forEach(function (list, i) {
       pdf.recordHead(list.name || "Untitled list", i + 1, lists.length);
-      filled(pdf, [["Imported from", list.source_file_name]]);
       var people = contacts[list.id] || [];
-      if (!people.length) empty(pdf, "No contacts on this list.");
+      if (!people.length) empty(pdf, "No emails on this list.");
       else {
         table(
           pdf,
-          ["Name", "Email", "Company", "Phone", "Sent", "Notes"],
-          people.map(function (c) {
-            return [c.name || "", c.email || "", c.company || "", c.phone || "", yesNo(c.is_sent), c.notes || ""];
-          }),
-          [90, 130, 90, 80, 40, pdf.maxW - 430],
+          ["Email"],
+          people.map(function (c) { return [c.email || ""]; }),
+          [pdf.maxW],
           1
         );
       }
-    });
-    templates.forEach(function (tpl, i) {
-      pdf.recordHead(tpl.title || "Untitled template", i + 1, templates.length);
-      longText(pdf, tpl.body || "");
     });
   }
 

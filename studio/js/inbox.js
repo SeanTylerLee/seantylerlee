@@ -286,6 +286,7 @@
             '<button class="btn btn-ghost" type="button" data-el="delete">Delete</button>' +
           "</div>" +
         "</footer>" +
+        '<div class="inbox-picker hidden" data-el="picker"></div>' +
       "</article>";
     bindRead();
   }
@@ -311,11 +312,14 @@
     var emailLink = trim(row.email)
       ? '<a class="btn btn-primary" data-el="reply" href="' + esc(replyMailto(row)) + '">Reply</a>'
       : "";
+    var addList = trim(row.email)
+      ? '<button class="btn btn-ghost" type="button" data-el="add-to-list">Add to list</button>'
+      : "";
     var callLink = info.phone
       ? '<a class="btn btn-ghost" href="tel:' + esc(info.phone.replace(/[^\d+]/g, "")) + '">Call</a>'
       : "";
-    if (info.method === "phone") html += callLink + emailLink;
-    else html += emailLink + callLink;
+    if (info.method === "phone") html += callLink + emailLink + addList;
+    else html += emailLink + addList + callLink;
     return html;
   }
 
@@ -456,7 +460,92 @@
     });
   }
 
+  function closePicker() {
+    var picker = el("picker");
+    if (picker) {
+      picker.classList.add("hidden");
+      picker.innerHTML = "";
+    }
+  }
+
+  function addToList(row) {
+    var email = trim(row && row.email).toLowerCase();
+    if (!email) {
+      showMsg("This message has no email.", false);
+      return;
+    }
+    var picker = el("picker");
+    if (!picker) return;
+    picker.classList.remove("hidden");
+    picker.innerHTML = '<div class="inbox-picker-card"><p>Loading lists…</p></div>';
+    db.from("email_lists").select("id,name").order("name").then(function (res) {
+      if (res.error) {
+        picker.innerHTML = '<div class="inbox-picker-card"><p>' + esc(res.error.message) + '</p><button class="btn btn-ghost" type="button" data-el="picker-close">Close</button></div>';
+        bindPicker();
+        return;
+      }
+      var lists = res.data || [];
+      if (!lists.length) {
+        picker.innerHTML =
+          '<div class="inbox-picker-card">' +
+            "<h3>Add to list</h3>" +
+            "<p>No lists yet. Make one under Email Lists first.</p>" +
+            '<button class="btn btn-ghost" type="button" data-el="picker-close">Close</button>' +
+          "</div>";
+        bindPicker();
+        return;
+      }
+      picker.innerHTML =
+        '<div class="inbox-picker-card">' +
+          "<h3>Add to list</h3>" +
+          "<p>" + esc(email) + "</p>" +
+          '<div class="inbox-picker-lists">' +
+            lists.map(function (list) {
+              return '<button type="button" class="inbox-picker-item" data-list="' + list.id + '">' + esc(list.name || "Untitled list") + "</button>";
+            }).join("") +
+          "</div>" +
+          '<button class="btn btn-ghost" type="button" data-el="picker-close">Cancel</button>' +
+        "</div>";
+      bindPicker(row, email);
+    });
+  }
+
+  function bindPicker(row, email) {
+    var close = el("picker-close");
+    if (close) close.onclick = closePicker;
+    var picker = el("picker");
+    if (!picker) return;
+    picker.querySelectorAll("[data-list]").forEach(function (btn) {
+      btn.onclick = function () {
+        var listId = btn.getAttribute("data-list");
+        db.from("email_contacts").select("id").eq("list_id", listId).eq("email", email).then(function (found) {
+          if (found.error) return showMsg(found.error.message, false);
+          if (found.data && found.data.length) {
+            showMsg("Already on that list.", true);
+            closePicker();
+            return;
+          }
+          db.from("email_contacts").select("id", { count: "exact", head: true }).eq("list_id", listId).then(function (countRes) {
+            db.from("email_contacts").insert({
+              list_id: listId,
+              email: email,
+              name: trim(row && row.name) || "",
+              cells: [email],
+              sort_order: countRes.count || 0
+            }).then(function (ins) {
+              if (ins.error) return showMsg(ins.error.message, false);
+              showMsg("Added to list.", true);
+              closePicker();
+            });
+          });
+        });
+      };
+    });
+  }
+
   function bindRead() {
+    var addListBtn = el("add-to-list");
+    if (addListBtn) addListBtn.onclick = function () { addToList(selected()); };
     var sendBilling = el("send-billing");
     if (sendBilling) sendBilling.onclick = function () { sendToBilling(selected()); };
     var openBilling = el("open-billing");
