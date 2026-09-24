@@ -32,6 +32,8 @@
       name: (form.elements.name && form.elements.name.value) || "",
       company: (form.elements.company && form.elements.company.value) || "",
       email: (form.elements.email && form.elements.email.value) || "",
+      phone: (form.elements.phone && form.elements.phone.value) || "",
+      contactMethod: (form.elements.contactMethod && form.elements.contactMethod.value) || "email",
       about: (form.elements.about && form.elements.about.value) || ""
     };
   }
@@ -72,7 +74,8 @@
       fromWebsite: "seantylerlee.com",
       clientName: clientName,
       clientEmail: String(input.email || "").trim(),
-      clientPhone: "",
+      clientPhone: String(input.phone || "").trim(),
+      contactMethod: input.contactMethod === "phone" ? "phone" : "email",
       clientAddress: "",
       items: items,
       subtotal: quote.total,
@@ -172,6 +175,8 @@
     lines.push("Quote: " + d.quoteNumber);
     lines.push("Name: " + (d.clientName || "—"));
     lines.push("Email: " + (d.clientEmail || "—"));
+    if (d.clientPhone) lines.push("Phone: " + d.clientPhone);
+    lines.push("Best contact: " + (d.contactMethod === "phone" ? "Phone" : "Email"));
     if (d.projectName) {
       lines.push("");
       lines.push("Project:");
@@ -218,6 +223,7 @@
       clientName: d.clientName,
       clientEmail: d.clientEmail,
       clientPhone: d.clientPhone || "",
+      contactMethod: d.contactMethod === "phone" ? "phone" : "email",
       clientAddress: d.clientAddress || "",
       items: items,
       discountType: "none",
@@ -240,6 +246,7 @@
         total: Number(d.total) || 0,
         deposit: Number(d.deposit) || 0,
         company: readInput().company || "",
+        contactMethod: d.contactMethod === "phone" ? "phone" : "email",
         billing: billing
       }
     });
@@ -256,6 +263,11 @@
     if (!String(input.email || "").trim()) {
       setStatus("Add your email so we can reply.", "error");
       if (form.elements.email) form.elements.email.focus();
+      return;
+    }
+    if (input.contactMethod === "phone" && !String(input.phone || "").trim()) {
+      setStatus("Add a phone number, or choose email as the best way to reach you.", "error");
+      if (form.elements.phone) form.elements.phone.focus();
       return;
     }
     if (!String(input.name || input.company || "").trim()) {

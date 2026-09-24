@@ -195,13 +195,14 @@
               ? '<a href="mailto:' + esc(row.email) + '">' + esc(row.email) + "</a>"
               : "—") +
           "</div></div>" +
+          contactFieldsHtml(row) +
         "</div>" +
         quoteDetailHtml(row) +
         '<div class="ops-field"><label>Message</label><div class="inbox-message">' +
           esc(row.message || "").replace(/\n/g, "<br>") +
         "</div></div>" +
         '<div class="ops-actions">' +
-          (trim(row.email) ? '<a class="btn btn-ghost" data-el="reply" href="mailto:' + esc(row.email) + '?subject=' + encodeURIComponent(replySubject(row)) + '">Reply</a>' : "") +
+          contactActionHtml(row) +
           (row.source === "quote"
             ? (row.billing_id
               ? '<button class="btn btn-ghost" type="button" data-el="open-billing">Open in Billing</button>'
@@ -220,6 +221,42 @@
     el("body").innerHTML = html;
     bind();
     hideSave();
+  }
+
+  function quoteContact(row) {
+    var p = quotePayload(row);
+    var draft = billingDraft(row) || {};
+    return {
+      phone: trim(draft.clientPhone || p.phone || ""),
+      method: (p.contactMethod || draft.contactMethod) === "phone" ? "phone" : "email"
+    };
+  }
+
+  function contactFieldsHtml(row) {
+    if (!row || row.source !== "quote") return "";
+    var info = quoteContact(row);
+    var html = "";
+    html += '<div class="ops-field"><label>Phone</label><div>' +
+      (info.phone ? '<a href="tel:' + esc(info.phone.replace(/[^\d+]/g, "")) + '">' + esc(info.phone) + "</a>" : "—") +
+      "</div></div>";
+    html += '<div class="ops-field"><label>Best contact</label><div>' +
+      (info.method === "phone" ? "Phone" : "Email") +
+      "</div></div>";
+    return html;
+  }
+
+  function contactActionHtml(row) {
+    var info = row && row.source === "quote" ? quoteContact(row) : { phone: "", method: "email" };
+    var html = "";
+    var emailLink = trim(row.email)
+      ? '<a class="btn btn-ghost" data-el="reply" href="mailto:' + esc(row.email) + '?subject=' + encodeURIComponent(replySubject(row)) + '">Reply</a>'
+      : "";
+    var callLink = info.phone
+      ? '<a class="btn btn-ghost" href="tel:' + esc(info.phone.replace(/[^\d+]/g, "")) + '">Call</a>'
+      : "";
+    if (info.method === "phone") html += callLink + emailLink;
+    else html += emailLink + callLink;
+    return html;
   }
 
   function quoteDetailHtml(row) {
@@ -301,8 +338,9 @@
       fromAddress: draft.fromAddress || "",
       clientName: draft.clientName || row.name || "",
       clientEmail: draft.clientEmail || row.email || "",
-      clientPhone: draft.clientPhone || "",
+      clientPhone: draft.clientPhone || quotePayload(row).phone || "",
       clientAddress: draft.clientAddress || "",
+      contactMethod: quotePayload(row).contactMethod || draft.contactMethod || "email",
       items: items,
       discountType: draft.discountType || "none",
       discountValue: Number(draft.discountValue) || 0,
@@ -316,6 +354,9 @@
       depositPercent: Number(draft.depositPercent) || 50,
       hourlyRate: Number(draft.hourlyRate) || 30
     };
+    var contactLine = "Best contact: " + (payload.contactMethod === "phone" ? "phone" : "email") +
+      (payload.clientPhone ? " · " + payload.clientPhone : "") + ".";
+    payload.notes = contactLine + (payload.notes ? "\n\n" + payload.notes : "");
     showMsg("Sending to Billing…", true);
     db.from("billing_documents").insert({
       kind: "quote",

@@ -164,6 +164,43 @@
   resize: vertical;
 }
 
+.q-optional {
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+
+.q-contact-method {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.q-contact-method legend {
+  margin: 0 0 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--navy);
+}
+
+.q-contact-method label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-right: 1rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.q-contact-method input {
+  width: auto;
+  margin: 0;
+}
+
 .q-estimate {
   position: sticky;
   top: 5.2rem;

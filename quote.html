@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css?v=17" />
-  <link rel="stylesheet" href="quote.css?v=4" />
+  <link rel="stylesheet" href="quote.css?v=5" />
   <script>
     window.addEventListener("beforeinstallprompt", function (event) { event.preventDefault(); });
   </script>
@@ -186,6 +186,21 @@
               <input name="email" type="email" autocomplete="email" required placeholder="Needed so we can reply" />
             </label>
             <label>
+              Phone <span class="q-optional">optional</span>
+              <input name="phone" type="tel" autocomplete="tel" placeholder="If you’d rather talk" />
+            </label>
+            <fieldset class="q-contact-method">
+              <legend>Best way to reach you</legend>
+              <label>
+                <input type="radio" name="contactMethod" value="email" checked />
+                Email
+              </label>
+              <label>
+                <input type="radio" name="contactMethod" value="phone" />
+                Phone
+              </label>
+            </fieldset>
+            <label>
               What do you want to build?
               <textarea name="about" placeholder="A short description is enough — who it’s for, and what it has to do."></textarea>
             </label>
@@ -247,7 +262,7 @@
   <script src="js/pricing.js?v=3"></script>
   <script src="js/quote-pdf.js?v=1"></script>
   <script src="js/studioInbox.js"></script>
-  <script src="js/quote-form.js?v=5"></script>
+  <script src="js/quote-form.js?v=6"></script>
   <script>
     document.getElementById("year").textContent = String(new Date().getFullYear());
     var toggle = document.querySelector(".nav-toggle");
