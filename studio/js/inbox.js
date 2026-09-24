@@ -58,9 +58,12 @@
     if (row && row.source === "quote") {
       var draft = billingDraft(row);
       var num = draft && draft.number;
-      return num ? "Re: " + num : "Re: STL Apps quote";
+      return num ? "STL Apps quote " + num : "STL Apps quote";
     }
-    return "Re: " + siteTitle(row && row.site);
+    if (row && row.source === "release_notify") {
+      return siteTitle(row.site) + " — your signup";
+    }
+    return siteTitle(row && row.site) + " — your message";
   }
   function replyBody(row) {
     var lines = ["", "", "----- Original message -----"];
