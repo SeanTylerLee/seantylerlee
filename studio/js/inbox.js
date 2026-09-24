@@ -14,6 +14,7 @@
   var filter = "unread";
   var search = "";
   var loading = false;
+  var searchBound = false;
 
   function el(name) { return root ? root.querySelector('[data-el="' + name + '"]') : null; }
   function esc(s) {
@@ -142,11 +143,30 @@
     return d.toLocaleString();
   }
 
+  function snippet(text) {
+    return trim(text).replace(/\s+/g, " ").slice(0, 88);
+  }
+  function initials(name, email) {
+    var s = trim(name) || trim(email);
+    if (!s) return "•";
+    var parts = s.replace(/@.*$/, "").split(/[\s._-]+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+    return s.slice(0, 2).toUpperCase();
+  }
+  function siteTone(site) {
+    var s = String(site || "").toLowerCase();
+    if (s.indexOf("pilotcar") !== -1) return "pc";
+    if (s.indexOf("permitpath") !== -1) return "pp";
+    if (s.indexOf("seantylerlee") !== -1 || s.indexOf("stlapps") !== -1) return "sa";
+    return "xx";
+  }
   function visible() {
     var list = items.slice();
     if (filter === "unread") list = list.filter(function (row) { return row.status === "unread"; });
     else if (filter === "archived") list = list.filter(function (row) { return row.status === "archived"; });
-    else list = list.filter(function (row) { return row.status !== "archived"; });
+    else if (filter === "contact" || filter === "quote" || filter === "release_notify") {
+      list = list.filter(function (row) { return row.status !== "archived" && row.source === filter; });
+    } else list = list.filter(function (row) { return row.status !== "archived"; });
     var q = trim(search).toLowerCase();
     if (q) {
       list = list.filter(function (row) {
@@ -164,99 +184,147 @@
 
   function shell() {
     return (
-      '<div class="ops-workspace">' +
-        '<div class="ops-header"><h1>Inbox</h1><p>Website contact, notify-me signups, and STL Apps quotes. Reply from your own email. Quotes can be sent to Billing.</p></div>' +
+      '<div class="ops-workspace inbox-shell">' +
+        '<div class="inbox-head">' +
+          "<div><h1>Inbox</h1><p>Website messages and quotes. Reply from your own email.</p></div>" +
+          '<input data-el="search" type="search" placeholder="Search messages" />' +
+        "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
-        '<div class="ops-body" data-el="body"></div>' +
+        '<div class="inbox-bar" data-el="bar"></div>' +
+        '<div class="inbox-split">' +
+          '<div class="inbox-list" data-el="list"></div>' +
+          '<div class="inbox-read" data-el="read"></div>' +
+        "</div>" +
       "</div>"
     );
   }
 
-  function render() {
-    var unread = items.filter(function (row) { return row.status === "unread"; }).length;
-    var contact = items.filter(function (row) { return row.source === "contact" && row.status !== "archived"; }).length;
-    var quotes = items.filter(function (row) { return row.source === "quote" && row.status !== "archived"; }).length;
-    var notify = items.filter(function (row) { return row.source === "release_notify" && row.status !== "archived"; }).length;
+  function countPills() {
+    var live = items.filter(function (row) { return row.status !== "archived"; });
+    return [
+      ["unread", "Unread", items.filter(function (row) { return row.status === "unread"; }).length],
+      ["all", "All", live.length],
+      ["contact", "Contact", live.filter(function (row) { return row.source === "contact"; }).length],
+      ["quote", "Quotes", live.filter(function (row) { return row.source === "quote"; }).length],
+      ["release_notify", "Notify", live.filter(function (row) { return row.source === "release_notify"; }).length],
+      ["archived", "Archived", items.filter(function (row) { return row.status === "archived"; }).length]
+    ];
+  }
+
+  function renderBar() {
+    var bar = el("bar");
+    if (!bar) return;
+    bar.innerHTML = countPills().map(function (pill) {
+      var on = filter === pill[0] ? " is-on" : "";
+      var count = pill[2] ? '<em>' + pill[2] + "</em>" : "";
+      return '<button type="button" class="inbox-pill' + on + '" data-filter="' + pill[0] + '">' + pill[1] + count + "</button>";
+    }).join("");
+    bar.querySelectorAll("[data-filter]").forEach(function (btn) {
+      btn.onclick = function () {
+        filter = btn.getAttribute("data-filter");
+        if (selectedId && !visible().some(function (row) { return row.id === selectedId; })) selectedId = null;
+        render();
+      };
+    });
+  }
+
+  function renderList() {
+    var box = el("list");
+    if (!box) return;
     var list = visible();
-    var row = selected();
-
-    var html =
-      '<div class="ops-chips">' +
-        '<div class="ops-chip danger"><span class="k">Unread</span><span class="v">' + unread + "</span></div>" +
-        '<div class="ops-chip"><span class="k">Contact</span><span class="v">' + contact + "</span></div>" +
-        '<div class="ops-chip"><span class="k">Quotes</span><span class="v">' + quotes + "</span></div>" +
-        '<div class="ops-chip"><span class="k">Notify me</span><span class="v">' + notify + "</span></div>" +
-      "</div>" +
-      '<div class="ops-filters">' +
-        [["unread", "Unread"], ["all", "All"], ["archived", "Archived"]].map(function (pair) {
-          return '<button type="button" class="ops-pill' + (filter === pair[0] ? " is-on" : "") + '" data-filter="' + pair[0] + '">' + pair[1] + "</button>";
-        }).join("") +
-        '<input data-el="search" type="search" placeholder="Search…" value="' + esc(search) + '" style="margin-left:auto;min-height:30px;border-radius:8px;border:1px solid rgba(0,24,72,.12);padding:0 10px;font-size:12px" />' +
-      "</div>" +
-      '<div class="ops-split">' +
-        '<div class="ops-list">';
-
     if (!list.length) {
-      html += '<p class="sub" style="padding:8px;color:#6b7388">' +
-        (items.length ? "Nothing in this filter." : "No messages yet. Contact forms, quotes, and notify-me signups from your websites show up here.") +
+      box.innerHTML = '<p class="inbox-empty">' +
+        (items.length ? "Nothing in this filter." : "No messages yet. Contact forms, quotes, and notify-me signups land here.") +
         "</p>";
-    } else {
-      list.forEach(function (item) {
-        var draft = billingDraft(item);
-        var label = trim(item.name) || trim(item.email) || (draft && draft.number) || "Message";
-        var extra = item.source === "quote" ? " · " + money((draft && draft.total != null) ? draft.total : quotePayload(item).total) : "";
-        html +=
-          '<button type="button" class="ops-item' +
-            (item.id === selectedId ? " is-on" : "") +
-            (item.status === "unread" ? " is-unread" : "") +
-            '" data-id="' + item.id + '">' +
-            "<strong>" + esc(label) + extra + "</strong>" +
-            "<span>" + esc(typeTitle(item.source)) + " · " + esc(siteTitle(item.site)) + " · " + esc(when(item.created_at)) + "</span>" +
-          "</button>";
-      });
+      return;
     }
+    box.innerHTML = list.map(function (item) {
+      var draft = billingDraft(item);
+      var label = trim(item.name) || trim(item.email) || (draft && draft.number) || "Message";
+      var extra = item.source === "quote" ? money((draft && draft.total != null) ? draft.total : quotePayload(item).total) : "";
+      var snip = snippet(item.message);
+      return (
+        '<button type="button" class="inbox-row' +
+          (item.id === selectedId ? " is-on" : "") +
+          (item.status === "unread" ? " is-unread" : "") +
+          '" data-id="' + item.id + '">' +
+          '<span class="inbox-dot" aria-hidden="true"></span>' +
+          '<span class="inbox-avatar is-' + siteTone(item.site) + '">' + esc(initials(item.name, item.email)) + "</span>" +
+          '<span class="inbox-row-body">' +
+            '<span class="inbox-row-top"><strong>' + esc(label) + "</strong><time>" + esc(when(item.created_at)) + "</time></span>" +
+            '<span class="inbox-row-meta">' +
+              '<span class="inbox-tag is-' + esc(item.source) + '">' + esc(typeTitle(item.source)) + "</span>" +
+              "<span>" + esc(siteTitle(item.site)) + (extra ? " · " + extra : "") + "</span>" +
+            "</span>" +
+            (snip ? '<span class="inbox-row-snip">' + esc(snip) + "</span>" : "") +
+          "</span>" +
+        "</button>"
+      );
+    }).join("");
+    box.querySelectorAll("[data-id]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-id");
+        if (id === selectedId) return;
+        selectedId = id;
+        var row = selected();
+        render();
+        if (row && row.status === "unread") setStatus(row, "read");
+      };
+    });
+  }
 
-    html += '</div><div class="ops-detail">';
+  function renderRead() {
+    var box = el("read");
+    if (!box) return;
+    var row = selected();
     if (!row) {
-      html += '<p class="sub">Pick a message on the left.</p>';
-    } else {
-      html +=
-        '<p class="sub" style="margin-bottom:12px">' + esc(typeTitle(row.source)) +
-          " · " + esc(siteTitle(row.site)) +
-          " · " + esc(stamp(row.created_at)) +
-        "</p>" +
-        '<div class="ops-grid">' +
-          '<div class="ops-field"><label>From</label><div>' + esc(row.name || "—") + "</div></div>" +
-          '<div class="ops-field"><label>Email</label><div>' +
-            (trim(row.email)
-              ? '<a href="mailto:' + esc(row.email) + '">' + esc(row.email) + "</a>"
-              : "—") +
-          "</div></div>" +
-          contactFieldsHtml(row) +
-        "</div>" +
-        quoteDetailHtml(row) +
-        '<div class="ops-field"><label>Message</label><div class="inbox-message">' +
-          esc(row.message || "").replace(/\n/g, "<br>") +
-        "</div></div>" +
-        '<div class="ops-actions">' +
-          contactActionHtml(row) +
-          (row.source === "quote"
-            ? (row.billing_id
-              ? '<button class="btn btn-ghost" type="button" data-el="open-billing">Open in Billing</button>'
-              : '<button class="btn btn-ghost" type="button" data-el="send-billing">Send to Billing</button>')
-            : "") +
-          (row.status === "unread"
-            ? '<button class="btn btn-ghost" type="button" data-el="read">Mark read</button>'
-            : '<button class="btn btn-ghost" type="button" data-el="unread">Mark unread</button>') +
-          (row.status === "archived"
-            ? '<button class="btn btn-ghost" type="button" data-el="unarchive">Move to inbox</button>'
-            : '<button class="btn btn-ghost" type="button" data-el="archive">Archive</button>') +
-          '<button class="btn btn-ghost" type="button" data-el="delete">Delete</button>' +
-        "</div>";
+      box.innerHTML = '<div class="inbox-placeholder"><strong>Select a message</strong><p>Replies open in your own email with the original note quoted.</p></div>';
+      return;
     }
-    html += "</div></div>";
-    el("body").innerHTML = html;
-    bind();
+    var info = row.source === "quote" ? quoteContact(row) : { phone: "", method: "email" };
+    var bits = [];
+    if (trim(row.email)) bits.push('<a href="mailto:' + esc(row.email) + '">' + esc(row.email) + "</a>");
+    if (info.phone) bits.push('<a href="tel:' + esc(info.phone.replace(/[^\d+]/g, "")) + '">' + esc(info.phone) + "</a>");
+    if (row.source === "quote") bits.push("Prefers " + (info.method === "phone" ? "phone" : "email"));
+    box.innerHTML =
+      '<article class="inbox-letter">' +
+        '<header class="inbox-letter-head">' +
+          '<span class="inbox-avatar lg is-' + siteTone(row.site) + '">' + esc(initials(row.name, row.email)) + "</span>" +
+          "<div>" +
+            "<h2>" + esc(trim(row.name) || trim(row.email) || "Message") + "</h2>" +
+            (bits.length ? '<p class="inbox-letter-contact">' + bits.join(" · ") + "</p>" : "") +
+            '<p class="inbox-letter-meta">' + esc(typeTitle(row.source)) + " · " + esc(siteTitle(row.site)) + " · " + esc(stamp(row.created_at)) + "</p>" +
+          "</div>" +
+          '<span class="inbox-tag is-' + esc(row.source) + '">' + esc(typeTitle(row.source)) + "</span>" +
+        "</header>" +
+        quoteDetailHtml(row) +
+        '<div class="inbox-letter-body">' + esc(row.message || "") + "</div>" +
+        '<footer class="inbox-letter-foot">' +
+          '<div class="inbox-letter-primary">' + contactActionHtml(row) +
+            (row.source === "quote"
+              ? (row.billing_id
+                ? '<button class="btn btn-ghost" type="button" data-el="open-billing">Open in Billing</button>'
+                : '<button class="btn btn-ghost" type="button" data-el="send-billing">Send to Billing</button>')
+              : "") +
+          "</div>" +
+          '<div class="inbox-letter-more">' +
+            (row.status === "unread"
+              ? '<button class="btn btn-ghost" type="button" data-el="read">Mark read</button>'
+              : '<button class="btn btn-ghost" type="button" data-el="unread">Mark unread</button>') +
+            (row.status === "archived"
+              ? '<button class="btn btn-ghost" type="button" data-el="unarchive">Move to inbox</button>'
+              : '<button class="btn btn-ghost" type="button" data-el="archive">Archive</button>') +
+            '<button class="btn btn-ghost" type="button" data-el="delete">Delete</button>' +
+          "</div>" +
+        "</footer>" +
+      "</article>";
+    bindRead();
+  }
+
+  function render() {
+    renderBar();
+    renderList();
+    renderRead();
     hideSave();
   }
 
@@ -269,24 +337,11 @@
     };
   }
 
-  function contactFieldsHtml(row) {
-    if (!row || row.source !== "quote") return "";
-    var info = quoteContact(row);
-    var html = "";
-    html += '<div class="ops-field"><label>Phone</label><div>' +
-      (info.phone ? '<a href="tel:' + esc(info.phone.replace(/[^\d+]/g, "")) + '">' + esc(info.phone) + "</a>" : "—") +
-      "</div></div>";
-    html += '<div class="ops-field"><label>Best contact</label><div>' +
-      (info.method === "phone" ? "Phone" : "Email") +
-      "</div></div>";
-    return html;
-  }
-
   function contactActionHtml(row) {
     var info = row && row.source === "quote" ? quoteContact(row) : { phone: "", method: "email" };
     var html = "";
     var emailLink = trim(row.email)
-      ? '<a class="btn btn-ghost" data-el="reply" href="' + esc(replyMailto(row)) + '">Reply</a>'
+      ? '<a class="btn btn-primary" data-el="reply" href="' + esc(replyMailto(row)) + '">Reply</a>'
       : "";
     var callLink = info.phone
       ? '<a class="btn btn-ghost" href="tel:' + esc(info.phone.replace(/[^\d+]/g, "")) + '">Call</a>'
@@ -303,24 +358,26 @@
     if (!draft) return "";
     var items = Array.isArray(draft.items) ? draft.items : [];
     var html =
-      '<div class="ops-field"><label>Quote</label><div>' +
-        esc(draft.number || "Website quote") +
-        (p.intent === "interested" ? " · Interested" : "") +
-        (row.billing_id ? " · In Billing" : "") +
-      "</div></div>" +
-      '<div class="ops-grid">' +
-        '<div class="ops-field"><label>Total</label><div>' + money(draft.total != null ? draft.total : p.total) + "</div></div>" +
-        '<div class="ops-field"><label>Deposit</label><div>' + money(p.deposit != null ? p.deposit : (Number(draft.total || 0) * Number(draft.depositPercent || 0) / 100)) + "</div></div>" +
-        '<div class="ops-field"><label>Valid until</label><div>' + esc(draft.validUntil || draft.dueDate || "—") + "</div></div>" +
-        '<div class="ops-field"><label>Project</label><div>' + esc(draft.projectName || "—") + "</div></div>" +
-      "</div>";
+      '<section class="inbox-quote">' +
+        '<div class="inbox-quote-top">' +
+          "<strong>" + esc(draft.number || "Website quote") + "</strong>" +
+          "<span>" + money(draft.total != null ? draft.total : p.total) + "</span>" +
+        "</div>" +
+        '<p>' +
+          (p.intent === "interested" ? "Interested · " : "") +
+          (row.billing_id ? "In Billing · " : "") +
+          "Deposit " + money(p.deposit != null ? p.deposit : (Number(draft.total || 0) * Number(draft.depositPercent || 0) / 100)) +
+          " · Valid until " + esc(draft.validUntil || draft.dueDate || "—") +
+        "</p>" +
+        (trim(draft.projectName) ? "<p>" + esc(draft.projectName) + "</p>" : "");
     if (items.length) {
-      html += '<div class="ops-field"><label>Line items</label><div class="inbox-message">';
+      html += "<ul>";
       items.forEach(function (item) {
-        html += esc(item.desc || "Item") + " · " + money(item.rate) + "<br>";
+        html += "<li><span>" + esc(item.desc || "Item") + "</span><b>" + money(item.rate) + "</b></li>";
       });
-      html += "</div></div>";
+      html += "</ul>";
     }
+    html += "</section>";
     return html;
   }
 
@@ -420,39 +477,19 @@
     });
   }
 
-  function bind() {
-    root.querySelectorAll("[data-filter]").forEach(function (btn) {
-      btn.onclick = function () {
-        filter = btn.getAttribute("data-filter");
-        if (selectedId && !visible().some(function (row) { return row.id === selectedId; })) {
-          selectedId = null;
-        }
-        render();
-      };
-    });
+  function bindSearch() {
     var searchEl = el("search");
-    if (searchEl) {
-      searchEl.oninput = function () {
-        var caret = searchEl.selectionStart;
-        search = searchEl.value;
-        render();
-        var again = el("search");
-        if (again) {
-          again.focus();
-          try { again.setSelectionRange(caret, caret); } catch (e) {}
-        }
-      };
-    }
-    root.querySelectorAll(".ops-list [data-id]").forEach(function (btn) {
-      btn.onclick = function () {
-        var id = btn.getAttribute("data-id");
-        if (id === selectedId) return;
-        selectedId = id;
-        var row = selected();
-        render();
-        if (row && row.status === "unread") setStatus(row, "read");
-      };
+    if (!searchEl || searchBound) return;
+    searchBound = true;
+    searchEl.addEventListener("input", function () {
+      search = searchEl.value;
+      if (selectedId && !visible().some(function (row) { return row.id === selectedId; })) selectedId = null;
+      renderList();
+      renderBar();
     });
+  }
+
+  function bindRead() {
     var sendBilling = el("send-billing");
     if (sendBilling) sendBilling.onclick = function () { sendToBilling(selected()); };
     var openBilling = el("open-billing");
@@ -526,13 +563,16 @@
       filter = "unread";
       search = "";
       items = [];
+      searchBound = false;
       panel.classList.add("ops-wide");
       panel.innerHTML = shell();
+      bindSearch();
       hideSave();
       load();
     },
     unmount: function (panel) {
       hideSave();
+      searchBound = false;
       if (panel) panel.classList.remove("ops-wide");
       root = null;
     },
