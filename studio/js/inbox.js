@@ -183,7 +183,7 @@
     return (
       '<div class="ops-workspace inbox-shell">' +
         '<div class="inbox-head">' +
-          "<div><h1>Inbox</h1><p>Website messages and quotes. Reply from your own email.</p></div>" +
+          "<div><h1>WebForm Submits</h1><p>Website messages and quotes. Reply from your own email.</p></div>" +
           '<input data-el="search" type="search" placeholder="Search messages" />' +
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +

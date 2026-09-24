@@ -243,7 +243,7 @@
         ["Promos", String((t.app_promos || []).length)],
         ["SOP", String((t.sop_guides || []).length)],
         ["Support", String((t.support_tickets || []).length)],
-        ["Inbox", String((t.studio_inbox || []).length)],
+        ["WebForm Submits", String((t.studio_inbox || []).length)],
         ["Emails", String((t.email_contacts || []).length) + " contacts"],
         ["Notifications", String((t.app_notifications || []).length)],
         ["Clients", String((t.studio_clients || []).length)],
@@ -531,7 +531,7 @@
   }
 
   function inbox(pdf, pack) {
-    openMenu(pdf, "Inbox", "Open Inbox. Website contact messages and notify-me signups land here.");
+    openMenu(pdf, "WebForm Submits", "Open WebForm Submits. Website contact messages and notify-me signups land here.");
     var rows = pack.tables.studio_inbox || [];
     if (!rows.length) { empty(pdf); return; }
     rows.forEach(function (row, i) {
