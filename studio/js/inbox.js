@@ -11,7 +11,6 @@
   var db = null;
   var items = [];
   var selectedId = null;
-  var filter = "unread";
   var search = "";
   var loading = false;
   var searchBound = false;
@@ -162,11 +161,6 @@
   }
   function visible() {
     var list = items.slice();
-    if (filter === "unread") list = list.filter(function (row) { return row.status === "unread"; });
-    else if (filter === "archived") list = list.filter(function (row) { return row.status === "archived"; });
-    else if (filter === "contact" || filter === "quote" || filter === "release_notify") {
-      list = list.filter(function (row) { return row.status !== "archived" && row.source === filter; });
-    } else list = list.filter(function (row) { return row.status !== "archived"; });
     var q = trim(search).toLowerCase();
     if (q) {
       list = list.filter(function (row) {
@@ -176,6 +170,9 @@
       });
     }
     list.sort(function (a, b) {
+      var ar = a.status === "archived";
+      var br = b.status === "archived";
+      if (ar !== br) return ar ? 1 : -1;
       if ((a.status === "unread") !== (b.status === "unread")) return a.status === "unread" ? -1 : 1;
       return String(b.created_at || "") < String(a.created_at || "") ? -1 : 1;
     });
@@ -190,7 +187,6 @@
           '<input data-el="search" type="search" placeholder="Search messages" />' +
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
-        '<div class="inbox-bar" data-el="bar"></div>' +
         '<div class="inbox-split">' +
           '<div class="inbox-list" data-el="list"></div>' +
           '<div class="inbox-read" data-el="read"></div>' +
@@ -199,42 +195,13 @@
     );
   }
 
-  function countPills() {
-    var live = items.filter(function (row) { return row.status !== "archived"; });
-    return [
-      ["unread", "Unread", items.filter(function (row) { return row.status === "unread"; }).length],
-      ["all", "All", live.length],
-      ["contact", "Contact", live.filter(function (row) { return row.source === "contact"; }).length],
-      ["quote", "Quotes", live.filter(function (row) { return row.source === "quote"; }).length],
-      ["release_notify", "Notify", live.filter(function (row) { return row.source === "release_notify"; }).length],
-      ["archived", "Archived", items.filter(function (row) { return row.status === "archived"; }).length]
-    ];
-  }
-
-  function renderBar() {
-    var bar = el("bar");
-    if (!bar) return;
-    bar.innerHTML = countPills().map(function (pill) {
-      var on = filter === pill[0] ? " is-on" : "";
-      var count = pill[2] ? '<em>' + pill[2] + "</em>" : "";
-      return '<button type="button" class="inbox-pill' + on + '" data-filter="' + pill[0] + '">' + pill[1] + count + "</button>";
-    }).join("");
-    bar.querySelectorAll("[data-filter]").forEach(function (btn) {
-      btn.onclick = function () {
-        filter = btn.getAttribute("data-filter");
-        if (selectedId && !visible().some(function (row) { return row.id === selectedId; })) selectedId = null;
-        render();
-      };
-    });
-  }
-
   function renderList() {
     var box = el("list");
     if (!box) return;
     var list = visible();
     if (!list.length) {
       box.innerHTML = '<p class="inbox-empty">' +
-        (items.length ? "Nothing in this filter." : "No messages yet. Contact forms, quotes, and notify-me signups land here.") +
+        (items.length ? "No matches." : "No messages yet. Contact forms, quotes, and notify-me signups land here.") +
         "</p>";
       return;
     }
@@ -247,6 +214,7 @@
         '<button type="button" class="inbox-row' +
           (item.id === selectedId ? " is-on" : "") +
           (item.status === "unread" ? " is-unread" : "") +
+          (item.status === "archived" ? " is-archived" : "") +
           '" data-id="' + item.id + '">' +
           '<span class="inbox-dot" aria-hidden="true"></span>' +
           '<span class="inbox-avatar is-' + siteTone(item.site) + '">' + esc(initials(item.name, item.email)) + "</span>" +
@@ -254,6 +222,7 @@
             '<span class="inbox-row-top"><strong>' + esc(label) + "</strong><time>" + esc(when(item.created_at)) + "</time></span>" +
             '<span class="inbox-row-meta">' +
               '<span class="inbox-tag is-' + esc(item.source) + '">' + esc(typeTitle(item.source)) + "</span>" +
+              (item.status === "archived" ? '<span class="inbox-tag is-archived">Archived</span>' : "") +
               "<span>" + esc(siteTitle(item.site)) + (extra ? " · " + extra : "") + "</span>" +
             "</span>" +
             (snip ? '<span class="inbox-row-snip">' + esc(snip) + "</span>" : "") +
@@ -322,7 +291,6 @@
   }
 
   function render() {
-    renderBar();
     renderList();
     renderRead();
     hideSave();
@@ -485,7 +453,6 @@
       search = searchEl.value;
       if (selectedId && !visible().some(function (row) { return row.id === selectedId; })) selectedId = null;
       renderList();
-      renderBar();
     });
   }
 
@@ -560,7 +527,6 @@
       db = client;
       root = panel;
       selectedId = null;
-      filter = "unread";
       search = "";
       items = [];
       searchBound = false;
