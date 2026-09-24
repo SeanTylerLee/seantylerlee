@@ -6,7 +6,7 @@
     "calendar_day_notes", "studio_settings", "business_expenses", "business_expense_skips",
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
     "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos",
-    "sop_guides", "support_tickets", "email_lists", "email_contacts", "email_templates",
+    "sop_guides", "support_tickets", "studio_inbox", "email_lists", "email_contacts", "email_templates",
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
     "project_logins", "project_costs", "project_hour_entries", "project_issues",
     "project_handoff_items", "meeting_logs", "billing_documents", "studio_notes",
@@ -243,6 +243,7 @@
         ["Promos", String((t.app_promos || []).length)],
         ["SOP", String((t.sop_guides || []).length)],
         ["Support", String((t.support_tickets || []).length)],
+        ["Inbox", String((t.studio_inbox || []).length)],
         ["Emails", String((t.email_contacts || []).length) + " contacts"],
         ["Notifications", String((t.app_notifications || []).length)],
         ["Clients", String((t.studio_clients || []).length)],
@@ -525,6 +526,24 @@
         ["Next step", t.next_step],
         ["Resolution", t.resolution],
         ["Internal notes", t.internal_notes]
+      ]);
+    });
+  }
+
+  function inbox(pdf, pack) {
+    openMenu(pdf, "Inbox", "Open Inbox. Website contact messages and notify-me signups land here.");
+    var rows = pack.tables.studio_inbox || [];
+    if (!rows.length) { empty(pdf); return; }
+    rows.forEach(function (row, i) {
+      pdf.recordHead((row.name || row.email || "Message") + "  " + (row.source || ""), i + 1, rows.length);
+      filled(pdf, [
+        ["Status", row.status],
+        ["Source", row.source],
+        ["Site", row.site],
+        ["Name", row.name],
+        ["Email", row.email],
+        ["Message", row.message],
+        ["Received", day(row.created_at)]
       ]);
     });
   }
@@ -858,6 +877,7 @@
     skipPage(pdf, "Analytics", "Analytics loads from App Store Connect and Google Play once the Secrets/ keys are in place.");
     skipPage(pdf, "Subscribed", "Subscribed loads from Apple and Google once vendor number, Play bucket, and Secrets/ keys are in place.");
     support(pdf, pack);
+    inbox(pdf, pack);
     emails(pdf, pack);
     notifications(pdf, pack);
     clients(pdf, pack);

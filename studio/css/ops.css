@@ -11,6 +11,7 @@
 }
 
 .app.is-support .main,
+.app.is-inbox .main,
 .app.is-emails .main,
 .app.is-notifications .main,
 .app.is-promos .main,
@@ -177,6 +178,17 @@
 .ops-item strong {
   display: block;
   font-size: 13px;
+}
+
+.ops-item.is-unread strong {
+  font-weight: 800;
+}
+
+.inbox-message {
+  white-space: normal;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 8px 0 4px;
 }
 
 .ops-item span {

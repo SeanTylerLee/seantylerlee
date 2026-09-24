@@ -42,6 +42,7 @@
     { id: "appleAnalytics", title: "Analytics" },
     { id: "subscribed", title: "Subscribed" },
     { id: "support", title: "Support" },
+    { id: "inbox", title: "Inbox" },
     { id: "emails", title: "Emails" },
     { id: "notifications", title: "Notifications" },
     { id: "clients", title: "Clients" },

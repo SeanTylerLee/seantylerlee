@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 43.
+  // Same order and grouping as the Mac app sidebar. Cache bust 44.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Profit, needs-you board, and studio snapshot." },
@@ -26,6 +26,7 @@
       { id: "appleAnalytics", title: "Analytics", icon: "chart-bar-xaxis", tint: "#337AC7", body: "App Store Connect and Google Play vitals." },
       { id: "subscribed", title: "Subscribed", icon: "person-crop-circle-fill", tint: "#2E7D4F", body: "Current Apple and Google subscribers per app." },
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
+      { id: "inbox", title: "Inbox", icon: "tray-fill", tint: "#3D6B99", body: "Website contact and notify-me messages." },
       { id: "emails", title: "Emails", icon: "envelope-fill", tint: "#738094", body: "Mailing lists and templates." },
       { id: "notifications", title: "Notifications", icon: "bell-fill", tint: "#5B6B8C", body: "Push messages to app users." }
     ],
@@ -92,6 +93,7 @@
     apps: "is-apps",
     promos: "is-promos",
     support: "is-support",
+    inbox: "is-inbox",
     emails: "is-emails",
     notifications: "is-notifications",
     leads: "is-leads",
@@ -121,6 +123,7 @@
     apps: "STLApps",
     promos: "STLPromos",
     support: "STLSupport",
+    inbox: "STLInbox",
     emails: "STLEmails",
     notifications: "STLNotifications",
     leads: "STLLeads",
