@@ -626,7 +626,7 @@ h3 {
 }
 
 .contact-inner {
-  max-width: 38rem;
+  max-width: 58rem;
 }
 
 .contact h2 {
@@ -639,7 +639,8 @@ h3 {
 
 .contact .lede {
   color: #c5d6f5;
-  margin: 0.9rem 0 1.5rem;
+  margin: 0.9rem 0 1.8rem;
+  max-width: 38rem;
 }
 
 .contact .btn-primary {
@@ -649,10 +650,6 @@ h3 {
 
 .contact .btn-primary:hover {
   background: #4eb0ff;
-}
-
-.contact .hero-actions {
-  margin-top: 0;
 }
 
 .contact .btn-ghost {
@@ -666,11 +663,47 @@ h3 {
   color: var(--sky);
 }
 
+.contact-split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 2.2rem 3rem;
+  align-items: start;
+}
+
+.contact-quote,
+.contact-note {
+  min-width: 0;
+}
+
+.contact-quote {
+  padding: 1.35rem 1.4rem 1.5rem;
+  border: 1px solid rgba(197, 214, 245, 0.22);
+  border-radius: 16px;
+  background: rgba(0, 16, 48, 0.28);
+}
+
+.contact-note {
+  padding-left: 3rem;
+  border-left: 1px solid rgba(197, 214, 245, 0.22);
+}
+
+.contact-split h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1.15rem;
+  color: var(--white);
+}
+
+.contact-quote p {
+  margin: 0 0 1.15rem;
+  color: #c5d6f5;
+  font-size: 0.98rem;
+}
+
 .contact-form {
   display: grid;
   gap: 0.85rem;
-  margin-top: 1.6rem;
-  max-width: 28rem;
+  margin-top: 0.85rem;
+  max-width: none;
 }
 
 .contact-form label {
@@ -991,6 +1024,18 @@ h3 {
 
   .contact {
     padding: 3.2rem 0 3.4rem;
+  }
+
+  .contact-split {
+    grid-template-columns: 1fr;
+    gap: 1.8rem;
+  }
+
+  .contact-note {
+    padding-left: 0;
+    padding-top: 1.8rem;
+    border-left: 0;
+    border-top: 1px solid rgba(197, 214, 245, 0.22);
   }
 
   .legal-page {
