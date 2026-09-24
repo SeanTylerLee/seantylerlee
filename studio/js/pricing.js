@@ -12,6 +12,8 @@
   var saving = false;
   var loaded = false;
   var loadPromise = null;
+  var editing = false;
+  var snapshot = null;
 
   function money(n) {
     return (Number(n) || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -38,19 +40,10 @@
         '<button type="button" class="close" data-close aria-label="Close">×</button>' +
       "</div>" +
       '<div class="pricing-float-body" data-body>Loading…</div>' +
-      '<div class="pricing-float-actions">' +
-        '<button type="button" class="btn btn-ghost" data-add>+ Add price</button>' +
-        '<button type="button" class="btn btn-primary" data-save>Save</button>' +
-      "</div>";
+      '<div class="pricing-float-actions" data-actions></div>';
     document.body.appendChild(panel);
 
     panel.querySelector("[data-close]").onclick = hide;
-    panel.querySelector("[data-add]").onclick = function () {
-      harvest();
-      items.push({ id: null, name: "New item", detail: "", rate: 0, sort_order: items.length });
-      render();
-    };
-    panel.querySelector("[data-save]").onclick = save;
     var head = panel.querySelector("[data-drag]");
     head.addEventListener("mousedown", function (event) {
       if (event.target.closest("[data-close]")) return;
@@ -72,8 +65,47 @@
     return panel;
   }
 
+  function copyItems(list) {
+    return (list || []).map(function (item) {
+      return {
+        id: item.id || null,
+        name: item.name || "",
+        detail: item.detail || "",
+        rate: Number(item.rate) || 0,
+        sort_order: item.sort_order || 0
+      };
+    });
+  }
+
+  function takeSnapshot() {
+    snapshot = {
+      depositPercent: depositPercent,
+      validDays: validDays,
+      items: copyItems(items)
+    };
+  }
+
+  function restoreSnapshot() {
+    if (!snapshot) return;
+    depositPercent = snapshot.depositPercent;
+    validDays = snapshot.validDays;
+    items = copyItems(snapshot.items);
+  }
+
+  function startEdit() {
+    takeSnapshot();
+    editing = true;
+    render();
+  }
+
+  function cancelEdit() {
+    restoreSnapshot();
+    editing = false;
+    render();
+  }
+
   function harvest() {
-    if (!panel) return;
+    if (!panel || !editing) return;
     var dep = panel.querySelector("[data-deposit]");
     var days = panel.querySelector("[data-days]");
     if (dep) depositPercent = Number(dep.value || 0);
@@ -95,26 +127,40 @@
       return;
     }
     panel.querySelector("[data-meta]").textContent = items.length + " items";
-    var html =
-      '<div class="pricing-settings">' +
-        '<label>Deposit <input data-deposit type="number" min="0" max="100" step="1" value="' + esc(depositPercent) + '" />%</label>' +
-        '<label>Quote <input data-days type="number" min="1" step="1" value="' + esc(validDays) + '" /> days</label>' +
-      "</div>";
-    if (!items.length) {
-      html += "<p class=\"pricing-foot\">No prices yet. Add one.</p>";
-    } else {
-      html += '<div class="pricing-cols"><span>Item</span><span>Rate</span></div>';
-    }
-    items.forEach(function (item, i) {
+    var html = "";
+    if (editing) {
       html +=
-        '<div class="pricing-edit' + (i % 2 ? " is-alt" : "") + '" data-index="' + i + '">' +
-          '<input data-name type="text" value="' + esc(item.name || "") + '" placeholder="Item" />' +
-          '<span class="pricing-dollar">$</span>' +
-          '<input data-rate type="number" min="0" step="0.01" value="' + esc(item.rate == null ? "" : item.rate) + '" />' +
-          '<button type="button" class="pricing-x" data-remove="' + i + '" aria-label="Remove">×</button>' +
+        '<div class="pricing-settings">' +
+          '<label>Deposit <input data-deposit type="number" min="0" max="100" step="1" value="' + esc(depositPercent) + '" />%</label>' +
+          '<label>Quote <input data-days type="number" min="1" step="1" value="' + esc(validDays) + '" /> days</label>' +
         "</div>";
-    });
+      if (!items.length) html += "<p class=\"pricing-foot\">No prices yet. Add one.</p>";
+      else html += '<div class="pricing-cols"><span>Item</span><span>Rate</span></div>';
+      items.forEach(function (item, i) {
+        html +=
+          '<div class="pricing-edit' + (i % 2 ? " is-alt" : "") + '" data-index="' + i + '">' +
+            '<input data-name type="text" value="' + esc(item.name || "") + '" placeholder="Item" />' +
+            '<span class="pricing-dollar">$</span>' +
+            '<input data-rate type="number" min="0" step="0.01" value="' + esc(item.rate == null ? "" : item.rate) + '" />' +
+            '<button type="button" class="pricing-x" data-remove="' + i + '" aria-label="Remove">×</button>' +
+          "</div>";
+      });
+    } else {
+      html += '<p class="pricing-read-meta">Deposit ' + esc(String(depositPercent)) + "% · Quotes valid " + esc(String(validDays)) + " days</p>";
+      if (!items.length) {
+        html += "<p class=\"pricing-foot\">No prices yet.</p>";
+      } else {
+        items.forEach(function (item) {
+          html +=
+            '<div class="pricing-row">' +
+              '<div><span class="name">' + esc(item.name || "Item") + "</span></div>" +
+              '<span class="rate">' + money(item.rate) + "</span>" +
+            "</div>";
+        });
+      }
+    }
     body.innerHTML = html;
+    renderActions();
     body.querySelectorAll("[data-remove]").forEach(function (btn) {
       btn.onclick = function () {
         harvest();
@@ -137,6 +183,27 @@
         }
       };
     });
+  }
+
+  function renderActions() {
+    var box = panel.querySelector("[data-actions]");
+    if (!box) return;
+    if (!editing) {
+      box.innerHTML = '<button type="button" class="btn btn-primary" data-edit>Edit</button>';
+      box.querySelector("[data-edit]").onclick = startEdit;
+      return;
+    }
+    box.innerHTML =
+      '<button type="button" class="btn btn-ghost" data-add>+ Add price</button>' +
+      '<button type="button" class="btn btn-ghost" data-cancel>Cancel</button>' +
+      '<button type="button" class="btn btn-primary" data-save>Save</button>';
+    box.querySelector("[data-add]").onclick = function () {
+      harvest();
+      items.push({ id: null, name: "New item", detail: "", rate: 0, sort_order: items.length });
+      render();
+    };
+    box.querySelector("[data-cancel]").onclick = cancelEdit;
+    box.querySelector("[data-save]").onclick = save;
   }
 
   function missingTable(err) {
@@ -261,6 +328,8 @@
       results.slice(1).forEach(function (res, i) {
         if (res && res.data) items[i] = res.data;
       });
+      editing = false;
+      snapshot = null;
       render();
     }).catch(function (err) {
       saving = false;
@@ -280,6 +349,7 @@
       panel.style.top = "88px";
     }
     panel.classList.remove("hidden");
+    editing = false;
     ensureLoaded().then(function () {
       render();
     });
