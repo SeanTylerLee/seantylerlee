@@ -119,16 +119,8 @@ textarea {
   display: block;
   height: 34px;
   width: auto;
-  margin-bottom: 1rem;
+  margin-bottom: 1.15rem;
   border-radius: 6px;
-}
-
-.gate-card h1 {
-  margin: 0 0 0.3rem;
-  font-size: var(--fs-page);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--ink);
 }
 
 .lede {
@@ -137,6 +129,10 @@ textarea {
   font-size: var(--fs-callout);
   line-height: 1.4;
   font-weight: 400;
+}
+
+.lede:empty {
+  display: none;
 }
 
 .field {

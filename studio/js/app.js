@@ -1,7 +1,11 @@
 (function () {
   "use strict";
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 45.
+  window.addEventListener("beforeinstallprompt", function (event) {
+    event.preventDefault();
+  });
+
+  // Same order and grouping as the Mac app sidebar. Cache bust 46.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Profit, needs-you board, and studio snapshot." },
