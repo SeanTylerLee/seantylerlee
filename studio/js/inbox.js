@@ -62,6 +62,40 @@
     }
     return "Re: " + siteTitle(row && row.site);
   }
+  function replyBody(row) {
+    var lines = ["", "", "----- Original message -----"];
+    var from = trim(row && row.name) || "—";
+    if (trim(row && row.email)) from += " <" + trim(row.email) + ">";
+    lines.push("From: " + from);
+    if (row && row.source === "quote") {
+      var info = quoteContact(row);
+      var p = quotePayload(row);
+      if (info.phone) lines.push("Phone: " + info.phone);
+      lines.push("Best contact: " + (info.method === "phone" ? "Phone" : "Email"));
+      if (trim(p.company)) lines.push("Company: " + trim(p.company));
+    }
+    lines.push("Via: " + typeTitle(row && row.source) + " · " + siteTitle(row && row.site));
+    lines.push("Date: " + stamp(row && row.created_at));
+    if (row && row.source === "quote") {
+      var draft = billingDraft(row);
+      var payload = quotePayload(row);
+      if (draft && draft.number) lines.push("Quote: " + draft.number);
+      if (draft && (draft.total != null || payload.total != null)) {
+        lines.push("Total: " + money(draft.total != null ? draft.total : payload.total));
+      }
+      if (draft && trim(draft.projectName)) lines.push("Project: " + trim(draft.projectName));
+    }
+    lines.push("");
+    var msg = trim(row && row.message);
+    if (msg.length > 1800) msg = msg.slice(0, 1800) + "…";
+    if (msg) lines.push(msg);
+    return lines.join("\n");
+  }
+  function replyMailto(row) {
+    return "mailto:" + encodeURIComponent(trim(row.email)) +
+      "?subject=" + encodeURIComponent(replySubject(row)) +
+      "&body=" + encodeURIComponent(replyBody(row));
+  }
   function money(n) {
     var x = Number(n);
     if (!isFinite(x)) x = 0;
@@ -249,7 +283,7 @@
     var info = row && row.source === "quote" ? quoteContact(row) : { phone: "", method: "email" };
     var html = "";
     var emailLink = trim(row.email)
-      ? '<a class="btn btn-ghost" data-el="reply" href="mailto:' + esc(row.email) + '?subject=' + encodeURIComponent(replySubject(row)) + '">Reply</a>'
+      ? '<a class="btn btn-ghost" data-el="reply" href="' + esc(replyMailto(row)) + '">Reply</a>'
       : "";
     var callLink = info.phone
       ? '<a class="btn btn-ghost" href="tel:' + esc(info.phone.replace(/[^\d+]/g, "")) + '">Call</a>'
