@@ -3,7 +3,8 @@
 
   var TYPES = [
     { id: "contact", title: "Contact" },
-    { id: "release_notify", title: "Notify me" }
+    { id: "release_notify", title: "Notify me" },
+    { id: "quote", title: "Quote" }
   ];
 
   var root = null;
@@ -50,10 +51,41 @@
     var s = String(site || "").toLowerCase();
     if (s.indexOf("pilotcar") !== -1) return "Pilot Car 4 Hire";
     if (s.indexOf("permitpath") !== -1) return "Permit Path";
+    if (s.indexOf("seantylerlee") !== -1 || s.indexOf("stlapps") !== -1) return "STL Apps";
     return trim(site) || "Website";
   }
-  function replySubject(site) {
-    return "Re: " + siteTitle(site);
+  function replySubject(row) {
+    if (row && row.source === "quote") {
+      var draft = billingDraft(row);
+      var num = draft && draft.number;
+      return num ? "Re: " + num : "Re: STL Apps quote";
+    }
+    return "Re: " + siteTitle(row && row.site);
+  }
+  function money(n) {
+    var x = Number(n);
+    if (!isFinite(x)) x = 0;
+    return x.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  }
+  function asObject(v) {
+    if (!v) return {};
+    if (typeof v === "object") return v;
+    if (typeof v === "string") {
+      try {
+        var parsed = JSON.parse(v);
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (e) {}
+    }
+    return {};
+  }
+  function quotePayload(row) {
+    return asObject(row && row.payload);
+  }
+  function billingDraft(row) {
+    var p = quotePayload(row);
+    if (p.billing && typeof p.billing === "object") return p.billing;
+    if (Array.isArray(p.items)) return p;
+    return null;
   }
   function when(iso) {
     if (!iso) return "";
@@ -81,7 +113,8 @@
     var q = trim(search).toLowerCase();
     if (q) {
       list = list.filter(function (row) {
-        return [row.name, row.email, row.message, row.site, typeTitle(row.source), siteTitle(row.site)]
+        var draft = billingDraft(row);
+        return [row.name, row.email, row.message, row.site, typeTitle(row.source), siteTitle(row.site), draft && draft.number, draft && draft.projectName]
           .some(function (v) { return String(v || "").toLowerCase().indexOf(q) !== -1; });
       });
     }
@@ -95,7 +128,7 @@
   function shell() {
     return (
       '<div class="ops-workspace">' +
-        '<div class="ops-header"><h1>Inbox</h1><p>Contact messages from Permit Path and Pilot Car 4 Hire, plus notify-me signups. Reply from your own email using their address.</p></div>' +
+        '<div class="ops-header"><h1>Inbox</h1><p>Website contact, notify-me signups, and STL Apps quotes. Reply from your own email. Quotes can be sent to Billing.</p></div>' +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-body" data-el="body"></div>' +
       "</div>"
@@ -105,6 +138,7 @@
   function render() {
     var unread = items.filter(function (row) { return row.status === "unread"; }).length;
     var contact = items.filter(function (row) { return row.source === "contact" && row.status !== "archived"; }).length;
+    var quotes = items.filter(function (row) { return row.source === "quote" && row.status !== "archived"; }).length;
     var notify = items.filter(function (row) { return row.source === "release_notify" && row.status !== "archived"; }).length;
     var list = visible();
     var row = selected();
@@ -113,6 +147,7 @@
       '<div class="ops-chips">' +
         '<div class="ops-chip danger"><span class="k">Unread</span><span class="v">' + unread + "</span></div>" +
         '<div class="ops-chip"><span class="k">Contact</span><span class="v">' + contact + "</span></div>" +
+        '<div class="ops-chip"><span class="k">Quotes</span><span class="v">' + quotes + "</span></div>" +
         '<div class="ops-chip"><span class="k">Notify me</span><span class="v">' + notify + "</span></div>" +
       "</div>" +
       '<div class="ops-filters">' +
@@ -126,17 +161,19 @@
 
     if (!list.length) {
       html += '<p class="sub" style="padding:8px;color:#6b7388">' +
-        (items.length ? "Nothing in this filter." : "No messages yet. Contact forms and notify-me signups from your websites show up here.") +
+        (items.length ? "Nothing in this filter." : "No messages yet. Contact forms, quotes, and notify-me signups from your websites show up here.") +
         "</p>";
     } else {
       list.forEach(function (item) {
-        var label = trim(item.name) || trim(item.email) || "Message";
+        var draft = billingDraft(item);
+        var label = trim(item.name) || trim(item.email) || (draft && draft.number) || "Message";
+        var extra = item.source === "quote" ? " · " + money((draft && draft.total != null) ? draft.total : quotePayload(item).total) : "";
         html +=
           '<button type="button" class="ops-item' +
             (item.id === selectedId ? " is-on" : "") +
             (item.status === "unread" ? " is-unread" : "") +
             '" data-id="' + item.id + '">' +
-            "<strong>" + esc(label) + "</strong>" +
+            "<strong>" + esc(label) + extra + "</strong>" +
             "<span>" + esc(typeTitle(item.source)) + " · " + esc(siteTitle(item.site)) + " · " + esc(when(item.created_at)) + "</span>" +
           "</button>";
       });
@@ -159,11 +196,17 @@
               : "—") +
           "</div></div>" +
         "</div>" +
+        quoteDetailHtml(row) +
         '<div class="ops-field"><label>Message</label><div class="inbox-message">' +
           esc(row.message || "").replace(/\n/g, "<br>") +
         "</div></div>" +
         '<div class="ops-actions">' +
-          (trim(row.email) ? '<a class="btn btn-ghost" data-el="reply" href="mailto:' + esc(row.email) + '?subject=' + encodeURIComponent(replySubject(row.site)) + '">Reply</a>' : "") +
+          (trim(row.email) ? '<a class="btn btn-ghost" data-el="reply" href="mailto:' + esc(row.email) + '?subject=' + encodeURIComponent(replySubject(row)) + '">Reply</a>' : "") +
+          (row.source === "quote"
+            ? (row.billing_id
+              ? '<button class="btn btn-ghost" type="button" data-el="open-billing">Open in Billing</button>'
+              : '<button class="btn btn-ghost" type="button" data-el="send-billing">Send to Billing</button>')
+            : "") +
           (row.status === "unread"
             ? '<button class="btn btn-ghost" type="button" data-el="read">Mark read</button>'
             : '<button class="btn btn-ghost" type="button" data-el="unread">Mark unread</button>') +
@@ -177,6 +220,126 @@
     el("body").innerHTML = html;
     bind();
     hideSave();
+  }
+
+  function quoteDetailHtml(row) {
+    if (!row || row.source !== "quote") return "";
+    var p = quotePayload(row);
+    var draft = billingDraft(row);
+    if (!draft) return "";
+    var items = Array.isArray(draft.items) ? draft.items : [];
+    var html =
+      '<div class="ops-field"><label>Quote</label><div>' +
+        esc(draft.number || "Website quote") +
+        (p.intent === "interested" ? " · Interested" : "") +
+        (row.billing_id ? " · In Billing" : "") +
+      "</div></div>" +
+      '<div class="ops-grid">' +
+        '<div class="ops-field"><label>Total</label><div>' + money(draft.total != null ? draft.total : p.total) + "</div></div>" +
+        '<div class="ops-field"><label>Deposit</label><div>' + money(p.deposit != null ? p.deposit : (Number(draft.total || 0) * Number(draft.depositPercent || 0) / 100)) + "</div></div>" +
+        '<div class="ops-field"><label>Valid until</label><div>' + esc(draft.validUntil || draft.dueDate || "—") + "</div></div>" +
+        '<div class="ops-field"><label>Project</label><div>' + esc(draft.projectName || "—") + "</div></div>" +
+      "</div>";
+    if (items.length) {
+      html += '<div class="ops-field"><label>Line items</label><div class="inbox-message">';
+      items.forEach(function (item) {
+        html += esc(item.desc || "Item") + " · " + money(item.rate) + "<br>";
+      });
+      html += "</div></div>";
+    }
+    return html;
+  }
+
+  function openInBilling(id) {
+    if (!id) return;
+    if (window.STLBilling && typeof window.STLBilling.openDoc === "function") {
+      window.STLBilling.openDoc(id);
+    }
+    if (window.STLApp && typeof window.STLApp.navigate === "function") {
+      window.STLApp.navigate("billing");
+    }
+  }
+
+  function sendToBilling(row) {
+    if (!row) return;
+    if (row.billing_id) {
+      openInBilling(row.billing_id);
+      return;
+    }
+    var draft = billingDraft(row);
+    if (!draft) {
+      showMsg("This quote has no billing details.", false);
+      return;
+    }
+    var items = (Array.isArray(draft.items) ? draft.items : []).map(function (item) {
+      return {
+        desc: trim(item.desc || item.label || ""),
+        qty: Number(item.qty) || 1,
+        rate: Number(item.rate != null ? item.rate : item.amount) || 0
+      };
+    });
+    if (!items.length) items = [{ desc: "Website quote", qty: 1, rate: Number(quotePayload(row).total) || 0 }];
+    var total = Number(draft.total != null ? draft.total : quotePayload(row).total);
+    if (!isFinite(total)) {
+      total = items.reduce(function (sum, item) { return sum + item.qty * item.rate; }, 0);
+    }
+    var payload = {
+      kind: "quote",
+      number: draft.number || "",
+      documentDate: draft.documentDate || draft.quoteDate || "",
+      dueDate: draft.validUntil || draft.dueDate || "",
+      terms: "14",
+      poNumber: "",
+      projectName: draft.projectName || "",
+      linkedClientID: "",
+      fromName: draft.fromName || "STL Apps LLC",
+      fromContact: draft.fromContact || "Sean Tyler Lee",
+      fromEmail: draft.fromEmail || "",
+      fromPhone: draft.fromPhone || "",
+      fromWebsite: draft.fromWebsite || "seantylerlee.com",
+      fromTaxId: draft.fromTaxId || "",
+      fromAddress: draft.fromAddress || "",
+      clientName: draft.clientName || row.name || "",
+      clientEmail: draft.clientEmail || row.email || "",
+      clientPhone: draft.clientPhone || "",
+      clientAddress: draft.clientAddress || "",
+      items: items,
+      discountType: draft.discountType || "none",
+      discountValue: Number(draft.discountValue) || 0,
+      taxPercent: Number(draft.taxPercent) || 0,
+      amountPaid: 0,
+      paidDate: "",
+      paymentNotes: draft.paymentNotes || "",
+      notes: draft.notes || "",
+      validDays: String(draft.validDays || "14"),
+      validUntil: draft.validUntil || draft.dueDate || "",
+      depositPercent: Number(draft.depositPercent) || 50,
+      hourlyRate: Number(draft.hourlyRate) || 30
+    };
+    showMsg("Sending to Billing…", true);
+    db.from("billing_documents").insert({
+      kind: "quote",
+      number: payload.number || ("QTE-WEB-" + Date.now()),
+      client_name: payload.clientName,
+      client_email: payload.clientEmail,
+      project_name: payload.projectName,
+      status: "estimate",
+      amount: total,
+      issued_on: payload.documentDate || null,
+      due_on: payload.validUntil || null,
+      notes: payload.notes,
+      payload: payload
+    }).select("*").single().then(function (res) {
+      if (res.error) return showMsg(res.error.message, false);
+      db.from("studio_inbox").update({ billing_id: res.data.id, status: "archived" }).eq("id", row.id).then(function (up) {
+        if (up.error) return showMsg(up.error.message, false);
+        row.billing_id = res.data.id;
+        row.status = "archived";
+        publishUnread();
+        showMsg("Moved to Billing.", true);
+        openInBilling(res.data.id);
+      });
+    });
   }
 
   function bind() {
@@ -212,6 +375,13 @@
         if (row && row.status === "unread") setStatus(row, "read");
       };
     });
+    var sendBilling = el("send-billing");
+    if (sendBilling) sendBilling.onclick = function () { sendToBilling(selected()); };
+    var openBilling = el("open-billing");
+    if (openBilling) openBilling.onclick = function () {
+      var row = selected();
+      if (row && row.billing_id) openInBilling(row.billing_id);
+    };
     var readBtn = el("read");
     if (readBtn) readBtn.onclick = function () { setStatus(selected(), "read"); };
     var unreadBtn = el("unread");

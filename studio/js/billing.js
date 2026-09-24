@@ -20,6 +20,7 @@
   var currentKind = "invoice";
   var appEl = null;
   var scaleTimer = null;
+  var pendingOpenId = null;
 
   function Doc() {
     return window.STLBillingDoc;
@@ -177,20 +178,6 @@
     return "Thank you for your business.";
   }
 
-  function catalogHourly() {
-    var list = window.STLPricing && typeof window.STLPricing.items === "function"
-      ? window.STLPricing.items()
-      : [];
-    var i;
-    for (i = 0; i < list.length; i++) {
-      if (String(list[i].name || "").toLowerCase() === "hourly rate") {
-        var n = Number(list[i].rate);
-        if (n > 0) return n;
-      }
-    }
-    return 30;
-  }
-
   function emptyDraft() {
     var D = Doc();
     var today = D.todayISO();
@@ -219,7 +206,7 @@
       validDays: "14",
       validUntil: D.addDays(today, 14),
       depositPercent: 50,
-      hourlyRate: catalogHourly(),
+      hourlyRate: 150,
       status: currentKind === "quote" ? "estimate" : "unpaid"
     }, FROM);
   }
@@ -520,8 +507,23 @@
       }
       docs = res.data || [];
       renderList();
+      if (pendingOpenId) {
+        var openId = pendingOpenId;
+        pendingOpenId = null;
+        var found = docs.filter(function (d) { return d.id === openId; })[0];
+        if (found) {
+          fillForm(found);
+          return;
+        }
+      }
       if (!currentId) fillForm(null);
     });
+  }
+
+  function openDoc(id) {
+    if (!id) return;
+    pendingOpenId = id;
+    if (root) load();
   }
 
   function save() {
@@ -813,6 +815,10 @@
       if (appEl) appEl.classList.remove("is-billing");
       root = null;
     },
-    saveAll: save
+    saveAll: save,
+    openDoc: openDoc,
+    shown: function () {
+      if (pendingOpenId && root) load();
+    }
   };
 })();

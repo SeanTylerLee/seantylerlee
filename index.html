@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=18" />
+  <link rel="stylesheet" href="styles.css?v=19" />
 
   <script type="application/ld+json">
   {
@@ -289,8 +289,23 @@
         <p class="lede">iOS, Android, website, or custom software — get a starting price or send a note.</p>
         <div class="hero-actions">
           <a class="btn btn-primary btn-large" href="quote.html">Get a quote</a>
-          <a class="btn btn-ghost" href="mailto:seantylerlee@icloud.com">Email</a>
         </div>
+        <form class="contact-form" id="contactForm">
+          <label>
+            Name
+            <input type="text" id="contact-name" name="name" required autocomplete="name" />
+          </label>
+          <label>
+            Email
+            <input type="email" id="contact-email" name="email" required autocomplete="email" />
+          </label>
+          <label>
+            Message
+            <textarea id="contact-message" name="message" rows="5" required></textarea>
+          </label>
+          <button class="btn btn-ghost" type="submit">Send message</button>
+          <p class="contact-form-status" id="contact-status" role="status"></p>
+        </form>
       </div>
     </section>
   </main>
@@ -356,6 +371,40 @@
       openFromHash();
       window.addEventListener("hashchange", openFromHash);
     }
+  </script>
+  <script src="js/studioInbox.js"></script>
+  <script>
+    (function () {
+      var form = document.getElementById("contactForm");
+      var statusEl = document.getElementById("contact-status");
+      if (!form || !statusEl) return;
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var btn = form.querySelector('button[type="submit"]');
+        var name = (document.getElementById("contact-name").value || "").trim();
+        var email = (document.getElementById("contact-email").value || "").trim();
+        var message = (document.getElementById("contact-message").value || "").trim();
+        statusEl.className = "contact-form-status";
+        statusEl.textContent = "Sending…";
+        if (btn) btn.disabled = true;
+        submitStudioInbox({
+          p_source: "contact",
+          p_name: name,
+          p_email: email,
+          p_message: message,
+          p_site: "seantylerlee.com"
+        }).then(function () {
+          statusEl.className = "contact-form-status is-ok";
+          statusEl.textContent = "Message sent. We’ll get back to you.";
+          form.reset();
+        }).catch(function (err) {
+          statusEl.className = "contact-form-status is-error";
+          statusEl.textContent = (err && err.message) ? err.message : "Something went wrong. Please try again.";
+        }).finally(function () {
+          if (btn) btn.disabled = false;
+        });
+      });
+    })();
   </script>
 </body>
 </html>

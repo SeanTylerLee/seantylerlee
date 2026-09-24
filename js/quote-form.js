@@ -189,43 +189,59 @@
     return lines.join("\n");
   }
 
-  function mailtoFallback(d, intent) {
-    var subject = (intent === "interested" ? "I'm interested — " : "Quote saved — ") + d.quoteNumber;
-    window.location.href = "mailto:" + encodeURIComponent(TO) +
-      "?subject=" + encodeURIComponent(subject) +
-      "&body=" + encodeURIComponent(emailBody(d, intent).slice(0, 1800));
-  }
-
-  function sendEmail(d, blob, filename, intent) {
-    var fd = new FormData();
-    fd.append("_subject", (intent === "interested" ? "I'm interested — " : "Quote saved — ") + d.quoteNumber);
-    fd.append("_template", "table");
-    fd.append("_captcha", "false");
-    fd.append("intent", intent === "interested" ? "I'm interested" : "Save quote");
-    fd.append("quoteNumber", d.quoteNumber);
-    fd.append("name", d.clientName);
-    fd.append("email", d.clientEmail || TO);
-    fd.append("company", readInput().company || "");
-    fd.append("quotedTotal", window.STLQuotePdf.money(d.total));
-    fd.append("deposit", window.STLQuotePdf.money(d.deposit));
-    fd.append("validUntil", d.validUntil);
-    fd.append("message", emailBody(d, intent));
-    fd.append("attachment", blob, filename);
-
-    return fetch("https://formsubmit.co/ajax/" + encodeURIComponent(TO), {
-      method: "POST",
-      body: fd,
-      headers: { Accept: "application/json" }
-    }).then(function (res) {
-      return res.json().then(function (data) {
-        if (!res.ok || data.success === "false" || data.success === false) {
-          throw new Error(data.message || "send failed");
-        }
-        return data;
-      }, function () {
-        if (!res.ok) throw new Error("send failed");
-        return {};
-      });
+  function sendToInbox(d, intent) {
+    if (typeof submitStudioInbox !== "function") {
+      return Promise.reject(new Error("Could not reach Studio Inbox. Refresh and try again."));
+    }
+    var items = (d.items || []).map(function (item) {
+      return {
+        desc: item.desc,
+        qty: Number(item.qty) || 1,
+        rate: Number(item.rate != null ? item.rate : item.amount) || 0
+      };
+    });
+    var billing = {
+      kind: "quote",
+      number: d.quoteNumber,
+      documentDate: d.quoteDate,
+      dueDate: d.validUntil,
+      validUntil: d.validUntil,
+      validDays: String(d.validDays || 14),
+      projectName: d.projectName || "",
+      fromName: d.fromName,
+      fromContact: d.fromContact,
+      fromEmail: d.fromEmail,
+      fromPhone: d.fromPhone || "",
+      fromWebsite: d.fromWebsite,
+      fromTaxId: "",
+      fromAddress: "",
+      clientName: d.clientName,
+      clientEmail: d.clientEmail,
+      clientPhone: d.clientPhone || "",
+      clientAddress: d.clientAddress || "",
+      items: items,
+      discountType: "none",
+      discountValue: 0,
+      taxPercent: 0,
+      notes: d.notes || "",
+      depositPercent: Number(d.depositPercent) || 50,
+      hourlyRate: Number(d.hourlyRate) || 30,
+      total: Number(d.total) || 0,
+      paymentNotes: ""
+    };
+    return submitStudioInbox({
+      p_source: "quote",
+      p_name: d.clientName,
+      p_email: d.clientEmail,
+      p_message: emailBody(d, intent),
+      p_site: "seantylerlee.com",
+      p_payload: {
+        intent: intent,
+        total: Number(d.total) || 0,
+        deposit: Number(d.deposit) || 0,
+        company: readInput().company || "",
+        billing: billing
+      }
     });
   }
 
@@ -237,17 +253,15 @@
       setStatus("Pick what you want to build first.", "error");
       return;
     }
-    if (intent === "interested") {
-      if (!String(input.email || "").trim()) {
-        setStatus("Add your email so we can reply.", "error");
-        if (form.elements.email) form.elements.email.focus();
-        return;
-      }
-      if (!String(input.name || input.company || "").trim()) {
-        setStatus("Add your name or company.", "error");
-        if (form.elements.name) form.elements.name.focus();
-        return;
-      }
+    if (!String(input.email || "").trim()) {
+      setStatus("Add your email so we can reply.", "error");
+      if (form.elements.email) form.elements.email.focus();
+      return;
+    }
+    if (!String(input.name || input.company || "").trim()) {
+      setStatus("Add your name or company.", "error");
+      if (form.elements.name) form.elements.name.focus();
+      return;
     }
     if (!window.STLQuotePdf) {
       setStatus("PDF tools failed to load. Refresh and try again.", "error");
@@ -264,18 +278,13 @@
       var built = await window.STLQuotePdf.build(d);
       window.STLQuotePdf.download(built.blob, built.filename);
       setStatus("Sending a copy to STL Apps LLC…", "");
-      try {
-        await sendEmail(d, built.blob, built.filename, intent);
-        setStatus(
-          intent === "interested"
-            ? "Quote downloaded and sent. We’ll be in touch."
-            : "Quote downloaded and a copy was sent to STL Apps LLC.",
-          "ok"
-        );
-      } catch (sendErr) {
-        mailtoFallback(d, intent);
-        setStatus("Quote downloaded. Finish sending the email that just opened so we get a copy.", "ok");
-      }
+      await sendToInbox(d, intent);
+      setStatus(
+        intent === "interested"
+          ? "Quote downloaded and sent. We’ll be in touch."
+          : "Quote downloaded. A copy is in our inbox.",
+        "ok"
+      );
     } catch (e) {
       setStatus(e && e.message ? e.message : "Could not build the PDF. Try a current desktop browser.", "error");
     } finally {

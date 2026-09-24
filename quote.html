@@ -49,7 +49,7 @@
         <h1>Tell us what you want to build.</h1>
         <p class="lede">
           Pick the product and extras. You’ll get a starting price on the spot.
-          Save the quote PDF, or tap I’m interested and we’ll get a copy too.
+          Add your email, save the PDF, and we’ll get a copy in Studio.
         </p>
       </div>
     </section>
@@ -178,7 +178,7 @@
             </label>
             <label>
               Email
-              <input name="email" type="email" autocomplete="email" placeholder="Needed if you tap I’m interested" />
+              <input name="email" type="email" autocomplete="email" required placeholder="Needed so we can reply" />
             </label>
             <label>
               What do you want to build?
@@ -216,8 +216,8 @@
       </ul>
       <p class="section-copy">
         The number on this page is a starting estimate from the options you pick.
-        It is not a contract. Save quote downloads a PDF to you and sends a copy
-        to STL Apps LLC. I’m interested does the same and tells us you want to talk.
+        It is not a contract. Save quote downloads a PDF and sends a copy to our inbox.
+        I’m interested does the same and tells us you want to talk.
         Work starts after a written agreement and the deposit.
         See <a href="terms.html">Terms</a>.
       </p>
@@ -241,7 +241,8 @@
   <script src="lib/jspdf.plugin.autotable.min.js"></script>
   <script src="js/pricing.js?v=3"></script>
   <script src="js/quote-pdf.js?v=1"></script>
-  <script src="js/quote-form.js?v=4"></script>
+  <script src="js/studioInbox.js"></script>
+  <script src="js/quote-form.js?v=5"></script>
   <script>
     document.getElementById("year").textContent = String(new Date().getFullYear());
     var toggle = document.querySelector(".nav-toggle");

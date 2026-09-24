@@ -666,6 +666,57 @@ h3 {
   color: var(--sky);
 }
 
+.contact-form {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1.6rem;
+  max-width: 28rem;
+}
+
+.contact-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #c5d6f5;
+}
+
+.contact-form input,
+.contact-form textarea {
+  width: 100%;
+  border: 1px solid rgba(197, 214, 245, 0.35);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  font-weight: 500;
+  color: var(--white);
+  background: rgba(0, 16, 48, 0.45);
+}
+
+.contact-form textarea {
+  min-height: 7.5rem;
+  resize: vertical;
+}
+
+.contact-form .btn-ghost {
+  justify-self: start;
+}
+
+.contact-form-status {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 0.92rem;
+  color: #c5d6f5;
+}
+
+.contact-form-status.is-ok {
+  color: #8ef0b5;
+}
+
+.contact-form-status.is-error {
+  color: #ff8d8d;
+}
+
 .site-footer {
   background: #000f30;
   color: #9db0d4;
