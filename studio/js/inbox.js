@@ -33,6 +33,12 @@
     btn.classList.add("hidden");
     btn.disabled = true;
   }
+  function publishUnread() {
+    var n = items.filter(function (row) { return row.status === "unread"; }).length;
+    if (window.STLApp && typeof window.STLApp.setInboxUnread === "function") {
+      window.STLApp.setInboxUnread(n);
+    }
+  }
   function selected() {
     return items.filter(function (row) { return row.id === selectedId; })[0] || null;
   }
@@ -214,6 +220,7 @@
           if (res.error) return showMsg(res.error.message, false);
           items = items.filter(function (item) { return item.id !== row.id; });
           selectedId = null;
+          publishUnread();
           showMsg("Deleted", true);
           setTimeout(function () { showMsg(""); }, 900);
           render();
@@ -230,6 +237,7 @@
     db.from("studio_inbox").update({ status: status }).eq("id", row.id).then(function (res) {
       if (res.error) return showMsg(res.error.message, false);
       row.status = status;
+      publishUnread();
       render();
     });
   }
@@ -248,6 +256,7 @@
         showMsg("");
       }
       if (selectedId && !items.some(function (row) { return row.id === selectedId; })) selectedId = null;
+      publishUnread();
       render();
     });
   }

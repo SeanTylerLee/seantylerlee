@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 44.
+  // Same order and grouping as the Mac app sidebar. Cache bust 45.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Profit, needs-you board, and studio snapshot." },
@@ -193,6 +193,8 @@
   var client = null;
   var currentSection = "overview";
   var busy = false;
+  var inboxUnread = 0;
+  var inboxPoll = 0;
 
   function showStatus(msg, ok) {
     statusEl.textContent = msg || "";
@@ -207,8 +209,58 @@
     signUpBtn.disabled = on;
   }
 
+  function paintInboxDot() {
+    if (!sidebar) return;
+    var btn = sidebar.querySelector('[data-section="inbox"]');
+    if (!btn) return;
+    var dot = btn.querySelector(".sidebar-dot");
+    if (inboxUnread > 0) {
+      if (!dot) {
+        dot = document.createElement("span");
+        dot.className = "sidebar-dot";
+        dot.setAttribute("aria-hidden", "true");
+        btn.appendChild(dot);
+      }
+    } else if (dot && dot.parentNode) {
+      dot.parentNode.removeChild(dot);
+    }
+  }
+
+  function setInboxUnread(n) {
+    var next = Math.max(0, parseInt(n, 10) || 0);
+    if (next === inboxUnread) {
+      paintInboxDot();
+      return;
+    }
+    inboxUnread = next;
+    paintInboxDot();
+  }
+
+  function refreshInboxUnread() {
+    if (!client || !appReady) return;
+    client.from("studio_inbox").select("id", { count: "exact", head: true }).eq("status", "unread").then(function (res) {
+      if (res.error) return;
+      setInboxUnread(res.count || 0);
+    });
+  }
+
+  function stopInboxPoll() {
+    if (inboxPoll) {
+      clearInterval(inboxPoll);
+      inboxPoll = 0;
+    }
+  }
+
+  function startInboxPoll() {
+    stopInboxPoll();
+    refreshInboxUnread();
+    inboxPoll = setInterval(refreshInboxUnread, 30000);
+  }
+
   function showGate(message) {
     appReady = false;
+    stopInboxPoll();
+    inboxUnread = 0;
     destroyPages();
     app.classList.add("hidden");
     gate.classList.remove("hidden");
@@ -241,6 +293,7 @@
     }
     renderNav();
     renderPanel();
+    startInboxPoll();
     if (window.STLSettings && typeof window.STLSettings.hydrate === "function") {
       window.STLSettings.hydrate(client).then(function (preferred) {
         if (!appReady) return;
@@ -268,12 +321,14 @@
       group.forEach(function (section) {
         var btn = document.createElement("button");
         btn.type = "button";
+        btn.setAttribute("data-section", section.id);
         btn.className = "sidebar-item" + (section.id === currentSection ? " is-on" : "");
         btn.innerHTML =
           '<span class="sidebar-icon" style="background:linear-gradient(135deg,' + section.tint + ',' + section.tint + "bf)\">" +
           '<img src="images/sidebar/' + section.icon + '.png" alt="" />' +
           "</span>" +
-          "<span class=\"sidebar-label\">" + section.title + "</span>";
+          "<span class=\"sidebar-label\">" + section.title + "</span>" +
+          (section.id === "inbox" && inboxUnread > 0 ? '<span class="sidebar-dot" aria-hidden="true"></span>' : "");
         btn.addEventListener("click", function () {
           currentSection = section.id;
           renderNav();
@@ -321,7 +376,7 @@
     var titleEl = document.querySelector(".topbar-title");
     var current = SECTIONS.filter(function (s) { return s.id === currentSection; })[0];
     if (titleEl && current) titleEl.textContent = current.title;
-
+    paintInboxDot();
   }
 
   function renderPanel() {
@@ -443,6 +498,10 @@
     else app.classList.remove("is-mobile-scrolled");
   }, true);
 
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && appReady) refreshInboxUnread();
+  });
+
   window.STLApp = {
     navigate: function (sectionId) {
       if (!SECTIONS.some(function (s) { return s.id === sectionId; })) return;
@@ -450,6 +509,7 @@
       if (app.classList.contains("hidden")) return;
       renderNav();
       renderPanel();
-    }
+    },
+    setInboxUnread: setInboxUnread
   };
 })();

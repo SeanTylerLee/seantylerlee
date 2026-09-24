@@ -352,6 +352,20 @@ textarea {
   text-overflow: ellipsis;
 }
 
+.sidebar-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #E23D3D;
+  flex-shrink: 0;
+  margin-left: 1px;
+  box-shadow: 0 0 0 1.5px var(--window);
+}
+
+.sidebar-item.is-on .sidebar-dot {
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
 .sidebar-pricing {
   margin-top: auto;
   padding-top: 8px;
