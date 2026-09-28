@@ -41,8 +41,10 @@
     { id: "sop", title: "SOP" },
     { id: "appleAnalytics", title: "Analytics" },
     { id: "subscribed", title: "Subscribed" },
-    { id: "permitPathAdmin", title: "Permit Path Admin" },
     { id: "support", title: "Support" },
+    { id: "permitPathAdmin", title: "Permit Path Admin" },
+    { id: "pc4hAdmin", title: "PC4H Admin" },
+
     { id: "inbox", title: "WebForm Submits" },
     { id: "emails", title: "Email Lists" },
     { id: "notifications", title: "Notifications" },

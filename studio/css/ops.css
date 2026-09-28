@@ -17,6 +17,7 @@
 .app.is-promos .main,
 .app.is-subscribed .main,
 .app.is-permitPathAdmin .main,
+.app.is-pc4hAdmin .main,
 .app.is-settings .main,
 .app.is-leads .main,
 .app.is-inventory .main,
@@ -1067,6 +1068,14 @@
 
 /* Permit Path Admin */
 .app.is-permitPathAdmin .pp-admin-body {
+  overflow: auto;
+  padding: 0 16px 24px;
+  min-height: 0;
+  flex: 1;
+}
+
+/* PC4H Admin */
+.app.is-pc4hAdmin .pc4h-admin-body {
   overflow: auto;
   padding: 0 16px 24px;
   min-height: 0;
