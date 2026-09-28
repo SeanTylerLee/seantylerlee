@@ -140,8 +140,8 @@
 }
 
 .section-tab.is-on {
-  background: color-mix(in srgb, var(--tab-color, #1a70eb) 18%, white);
-  border-color: color-mix(in srgb, var(--tab-color, #1a70eb) 45%, transparent);
+  background: color-mix(in srgb, var(--tab-color, var(--accent)) 18%, white);
+  border-color: color-mix(in srgb, var(--tab-color, var(--accent)) 45%, transparent);
   font-weight: 600;
 }
 
@@ -234,7 +234,7 @@
 .proj-field input:focus,
 .proj-field select:focus,
 .proj-field textarea:focus {
-  outline: 2px solid rgba(26, 112, 235, 0.28);
+  outline: 2px solid var(--accent-ring);
   outline-offset: 1px;
   border-color: var(--accent);
 }
@@ -278,7 +278,7 @@
 }
 
 .chip.warn .k { color: #b06a00; }
-.chip.ok .k { color: #1b6b32; }
+.chip.ok .k { color: #0b7a4c; }
 
 .timer-row {
   display: flex;
@@ -336,8 +336,8 @@
 }
 
 .badge.warn { background: #fff3d6; color: #8a5a00; }
-.badge.ok { background: #e5f7ea; color: #1b6b32; }
-.badge.danger { background: #ffe4e4; color: #9b1c1c; }
+.badge.ok { background: #e5f7ea; color: #0b7a4c; }
+.badge.danger { background: var(--danger-wash); color: var(--danger); }
 
 .row-actions {
   display: flex;

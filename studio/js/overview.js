@@ -245,7 +245,7 @@
         html += row(
           item.title || "Renewal",
           M().money(item.amount) + " · due " + (item.due_date || "—") + (item.logged_expense_id ? " · logged" : " · not logged"),
-          item.logged_expense_id ? "#38B375" : "#8C59D9",
+          item.logged_expense_id ? "#0B7A4C" : "#8C59D9",
           "renewals"
         );
       });
@@ -274,7 +274,7 @@
           html += row(
             (doc.client_name || "Client") + (doc.number ? " · " + doc.number : ""),
             label + " · " + M().money(t.balance) + " remaining" + (doc.due_on ? " · due " + doc.due_on : ""),
-            overdue ? "#e64747" : "#f29e2e",
+            overdue ? "#c41e1e" : "#f29e2e",
             "billing"
           );
         });
@@ -315,7 +315,7 @@
       if (overdue.length) {
         html += '<div class="ov-section"><h3>Project due dates</h3>';
         overdue.forEach(function (p) {
-          html += row(p.name || "Project", "Due " + p.due_date, "#e64747", "projects");
+          html += row(p.name || "Project", "Due " + p.due_date, "#c41e1e", "projects");
         });
         html += "</div>";
       }
@@ -328,7 +328,7 @@
           html += row(
             issue.title || "Issue",
             (project && project.name) || "Project",
-            issue.priority === "high" ? "#e64747" : "#1a70eb",
+            issue.priority === "high" ? "#c41e1e" : "#0f1a2e",
             "projects",
             "Fix",
             "fixIssue:" + issue.id
@@ -345,7 +345,7 @@
           html += row(
             item.title || "Renewal",
             days < 0 ? "Overdue" : "Due soon",
-            days < 0 ? "#e64747" : "#f29e2e",
+            days < 0 ? "#c41e1e" : "#f29e2e",
             "renewals"
           );
         });

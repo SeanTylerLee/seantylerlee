@@ -191,8 +191,8 @@
   color: #3d4a66;
 }
 
-.apps-badge.live { background: rgba(27, 107, 50, 0.16); color: #1b6b32; }
-.apps-badge.dev { background: rgba(26, 112, 235, 0.14); color: var(--accent); }
+.apps-badge.live { background: var(--success-wash); color: var(--success); }
+.apps-badge.dev { background: var(--accent-wash-strong); color: var(--accent); }
 .apps-badge.warn { background: rgba(242, 158, 46, 0.18); color: #c47a00; }
 
 .apps-summary {

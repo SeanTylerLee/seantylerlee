@@ -95,7 +95,7 @@
 }
 
 .analytics-meta .ok {
-  color: #1b6b32;
+  color: #0b7a4c;
 }
 
 .analytics-banner.status {
@@ -139,7 +139,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.analytics-chip.ok .k { color: #1b6b32; }
+.analytics-chip.ok .k { color: #0b7a4c; }
 .analytics-chip.warn .k { color: #c47a00; }
 
 .analytics-card {
@@ -180,7 +180,7 @@
   width: 44px;
   height: 44px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #337ac7, #1a70eb);
+  background: linear-gradient(135deg, #1a2d4d, #0f1a2e);
   color: #fff;
   display: inline-flex;
   align-items: center;
@@ -216,7 +216,7 @@
 }
 
 .app-card .state .live {
-  color: #1b6b32;
+  color: #0b7a4c;
 }
 
 .app-card .store-link {

@@ -2,14 +2,14 @@
   "use strict";
 
   var SECTIONS = [
-    { id: "overview", title: "Overview", color: "#1A70EB" },
+    { id: "overview", title: "Overview", color: "#0F1A2E" },
     { id: "issues", title: "Issues", color: "#D96640" },
     { id: "logins", title: "Logins", color: "#D98C2E" },
-    { id: "costs", title: "Costs", color: "#38B375" },
+    { id: "costs", title: "Costs", color: "#0B7A4C" },
     { id: "hours", title: "Hours", color: "#7361D9" },
-    { id: "information", title: "Information", color: "#12213D" },
+    { id: "information", title: "Information", color: "#1A2D4D" },
     { id: "timeframe", title: "Time Frame", color: "#8C59D9" },
-    { id: "meetings", title: "Meetings", color: "#5973CC" },
+    { id: "meetings", title: "Meetings", color: "#2A4066" },
     { id: "billing", title: "Billing", color: "#F29E2E" },
     { id: "handoff", title: "Handoff", color: "#338C8C" }
   ];
@@ -437,7 +437,7 @@
     cache.hours.forEach(function (entry) {
       var stamp = "";
       if (entry.started_at && entry.ended_at) {
-        stamp = '<div class="timer-meta" style="margin-bottom:8px;color:#0070f8;font-weight:700">' +
+        stamp = '<div class="timer-meta" style="margin-bottom:8px;color:#0f1a2e;font-weight:700">' +
           new Date(entry.started_at).toLocaleString() + " – " + new Date(entry.ended_at).toLocaleTimeString() +
           "</div>";
       }
@@ -558,7 +558,7 @@
       body.innerHTML =
         '<div class="projects-empty">' +
           (blocked
-            ? '<h2 style="color:#9b1c1c">Projects blocked</h2><p style="color:#9b1c1c;max-width:420px">' + esc(banner) + "</p>"
+            ? '<h2 style="color:#c41e1e">Projects blocked</h2><p style="color:#c41e1e;max-width:420px">' + esc(banner) + "</p>"
             : "<h2>No Projects Yet</h2><p>Add a client project to track logins, costs, hours, issues, and handoff.</p>") +
           (blocked
             ? ""

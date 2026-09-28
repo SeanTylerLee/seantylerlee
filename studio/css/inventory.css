@@ -25,7 +25,7 @@
 .inventory-search:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(26, 112, 235, 0.18);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 .inventory-workspace .ops-field input[type="number"] {

@@ -144,10 +144,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-.money-chip.ok .k { color: #1b6b32; }
+.money-chip.ok .k { color: #0b7a4c; }
 .money-chip.warn .k { color: #c47a00; }
 .money-chip.danger .k { color: #bf5261; }
-.money-chip.navy .k { color: #12213d; }
+.money-chip.navy .k { color: var(--navy); }
 
 .money-card {
   background: var(--card);
@@ -225,7 +225,7 @@
   border-radius: 999px;
   font-size: 10px;
   font-weight: 700;
-  background: rgba(26, 112, 235, 0.12);
+  background: var(--accent-wash-strong);
   color: var(--accent);
 }
 
@@ -468,7 +468,7 @@
   border-bottom: 0;
 }
 
-.money-ready .ok { color: #1b6b32; font-weight: 700; }
+.money-ready .ok { color: #0b7a4c; font-weight: 700; }
 .money-ready .bad { color: #bf5261; font-weight: 700; }
 
 @media (max-width: 800px) {
