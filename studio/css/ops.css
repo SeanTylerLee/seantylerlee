@@ -1067,6 +1067,10 @@
 }
 
 /* Permit Path Admin */
+.app.is-permitPathAdmin .pp-admin-tabs {
+  padding: 0 16px 4px 22px;
+}
+
 .app.is-permitPathAdmin .pp-admin-body {
   overflow: auto;
   padding: 0 16px 24px;
