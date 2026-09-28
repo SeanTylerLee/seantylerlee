@@ -5,7 +5,7 @@
     event.preventDefault();
   });
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 50.
+  // Same order and grouping as the Mac app sidebar. Cache bust 51.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Profit, needs-you board, and studio snapshot." },
@@ -36,7 +36,7 @@
     ],
     [
       { id: "permitPathAdmin", title: "Permit Path Admin", icon: "square-stack-3d-up-fill", tint: "#1A4F8B", body: "Live Permit Path signups, subscriptions, and deletions." },
-      { id: "pc4hAdmin", title: "PC4H Admin", icon: "car-fill", tint: "#0F1A2E", body: "Pilot Car 4 Hire admin tools." }
+      { id: "pc4hAdmin", title: "PC4H Admin", icon: "car-fill", tint: "#0F1A2E", body: "Pilot Car 4 Hire pilots, listings, handoffs, and emails." }
     ],
     [
       { id: "clients", title: "Clients", icon: "person-2-fill", tint: "#338CBF", body: "People and companies you bill." },
