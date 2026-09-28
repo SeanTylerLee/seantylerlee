@@ -1330,55 +1330,36 @@
   background: rgba(230, 71, 71, 0.2);
 }
 
-.pp-admin-hero,
-.pp-admin-segments {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px;
+.pp-admin-chips {
   margin-bottom: 14px;
 }
 
-.pp-admin-overview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-button.pp-admin-stat {
+button.pp-admin-chip {
   text-align: left;
   cursor: pointer;
   border: 1px solid transparent;
+  width: 100%;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
-button.pp-admin-stat:hover,
-button.pp-admin-stat.is-on {
+button.pp-admin-chip:hover,
+button.pp-admin-chip.is-on {
   border-color: rgba(26, 79, 139, 0.45);
   box-shadow: 0 0 0 1px rgba(26, 79, 139, 0.12);
 }
 
-.pp-admin-stat--static {
-  cursor: default;
-}
-
-.pp-admin-stat-value {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-}
-
-.pp-admin-stat-label {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--muted);
+.pp-admin-segments {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .pp-admin-activity-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+  margin-top: 8px;
 }
 
 .pp-admin-activity-item {
@@ -1402,17 +1383,10 @@ button.pp-admin-stat.is-on {
   font-size: 12px;
 }
 
-.pp-admin-revenue-net {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0 0 8px;
-}
-
-.pp-admin-revenue-list {
-  margin: 0 0 8px;
-  padding-left: 18px;
-  font-size: 13px;
-  color: var(--ink);
+@media (max-width: 720px) {
+  .pp-admin-activity-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pp-admin-toolbar {

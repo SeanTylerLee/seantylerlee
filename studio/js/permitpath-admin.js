@@ -2,8 +2,6 @@
   "use strict";
 
   var PP_ADMIN_USER_ID = "ee962eec-a890-4ce8-9dcc-b9b30d241008";
-  var SUBSCRIPTION_PRICE_MONTHLY = 3.99;
-  var APP_STORE_FEE_RATE = 0.15;
   var MS_PER_DAY = 24 * 60 * 60 * 1000;
   var USAGE_EVENTS_WINDOW_DAYS = 90;
   var USAGE_EVENT_TYPE_LABELS = {
@@ -20,7 +18,7 @@
     new30: { label: "New (30 days)" },
     active7: { label: "Active (7 days)" },
     expiring_soon: { label: "Expiring soon" },
-    paying_inactive: { label: "Paying, inactive 14d+" },
+    paying_inactive: { label: "Subscribed, inactive 14d+" },
     lapsed: { label: "Lapsed" }
   };
   var KEYS_HINT =
@@ -101,14 +99,6 @@
     if (!parts.length) return "just now";
     if (parts.length === 1) return parts[0] + " ago";
     return parts.join(" and ") + " ago";
-  }
-  function formatUsd(amount) {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount);
   }
   function isWithinPastDays(isoOrStr, days) {
     var d = profileDate(isoOrStr);
@@ -290,14 +280,14 @@
       '<div class="ops-workspace pp-admin">' +
         '<div class="ops-header">' +
           "<h1>Permit Path Admin</h1>" +
-          "<p>Live app accounts: signups, subscriptions, and deletions from the Permit Path database.</p>" +
+          "<p>App users, subscription status, and deletions from the Permit Path database.</p>" +
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-filters pp-admin-tabs">' +
           '<button type="button" class="ops-pill" data-tab="overview">Overview</button>' +
           '<button type="button" class="ops-pill" data-tab="users">Users</button>' +
           '<button type="button" class="ops-pill" data-tab="deleted">Deleted</button>' +
-          '<button type="button" class="ops-pill" data-el="refresh" style="margin-left:auto">Refresh</button>' +
+          '<button type="button" class="btn btn-ghost" data-el="refresh" style="margin-left:auto">Refresh</button>' +
         "</div>" +
         '<div class="ops-body pp-admin-body" data-el="body"></div>' +
         '<div class="pp-admin-drawer-backdrop" data-el="drawer-backdrop" hidden></div>' +
@@ -508,23 +498,24 @@
 
   function overviewHtml() {
     var metrics = computeProfileMetrics(profiles);
-    var gross = metrics.subscribed * SUBSCRIPTION_PRICE_MONTHLY;
-    var fees = gross * APP_STORE_FEE_RATE;
-    var net = gross - fees;
     var activity = aggregateUsageCounts(usageEvents);
+    var deletedCount = (deletedAccounts || []).length;
     var html = "";
 
-    html += '<div class="pp-admin-hero">';
-    html += statCard("Total users", metrics.total, "all", userFilter == null);
-    html += statCard("Subscribed", metrics.subscribed, "subscribed", userFilter === "subscribed");
-    html += statCard("Active (7 days)", metrics.active7, "active7", userFilter === "active7");
+    html += '<div class="ops-chips pp-admin-chips">';
+    html += chipCard("Users", metrics.total, "all", userFilter == null, "");
+    html += chipCard("Subscribed", metrics.subscribed, "subscribed", userFilter === "subscribed", "ok");
+    html += chipCard("Not subscribed", metrics.notSubscribed, "not_subscribed", userFilter === "not_subscribed", "warn");
+    html += chipCard("Active (7 days)", metrics.active7, "active7", userFilter === "active7", "");
     html +=
-      '<div class="ops-card pp-admin-stat pp-admin-stat--static"><div class="pp-admin-stat-value">' +
-      esc(formatUsd(net)) +
-      '</div><div class="pp-admin-stat-label">Est. net / month</div></div>';
+      '<button type="button" class="ops-chip pp-admin-chip' +
+      (deletedCount ? " danger" : "") +
+      (tab === "deleted" ? " is-on" : "") +
+      '" data-tab-jump="deleted"><span class="k">Deleted</span><span class="v">' +
+      esc(String(deletedCount)) +
+      "</span></button>";
     html += "</div>";
 
-    html += '<div class="pp-admin-overview-grid">';
     html += '<div class="ops-card"><h3>Activity · last ' + USAGE_EVENTS_WINDOW_DAYS + " days</h3>";
     html += '<div class="pp-admin-activity-grid">';
     USAGE_EVENT_TYPE_ORDER.forEach(function (key) {
@@ -537,61 +528,46 @@
     });
     html += "</div></div>";
 
-    html +=
-      '<div class="ops-card"><h3>Estimated monthly revenue</h3>' +
-      '<p class="pp-admin-revenue-net">' +
-      esc(formatUsd(net)) +
-      " / mo approx.</p>" +
-      "<ul class=\"pp-admin-revenue-list\">" +
-      "<li>" +
-      metrics.subscribed +
-      " subscriber" +
-      (metrics.subscribed === 1 ? "" : "s") +
-      " × " +
-      formatUsd(SUBSCRIPTION_PRICE_MONTHLY) +
-      " = " +
-      formatUsd(gross) +
-      " gross</li>" +
-      "<li>App store fees (~" +
-      Math.round(APP_STORE_FEE_RATE * 100) +
-      "%): −" +
-      formatUsd(fees) +
-      "</li>" +
-      "<li><strong>Estimated net: " +
-      formatUsd(net) +
-      " / month</strong></li>" +
-      "</ul>" +
-      '<p class="sub">Estimate only. Assumes active subscribers pay $3.99/mo and ~15% platform fees.</p>' +
-      "</div>";
-    html += "</div>";
-
-    html += '<div class="ops-card"><h3>User segments</h3><div class="pp-admin-segments">';
-    html += statCard("Not subscribed", metrics.notSubscribed, "not_subscribed", userFilter === "not_subscribed");
-    html += statCard("New (7 days)", metrics.new7, "new7", userFilter === "new7");
-    html += statCard("New (30 days)", metrics.new30, "new30", userFilter === "new30");
-    html += statCard("Expiring soon", metrics.expiringSoon, "expiring_soon", userFilter === "expiring_soon");
-    html += statCard(
-      "Paying, inactive 14d+",
+    html += '<div class="ops-card"><h3>Browse by group</h3><p class="sub">Tap a group to open the Users list filtered to that set.</p>';
+    html += '<div class="pp-admin-segments">';
+    html += chipCard("New (7 days)", metrics.new7, "new7", userFilter === "new7", "");
+    html += chipCard("New (30 days)", metrics.new30, "new30", userFilter === "new30", "");
+    html += chipCard("Expiring soon", metrics.expiringSoon, "expiring_soon", userFilter === "expiring_soon", "warn");
+    html += chipCard(
+      "Subscribed, inactive 14d+",
       metrics.payingInactive,
       "paying_inactive",
-      userFilter === "paying_inactive"
+      userFilter === "paying_inactive",
+      "warn"
     );
-    html += statCard("Lapsed", metrics.lapsed, "lapsed", userFilter === "lapsed");
+    html += chipCard("Lapsed", metrics.lapsed, "lapsed", userFilter === "lapsed", "");
     html += "</div></div>";
     return html;
   }
 
-  function statCard(label, value, filterKey, active) {
+  function chipCard(label, value, filterKey, active, tone, staticOnly) {
+    var cls = "ops-chip pp-admin-chip" + (tone ? " " + tone : "") + (active ? " is-on" : "");
+    if (staticOnly || !filterKey) {
+      return (
+        '<div class="' +
+        cls +
+        '"><span class="k">' +
+        esc(label) +
+        '</span><span class="v">' +
+        esc(String(value)) +
+        "</span></div>"
+      );
+    }
     return (
-      '<button type="button" class="ops-card pp-admin-stat' +
-      (active ? " is-on" : "") +
+      '<button type="button" class="' +
+      cls +
       '" data-user-filter="' +
       esc(filterKey) +
-      '"><div class="pp-admin-stat-value">' +
-      esc(String(value)) +
-      '</div><div class="pp-admin-stat-label">' +
+      '"><span class="k">' +
       esc(label) +
-      "</div></button>"
+      '</span><span class="v">' +
+      esc(String(value)) +
+      "</span></button>"
     );
   }
 
@@ -776,6 +752,11 @@
     root.querySelectorAll("[data-user-filter]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         setUserFilter(btn.getAttribute("data-user-filter"));
+      });
+    });
+    root.querySelectorAll("[data-tab-jump]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        setTab(btn.getAttribute("data-tab-jump") || "overview");
       });
     });
     root.querySelectorAll("[data-deletion-filter]").forEach(function (btn) {
