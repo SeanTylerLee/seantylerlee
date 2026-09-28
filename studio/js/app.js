@@ -5,7 +5,7 @@
     event.preventDefault();
   });
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 48.
+  // Same order and grouping as the Mac app sidebar. Cache bust 49.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Profit, needs-you board, and studio snapshot." },
@@ -29,6 +29,7 @@
       { id: "sop", title: "SOP", icon: "list-clipboard-fill", tint: "#336BB3", body: "How-to guides with checkable steps." },
       { id: "appleAnalytics", title: "Analytics", icon: "chart-bar-xaxis", tint: "#337AC7", body: "App Store Connect and Google Play vitals." },
       { id: "subscribed", title: "Subscribed", icon: "person-crop-circle-fill", tint: "#2E7D4F", body: "Current Apple and Google subscribers per app." },
+      { id: "permitPathAdmin", title: "Permit Path Admin", icon: "square-stack-3d-up-fill", tint: "#1A4F8B", body: "Live Permit Path signups, subscriptions, and deletions." },
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
       { id: "inbox", title: "WebForm Submits", icon: "tray-fill", tint: "#3D6B99", body: "Website contact and notify-me messages." },
       { id: "emails", title: "Email Lists", icon: "envelope-fill", tint: "#738094", body: "Named lists of emails." },
@@ -93,6 +94,7 @@
     taxes: "is-taxes",
     appleAnalytics: "is-analytics",
     subscribed: "is-subscribed",
+    permitPathAdmin: "is-permitPathAdmin",
     sop: "is-sop",
     apps: "is-apps",
     promos: "is-promos",
@@ -123,6 +125,7 @@
     taxes: "STLTaxes",
     appleAnalytics: "STLAnalytics",
     subscribed: "STLSubscribed",
+    permitPathAdmin: "STLPermitPathAdmin",
     sop: "STLSOP",
     apps: "STLApps",
     promos: "STLPromos",
