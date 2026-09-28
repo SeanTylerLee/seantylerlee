@@ -399,6 +399,7 @@
             (handoff && handoff.tempPassword
               ? '<button type="button" class="btn" data-copy-pilot-password="' + esc(handoff.tempPassword) + '">Copy temp password</button>'
               : "") +
+            '<button type="button" class="btn btn-danger" data-delete-pilot="' + esc(pilot.id) + '">Delete user</button>' +
           "</div>" +
         "</article>"
       );
@@ -852,6 +853,33 @@
           .catch(function (err) {
             pilotsBanner = errorMessage(err);
             pilotsBannerBad = true;
+            render();
+          });
+      });
+    });
+
+    body.querySelectorAll("[data-delete-pilot]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-delete-pilot") || "";
+        var pilot = pilots.filter(function (p) { return p.id === id; })[0];
+        if (!pilot || !pilot.id) return;
+        var label = (pilot.name || "this pilot") + (pilot.email ? " (" + pilot.email + ")" : "");
+        if (!window.confirm(
+          "Delete " + label + "?\n\nThis permanently removes their login, profile, and listing from Pilot Car 4 Hire. This cannot be undone."
+        )) return;
+        btn.disabled = true;
+        btn.textContent = "Deleting…";
+        apiPost("/api/pc4h-admin/delete-user", { userId: pilot.id, email: pilot.email || "" })
+          .then(function () {
+            pilotsBanner = "Deleted " + label + ".";
+            pilotsBannerBad = false;
+            return loadSnapshot(false);
+          })
+          .catch(function (err) {
+            pilotsBanner = errorMessage(err);
+            pilotsBannerBad = true;
+            btn.disabled = false;
+            btn.textContent = "Delete user";
             render();
           });
       });
