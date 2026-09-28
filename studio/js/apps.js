@@ -208,10 +208,10 @@
     if (!host || !window.STLPromos) return;
     if (!host.getAttribute("data-mounted")) {
       host.setAttribute("data-mounted", "1");
-      window.STLPromos.mount(host, db, { embed: true, appId: selectedId || "all" });
+      window.STLPromos.mount(host, db, { embed: true, appId: selectedId || "" });
       return;
     }
-    if (window.STLPromos.setApp) window.STLPromos.setApp(selectedId || "all");
+    if (window.STLPromos.setApp) window.STLPromos.setApp(selectedId || "");
     if (window.STLPromos.shown) window.STLPromos.shown();
   }
 
@@ -881,6 +881,8 @@
         clearDirty();
         showMsg("");
         render();
+        if (pageTab === "promos" && window.STLPromos && window.STLPromos.setApp) window.STLPromos.setApp(selectedId || "");
+        if (pageTab === "analytics" && window.STLAnalytics && window.STLAnalytics.setApp) window.STLAnalytics.setApp(selectedId || "");
       });
     }).catch(function (err) {
       showMsg((err && err.message) || "Could not load apps.", false);

@@ -124,14 +124,22 @@
       body.innerHTML = html;
       return;
     }
+    if (embedded && !app) {
+      html += '<div class="ops-empty">Pick an app above to see subscriber counts.</div>';
+      body.innerHTML = html;
+      bind();
+      return;
+    }
 
     html += '<div class="ops-filters">';
-    apps.forEach(function (item) {
-      html +=
-        '<button type="button" class="ops-pill' + (item.id === selectedAppId ? " is-on" : "") + '" data-app="' + esc(item.id) + '">' +
-          esc(item.name || "App") +
-        "</button>";
-    });
+    if (!embedded) {
+      apps.forEach(function (item) {
+        html +=
+          '<button type="button" class="ops-pill' + (item.id === selectedAppId ? " is-on" : "") + '" data-app="' + esc(item.id) + '">' +
+            esc(item.name || "App") +
+          "</button>";
+      });
+    }
     html +=
       '<button type="button" class="ops-pill" data-el="refresh" style="margin-left:auto">' +
         (loading ? "Loading…" : "Refresh") +
@@ -284,8 +292,10 @@
       .then(function (res) {
         if (res.error) throw res.error;
         apps = res.data || [];
-        if (!selectedAppId || !apps.some(function (a) { return a.id === selectedAppId; })) {
-          selectedAppId = pickDefaultApp();
+        if (selectedAppId && !apps.some(function (a) { return a.id === selectedAppId; })) {
+          selectedAppId = embedded ? "" : pickDefaultApp();
+        } else if (!selectedAppId) {
+          selectedAppId = embedded ? "" : pickDefaultApp();
         }
         var paths = [];
         apps.forEach(function (app) {
@@ -442,12 +452,13 @@
       root = null;
     },
     setApp: function (id) {
-      if (!id || selectedAppId === id) return;
-      selectedAppId = id;
+      var next = id || "";
+      if (selectedAppId === next) return;
+      selectedAppId = next;
       snapshot = null;
       if (!root) return;
       render();
-      loadCounts();
+      if (selectedAppId) loadCounts();
     },
     refresh: function () {
       loadCounts();

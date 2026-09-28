@@ -71,6 +71,57 @@
     return null;
   }
 
+  function selectedStudio() {
+    if (!preferredAppId) return null;
+    var i;
+    for (i = 0; i < studioApps.length; i += 1) {
+      if (studioApps[i].id === preferredAppId) return studioApps[i];
+    }
+    return null;
+  }
+
+  function appleApps() {
+    var list = (snapshot && snapshot.apps) || [];
+    if (!embedded) return list;
+    return list.filter(function (app) {
+      var studio = studioMatchApple(app);
+      return !!(studio && studio.id === preferredAppId);
+    });
+  }
+
+  function playApps() {
+    var list = (playSnapshot && playSnapshot.apps) || [];
+    if (!embedded) return list;
+    return list.filter(function (app) {
+      var studio = studioMatchPlay(app.packageName);
+      return !!(studio && studio.id === preferredAppId);
+    });
+  }
+
+  function needAppHtml(kind) {
+    var studio = selectedStudio();
+    if (!preferredAppId || !studio) {
+      return '<div class="analytics-card"><h3>' + (kind === "play" ? "Google Play" : "App Store Connect") + "</h3>" +
+        '<p class="sub">Pick an app above.</p></div>';
+    }
+    if (kind === "play") {
+      if (!trimPkg(studio.google_package_name)) {
+        return '<div class="analytics-card"><h3>' + esc(studio.name || "App") + "</h3>" +
+          '<p class="sub">Add a Google package name on the App tab to load Play vitals for this app.</p></div>';
+      }
+      return "";
+    }
+    if (!trimPkg(studio.apple_app_id) && !trimPkg(studio.bundle_identifier)) {
+      return '<div class="analytics-card"><h3>' + esc(studio.name || "App") + "</h3>" +
+        '<p class="sub">Add the Apple ID or bundle identifier on the App tab to match App Store analytics.</p></div>';
+    }
+    return "";
+  }
+
+  function trimPkg(s) {
+    return String(s || "").trim();
+  }
+
   function iconTag(studio, fallback) {
     if (studio && studio._iconUrl) {
       return '<img class="app-icon" src="' + esc(studio._iconUrl) + '" alt="" />';
@@ -122,7 +173,7 @@
       window.STLSubscribed.mount(host, db, { embed: true, appId: preferredAppId || "" });
       return;
     }
-    if (window.STLSubscribed.setApp && preferredAppId) window.STLSubscribed.setApp(preferredAppId);
+    if (window.STLSubscribed.setApp) window.STLSubscribed.setApp(preferredAppId || "");
     if (window.STLSubscribed.shown) window.STLSubscribed.shown();
   }
 
@@ -175,6 +226,15 @@
       return;
     }
 
+    if (embedded) {
+      var appleNeed = needAppHtml("apple");
+      if (appleNeed) {
+        body.innerHTML = appleNeed;
+        bind();
+        return;
+      }
+    }
+
     if (!snapshot) {
       body.innerHTML =
         '<div class="analytics-card"><h3>App Store Connect</h3>' +
@@ -185,7 +245,7 @@
       return;
     }
 
-    var apps = snapshot.apps || [];
+    var apps = appleApps();
     var live = apps.filter(function (a) { return a.versionState === "READY_FOR_SALE"; }).length;
     var reviews = apps.reduce(function (s, a) { return s + (a.reviewCount || 0); }, 0);
     var rated = apps.map(function (a) { return a.ratingAverage; }).filter(function (v) { return v != null; });
@@ -200,7 +260,7 @@
 
     var html =
       '<div class="analytics-chips">' +
-        '<div class="analytics-chip"><span class="k">Apps on Connect</span><span class="v">' + apps.length + "</span></div>" +
+        (embedded ? "" : '<div class="analytics-chip"><span class="k">Apps on Connect</span><span class="v">' + apps.length + "</span></div>") +
         '<div class="analytics-chip ok"><span class="k">Ready for sale</span><span class="v">' + live + "</span></div>" +
         '<div class="analytics-chip warn"><span class="k">Reviews</span><span class="v">' + reviews + "</span></div>" +
         '<div class="analytics-chip warn"><span class="k">Avg rating</span><span class="v">' + (rating == null ? "—" : rating.toFixed(1)) + "</span></div>" +
@@ -219,12 +279,19 @@
       html += '<div class="analytics-card"><p class="sub" style="margin:0">' + esc(snapshot.analyticsNote) + "</p></div>";
     }
 
+    var appleTitle = embedded && selectedStudio() ? (selectedStudio().name || "App") : "Apps";
     html +=
-      '<div class="analytics-card"><h3>Apps</h3>' +
-      '<p class="sub">' + (apps.length ? (apps.length + " apps on this account.") : "No apps on this App Store Connect key.") + "</p>";
+      '<div class="analytics-card"><h3>' + esc(appleTitle) + "</h3>" +
+      '<p class="sub">' +
+        (apps.length
+          ? (embedded ? "App Store listing for this app." : (apps.length + " apps on this account."))
+          : (embedded
+            ? "No App Store listing matched this app."
+            : "No apps on this App Store Connect key.")) +
+      "</p>";
 
     if (!apps.length) {
-      html += '<p class="sub">This key didn’t return any apps.</p>';
+      html += '<p class="sub">' + (embedded ? "Check the Apple ID and bundle on the App tab." : "This key didn’t return any apps.") + "</p>";
     } else {
       apps.forEach(function (app) {
         var m = app.metrics || {};
@@ -297,6 +364,13 @@
   }
 
   function renderPlay(body) {
+    if (embedded) {
+      var playNeed = needAppHtml("play");
+      if (playNeed) {
+        body.innerHTML = playNeed;
+        return;
+      }
+    }
     if (!playSnapshot) {
       body.innerHTML =
         '<div class="analytics-card"><h3>Google Play</h3>' +
@@ -306,7 +380,7 @@
       return;
     }
 
-    var apps = playSnapshot.apps || [];
+    var apps = playApps();
     var crashRates = apps.map(function (a) { return a.crash && a.crash.latest && a.crash.latest.rate; }).filter(function (v) { return v != null; });
     var anrRates = apps.map(function (a) { return a.anr && a.anr.latest && a.anr.latest.rate; }).filter(function (v) { return v != null; });
     var avgCrash = crashRates.length ? crashRates.reduce(function (s, v) { return s + v; }, 0) / crashRates.length : null;
@@ -327,9 +401,9 @@
 
     var html =
       '<div class="analytics-chips">' +
-        '<div class="analytics-chip"><span class="k">Android apps</span><span class="v">' + apps.length + "</span></div>" +
-        '<div class="analytics-chip warn"><span class="k">Avg crash rate</span><span class="v">' + pct(avgCrash) + "</span></div>" +
-        '<div class="analytics-chip warn"><span class="k">Avg ANR rate</span><span class="v">' + pct(avgAnr) + "</span></div>" +
+        (embedded ? "" : '<div class="analytics-chip"><span class="k">Android apps</span><span class="v">' + apps.length + "</span></div>") +
+        '<div class="analytics-chip warn"><span class="k">Crash rate</span><span class="v">' + pct(avgCrash) + "</span></div>" +
+        '<div class="analytics-chip warn"><span class="k">ANR rate</span><span class="v">' + pct(avgAnr) + "</span></div>" +
       "</div>";
 
     if (hasInstalls) {
@@ -346,12 +420,18 @@
     }
 
     html +=
-      '<div class="analytics-card"><h3>Play vitals and installs</h3>' +
-      '<p class="sub">Crash/ANR from the last 14 days. Install counts from Play Download reports overview. Package names come from Apps (Google package) plus secrets/play_packages.txt.</p>';
+      '<div class="analytics-card"><h3>' +
+        esc(embedded && selectedStudio() ? (selectedStudio().name || "Play vitals") : "Play vitals and installs") +
+      "</h3>" +
+      '<p class="sub">Crash/ANR from the last 14 days. Install counts from Play Download reports overview.</p>';
 
     if (!apps.length) {
       html +=
-        '<p class="sub">No Android package names yet. Add a Google package name on the Apps page (e.g. com.stlapps.yourapp), or put one package per line in secrets/play_packages.txt.</p>';
+        '<p class="sub">' +
+          (embedded
+            ? "No Play listing matched this app. Check the Google package name on the App tab."
+            : "No Android package names yet. Add a Google package name on the Apps page (e.g. com.stlapps.yourapp), or put one package per line in secrets/play_packages.txt.") +
+        "</p>";
     } else {
       apps.forEach(function (app) {
         var crash = app.crash || {};
@@ -466,7 +546,7 @@
 
   function loadStudioApps() {
     if (!db) return Promise.resolve();
-    return db.from("managed_apps").select("name,icon_path,bundle_identifier,apple_app_id,google_package_name")
+    return db.from("managed_apps").select("id,name,icon_path,bundle_identifier,apple_app_id,google_package_name")
       .then(function (res) {
         studioApps = res.data || [];
         var paths = [];
@@ -620,6 +700,7 @@
     setApp: function (id) {
       preferredAppId = id || "";
       if (window.STLSubscribed && window.STLSubscribed.setApp) window.STLSubscribed.setApp(preferredAppId);
+      if (root) render();
     },
     shown: function () {
       if (!root) return;

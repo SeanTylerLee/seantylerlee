@@ -155,8 +155,9 @@
     var body = el("body");
     if (!body) return;
     var rows = visible();
-    var live = promos.filter(function (p) { return displayStatus(p) === "live"; }).length;
-    var scheduled = promos.filter(function (p) { return displayStatus(p) === "scheduled"; }).length;
+    var scoped = embedded ? rows : promos;
+    var live = scoped.filter(function (p) { return displayStatus(p) === "live"; }).length;
+    var scheduled = scoped.filter(function (p) { return displayStatus(p) === "scheduled"; }).length;
     var appOptions = '<option value="all"' + (selectedAppId === "all" ? " selected" : "") + ">All apps</option>" +
       apps.map(function (a) {
         return '<option value="' + esc(a.id) + '"' + (a.id === selectedAppId ? " selected" : "") + ">" + esc(a.name || "App") + "</option>";
@@ -166,14 +167,18 @@
       '<div class="ops-chips">' +
         '<div class="ops-chip ok"><span class="k">Live now</span><span class="v">' + live + "</span></div>" +
         '<div class="ops-chip warn"><span class="k">Scheduled</span><span class="v">' + scheduled + "</span></div>" +
-        '<div class="ops-chip"><span class="k">All</span><span class="v">' + promos.length + "</span></div>" +
+        '<div class="ops-chip"><span class="k">' + (embedded ? "This app" : "All") + '</span><span class="v">' + scoped.length + "</span></div>" +
       "</div>" +
       '<div class="ops-filters">' +
-        '<select data-el="app" style="min-height:32px;border-radius:8px;border:1px solid #d5e3fb;padding:4px 8px">' + appOptions + "</select>" +
+        (embedded
+          ? ""
+          : '<select data-el="app" style="min-height:32px;border-radius:8px;border:1px solid #d5e3fb;padding:4px 8px">' + appOptions + "</select>") +
         '<button type="button" class="ops-pill" data-el="add" style="margin-left:auto">+ Add promo</button>' +
       "</div>";
 
-    if (!apps.length) {
+    if (embedded && !selectedAppId) {
+      html += '<div class="ops-empty">Pick an app above to see its promos.</div>';
+    } else if (!apps.length) {
       html += '<div class="ops-empty">Add an app in Apps first, then come back and log a promo.</div>';
     } else if (!rows.length) {
       html += '<div class="ops-empty">No promos for this app yet. Add the free month or intro offer you turned on in the store.</div>';
@@ -199,10 +204,12 @@
               "</p>" +
               '<div class="ops-grid">' +
                 field("Title", "title", promo.title) +
-                field("App", "app_id", "", "select",
-                  apps.map(function (a) {
-                    return '<option value="' + esc(a.id) + '"' + (a.id === promo.app_id ? " selected" : "") + ">" + esc(a.name || "App") + "</option>";
-                  }).join("")) +
+                (embedded
+                  ? ""
+                  : field("App", "app_id", "", "select",
+                      apps.map(function (a) {
+                        return '<option value="' + esc(a.id) + '"' + (a.id === promo.app_id ? " selected" : "") + ">" + esc(a.name || "App") + "</option>";
+                      }).join(""))) +
                 field("Platform", "platform", "", "select", options(PLATFORMS, promo.platform || "iOS")) +
                 field("Type", "kind", "", "select", options(KINDS, promo.kind || "free_trial")) +
                 field("Duration", "duration", "", "select", options(DURATIONS, promo.duration || "1 month")) +
@@ -367,8 +374,11 @@
         return;
       }
       promos = pair[1].data || [];
-      if (selectedAppId !== "all" && !apps.some(function (a) { return a.id === selectedAppId; })) {
-        selectedAppId = "all";
+      if (selectedAppId && selectedAppId !== "all" && !apps.some(function (a) { return a.id === selectedAppId; })) {
+        selectedAppId = embedded ? (apps[0] ? apps[0].id : "") : "all";
+      }
+      if (embedded && (!selectedAppId || selectedAppId === "all")) {
+        selectedAppId = apps[0] ? apps[0].id : "";
       }
       clearDirty();
       showMsg("");
@@ -384,7 +394,7 @@
       db = client;
       root = panel;
       embedded = !!(opts && opts.embed);
-      selectedAppId = (opts && opts.appId) || "all";
+      selectedAppId = (opts && opts.appId) || (embedded ? "" : "all");
       expandedId = null;
       dirty = false;
       saving = false;
@@ -401,7 +411,7 @@
     saveAll: saveAll,
     isDirty: function () { return dirty; },
     setApp: function (id) {
-      var next = id || "all";
+      var next = id || (embedded ? "" : "all");
       if (selectedAppId === next) return;
       if (dirty && !window.confirm("You have unsaved promo changes. Switch apps without saving?")) return;
       selectedAppId = next;
