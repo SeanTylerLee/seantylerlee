@@ -83,13 +83,17 @@
   margin-bottom: 10px;
 }
 
+.ov-chips-ops {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .ov-chip {
   background: var(--chip);
   border-radius: 10px;
   padding: 12px;
   border: 0;
   text-align: left;
-  cursor: default;
+  cursor: pointer;
   color: inherit;
   width: 100%;
 }
@@ -110,6 +114,12 @@
 .ov-chip.ok .k { color: #1b6b32; }
 .ov-chip.warn .k { color: #c47a00; }
 .ov-chip.draw .k { color: #b87a38; }
+.ov-chip.inbox .k { color: #3d6b99; }
+.ov-chip.support .k { color: #bf5261; }
+.ov-chip.has-alert {
+  box-shadow: inset 0 0 0 1px rgba(230, 71, 71, 0.35);
+}
+.ov-chip.has-alert .v { color: #c41e1e; }
 
 .ov-note {
   margin: 0 0 12px;
@@ -315,7 +325,8 @@
 }
 
 @media (max-width: 800px) {
-  .ov-chips {
+  .ov-chips,
+  .ov-chips-ops {
     grid-template-columns: 1fr;
   }
 }

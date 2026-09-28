@@ -224,8 +224,21 @@
   color: var(--muted);
 }
 
-.bank-tx .amt {
+.bank-tx-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.bank-tx-side {
   margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.bank-tx .amt {
   font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -233,6 +246,18 @@
 }
 
 .bank-tx .amt.in { color: #1b6b32; }
+
+.bank-tx-btn {
+  min-height: 28px;
+  font-size: 11px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.bank-tx-btn.is-logged {
+  color: #1b6b32;
+  font-weight: 700;
+}
 
 .bank-updated {
   margin: 0 0 10px;

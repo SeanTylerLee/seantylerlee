@@ -20,6 +20,8 @@
   var companyDocs = [];
   var mileageTrips = [];
   var mileageRate = 0.70;
+  var inboxUnread = 0;
+  var supportOpen = 0;
   var exporting = false;
 
   function M() { return window.STLMoney; }
@@ -150,7 +152,9 @@
       + overdueProjects().length
       + attentionRenewals().length
       + openProjectIssues().length
-      + unloggedRenewalsDueThisMonth().length;
+      + unloggedRenewalsDueThisMonth().length
+      + inboxUnread
+      + supportOpen;
   }
 
   function unloggedRenewalsDueThisMonth() {
@@ -219,7 +223,11 @@
           '<button type="button" class="ov-chip warn" data-go="expenses"><span class="k">Expenses</span><span class="v">' + M().money(yearExpense()) + "</span></button>" +
           '<button type="button" class="ov-chip draw" data-go="ownerDraws"><span class="k">Owner draws</span><span class="v">' + M().money(yearDraws()) + "</span></button>" +
         "</div>" +
-        '<p class="ov-note">Draws are not expenses. Profit is still income minus expenses.</p>' +
+        '<div class="ov-chips ov-chips-ops">' +
+          '<button type="button" class="ov-chip inbox' + (inboxUnread ? " has-alert" : "") + '" data-go="inbox"><span class="k">WebForm unread</span><span class="v">' + inboxUnread + "</span></button>" +
+          '<button type="button" class="ov-chip support' + (supportOpen ? " has-alert" : "") + '" data-go="support"><span class="k">Support open</span><span class="v">' + supportOpen + "</span></button>" +
+        "</div>" +
+        '<p class="ov-note">Draws are not expenses. Profit is still income minus expenses. Tap WebForm or Support to jump there.</p>' +
         '<div class="ov-toolbar">' +
           '<span class="ov-note" style="margin:0">Month report</span>' +
           '<select data-el="month">' +
@@ -264,6 +272,28 @@
     if (count === 0) {
       html += '<p class="ov-note" style="margin-top:10px">Nothing overdue, waiting, or unbilled. Enjoy it.</p>';
     } else {
+      if (inboxUnread > 0) {
+        html += '<div class="ov-section"><h3>WebForm Submits</h3>';
+        html += row(
+          inboxUnread === 1 ? "1 unread message" : inboxUnread + " unread messages",
+          "Website contact, quotes, and notify-me",
+          "#3D6B99",
+          "inbox"
+        );
+        html += "</div>";
+      }
+
+      if (supportOpen > 0) {
+        html += '<div class="ov-section"><h3>Support</h3>';
+        html += row(
+          supportOpen === 1 ? "1 open ticket" : supportOpen + " open tickets",
+          "Customer tickets waiting on you",
+          "#BF5261",
+          "support"
+        );
+        html += "</div>";
+      }
+
       var followUps = followUpDocuments();
       if (followUps.length) {
         html += '<div class="ov-section"><h3>Billing</h3>';
@@ -763,7 +793,9 @@
           var n = Number(res.data.value);
           return Number.isFinite(n) && n >= 0 ? n : 0.70;
         })
-        .catch(function () { return 0.70; })
+        .catch(function () { return 0.70; }),
+      safe("studio_inbox", "id,status"),
+      safe("support_tickets", "id,status")
     ]).then(function (pair) {
       incomes = pair[0];
       expenses = pair[1];
@@ -778,6 +810,10 @@
       companyDocs = pair[10] || [];
       mileageTrips = pair[11] || [];
       mileageRate = pair[12] == null ? 0.70 : pair[12];
+      inboxUnread = (pair[13] || []).filter(function (row) { return row.status === "unread"; }).length;
+      supportOpen = (pair[14] || []).filter(function (row) {
+        return row.status === "open" || row.status === "inProgress" || row.status === "waiting";
+      }).length;
       var paths = [];
       apps.forEach(function (app) {
         if (app.icon_path && paths.indexOf(app.icon_path) < 0) paths.push(app.icon_path);

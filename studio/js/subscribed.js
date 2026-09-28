@@ -39,7 +39,10 @@
     return /vendor number/i.test(msg || "");
   }
   function needsBucket(msg) {
-    return /cloud storage|pubsite_prod|play bucket/i.test(msg || "");
+    return /cloud storage|pubsite_prod|play bucket|paste the pubsite/i.test(msg || "");
+  }
+  function needsPlayPermission(msg) {
+    return /view financial data|reports are blocked|financial reports are blocked|account permissions|403/i.test(msg || "");
   }
   function selected() {
     return apps.filter(function (a) { return a.id === selectedAppId; })[0] || null;
@@ -86,12 +89,23 @@
     return (
       '<div class="ops-card">' +
         "<h3>Google Play report bucket</h3>" +
-        '<p class="sub">' + esc(message || "Play Console → Download reports → Statistics → Copy Cloud Storage URI. Paste the pubsite_prod_rev_… name.") + "</p>" +
+        '<p class="sub">' + esc(message || "Play Console → Download reports → Statistics → Copy Cloud Storage URI. Paste the pubsite_prod_… name.") + "</p>" +
         '<div class="ops-field"><label>Cloud Storage URI or bucket</label>' +
-          '<input data-el="bucket" type="text" autocomplete="off" value="' + esc(bucketDraft) + '" placeholder="gs://pubsite_prod_rev_…" /></div>' +
+          '<input data-el="bucket" type="text" autocomplete="off" value="' + esc(bucketDraft) + '" placeholder="gs://pubsite_prod_…" /></div>' +
         '<button class="btn btn-primary" type="button" data-el="save-bucket"' + (savingBucket ? " disabled" : "") + ">" +
           (savingBucket ? "Saving…" : "Save Play bucket") +
         "</button>" +
+      "</div>"
+    );
+  }
+  function playPermissionCard(message) {
+    return (
+      '<div class="ops-card">' +
+        "<h3>Google Play financial access</h3>" +
+        '<p class="sub">' + esc(message || "Subscription CSVs need View financial data on the service account.") + "</p>" +
+        '<p class="sub" style="margin-top:8px">Play Console → Users and permissions → open <b>stlappsllc-admin-account@permit-path-481219.iam.gserviceaccount.com</b> → <b>Account permissions</b>. Turn on View app information and download bulk reports, plus View financial data. Under App permissions grant All apps. Save, wait until status is Active, then tap Refresh here.</p>' +
+        '<p class="sub">Install stats can work while financial subscription files stay locked. That is normal until View financial data fully applies.</p>' +
+        '<button class="btn btn-ghost" type="button" data-el="retry-google" style="margin-top:8px">Retry Google counts</button>' +
       "</div>"
     );
   }
@@ -160,13 +174,26 @@
       if (dates.length) html += '<p class="sub" style="margin:0 0 12px">' + esc(dates.join(" · ")) + "</p>";
     }
 
-    if (!googleReady) html += bucketForm(googleErr);
+    if (!googleReady) {
+      if (needsBucket(googleErr || err || "")) html += bucketForm(googleErr || err);
+      else if (needsPlayPermission(googleErr || err || "")) html += playPermissionCard(googleErr || err);
+      else if (googleErr || err) {
+        html += '<div class="ops-card"><p class="sub" style="margin:0">' + esc(googleErr || err) + "</p>" +
+          '<button class="btn btn-ghost" type="button" data-el="retry-google" style="margin-top:8px">Retry Google counts</button></div>';
+      } else {
+        html += bucketForm("");
+      }
+    }
     if (!appleReady && needsVendor(appleErr || err || "")) html += vendorForm(appleErr || err);
     else if (appleErr && !needsVendor(appleErr)) {
       html += '<div class="ops-card"><p class="sub" style="margin:0">' + esc(appleErr) + "</p></div>";
     }
-    if (googleReady && google.note) {
-      html += '<div class="ops-card"><p class="sub" style="margin:0">' + esc(google.note) + "</p></div>";
+    if (googleReady) {
+      html +=
+        '<div class="ops-card"><p class="sub" style="margin:0">' +
+          esc(google.note || "Google Play paid subscribers from Download reports (includes guest purchases).") +
+          " These are store paid totals, separate from Permit Path Admin signed-in users." +
+        "</p></div>";
     }
 
     var products = apple.products || [];
@@ -222,6 +249,8 @@
     });
     var refresh = el("refresh");
     if (refresh) refresh.onclick = function () { loadCounts(); };
+    var retryGoogle = el("retry-google");
+    if (retryGoogle) retryGoogle.onclick = function () { loadCounts(); };
     var vendorInput = el("vendor");
     if (vendorInput) {
       vendorInput.oninput = function () { vendorDraft = vendorInput.value || ""; };
