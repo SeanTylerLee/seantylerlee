@@ -7,7 +7,7 @@
     project: "#7361D9",
     lead: "#D96640",
     meeting: "#5973CC",
-    note: "#0F1A2E",
+    note: "#12213D",
     danger: "#BF5261"
   };
 

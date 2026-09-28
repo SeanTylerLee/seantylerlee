@@ -5,41 +5,41 @@
     event.preventDefault();
   });
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 52.
+  // Same order and grouping as the Mac app sidebar. Cache bust 51.
   var NAV_GROUPS = [
     [
-      { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#0F1A2E", body: "Profit, needs-you board, and studio snapshot." },
-      { id: "bank", title: "Bank", icon: "building-columns-fill", tint: "#0A6640", body: "Mercury cash, accounts, and activity." },
-      { id: "business", title: "Business Info", icon: "building-2-fill", tint: "#1A2D4D", body: "Company details will live here." },
+      { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Profit, needs-you board, and studio snapshot." },
+      { id: "bank", title: "Bank", icon: "building-columns-fill", tint: "#1F6B52", body: "Mercury cash, accounts, and activity." },
+      { id: "business", title: "Business Info", icon: "building-2-fill", tint: "#12213D", body: "Company details will live here." },
       { id: "loginVault", title: "Login Vault", icon: "key-fill", tint: "#D98C2E", body: "Saved passwords will live here." },
       { id: "renewals", title: "Renewals", icon: "calendar-badge-clock", tint: "#8C59D9", body: "LLC filings, Apple Developer, domains, insurance." },
-      { id: "calendar", title: "Calendar", icon: "calendar", tint: "#2A4066", body: "Month grid, day notes, and studio due dates." }
+      { id: "calendar", title: "Calendar", icon: "calendar", tint: "#5973CC", body: "Month grid, day notes, and studio due dates." }
     ],
     [
       { id: "taxes", title: "Taxes", icon: "percent", tint: "#2E5C7A", body: "Year P&L from income, expenses, and draws." },
-      { id: "expenses", title: "Expenses", icon: "creditcard-fill", tint: "#0B7A4C", body: "Business costs by year." },
-      { id: "income", title: "Income", icon: "checkmark-seal-fill", tint: "#12A066", body: "LLC revenue by year." },
+      { id: "expenses", title: "Expenses", icon: "creditcard-fill", tint: "#26856B", body: "Business costs by year." },
+      { id: "income", title: "Income", icon: "checkmark-seal-fill", tint: "#38B375", body: "LLC revenue by year." },
       { id: "ownerDraws", title: "Owner Draw", icon: "banknote-fill", tint: "#B87A38", body: "Money you pulled from the LLC." },
       { id: "inventory", title: "Inventory", icon: "shippingbox-fill", tint: "#7361D9", body: "Gear list: purchase date, cost, purpose, serial." },
-      { id: "mileage", title: "Mileage", icon: "car-fill", tint: "#3D5270", body: "Business trips, miles, and standard mileage deduction." }
+      { id: "mileage", title: "Mileage", icon: "car-fill", tint: "#3D6B99", body: "Business trips, miles, and standard mileage deduction." }
     ],
     [
-      { id: "apps", title: "Apps", icon: "square-stack-3d-up-fill", tint: "#148F62", body: "Products, versions, issues, and store logins." },
+      { id: "apps", title: "Apps", icon: "square-stack-3d-up-fill", tint: "#2E9E7A", body: "Products, versions, issues, and store logins." },
       { id: "promos", title: "Promos", icon: "tag-fill", tint: "#C45C2A", body: "Free trials, intro prices, and promo codes per app." },
-      { id: "sop", title: "SOP", icon: "list-clipboard-fill", tint: "#243E66", body: "How-to guides with checkable steps." },
-      { id: "appleAnalytics", title: "Analytics", icon: "chart-bar-xaxis", tint: "#4A6280", body: "App Store Connect and Google Play vitals." },
-      { id: "subscribed", title: "Subscribed", icon: "person-crop-circle-fill", tint: "#1F6B52", body: "Current Apple and Google subscribers per app." },
-      { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#C41E1E", body: "Customer tickets by app." },
-      { id: "inbox", title: "WebForm Submits", icon: "tray-fill", tint: "#1E3A56", body: "Website contact and notify-me messages." },
-      { id: "emails", title: "Email Lists", icon: "envelope-fill", tint: "#5A6B85", body: "Named lists of emails." },
-      { id: "notifications", title: "Notifications", icon: "bell-fill", tint: "#546478", body: "Push messages to app users." }
+      { id: "sop", title: "SOP", icon: "list-clipboard-fill", tint: "#336BB3", body: "How-to guides with checkable steps." },
+      { id: "appleAnalytics", title: "Analytics", icon: "chart-bar-xaxis", tint: "#337AC7", body: "App Store Connect and Google Play vitals." },
+      { id: "subscribed", title: "Subscribed", icon: "person-crop-circle-fill", tint: "#2E7D4F", body: "Current Apple and Google subscribers per app." },
+      { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
+      { id: "inbox", title: "WebForm Submits", icon: "tray-fill", tint: "#3D6B99", body: "Website contact and notify-me messages." },
+      { id: "emails", title: "Email Lists", icon: "envelope-fill", tint: "#738094", body: "Named lists of emails." },
+      { id: "notifications", title: "Notifications", icon: "bell-fill", tint: "#5B6B8C", body: "Push messages to app users." }
     ],
     [
-      { id: "permitPathAdmin", title: "Permit Path Admin", icon: "square-stack-3d-up-fill", tint: "#16324F", body: "Live Permit Path signups, subscriptions, and deletions." },
+      { id: "permitPathAdmin", title: "Permit Path Admin", icon: "square-stack-3d-up-fill", tint: "#1A4F8B", body: "Live Permit Path signups, subscriptions, and deletions." },
       { id: "pc4hAdmin", title: "PC4H Admin", icon: "car-fill", tint: "#0F1A2E", body: "Pilot Car 4 Hire pilots, listings, handoffs, and emails." }
     ],
     [
-      { id: "clients", title: "Clients", icon: "person-2-fill", tint: "#314E6B", body: "People and companies you bill." },
+      { id: "clients", title: "Clients", icon: "person-2-fill", tint: "#338CBF", body: "People and companies you bill." },
       { id: "leads", title: "Leads", icon: "flame-fill", tint: "#D96640", body: "Incoming work and follow-ups." },
       { id: "projects", title: "Projects", icon: "hammer-fill", tint: "#7361D9", body: "Client jobs, logins, costs, hours, issues, and handoff." }
     ],
@@ -55,7 +55,7 @@
     id: "settings",
     title: "Settings",
     icon: "gearshape-fill",
-    tint: "#5A6B85",
+    tint: "#5A6578",
     body: "Studio defaults, store report IDs, and connection status."
   };
 

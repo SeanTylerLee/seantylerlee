@@ -1,36 +1,28 @@
 :root {
-  /* Pilot Car 4 Hire iOS AppTheme */
-  --accent: #0f1a2e;
-  --blue: #0f1a2e;
-  --navy: #0f1a2e;
-  --navy-2: #1a2d4d;
-  --navy-soft: #2a4066;
-  --success: #0b7a4c;
+  --accent: #1a70eb;
+  --blue: #1a70eb;
+  --navy: #12213d;
+  --navy-2: #1a2d52;
+  --success: #38b375;
   --warning: #f29e2e;
-  --danger: #c41e1e;
-  --slate: #5a6b85;
-  --slate-light: #8d9bb0;
-  --ink: #0f1a2e;
-  --muted: #5a6b85;
-  --ok: #0b7a4c;
-  --bad: #c41e1e;
-  --window: #e8eaef;
+  --danger: #e64747;
+  --slate: #738094;
+  --ink: #1d1d1f;
+  --muted: rgba(0, 0, 0, 0.55);
+  --ok: #1b6b32;
+  --bad: #9b1c1c;
+  /* Match Mac AppTheme: NSColor.windowBackgroundColor / controlBackgroundColor */
+  --window: #ececec;
   --card: #ffffff;
-  --elevated: #f6f7fa;
-  --chip: rgba(15, 26, 46, 0.07);
-  --line: rgba(15, 26, 46, 0.1);
-  --line-strong: rgba(15, 26, 46, 0.14);
-  --selected: #d8dbe3;
+  /* separatorColor.opacity(0.35) ≈ light gray fill on macOS */
+  --chip: rgba(0, 0, 0, 0.08);
+  --line: rgba(0, 0, 0, 0.1);
+  --line-strong: rgba(0, 0, 0, 0.14);
+  --selected: #dcdcdc;
   --white: #ffffff;
-  --ice: #e8eaef;
-  --mist: #f6f7fa;
-  --sky: #1a2d4d;
-  --accent-wash: rgba(15, 26, 46, 0.08);
-  --accent-wash-strong: rgba(15, 26, 46, 0.14);
-  --accent-ring: rgba(15, 26, 46, 0.22);
-  --success-wash: rgba(11, 122, 76, 0.14);
-  --danger-wash: rgba(196, 30, 30, 0.12);
-  --danger-line: rgba(196, 30, 30, 0.35);
+  --ice: #ececec;
+  --mist: #e4e4e4;
+  --sky: #2098f8;
   --sidebar: 268px;
   --r-icon: 6px;
   --r-field: 8px;
@@ -171,7 +163,7 @@ textarea {
 .field input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-ring);
+  box-shadow: 0 0 0 3px rgba(26, 112, 235, 0.2);
 }
 
 .actions {
@@ -213,8 +205,8 @@ textarea {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--navy-2);
-  border-color: var(--navy-2);
+  background: #0f62d9;
+  border-color: #0f62d9;
 }
 
 .btn-ghost {
@@ -253,12 +245,12 @@ textarea {
 }
 
 .status.is-bad {
-  background: var(--danger-wash);
+  background: rgba(230, 71, 71, 0.12);
   color: var(--bad);
 }
 
 .status.is-ok {
-  background: var(--success-wash);
+  background: rgba(56, 179, 117, 0.14);
   color: var(--ok);
 }
 
@@ -321,7 +313,7 @@ textarea {
 }
 
 .sidebar-item:hover {
-  background: rgba(15, 26, 46, 0.06);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .sidebar-item.is-on {
@@ -443,8 +435,8 @@ textarea {
 }
 
 .topbar-btn-primary:hover:not(:disabled) {
-  background: var(--navy-2);
-  border-color: var(--navy-2);
+  background: #0f62d9;
+  border-color: #0f62d9;
   color: #fff;
 }
 
@@ -517,7 +509,7 @@ textarea {
 .mac-field:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-ring);
+  box-shadow: 0 0 0 3px rgba(26, 112, 235, 0.18);
 }
 
 .mac-label {
@@ -574,7 +566,7 @@ textarea {
   border-radius: 999px;
   font-size: var(--fs-caption);
   font-weight: 600;
-  background: var(--accent-wash-strong);
+  background: rgba(26, 112, 235, 0.16);
   color: var(--accent);
 }
 
@@ -960,7 +952,7 @@ textarea {
   height: 76px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 10px 32px rgba(15, 26, 46, 0.18);
+  box-shadow: 0 10px 32px rgba(18, 33, 61, 0.18);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -980,8 +972,8 @@ textarea {
 .studio-hud-spin {
   width: 28px;
   height: 28px;
-  border: 3px solid #d8dbe3;
-  border-top-color: #5a6b85;
+  border: 3px solid #d4d7de;
+  border-top-color: #4a5568;
   border-radius: 50%;
   animation: studio-hud-spin 0.7s linear infinite;
 }
@@ -992,11 +984,11 @@ textarea {
 }
 
 .studio-hud-ok {
-  color: var(--success);
+  color: #1b6b32;
 }
 
 .studio-hud-bad {
-  color: var(--danger);
+  color: #c13939;
 }
 
 @keyframes studio-hud-spin {

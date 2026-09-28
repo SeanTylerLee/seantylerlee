@@ -332,7 +332,7 @@
 
 .letter-bar {
   height: 5px;
-  background: var(--navy);
+  background: #12213d;
 }
 
 .letter-head {
@@ -353,7 +353,7 @@
 .letter-company strong {
   display: block;
   font-size: 14px;
-  color: var(--navy);
+  color: #12213d;
   margin-bottom: 4px;
 }
 
@@ -372,7 +372,7 @@
   display: block;
   font-size: 17px;
   letter-spacing: 0.02em;
-  color: var(--navy);
+  color: #12213d;
   line-height: 1;
 }
 
@@ -472,7 +472,7 @@
 }
 
 .letter-lines th {
-  background: var(--navy);
+  background: #12213d;
   color: #fff;
   font-size: 8.5px;
   text-align: left;
@@ -548,7 +548,7 @@
 
 .letter-sums .grand {
   margin-top: 6px;
-  background: var(--navy);
+  background: #12213d;
   color: #fff;
   border-radius: 8px;
   padding: 10px 12px;
@@ -570,12 +570,10 @@
   left: 50%;
   top: 48%;
   transform: translate(-50%, -50%) rotate(-32deg);
-  border: 5.5px solid #c8102e;
   color: #c8102e;
   font-size: 38px;
   font-weight: 800;
   letter-spacing: 0.04em;
-  padding: 10px 18px;
   opacity: 0.78;
   white-space: nowrap;
   pointer-events: none;

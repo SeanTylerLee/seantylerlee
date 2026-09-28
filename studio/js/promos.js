@@ -166,7 +166,7 @@
         '<div class="ops-chip"><span class="k">All</span><span class="v">' + promos.length + "</span></div>" +
       "</div>" +
       '<div class="ops-filters">' +
-        '<select data-el="app" style="min-height:32px;border-radius:8px;border:1px solid rgba(15,26,46,0.14);padding:4px 8px">' + appOptions + "</select>" +
+        '<select data-el="app" style="min-height:32px;border-radius:8px;border:1px solid #d5e3fb;padding:4px 8px">' + appOptions + "</select>" +
         '<button type="button" class="ops-pill" data-el="add" style="margin-left:auto">+ Add promo</button>' +
       "</div>";
 

@@ -105,7 +105,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.bank-chip.ok .k { color: #0b7a4c; }
+.bank-chip.ok .k { color: #1b6b32; }
 .bank-chip.blue .k { color: var(--accent); }
 .bank-chip.warn .k { color: #b06a00; }
 
@@ -143,8 +143,8 @@
 }
 
 .bank-account.is-on {
-  background: var(--accent-wash-strong);
-  border-color: rgba(15, 26, 46, 0.35);
+  background: rgba(26, 112, 235, 0.1);
+  border-color: rgba(26, 112, 235, 0.45);
 }
 
 .bank-account-row {
@@ -209,7 +209,7 @@
   flex-shrink: 0;
 }
 
-.bank-dot.in { background: #0b7a4c; }
+.bank-dot.in { background: #1b6b32; }
 .bank-dot.out { background: #6b7388; }
 .bank-dot.pending { background: #b06a00; }
 
@@ -232,7 +232,7 @@
   white-space: nowrap;
 }
 
-.bank-tx .amt.in { color: #0b7a4c; }
+.bank-tx .amt.in { color: #1b6b32; }
 
 .bank-updated {
   margin: 0 0 10px;

@@ -47,7 +47,7 @@
 .mileage-rate-wrap input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-ring);
+  box-shadow: 0 0 0 3px rgba(26, 112, 235, 0.18);
 }
 
 .mileage-workspace .ops-field input[type="number"] {

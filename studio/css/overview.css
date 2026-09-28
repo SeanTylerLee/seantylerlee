@@ -107,7 +107,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.ov-chip.ok .k { color: var(--success); }
+.ov-chip.ok .k { color: #1b6b32; }
 .ov-chip.warn .k { color: #c47a00; }
 .ov-chip.draw .k { color: #b87a38; }
 
@@ -147,7 +147,7 @@
 }
 
 .ov-count.clear {
-  background: var(--success-wash);
+  background: rgba(56, 179, 117, 0.16);
   color: var(--success);
 }
 

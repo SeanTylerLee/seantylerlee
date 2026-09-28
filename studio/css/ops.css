@@ -174,7 +174,7 @@
 }
 
 .ops-item.is-on {
-  background: var(--accent-wash-strong);
+  background: rgba(26, 112, 235, 0.12);
 }
 
 .ops-item strong {
@@ -296,7 +296,7 @@
 }
 
 .inbox-row.is-on {
-  background: var(--accent-wash-strong);
+  background: rgba(26, 112, 235, 0.1);
 }
 
 .inbox-dot {
@@ -321,7 +321,7 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #fff;
-  background: var(--slate);
+  background: #738094;
   margin-top: 1px;
 }
 
@@ -331,9 +331,9 @@
   font-size: 12px;
 }
 
-.inbox-avatar.is-pp { background: #16324f; }
-.inbox-avatar.is-pc { background: #0f1a2e; }
-.inbox-avatar.is-sa { background: #1a2d4d; }
+.inbox-avatar.is-pp { background: #1a70eb; }
+.inbox-avatar.is-pc { background: #c45c2a; }
+.inbox-avatar.is-sa { background: #12213d; }
 
 .inbox-row-body {
   min-width: 0;
@@ -397,9 +397,9 @@
   flex-shrink: 0;
 }
 
-.inbox-tag.is-contact { background: var(--accent-wash-strong); color: var(--navy); }
+.inbox-tag.is-contact { background: rgba(26, 112, 235, 0.14); color: #1558c0; }
 .inbox-tag.is-quote { background: rgba(242, 158, 46, 0.2); color: #9a5d0c; }
-.inbox-tag.is-release_notify { background: var(--success-wash); color: var(--success); }
+.inbox-tag.is-release_notify { background: rgba(56, 179, 117, 0.18); color: #1b6b32; }
 .inbox-tag.is-archived { background: rgba(0, 0, 0, 0.08); color: var(--muted); }
 
 .inbox-row.is-archived {
@@ -621,7 +621,7 @@
 }
 
 .inbox-picker-item:hover {
-  background: var(--accent-wash-strong);
+  background: rgba(26, 112, 235, 0.12);
 }
 
 .ops-item span {
@@ -1228,8 +1228,8 @@
 }
 
 .pc4h-status.is-complete {
-  background: var(--success-wash);
-  color: var(--success);
+  background: rgba(56, 179, 117, 0.14);
+  color: #1f7a4d;
 }
 
 .pc4h-status.is-incomplete {
@@ -1325,13 +1325,13 @@
 }
 
 .btn.btn-danger {
-  background: var(--danger-wash);
+  background: rgba(230, 71, 71, 0.12);
   color: var(--danger);
-  border: 1px solid var(--danger-line);
+  border: 1px solid rgba(230, 71, 71, 0.35);
 }
 
 .btn.btn-danger:hover:not(:disabled) {
-  background: rgba(196, 30, 30, 0.2);
+  background: rgba(230, 71, 71, 0.2);
 }
 
 .pp-admin-chips {
@@ -1488,7 +1488,7 @@ button.pp-admin-chip.is-on {
 }
 
 .pp-admin-pill--admin {
-  background: var(--danger-wash);
+  background: rgba(230, 71, 71, 0.12);
   color: var(--danger);
 }
 
@@ -1606,7 +1606,7 @@ button.pp-admin-chip.is-on {
 }
 
 .pp-admin-danger {
-  border-top: 1px solid var(--danger-line);
+  border-top: 1px solid rgba(230, 71, 71, 0.25);
   padding-top: 14px;
 }
 

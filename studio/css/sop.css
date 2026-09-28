@@ -65,7 +65,7 @@
 }
 
 .sop-item.is-on {
-  background: var(--accent-wash-strong);
+  background: rgba(26, 112, 235, 0.12);
 }
 
 .sop-item strong {
@@ -156,7 +156,7 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  background: var(--accent-wash-strong);
+  background: rgba(26, 112, 235, 0.12);
   color: var(--accent);
 }
 
@@ -172,7 +172,7 @@
   font-size: 13px;
   font-weight: 800;
   letter-spacing: -0.01em;
-  color: var(--navy);
+  color: #12213d;
 }
 
 .sop-step {

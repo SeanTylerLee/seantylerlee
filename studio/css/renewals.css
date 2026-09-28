@@ -168,7 +168,7 @@
 
 .renewal-badge.danger { background: rgba(191, 82, 97, 0.18); color: #bf5261; }
 .renewal-badge.warn { background: rgba(242, 158, 46, 0.18); color: #c47a00; }
-.renewal-badge.accent { background: var(--accent-wash-strong); color: var(--accent); }
+.renewal-badge.accent { background: rgba(26, 112, 235, 0.16); color: var(--accent); }
 
 .renewal-days {
   display: block;
