@@ -1411,6 +1411,12 @@ button.pp-admin-stat.is-on {
   box-shadow: -8px 0 24px rgba(15, 23, 42, 0.12);
 }
 
+.pp-admin-modal[hidden],
+.pp-admin-drawer[hidden],
+.pp-admin-drawer-backdrop[hidden] {
+  display: none !important;
+}
+
 .pp-admin-drawer-head {
   display: flex;
   justify-content: space-between;
