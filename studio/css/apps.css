@@ -68,6 +68,52 @@
   font-weight: 600;
 }
 
+.apps-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px 10px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.apps-tab {
+  border: 0;
+  background: var(--chip);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.apps-tab.is-on {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.apps-embed {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.apps-embed.hidden,
+.apps-body.hidden,
+.apps-banner.hidden,
+.apps-top .btn-add.hidden {
+  display: none !important;
+}
+
+.apps-embed .ops-workspace,
+.apps-embed .analytics-workspace {
+  min-height: 0;
+  height: 100%;
+}
+
 .apps-top .btn-add {
   width: 30px;
   height: 30px;

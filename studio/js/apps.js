@@ -30,6 +30,7 @@
   var userId = null;
   var iconUrls = {};
   var notesOpen = {};
+  var pageTab = "app";
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -181,10 +182,80 @@
           '<div class="apps-capsules" data-el="capsules"></div>' +
           '<button class="btn-add" type="button" data-el="add" title="Add app">+</button>' +
         "</div>" +
+        '<div class="apps-tabs">' +
+          '<button type="button" class="apps-tab is-on" data-page-tab="app">App</button>' +
+          '<button type="button" class="apps-tab" data-page-tab="promos">Promos</button>' +
+          '<button type="button" class="apps-tab" data-page-tab="analytics">Analytics</button>' +
+        "</div>" +
         '<p class="status apps-banner" data-el="banner"></p>' +
         '<div class="apps-body" data-el="body"></div>' +
+        '<div class="apps-embed hidden" data-el="promos-host"></div>' +
+        '<div class="apps-embed hidden" data-el="analytics-host"></div>' +
       "</div>"
     );
+  }
+
+  function confirmLeaveTab(nextTab) {
+    if (nextTab === pageTab) return true;
+    if (pageTab === "app" && dirty && !window.confirm("You have unsaved changes. Leave without saving?")) return false;
+    if (pageTab === "promos" && window.STLPromos && window.STLPromos.isDirty && window.STLPromos.isDirty() &&
+        !window.confirm("You have unsaved promo changes. Leave without saving?")) return false;
+    return true;
+  }
+
+  function ensurePromos() {
+    var host = el("promos-host");
+    if (!host || !window.STLPromos) return;
+    if (!host.getAttribute("data-mounted")) {
+      host.setAttribute("data-mounted", "1");
+      window.STLPromos.mount(host, db, { embed: true, appId: selectedId || "all" });
+      return;
+    }
+    if (window.STLPromos.setApp) window.STLPromos.setApp(selectedId || "all");
+    if (window.STLPromos.shown) window.STLPromos.shown();
+  }
+
+  function ensureAnalytics() {
+    var host = el("analytics-host");
+    if (!host || !window.STLAnalytics) return;
+    if (!host.getAttribute("data-mounted")) {
+      host.setAttribute("data-mounted", "1");
+      window.STLAnalytics.mount(host, db, { embed: true, appId: selectedId || "" });
+      return;
+    }
+    if (window.STLAnalytics.setApp) window.STLAnalytics.setApp(selectedId || "");
+    if (window.STLAnalytics.shown) window.STLAnalytics.shown();
+  }
+
+  function applyPageTab() {
+    if (!root) return;
+    root.querySelectorAll("[data-page-tab]").forEach(function (btn) {
+      btn.classList.toggle("is-on", btn.getAttribute("data-page-tab") === pageTab);
+    });
+    var body = el("body");
+    var banner = el("banner");
+    var addBtn = el("add");
+    var promosHost = el("promos-host");
+    var analyticsHost = el("analytics-host");
+    if (body) body.classList.toggle("hidden", pageTab !== "app");
+    if (banner) banner.classList.toggle("hidden", pageTab !== "app");
+    if (addBtn) addBtn.classList.toggle("hidden", pageTab !== "app");
+    if (promosHost) promosHost.classList.toggle("hidden", pageTab !== "promos");
+    if (analyticsHost) analyticsHost.classList.toggle("hidden", pageTab !== "analytics");
+    if (pageTab === "promos") ensurePromos();
+    else if (pageTab === "analytics") {
+      hideSave();
+      ensureAnalytics();
+    } else {
+      syncSave();
+    }
+  }
+
+  function setPageTab(tab) {
+    if (tab !== "app" && tab !== "promos" && tab !== "analytics") return;
+    if (!confirmLeaveTab(tab)) return;
+    pageTab = tab;
+    applyPageTab();
   }
 
   function renderCapsules() {
@@ -212,6 +283,8 @@
         expandedLogin = null;
         clearDirty();
         render();
+        if (pageTab === "promos" && window.STLPromos && window.STLPromos.setApp) window.STLPromos.setApp(selectedId);
+        if (pageTab === "analytics" && window.STLAnalytics && window.STLAnalytics.setApp) window.STLAnalytics.setApp(selectedId);
       };
     });
   }
@@ -226,14 +299,14 @@
         '<button class="btn btn-primary" type="button" data-el="empty-add" style="min-height:32px;font-size:12px;margin-top:10px">New App</button></div></div>';
       var empty = el("empty-add");
       if (empty) empty.onclick = addApp;
-      syncSave();
+      if (pageTab === "app") syncSave();
       return;
     }
 
     if (editing) {
       body.innerHTML = renderEditor(app);
       bindEditor(app);
-      syncSave();
+      if (pageTab === "app") syncSave();
       return;
     }
 
@@ -292,7 +365,7 @@
 
     body.innerHTML = html;
     bindDetail(app);
-    syncSave();
+    if (pageTab === "app") syncSave();
   }
 
   function renderIssues(app, openCount) {
@@ -877,6 +950,11 @@
 
   function bindChrome() {
     el("add").onclick = addApp;
+    root.querySelectorAll("[data-page-tab]").forEach(function (btn) {
+      btn.onclick = function () {
+        setPageTab(btn.getAttribute("data-page-tab"));
+      };
+    });
   }
 
   window.STLApps = {
@@ -890,9 +968,11 @@
       expandedIssue = null;
       expandedLogin = null;
       revealPass = {};
+      pageTab = "app";
       panel.classList.add("apps-wide");
       panel.innerHTML = shell();
       bindChrome();
+      applyPageTab();
       syncSave();
       db.auth.getUser().then(function (authRes) {
         userId = authRes.data && authRes.data.user && authRes.data.user.id;
@@ -901,10 +981,29 @@
     },
     unmount: function (panel) {
       hideSave();
+      var promosHost = el("promos-host");
+      var analyticsHost = el("analytics-host");
+      if (window.STLPromos && window.STLPromos.unmount && promosHost) window.STLPromos.unmount(promosHost);
+      if (window.STLAnalytics && window.STLAnalytics.unmount && analyticsHost) window.STLAnalytics.unmount(analyticsHost);
       if (panel) panel.classList.remove("apps-wide");
       root = null;
     },
-    saveAll: saveAll,
-    isDirty: function () { return dirty; }
+    saveAll: function () {
+      if (pageTab === "analytics") return;
+      if (pageTab === "promos" && window.STLPromos && window.STLPromos.saveAll) return window.STLPromos.saveAll();
+      return saveAll();
+    },
+    isDirty: function () {
+      if (pageTab === "analytics") return false;
+      if (pageTab === "promos" && window.STLPromos && window.STLPromos.isDirty) return window.STLPromos.isDirty();
+      return dirty;
+    },
+    usesGlobalSave: function () {
+      return pageTab !== "analytics";
+    },
+    setPageTab: setPageTab,
+    shown: function () {
+      applyPageTab();
+    }
   };
 })();

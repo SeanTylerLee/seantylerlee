@@ -628,12 +628,14 @@
           "</div>" +
           '<div class="billing-docs" data-el="docs"></div>' +
         "</aside>" +
+        '<div class="billing-main">' +
         '<section class="billing-editor">' +
           '<div class="billing-toolbar">' +
             '<button class="btn btn-primary" type="button" data-el="save">Save</button>' +
             '<button class="btn btn-ghost" type="button" data-el="pdf">Download PDF</button>' +
             '<button class="btn btn-ghost" type="button" data-el="convert">Turn into invoice</button>' +
             '<button class="btn btn-ghost" type="button" data-el="mark-paid">Mark paid in full</button>' +
+            '<button class="btn btn-ghost" type="button" data-el="pricing">Pricing</button>' +
             '<button class="btn btn-ghost" type="button" data-el="delete">Delete</button>' +
           "</div>" +
           '<p class="status" data-el="msg"></p>' +
@@ -717,6 +719,7 @@
           '<p class="preview-label">Preview</p>' +
           '<div class="paper-stage" data-el="stage"><div class="paper-scale" data-el="paper-scale"><div data-el="paper"></div></div></div>' +
         "</section>" +
+        "</div>" +
       "</div>"
     );
   }
@@ -743,6 +746,9 @@
       togglePricePicker();
     });
     el("delete").addEventListener("click", removeDoc);
+    el("pricing").addEventListener("click", function () {
+      if (window.STLPricing) window.STLPricing.toggle();
+    });
     el("mark-paid").addEventListener("click", markPaid);
     el("convert").addEventListener("click", convertQuote);
     el("pdf").addEventListener("click", downloadPdf);
@@ -811,6 +817,7 @@
     unmount: function (panel) {
       window.removeEventListener("resize", onResize);
       hideSave();
+      if (window.STLPricing && window.STLPricing.hide) window.STLPricing.hide();
       if (panel) panel.classList.remove("wide");
       if (appEl) appEl.classList.remove("is-billing");
       root = null;

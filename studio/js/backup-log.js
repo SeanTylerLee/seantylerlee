@@ -239,15 +239,13 @@
         ["Owner Draw", String((t.owner_draws || []).length)],
         ["Inventory", String((t.inventory_items || []).length)],
         ["Mileage", String((t.mileage_trips || []).length)],
-        ["Apps", String((t.managed_apps || []).length)],
-        ["Promos", String((t.app_promos || []).length)],
+        ["Apps", String((t.managed_apps || []).length) + " · " + String((t.app_promos || []).length) + " promos"],
         ["SOP", String((t.sop_guides || []).length)],
         ["Support", String((t.support_tickets || []).length)],
-        ["WebForm Submits", String((t.studio_inbox || []).length)],
+        ["Messages", String((t.studio_inbox || []).length)],
         ["Email Lists", String((t.email_contacts || []).length) + " emails"],
-        ["Notifications", String((t.app_notifications || []).length)],
+        ["App Notices", String((t.app_notifications || []).length)],
         ["Clients", String((t.studio_clients || []).length)],
-        ["Leads", String((t.studio_leads || []).length)],
         ["Projects", String((t.client_projects || []).length)],
         ["Billing", String((t.billing_documents || []).length)],
         ["Notes", (t.studio_notes || []).length ? "notepad" : "empty"],
@@ -465,7 +463,7 @@
   }
 
   function promos(pdf, pack) {
-    openMenu(pdf, "Promos", "Open Promos. Add each offer.");
+    openMenu(pdf, "Promos", "Open Apps, then Promos. Add each offer.");
     var rows = pack.tables.app_promos || [];
     if (!rows.length) { empty(pdf); return; }
     rows.forEach(function (r, i) {
@@ -531,7 +529,7 @@
   }
 
   function inbox(pdf, pack) {
-    openMenu(pdf, "WebForm Submits", "Open WebForm Submits. Website contact messages and notify-me signups land here.");
+    openMenu(pdf, "Messages", "Open Messages. Website contact messages and notify-me signups land here.");
     var rows = pack.tables.studio_inbox || [];
     if (!rows.length) { empty(pdf); return; }
     rows.forEach(function (row, i) {
@@ -570,7 +568,7 @@
   }
 
   function notifications(pdf, pack) {
-    openMenu(pdf, "Notifications", "Open Notifications. These are already-sent messages. Re-upload photos from Notification-Images/ if you need the same card again.");
+    openMenu(pdf, "App Notices", "Open App Notices. These are already-sent cards. Re-upload photos from Notification-Images/ if you need the same card again.");
     var rows = pack.tables.app_notifications || [];
     if (!rows.length) { empty(pdf); return; }
     rows.forEach(function (n, i) {
@@ -782,7 +780,7 @@
   }
 
   function pricing(pdf, pack) {
-    openMenu(pdf, "Pricing", "Open Pricing. Set deposit and quote days, then add each price.");
+    openMenu(pdf, "Pricing", "Open Billing, then Pricing. Set deposit and quote days, then add each price.");
     var settings = (pack.tables.studio_pricing_settings || [])[0] || {};
     filled(pdf, [
       ["Deposit %", settings.deposit_percent],
@@ -866,14 +864,12 @@
     apps(pdf, pack);
     promos(pdf, pack);
     sop(pdf, pack);
-    skipPage(pdf, "Analytics", "Analytics loads from App Store Connect and Google Play once the Secrets/ keys are in place.");
-    skipPage(pdf, "Subscribed", "Subscribed loads from Apple and Google once vendor number, Play bucket, and Secrets/ keys are in place.");
+    skipPage(pdf, "Analytics", "Open Apps, then Analytics. Loads from App Store Connect and Google Play once the Secrets/ keys are in place. Subscribed is a tab on that same screen.");
     support(pdf, pack);
     inbox(pdf, pack);
     emails(pdf, pack);
     notifications(pdf, pack);
     clients(pdf, pack);
-    leads(pdf, pack);
     projects(pdf, pack);
     billing(pdf, pack);
     notes(pdf, pack);

@@ -10,16 +10,22 @@
   flex-direction: column;
 }
 
+.ops-workspace.is-embed {
+  min-height: 0;
+  height: 100%;
+}
+
+.ops-workspace.is-embed .ops-header {
+  padding: 10px 16px 4px;
+}
+
 .app.is-support .main,
 .app.is-inbox .main,
 .app.is-emails .main,
 .app.is-notifications .main,
-.app.is-promos .main,
-.app.is-subscribed .main,
 .app.is-permitPathAdmin .main,
 .app.is-pc4hAdmin .main,
 .app.is-settings .main,
-.app.is-leads .main,
 .app.is-inventory .main,
 .app.is-mileage .main {
   padding: 0;

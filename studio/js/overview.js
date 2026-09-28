@@ -224,10 +224,10 @@
           '<button type="button" class="ov-chip draw" data-go="ownerDraws"><span class="k">Owner draws</span><span class="v">' + M().money(yearDraws()) + "</span></button>" +
         "</div>" +
         '<div class="ov-chips ov-chips-ops">' +
-          '<button type="button" class="ov-chip inbox' + (inboxUnread ? " has-alert" : "") + '" data-go="inbox"><span class="k">WebForm unread</span><span class="v">' + inboxUnread + "</span></button>" +
+          '<button type="button" class="ov-chip inbox' + (inboxUnread ? " has-alert" : "") + '" data-go="inbox"><span class="k">Messages unread</span><span class="v">' + inboxUnread + "</span></button>" +
           '<button type="button" class="ov-chip support' + (supportOpen ? " has-alert" : "") + '" data-go="support"><span class="k">Support open</span><span class="v">' + supportOpen + "</span></button>" +
         "</div>" +
-        '<p class="ov-note">Draws are not expenses. Profit is still income minus expenses. Tap WebForm or Support to jump there.</p>' +
+        '<p class="ov-note">Draws are not expenses. Profit is still income minus expenses. Tap Messages or Support to jump there.</p>' +
         '<div class="ov-toolbar">' +
           '<span class="ov-note" style="margin:0">Month report</span>' +
           '<select data-el="month">' +
@@ -273,7 +273,7 @@
       html += '<p class="ov-note" style="margin-top:10px">Nothing overdue, waiting, or unbilled. Enjoy it.</p>';
     } else {
       if (inboxUnread > 0) {
-        html += '<div class="ov-section"><h3>WebForm Submits</h3>';
+        html += '<div class="ov-section"><h3>Messages</h3>';
         html += row(
           inboxUnread === 1 ? "1 unread message" : inboxUnread + " unread messages",
           "Website contact, quotes, and notify-me",

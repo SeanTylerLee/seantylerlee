@@ -35,6 +35,7 @@
   var expandedId = null;
   var dirty = false;
   var saving = false;
+  var embedded = false;
 
   function el(name) { return root ? root.querySelector('[data-el="' + name + '"]') : null; }
   function esc(s) {
@@ -120,11 +121,13 @@
 
   function shell() {
     return (
-      '<div class="ops-workspace">' +
-        '<div class="ops-header">' +
-          "<h1>Promos</h1>" +
-          "<p>Free trials, intro prices, and promo codes per app. This is your log of what is live in App Store Connect and Play Console — SOP still has the how-to.</p>" +
-        "</div>" +
+      '<div class="ops-workspace' + (embedded ? " is-embed" : "") + '">' +
+        (embedded
+          ? '<div class="ops-header"><p>Free trials, intro prices, and promo codes for the selected app. SOP still has the how-to.</p></div>'
+          : '<div class="ops-header">' +
+              "<h1>Promos</h1>" +
+              "<p>Free trials, intro prices, and promo codes per app. This is your log of what is live in App Store Connect and Play Console — SOP still has the how-to.</p>" +
+            "</div>") +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-body" data-el="body"></div>' +
       "</div>"
@@ -377,14 +380,15 @@
   }
 
   window.STLPromos = {
-    mount: function (panel, client) {
+    mount: function (panel, client, opts) {
       db = client;
       root = panel;
-      selectedAppId = "all";
+      embedded = !!(opts && opts.embed);
+      selectedAppId = (opts && opts.appId) || "all";
       expandedId = null;
       dirty = false;
       saving = false;
-      panel.classList.add("ops-wide");
+      if (!embedded) panel.classList.add("ops-wide");
       panel.innerHTML = shell();
       syncSave();
       load();
@@ -395,6 +399,17 @@
       root = null;
     },
     saveAll: saveAll,
-    isDirty: function () { return dirty; }
+    isDirty: function () { return dirty; },
+    setApp: function (id) {
+      var next = id || "all";
+      if (selectedAppId === next) return;
+      if (dirty && !window.confirm("You have unsaved promo changes. Switch apps without saving?")) return;
+      selectedAppId = next;
+      expandedId = null;
+      if (root) render();
+    },
+    shown: function () {
+      if (root) syncSave();
+    }
   };
 })();

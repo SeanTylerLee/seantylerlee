@@ -148,7 +148,6 @@
             legendItem("Renewal", COLORS.renewal) +
             legendItem("Invoice", COLORS.invoice) +
             legendItem("Project", COLORS.project) +
-            legendItem("Lead", COLORS.lead) +
             legendItem("Meeting", COLORS.meeting) +
             legendItem("Note", COLORS.note) +
           "</div>" +
@@ -241,7 +240,7 @@
       '<div class="cal-day-scroll">' +
         '<div class="cal-section">' +
           "<h3>From the studio</h3>" +
-          '<p class="sub">Renewals, invoices, projects, leads, and meetings on this day.</p>';
+          '<p class="sub">Renewals, invoices, projects, and meetings on this day.</p>';
 
     if (!items.length) {
       html += '<p class="cal-empty">Nothing due today.</p>';
@@ -354,7 +353,6 @@
     if (!window.STLApp || !window.STLApp.navigate) return;
     if (event.destination === "billing") window.STLApp.navigate("billing");
     else if (event.destination === "renewals") window.STLApp.navigate("renewals");
-    else if (event.destination === "leads") window.STLApp.navigate("leads");
     else if (event.destination === "projects") window.STLApp.navigate("projects");
   }
 
@@ -422,25 +420,6 @@
       });
     });
 
-    (data.leads || []).forEach(function (lead) {
-      if (lead.status === "dead" || lead.status === "converted") return;
-      var follow = parseISO(lead.follow_up);
-      if (!follow) return;
-      var overdue = follow < today;
-      list.push({
-        id: "lead-" + lead.id,
-        date: follow,
-        title: trim(lead.name) || trim(lead.company_name) || "Lead",
-        detail: "Lead follow-up · " + (lead.status || "open"),
-        tint: COLORS.lead,
-        icon: "L",
-        kind: "lead",
-        sortRank: 3,
-        isOverdue: overdue,
-        destination: "leads"
-      });
-    });
-
     (data.meetings || []).forEach(function (m) {
       var when = parseISO(m.meeting_date);
       if (!when) return;
@@ -477,8 +456,7 @@
       safeQuery("billing_documents", "id,kind,number,client_name,amount,status,due_on"),
       safeQuery("client_projects", "id,name,due_date,link_id"),
       safeQuery("meeting_logs", "id,meeting_date,topic,attendees,linked_project_id"),
-      safeQuery("renewal_items", "id,title,due_date"),
-      safeQuery("studio_leads", "id,name,company_name,status,follow_up")
+      safeQuery("renewal_items", "id,title,due_date")
     ]).then(function (results) {
       loading = false;
       var notesRes = results[0];
@@ -501,8 +479,7 @@
         invoices: results[1],
         projects: results[2],
         meetings: results[3],
-        renewals: results[4],
-        leads: results[5]
+        renewals: results[4]
       });
       render();
     }).catch(function (err) {

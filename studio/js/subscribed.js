@@ -12,6 +12,7 @@
   var vendorDraft = "";
   var bucketDraft = "";
   var iconUrls = {};
+  var embedded = false;
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -61,11 +62,13 @@
 
   function shell() {
     return (
-      '<div class="ops-workspace">' +
-        '<div class="ops-header">' +
-          "<h1>Subscribed</h1>" +
-          "<p>Pick an app to see current Apple and Google Play subscribers.</p>" +
-        "</div>" +
+      '<div class="ops-workspace' + (embedded ? " is-embed" : "") + '">' +
+        (embedded
+          ? ""
+          : '<div class="ops-header">' +
+              "<h1>Subscribed</h1>" +
+              "<p>Pick an app to see current Apple and Google Play subscribers.</p>" +
+            "</div>") +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-body" data-el="body"></div>' +
       "</div>"
@@ -415,12 +418,14 @@
   }
 
   window.STLSubscribed = {
-    mount: function (panel, client) {
+    mount: function (panel, client, opts) {
       root = panel;
       db = client || null;
+      embedded = !!(opts && opts.embed);
       snapshot = null;
       loading = false;
-      panel.classList.add("ops-wide");
+      if (opts && opts.appId) selectedAppId = opts.appId;
+      if (!embedded) panel.classList.add("ops-wide");
       var saveBtn = document.getElementById("global-save");
       if (saveBtn) {
         saveBtn.classList.add("hidden");
@@ -435,6 +440,17 @@
     unmount: function (panel) {
       if (panel) panel.classList.remove("ops-wide");
       root = null;
+    },
+    setApp: function (id) {
+      if (!id || selectedAppId === id) return;
+      selectedAppId = id;
+      snapshot = null;
+      if (!root) return;
+      render();
+      loadCounts();
+    },
+    refresh: function () {
+      loadCounts();
     }
   };
 })();

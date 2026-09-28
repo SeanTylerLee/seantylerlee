@@ -124,8 +124,8 @@
     return (
       '<div class="ops-workspace">' +
         '<div class="ops-header">' +
-          "<h1>Notifications</h1>" +
-          "<p>Send a message to Permit Path or Pilot Car 4 Hire. The card on the right is what users see on their phones.</p>" +
+          "<h1>App Notices</h1>" +
+          "<p>Write a card and send it to Permit Path or Pilot Car 4 Hire. The preview on the right is what users see on their phones.</p>" +
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-body" data-el="body"></div>' +

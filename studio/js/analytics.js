@@ -14,6 +14,8 @@
   var playEmail = "";
   var studioApps = [];
   var openReviews = {};
+  var embedded = false;
+  var preferredAppId = "";
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -90,10 +92,11 @@
 
   function shell() {
     return (
-      '<div class="analytics-workspace">' +
-        '<div class="analytics-header">' +
-          "<div><h1>Analytics</h1>" +
-          "<p>Apple App Store Connect plus Google Play vitals and install statistics.</p></div>" +
+      '<div class="analytics-workspace' + (embedded ? " is-embed" : "") + '">' +
+        '<div class="analytics-header' + (embedded ? " is-compact" : "") + '">' +
+          (embedded
+            ? "<div><p>Store vitals, installs, and current Apple and Google subscribers.</p></div>"
+            : "<div><h1>Analytics</h1><p>Apple App Store Connect plus Google Play vitals and install statistics.</p></div>") +
           '<div class="actions">' +
             '<button class="btn btn-ghost" type="button" data-el="refresh">Refresh</button>' +
           "</div>" +
@@ -101,12 +104,26 @@
         '<div class="analytics-tabs">' +
           '<button type="button" class="analytics-tab is-on" data-tab="apple">Apple</button>' +
           '<button type="button" class="analytics-tab" data-tab="play">Google Play</button>' +
+          '<button type="button" class="analytics-tab" data-tab="subscribed">Subscribed</button>' +
         "</div>" +
         '<p class="analytics-meta" data-el="meta"></p>' +
         '<p class="status analytics-banner" data-el="banner"></p>' +
         '<div class="analytics-body" data-el="body"></div>' +
+        '<div class="analytics-embed hidden" data-el="subscribed-host"></div>' +
       "</div>"
     );
+  }
+
+  function ensureSubscribed() {
+    var host = el("subscribed-host");
+    if (!host || !window.STLSubscribed) return;
+    if (!host.getAttribute("data-mounted")) {
+      host.setAttribute("data-mounted", "1");
+      window.STLSubscribed.mount(host, db, { embed: true, appId: preferredAppId || "" });
+      return;
+    }
+    if (window.STLSubscribed.setApp && preferredAppId) window.STLSubscribed.setApp(preferredAppId);
+    if (window.STLSubscribed.shown) window.STLSubscribed.shown();
   }
 
   function renderMeta() {
@@ -135,6 +152,22 @@
       btn.classList.toggle("is-on", btn.getAttribute("data-tab") === tab);
     });
     var body = el("body");
+    var subHost = el("subscribed-host");
+    var meta = el("meta");
+    var banner = el("banner");
+    if (tab === "subscribed") {
+      if (body) body.classList.add("hidden");
+      if (subHost) subHost.classList.remove("hidden");
+      if (meta) meta.classList.add("hidden");
+      if (banner) banner.classList.add("hidden");
+      ensureSubscribed();
+      bind();
+      return;
+    }
+    if (body) body.classList.remove("hidden");
+    if (subHost) subHost.classList.add("hidden");
+    if (meta) meta.classList.remove("hidden");
+    if (banner) banner.classList.remove("hidden");
     if (!body) return;
     if (tab === "play") {
       renderPlay(body);
@@ -384,12 +417,15 @@
         render();
         if (tab === "play" && !playSnapshot && !playLoading) loadPlay();
         if (tab === "apple" && !snapshot && !loading) load(false);
+        if (tab === "subscribed") ensureSubscribed();
       };
     });
     var refresh = el("refresh");
     if (refresh) refresh.onclick = function () {
       if (tab === "play") loadPlay();
-      else load(true);
+      else if (tab === "subscribed") {
+        if (window.STLSubscribed && window.STLSubscribed.refresh) window.STLSubscribed.refresh();
+      } else load(true);
     };
     var empty = el("refresh-empty");
     if (empty) empty.onclick = function () {
@@ -550,16 +586,18 @@
   }
 
   window.STLAnalytics = {
-    mount: function (panel, client) {
+    mount: function (panel, client, opts) {
       root = panel;
       db = client || null;
+      embedded = !!(opts && opts.embed);
+      preferredAppId = (opts && opts.appId) || "";
       tab = "apple";
       snapshot = null;
       playSnapshot = null;
       studioApps = [];
       loading = false;
       playLoading = false;
-      panel.classList.add("analytics-wide");
+      if (!embedded) panel.classList.add("analytics-wide");
       var saveBtn = document.getElementById("global-save");
       if (saveBtn) {
         saveBtn.classList.add("hidden");
@@ -574,8 +612,23 @@
       });
     },
     unmount: function (panel) {
+      var host = el("subscribed-host");
+      if (window.STLSubscribed && window.STLSubscribed.unmount && host) window.STLSubscribed.unmount(host);
       if (panel) panel.classList.remove("analytics-wide");
       root = null;
+    },
+    setApp: function (id) {
+      preferredAppId = id || "";
+      if (window.STLSubscribed && window.STLSubscribed.setApp) window.STLSubscribed.setApp(preferredAppId);
+    },
+    shown: function () {
+      if (!root) return;
+      var saveBtn = document.getElementById("global-save");
+      if (saveBtn) {
+        saveBtn.classList.add("hidden");
+        saveBtn.disabled = true;
+      }
+      if (tab === "subscribed") ensureSubscribed();
     }
   };
 })();

@@ -51,6 +51,39 @@
   max-width: 640px;
 }
 
+.analytics-workspace.is-embed {
+  min-height: 0;
+  height: 100%;
+}
+
+.analytics-header.is-compact {
+  padding: 10px 20px 4px;
+}
+
+.analytics-header.is-compact p {
+  margin: 0;
+}
+
+.analytics-embed {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.analytics-embed.hidden,
+.analytics-body.hidden,
+.analytics-meta.hidden,
+.analytics-banner.hidden {
+  display: none !important;
+}
+
+.analytics-embed .ops-workspace {
+  min-height: 0;
+  height: 100%;
+}
+
 .analytics-header .actions {
   margin-left: auto;
   display: flex;

@@ -14,16 +14,20 @@
 
 .billing-workspace {
   display: grid;
-  grid-template-columns: 200px minmax(280px, 420px) minmax(0, 1fr);
+  grid-template-columns: 200px minmax(0, 1fr);
   height: 100%;
   min-height: 0;
 }
 
 .billing-rail,
-.billing-editor,
-.billing-preview {
+.billing-main {
   min-height: 0;
   overflow: auto;
+}
+
+.billing-main {
+  display: flex;
+  flex-direction: column;
 }
 
 .billing-rail {
@@ -107,9 +111,8 @@
 }
 
 .billing-editor {
-  border-right: 1px solid var(--line);
   background: var(--window);
-  padding: 12px 14px 28px;
+  padding: 12px 14px 8px;
 }
 
 .billing-toolbar {
@@ -297,7 +300,8 @@
 
 .billing-preview {
   background: var(--window);
-  padding: 14px;
+  padding: 8px 14px 28px;
+  border-top: 1px solid var(--line);
 }
 
 .preview-label {
@@ -570,10 +574,12 @@
   left: 50%;
   top: 48%;
   transform: translate(-50%, -50%) rotate(-32deg);
+  border: 5.5px solid #c8102e;
   color: #c8102e;
   font-size: 38px;
   font-weight: 800;
   letter-spacing: 0.04em;
+  padding: 10px 18px;
   opacity: 0.78;
   white-space: nowrap;
   pointer-events: none;
@@ -601,9 +607,5 @@
 @media (max-width: 1100px) {
   .billing-workspace {
     grid-template-columns: 180px minmax(0, 1fr);
-  }
-
-  .billing-preview {
-    display: none;
   }
 }

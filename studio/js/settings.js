@@ -37,23 +37,31 @@
     { id: "inventory", title: "Inventory" },
     { id: "mileage", title: "Mileage" },
     { id: "apps", title: "Apps" },
-    { id: "promos", title: "Promos" },
     { id: "sop", title: "SOP" },
-    { id: "appleAnalytics", title: "Analytics" },
-    { id: "subscribed", title: "Subscribed" },
     { id: "support", title: "Support" },
     { id: "permitPathAdmin", title: "Permit Path Admin" },
     { id: "pc4hAdmin", title: "PC4H Admin" },
-
-    { id: "inbox", title: "WebForm Submits" },
+    { id: "inbox", title: "Messages" },
     { id: "emails", title: "Email Lists" },
-    { id: "notifications", title: "Notifications" },
+    { id: "notifications", title: "App Notices" },
     { id: "clients", title: "Clients" },
-    { id: "leads", title: "Leads" },
     { id: "projects", title: "Projects" },
     { id: "billing", title: "Billing" },
     { id: "notes", title: "Notes" }
   ];
+
+  var SECTION_ALIASES = {
+    promos: "apps",
+    appleAnalytics: "apps",
+    subscribed: "apps",
+    leads: "clients"
+  };
+
+  function canonicalSection(id) {
+    if (SECTION_ALIASES[id]) return SECTION_ALIASES[id];
+    if (SECTION_CHOICES.some(function (c) { return c.id === id; })) return id;
+    return "overview";
+  }
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -92,7 +100,7 @@
   function readStoredDefault() {
     try {
       var v = localStorage.getItem(STORAGE_DEFAULT_SECTION) || "overview";
-      if (SECTION_CHOICES.some(function (c) { return c.id === v; })) return v;
+      return canonicalSection(v);
     } catch (err) {}
     return "overview";
   }
@@ -114,10 +122,8 @@
         if (Number.isFinite(r)) taxReserve = Math.max(0, Math.min(100, r));
       }
       if (row.key === "default_section") {
-        if (SECTION_CHOICES.some(function (c) { return c.id === row.value; })) {
-          defaultSection = row.value;
-          writeStoredDefault(defaultSection);
-        }
+        defaultSection = canonicalSection(row.value);
+        writeStoredDefault(defaultSection);
       }
     });
   }

@@ -5,7 +5,7 @@
     event.preventDefault();
   });
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 51.
+  // Same order and grouping as the Mac app sidebar. Cache bust 52.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Profit, needs-you board, and studio snapshot." },
@@ -24,15 +24,12 @@
       { id: "mileage", title: "Mileage", icon: "car-fill", tint: "#3D6B99", body: "Business trips, miles, and standard mileage deduction." }
     ],
     [
-      { id: "apps", title: "Apps", icon: "square-stack-3d-up-fill", tint: "#2E9E7A", body: "Products, versions, issues, and store logins." },
-      { id: "promos", title: "Promos", icon: "tag-fill", tint: "#C45C2A", body: "Free trials, intro prices, and promo codes per app." },
+      { id: "apps", title: "Apps", icon: "square-stack-3d-up-fill", tint: "#2E9E7A", body: "Products, promos, analytics, and store logins." },
       { id: "sop", title: "SOP", icon: "list-clipboard-fill", tint: "#336BB3", body: "How-to guides with checkable steps." },
-      { id: "appleAnalytics", title: "Analytics", icon: "chart-bar-xaxis", tint: "#337AC7", body: "App Store Connect and Google Play vitals." },
-      { id: "subscribed", title: "Subscribed", icon: "person-crop-circle-fill", tint: "#2E7D4F", body: "Current Apple and Google subscribers per app." },
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
-      { id: "inbox", title: "WebForm Submits", icon: "tray-fill", tint: "#3D6B99", body: "Website contact and notify-me messages." },
+      { id: "inbox", title: "Messages", icon: "tray-fill", tint: "#3D6B99", body: "Website contact and notify-me messages." },
       { id: "emails", title: "Email Lists", icon: "envelope-fill", tint: "#738094", body: "Named lists of emails." },
-      { id: "notifications", title: "Notifications", icon: "bell-fill", tint: "#5B6B8C", body: "Push messages to app users." }
+      { id: "notifications", title: "App Notices", icon: "bell-fill", tint: "#5B6B8C", body: "Write a card and send it to an app." }
     ],
     [
       { id: "permitPathAdmin", title: "Permit Path Admin", icon: "square-stack-3d-up-fill", tint: "#1A4F8B", body: "Live Permit Path signups, subscriptions, and deletions." },
@@ -40,16 +37,20 @@
     ],
     [
       { id: "clients", title: "Clients", icon: "person-2-fill", tint: "#338CBF", body: "People and companies you bill." },
-      { id: "leads", title: "Leads", icon: "flame-fill", tint: "#D96640", body: "Incoming work and follow-ups." },
-      { id: "projects", title: "Projects", icon: "hammer-fill", tint: "#7361D9", body: "Client jobs, logins, costs, hours, issues, and handoff." }
-    ],
-    [
-      { id: "billing", title: "Billing", icon: "doc-text-fill", tint: "#F29E2E", body: "Quotes and invoices. Mark paid to generate a receipt." }
+      { id: "projects", title: "Projects", icon: "hammer-fill", tint: "#7361D9", body: "Client jobs, logins, costs, hours, issues, and handoff." },
+      { id: "billing", title: "Billing", icon: "doc-text-fill", tint: "#F29E2E", body: "Quotes, invoices, and the price book." }
     ],
     [
       { id: "notes", title: "Notes", icon: "note-text", tint: "#F29E2E", body: "Your private notepad." }
     ]
   ];
+
+  var SECTION_ALIASES = {
+    promos: { id: "apps", tab: "promos" },
+    appleAnalytics: { id: "apps", tab: "analytics" },
+    subscribed: { id: "apps", tab: "analytics" },
+    leads: { id: "clients" }
+  };
 
   var SETTINGS_SECTION = {
     id: "settings",
@@ -62,6 +63,11 @@
   var SECTIONS = NAV_GROUPS.reduce(function (all, group) {
     return all.concat(group);
   }, []).concat([SETTINGS_SECTION]);
+
+  function resolveSection(id) {
+    var alias = SECTION_ALIASES[id];
+    return alias ? alias.id : id;
+  }
 
   var gate = document.getElementById("gate");
   var app = document.getElementById("app");
@@ -95,18 +101,14 @@
     income: "is-income",
     ownerDraws: "is-ownerDraws",
     taxes: "is-taxes",
-    appleAnalytics: "is-analytics",
-    subscribed: "is-subscribed",
     permitPathAdmin: "is-permitPathAdmin",
     pc4hAdmin: "is-pc4hAdmin",
     sop: "is-sop",
     apps: "is-apps",
-    promos: "is-promos",
     support: "is-support",
     inbox: "is-inbox",
     emails: "is-emails",
     notifications: "is-notifications",
-    leads: "is-leads",
     inventory: "is-inventory",
     mileage: "is-mileage",
     settings: "is-settings"
@@ -127,18 +129,14 @@
     income: "STLIncome",
     ownerDraws: "STLOwnerDraws",
     taxes: "STLTaxes",
-    appleAnalytics: "STLAnalytics",
-    subscribed: "STLSubscribed",
     permitPathAdmin: "STLPermitPathAdmin",
     pc4hAdmin: "STLPc4hAdmin",
     sop: "STLSOP",
     apps: "STLApps",
-    promos: "STLPromos",
     support: "STLSupport",
     inbox: "STLInbox",
     emails: "STLEmails",
     notifications: "STLNotifications",
-    leads: "STLLeads",
     inventory: "STLInventory",
     mileage: "STLMileage",
     settings: "STLSettings"
@@ -164,10 +162,8 @@
       taxes: window.STLTaxes,
       sop: window.STLSOP,
       apps: window.STLApps,
-      promos: window.STLPromos,
       support: window.STLSupport,
       emails: window.STLEmails,
-      leads: window.STLLeads,
       inventory: window.STLInventory,
       mileage: window.STLMileage,
       settings: window.STLSettings
@@ -177,7 +173,7 @@
   function refreshSave() {
     if (!globalSaveBtn) return;
     var mod = saversMap()[currentSection];
-    if (!mod || !mod.saveAll) {
+    if (!mod || !mod.saveAll || (typeof mod.usesGlobalSave === "function" && !mod.usesGlobalSave())) {
       globalSaveBtn.classList.add("hidden");
       globalSaveBtn.disabled = true;
       return;
@@ -298,7 +294,7 @@
     }
     var cachedStart = "overview";
     if (window.STLSettings && typeof window.STLSettings.defaultSection === "function") {
-      cachedStart = window.STLSettings.defaultSection() || "overview";
+      cachedStart = resolveSection(window.STLSettings.defaultSection() || "overview");
       if (SECTIONS.some(function (s) { return s.id === cachedStart; })) {
         currentSection = cachedStart;
       }
@@ -309,6 +305,7 @@
     if (window.STLSettings && typeof window.STLSettings.hydrate === "function") {
       window.STLSettings.hydrate(client).then(function (preferred) {
         if (!appReady) return;
+        preferred = resolveSection(preferred);
         if (!preferred || !SECTIONS.some(function (s) { return s.id === preferred; })) return;
         if (currentSection === cachedStart && preferred !== currentSection) {
           currentSection = preferred;
@@ -350,22 +347,6 @@
       });
       sidebar.appendChild(wrap);
     });
-
-    var pricingWrap = document.createElement("div");
-    pricingWrap.className = "sidebar-group sidebar-pricing";
-    var pricingBtn = document.createElement("button");
-    pricingBtn.type = "button";
-    pricingBtn.className = "sidebar-item";
-    pricingBtn.innerHTML =
-      '<span class="sidebar-icon" style="background:linear-gradient(135deg,#F29E2E,#F29E2Ebf)">' +
-      '<img src="images/sidebar/dollarsign-circle-fill.png" alt="" />' +
-      "</span>" +
-      '<span class="sidebar-label">Pricing</span>';
-    pricingBtn.addEventListener("click", function () {
-      if (window.STLPricing) window.STLPricing.toggle();
-    });
-    pricingWrap.appendChild(pricingBtn);
-    sidebar.appendChild(pricingWrap);
 
     var settingsWrap = document.createElement("div");
     settingsWrap.className = "sidebar-group sidebar-settings";
@@ -515,12 +496,21 @@
   });
 
   window.STLApp = {
-    navigate: function (sectionId) {
+    navigate: function (sectionId, opts) {
+      var alias = SECTION_ALIASES[sectionId];
+      var tab = opts && opts.tab;
+      if (alias) {
+        sectionId = alias.id;
+        tab = tab || alias.tab;
+      }
       if (!SECTIONS.some(function (s) { return s.id === sectionId; })) return;
       currentSection = sectionId;
       if (app.classList.contains("hidden")) return;
       renderNav();
       renderPanel();
+      if (sectionId === "apps" && tab && window.STLApps && typeof window.STLApps.setPageTab === "function") {
+        window.STLApps.setPageTab(tab);
+      }
     },
     setInboxUnread: setInboxUnread
   };

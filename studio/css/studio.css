@@ -362,13 +362,8 @@ textarea {
   box-shadow: 0 0 0 1.5px var(--accent);
 }
 
-.sidebar-pricing {
-  margin-top: auto;
-  padding-top: 8px;
-  border-top: 1px solid rgba(0, 0, 0, 0.14);
-}
-
 .sidebar-settings {
+  margin-top: auto;
   padding-top: 8px;
   padding-bottom: 12px;
   border-top: 1px solid rgba(0, 0, 0, 0.14);
