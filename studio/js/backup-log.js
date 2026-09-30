@@ -772,11 +772,26 @@
     });
   }
 
+  function notePlain(html) {
+    var s = String(html == null ? "" : html);
+    if (!/<[a-z][\s\S]*>/i.test(s)) return s;
+    return s
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(div|p)>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"');
+  }
+
   function notes(pdf, pack) {
     openMenu(pdf, "Notes", "Open Notes. Paste the notepad.");
     var row = (pack.tables.studio_notes || [])[0];
-    if (!row || !String(row.body || "").trim()) empty(pdf, "Notepad is empty.");
-    else longText(pdf, row.body);
+    var body = row ? notePlain(row.body) : "";
+    if (!String(body || "").trim()) empty(pdf, "Notepad is empty.");
+    else longText(pdf, body);
   }
 
   function pricing(pdf, pack) {
