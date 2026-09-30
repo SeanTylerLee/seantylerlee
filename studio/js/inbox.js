@@ -4,7 +4,8 @@
   var TYPES = [
     { id: "contact", title: "Contact" },
     { id: "release_notify", title: "Notify me" },
-    { id: "quote", title: "Quote" }
+    { id: "quote", title: "Quote" },
+    { id: "permit_sample", title: "Permit sample" }
   ];
 
   var root = null;
@@ -63,6 +64,9 @@
     if (row && row.source === "release_notify") {
       return siteTitle(row.site) + " — your signup";
     }
+    if (row && row.source === "permit_sample") {
+      return siteTitle(row.site) + " — your permit sample";
+    }
     return siteTitle(row && row.site) + " — your message";
   }
   function replyBody(row) {
@@ -87,6 +91,10 @@
         lines.push("Total: " + money(draft.total != null ? draft.total : payload.total));
       }
       if (draft && trim(draft.projectName)) lines.push("Project: " + trim(draft.projectName));
+    }
+    var attached = filesOf(row);
+    if (attached.length) {
+      lines.push("Files: " + attached.map(function (file) { return trim(file.name) || "file"; }).join(", "));
     }
     lines.push("");
     var msg = trim(row && row.message);
@@ -117,6 +125,17 @@
   }
   function quotePayload(row) {
     return asObject(row && row.payload);
+  }
+  function filesOf(row) {
+    var files = asObject(row && row.payload).files;
+    return Array.isArray(files) ? files.filter(function (file) { return file && trim(file.path); }) : [];
+  }
+  function fileSize(n) {
+    var x = Number(n);
+    if (!isFinite(x) || x < 0) return "";
+    if (x < 1024) return x + " B";
+    if (x < 1024 * 1024) return (x / 1024).toFixed(x < 10 * 1024 ? 1 : 0) + " KB";
+    return (x / (1024 * 1024)).toFixed(x < 10 * 1024 * 1024 ? 1 : 0) + " MB";
   }
   function billingDraft(row) {
     var p = quotePayload(row);
@@ -165,7 +184,8 @@
     if (q) {
       list = list.filter(function (row) {
         var draft = billingDraft(row);
-        return [row.name, row.email, row.message, row.site, typeTitle(row.source), siteTitle(row.site), draft && draft.number, draft && draft.projectName]
+        var fileNames = filesOf(row).map(function (file) { return file.name; }).join(" ");
+        return [row.name, row.email, row.message, row.site, typeTitle(row.source), siteTitle(row.site), draft && draft.number, draft && draft.projectName, fileNames]
           .some(function (v) { return String(v || "").toLowerCase().indexOf(q) !== -1; });
       });
     }
@@ -202,14 +222,18 @@
     var list = visible();
     if (!list.length) {
       box.innerHTML = '<p class="inbox-empty">' +
-        (items.length ? "No matches." : "No messages yet. Contact forms, quotes, and notify-me signups land here.") +
+        (items.length ? "No matches." : "No messages yet. Contact forms, quotes, notify-me signups, and permit samples land here.") +
         "</p>";
       return;
     }
     box.innerHTML = list.map(function (item) {
       var draft = billingDraft(item);
       var label = trim(item.name) || trim(item.email) || (draft && draft.number) || "Message";
-      var extra = item.source === "quote" ? money((draft && draft.total != null) ? draft.total : quotePayload(item).total) : "";
+      var extra = item.source === "quote"
+        ? money((draft && draft.total != null) ? draft.total : quotePayload(item).total)
+        : (item.source === "permit_sample"
+          ? (filesOf(item).length === 1 ? "1 file" : filesOf(item).length + " files")
+          : "");
       var snip = snippet(item.message);
       return (
         '<button type="button" class="inbox-row' +
@@ -268,7 +292,8 @@
           '<span class="inbox-tag is-' + esc(row.source) + '">' + esc(typeTitle(row.source)) + "</span>" +
         "</header>" +
         quoteDetailHtml(row) +
-        '<div class="inbox-letter-body">' + esc(row.message || "") + "</div>" +
+        filesHtml(row) +
+        (trim(row.message) ? '<div class="inbox-letter-body">' + esc(row.message) + "</div>" : "") +
         '<footer class="inbox-letter-foot">' +
           '<div class="inbox-letter-primary">' + contactActionHtml(row) +
             (row.source === "quote"
@@ -321,6 +346,33 @@
     if (info.method === "phone") html += callLink + emailLink + addList;
     else html += emailLink + addList + callLink;
     return html;
+  }
+
+  function filesHtml(row) {
+    var files = filesOf(row);
+    if (!files.length) return "";
+    return (
+      '<section class="inbox-files">' +
+        '<div class="inbox-files-top">' +
+          "<strong>" + (files.length === 1 ? "1 file" : files.length + " files") + "</strong>" +
+          (files.length > 1 ? '<button class="btn btn-ghost" type="button" data-el="save-all">Save all</button>' : "") +
+        "</div>" +
+        files.map(function (file, index) {
+          var size = fileSize(file.size);
+          return (
+            '<div class="inbox-file">' +
+              '<div class="inbox-file-name"><b>' + esc(trim(file.name) || "File") + "</b>" +
+                (size ? "<span>" + esc(size) + "</span>" : "") +
+              "</div>" +
+              '<div class="inbox-file-actions">' +
+                '<button class="btn btn-ghost" type="button" data-open-file="' + index + '">Open</button>' +
+                '<button class="btn btn-primary" type="button" data-save-file="' + index + '">Save</button>' +
+              "</div>" +
+            "</div>"
+          );
+        }).join("") +
+      "</section>"
+    );
   }
 
   function quoteDetailHtml(row) {
@@ -551,6 +603,71 @@
     });
   }
 
+  function saveBlob(blob, fileName) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "permit";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  }
+
+  function downloadFile(file) {
+    if (!file || !file.path) return Promise.reject(new Error("Missing file."));
+    return db.storage.from("inbox-uploads").download(file.path).then(function (res) {
+      if (res.error) throw res.error;
+      saveBlob(res.data, trim(file.name) || "permit");
+    });
+  }
+
+  function openFile(file) {
+    if (!file || !file.path) return;
+    if (!window.STLFileFloat) {
+      showMsg("File viewer missing. Refresh the page.", false);
+      return;
+    }
+    showMsg("Opening…", true);
+    db.storage.from("inbox-uploads").createSignedUrl(file.path, 600).then(function (res) {
+      if (res.error) return showMsg(res.error.message, false);
+      showMsg("");
+      window.STLFileFloat.open({
+        title: trim(file.name) || "Permit",
+        fileName: trim(file.name) || file.path,
+        url: res.data.signedUrl
+      });
+    });
+  }
+
+  function saveAll(row) {
+    var files = filesOf(row);
+    if (!files.length) return;
+    showMsg("Saving files…", true);
+    var chain = Promise.resolve();
+    files.forEach(function (file, index) {
+      chain = chain.then(function () {
+        return downloadFile(file).then(function () {
+          return new Promise(function (resolve) { setTimeout(resolve, index === files.length - 1 ? 0 : 250); });
+        });
+      });
+    });
+    chain.then(function () {
+      showMsg("Saved to your computer.", true);
+      setTimeout(function () { showMsg(""); }, 900);
+    }).catch(function (err) {
+      showMsg((err && err.message) || "Could not save the files.", false);
+    });
+  }
+
+  function removeUploads(row) {
+    var paths = filesOf(row).map(function (file) { return file.path; }).filter(Boolean);
+    if (!paths.length) return Promise.resolve();
+    return db.storage.from("inbox-uploads").remove(paths).then(function (res) {
+      if (res.error) throw res.error;
+    });
+  }
+
   function bindRead() {
     var addListBtn = el("add-to-list");
     if (addListBtn) addListBtn.onclick = function () { addToList(selected()); };
@@ -561,7 +678,32 @@
       var row = selected();
       if (row && row.billing_id) openInBilling(row.billing_id);
     };
-    var readBtn = el("read");
+    var saveAllBtn = el("save-all");
+    if (saveAllBtn) saveAllBtn.onclick = function () { saveAll(selected()); };
+    var readPane = el("read");
+    if (readPane) {
+      readPane.querySelectorAll("[data-save-file]").forEach(function (btn) {
+        btn.onclick = function (event) {
+          event.stopPropagation();
+          var file = filesOf(selected())[Number(btn.getAttribute("data-save-file"))];
+          if (!file) return;
+          showMsg("Saving…", true);
+          downloadFile(file).then(function () {
+            showMsg("Saved to your computer.", true);
+            setTimeout(function () { showMsg(""); }, 900);
+          }).catch(function (err) {
+            showMsg((err && err.message) || "Could not save the file.", false);
+          });
+        };
+      });
+      readPane.querySelectorAll("[data-open-file]").forEach(function (btn) {
+        btn.onclick = function (event) {
+          event.stopPropagation();
+          openFile(filesOf(selected())[Number(btn.getAttribute("data-open-file"))]);
+        };
+      });
+    }
+    var readBtn = root ? root.querySelector(".inbox-letter-foot [data-el='read']") : null;
     if (readBtn) readBtn.onclick = function () { setStatus(selected(), "read"); };
     var unreadBtn = el("unread");
     if (unreadBtn) unreadBtn.onclick = function () { setStatus(selected(), "unread"); };
@@ -574,8 +716,11 @@
       del.onclick = function () {
         var row = selected();
         if (!row || !window.confirm("Delete this message?")) return;
-        db.from("studio_inbox").delete().eq("id", row.id).then(function (res) {
-          if (res.error) return showMsg(res.error.message, false);
+        showMsg("Deleting…", true);
+        removeUploads(row).catch(function () { return null; }).then(function () {
+          return db.from("studio_inbox").delete().eq("id", row.id);
+        }).then(function (res) {
+          if (res && res.error) return showMsg(res.error.message, false);
           items = items.filter(function (item) { return item.id !== row.id; });
           selectedId = null;
           publishUnread();
