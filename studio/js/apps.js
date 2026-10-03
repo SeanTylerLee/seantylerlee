@@ -186,11 +186,13 @@
           '<button type="button" class="apps-tab is-on" data-page-tab="app">App</button>' +
           '<button type="button" class="apps-tab" data-page-tab="promos">Promos</button>' +
           '<button type="button" class="apps-tab" data-page-tab="analytics">Analytics</button>' +
+          '<button type="button" class="apps-tab" data-page-tab="tos">TOS Accepted</button>' +
         "</div>" +
         '<p class="status apps-banner" data-el="banner"></p>' +
         '<div class="apps-body" data-el="body"></div>' +
         '<div class="apps-embed hidden" data-el="promos-host"></div>' +
         '<div class="apps-embed hidden" data-el="analytics-host"></div>' +
+        '<div class="apps-embed hidden" data-el="tos-host"></div>' +
       "</div>"
     );
   }
@@ -227,6 +229,16 @@
     if (window.STLAnalytics.shown) window.STLAnalytics.shown();
   }
 
+  function ensureTos() {
+    var host = el("tos-host");
+    if (!host || !window.STLTos) return;
+    if (!host.getAttribute("data-mounted")) {
+      host.setAttribute("data-mounted", "1");
+      window.STLTos.mount(host);
+    }
+    if (window.STLTos.setApp) window.STLTos.setApp(selected());
+  }
+
   function applyPageTab() {
     if (!root) return;
     root.querySelectorAll("[data-page-tab]").forEach(function (btn) {
@@ -237,22 +249,27 @@
     var addBtn = el("add");
     var promosHost = el("promos-host");
     var analyticsHost = el("analytics-host");
+    var tosHost = el("tos-host");
     if (body) body.classList.toggle("hidden", pageTab !== "app");
     if (banner) banner.classList.toggle("hidden", pageTab !== "app");
     if (addBtn) addBtn.classList.toggle("hidden", pageTab !== "app");
     if (promosHost) promosHost.classList.toggle("hidden", pageTab !== "promos");
     if (analyticsHost) analyticsHost.classList.toggle("hidden", pageTab !== "analytics");
+    if (tosHost) tosHost.classList.toggle("hidden", pageTab !== "tos");
     if (pageTab === "promos") ensurePromos();
     else if (pageTab === "analytics") {
       hideSave();
       ensureAnalytics();
+    } else if (pageTab === "tos") {
+      hideSave();
+      ensureTos();
     } else {
       syncSave();
     }
   }
 
   function setPageTab(tab) {
-    if (tab !== "app" && tab !== "promos" && tab !== "analytics") return;
+    if (tab !== "app" && tab !== "promos" && tab !== "analytics" && tab !== "tos") return;
     if (!confirmLeaveTab(tab)) return;
     pageTab = tab;
     applyPageTab();
@@ -285,6 +302,7 @@
         render();
         if (pageTab === "promos" && window.STLPromos && window.STLPromos.setApp) window.STLPromos.setApp(selectedId);
         if (pageTab === "analytics" && window.STLAnalytics && window.STLAnalytics.setApp) window.STLAnalytics.setApp(selectedId);
+        if (pageTab === "tos" && window.STLTos && window.STLTos.setApp) window.STLTos.setApp(selected());
       };
     });
   }
@@ -883,6 +901,7 @@
         render();
         if (pageTab === "promos" && window.STLPromos && window.STLPromos.setApp) window.STLPromos.setApp(selectedId || "");
         if (pageTab === "analytics" && window.STLAnalytics && window.STLAnalytics.setApp) window.STLAnalytics.setApp(selectedId || "");
+        if (pageTab === "tos" && window.STLTos && window.STLTos.setApp) window.STLTos.setApp(selected());
       });
     }).catch(function (err) {
       showMsg((err && err.message) || "Could not load apps.", false);
@@ -985,23 +1004,25 @@
       hideSave();
       var promosHost = el("promos-host");
       var analyticsHost = el("analytics-host");
+      var tosHost = el("tos-host");
       if (window.STLPromos && window.STLPromos.unmount && promosHost) window.STLPromos.unmount(promosHost);
       if (window.STLAnalytics && window.STLAnalytics.unmount && analyticsHost) window.STLAnalytics.unmount(analyticsHost);
+      if (window.STLTos && window.STLTos.unmount && tosHost) window.STLTos.unmount(tosHost);
       if (panel) panel.classList.remove("apps-wide");
       root = null;
     },
     saveAll: function () {
-      if (pageTab === "analytics") return;
+      if (pageTab === "analytics" || pageTab === "tos") return;
       if (pageTab === "promos" && window.STLPromos && window.STLPromos.saveAll) return window.STLPromos.saveAll();
       return saveAll();
     },
     isDirty: function () {
-      if (pageTab === "analytics") return false;
+      if (pageTab === "analytics" || pageTab === "tos") return false;
       if (pageTab === "promos" && window.STLPromos && window.STLPromos.isDirty) return window.STLPromos.isDirty();
       return dirty;
     },
     usesGlobalSave: function () {
-      return pageTab !== "analytics";
+      return pageTab !== "analytics" && pageTab !== "tos";
     },
     setPageTab: setPageTab,
     shown: function () {

@@ -114,6 +114,88 @@
   height: 100%;
 }
 
+.tos-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 18px 28px;
+}
+
+.tos-subtabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tos-subtab {
+  border: 0;
+  background: var(--chip);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tos-subtab.is-on {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.tos-note:empty {
+  display: none;
+}
+
+.tos-note {
+  margin: 0 0 12px;
+  color: #6b7388;
+  font-size: 13px;
+}
+
+.tos-row {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+
+.tos-when {
+  font-weight: 600;
+}
+
+.tos-meta {
+  color: #6b7388;
+  font-size: 12px;
+}
+
+.tos-copy {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f7f8fb;
+  padding: 12px 14px;
+  margin: -4px 0 12px;
+}
+
+.tos-copy h3 {
+  margin: 8px 0 6px;
+  font-size: 13px;
+}
+
+.tos-copy pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .apps-top .btn-add {
   width: 30px;
   height: 30px;
