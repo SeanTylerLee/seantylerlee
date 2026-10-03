@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#8a9099" />
   <meta name="robots" content="index, follow" />
   <title>FleetDispatch simulator · STL Apps LLC</title>
-  <meta name="description" content="Interactive FleetDispatch selling demo — live board, map, ETAs, check-calls, tickets, and role walkthrough." />
+  <meta name="description" content="Interactive FleetDispatch demo on iPhone, iPad, and a Windows computer. Dispatch a load, sign the ticket, and open it as office, the owner, or dispatch." />
   <link rel="canonical" href="https://seantylerlee.com/simulator.html" />
   <link rel="icon" href="images/stlapps-layers.png" type="image/png" />
   <link rel="apple-touch-icon" href="images/stlapps-layers.png" />
@@ -895,7 +895,33 @@
       animation: pinPulse 1.8s ease infinite;
       pointer-events: none;
     }
+    .driver-pin.nudge-1 { transform: translate(-50%, calc(-100% + 26px)); }
+    .driver-pin.nudge-2 { transform: translate(calc(-50% + 28px), calc(-100% + 12px)); }
+    .driver-pin-name {
+      position: absolute;
+      left: 20px;
+      top: 1px;
+      font-size: 10px;
+      font-weight: 760;
+      color: var(--navy);
+      background: rgba(255, 255, 255, 0.94);
+      border-radius: 7px;
+      padding: 1px 5px;
+      line-height: 14px;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(14, 26, 43, 0.16);
+      letter-spacing: -0.01em;
+    }
     .driver-pin:active { transform: translate(-50%, -100%) scale(0.94); }
+    .driver-pin.nudge-1:active { transform: translate(-50%, calc(-100% + 26px)) scale(0.94); }
+    .driver-pin.nudge-2:active { transform: translate(calc(-50% + 28px), calc(-100% + 12px)) scale(0.94); }
+    .offer-cust {
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--secondary);
+      margin: 2px 0 6px;
+      line-height: 1.3;
+    }
     @keyframes pinPulse {
       0%, 100% { transform: scale(0.7); opacity: 0.7; }
       50% { transform: scale(1.35); opacity: 0.15; }
@@ -1391,9 +1417,10 @@
     .canned {
       display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
     }
-    .canned button {
+    .canned button,
+    .chip-btn {
       border: none;
-      background: rgba(0,122,255,0.1);
+      background: rgba(27, 100, 242, 0.1);
       color: var(--blue);
       font: inherit;
       font-size: 12px;
@@ -1401,6 +1428,170 @@
       padding: 7px 10px;
       border-radius: 980px;
       cursor: pointer;
+    }
+    .canned button:active,
+    .chip-btn:active { opacity: 0.75; }
+
+    .msg-thread { gap: 10px; }
+    .msg .cmd-kicker {
+      display: block;
+      font-size: 9px;
+      font-weight: 750;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      opacity: 0.8;
+      margin-bottom: 3px;
+    }
+    .msg .msg-text { display: block; }
+    .msg-system {
+      align-self: center;
+      max-width: 94%;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 620;
+      line-height: 1.35;
+      color: var(--secondary);
+      background: rgba(14, 26, 43, 0.05);
+      border-radius: 980px;
+      padding: 5px 10px;
+    }
+    .cmd-banner {
+      background: #fff;
+      border-radius: 14px;
+      padding: 10px 12px 12px;
+      margin-bottom: 8px;
+      border: 0.5px solid rgba(245, 158, 11, 0.5);
+      box-shadow: 0 8px 20px rgba(14, 26, 43, 0.06);
+    }
+    .cmd-banner-kicker {
+      font-size: 10px;
+      font-weight: 760;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #9a3b00;
+      margin-bottom: 3px;
+    }
+    .cmd-banner-text {
+      font-size: 13.5px;
+      font-weight: 680;
+      color: var(--navy);
+      line-height: 1.35;
+    }
+    .cmd-banner-more {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--secondary);
+      font-weight: 600;
+    }
+    .compose-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      align-items: center;
+    }
+    .compose-input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: #fff;
+      border-radius: 12px;
+      padding: 11px 12px;
+      font: inherit;
+      font-size: 14px;
+      color: var(--primary);
+      outline: none;
+      box-shadow: 0 0 0 0.5px rgba(14, 26, 43, 0.12);
+    }
+    .compose-send {
+      flex: 0 0 auto;
+      width: auto;
+      padding: 11px 14px;
+    }
+    .dock {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: calc(var(--tab-h) + 4px);
+      z-index: 15;
+      padding: 8px var(--content-x) 8px;
+      background: linear-gradient(180deg, rgba(243, 245, 248, 0), rgba(243, 245, 248, 0.94) 28%, #f3f5f8 100%);
+    }
+    .dock[hidden] { display: none !important; }
+
+    .tab-ico {
+      position: relative;
+      width: 22px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tab-badge {
+      position: absolute;
+      top: -5px;
+      right: -9px;
+      min-width: 14px;
+      height: 14px;
+      padding: 0 3px;
+      border-radius: 7px;
+      background: var(--red);
+      color: #fff;
+      font-style: normal;
+      font-size: 9px;
+      font-weight: 760;
+      line-height: 14px;
+      text-align: center;
+    }
+    .who-scroll {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      margin: 0 0 12px;
+      scrollbar-width: none;
+    }
+    .who-scroll::-webkit-scrollbar { display: none; }
+    .who-chip {
+      flex: 0 0 auto;
+      border: none;
+      background: #fff;
+      color: var(--primary);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 720;
+      padding: 7px 11px;
+      border-radius: 980px;
+      cursor: pointer;
+      box-shadow: 0 0 0 0.5px rgba(14, 26, 43, 0.08);
+    }
+    .who-chip.is-active { background: var(--navy); color: #fff; }
+    .attn-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .attn-warn { background: var(--orange); }
+    .attn-money { background: var(--blue); }
+    .attn-hot { background: var(--red); }
+    .attn-msg { background: var(--purple); }
+    .unread-pip {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--blue);
+      flex-shrink: 0;
+    }
+    .activity-copy {
+      font-size: 13px;
+      font-weight: 630;
+      line-height: 1.35;
+      white-space: normal;
+    }
+    .thread-sub {
+      margin-top: 2px;
+      font-size: 12px;
+      color: var(--secondary);
+      font-weight: 600;
     }
 
     .alert-banner {
@@ -1634,6 +1825,55 @@
     .pdf-ticket-banner .co { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.85; }
     .pdf-ticket-banner .doc-type { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; margin-top: 3px; }
     .pdf-ticket-body { padding: 12px; font-size: 12px; }
+    .pdf-ticket .field-row { padding: 8px 0; min-height: 36px; }
+    .pdf-ticket .field-row .k { font-size: 13px; color: #636366; }
+    .pdf-ticket .field-row .v { font-size: 13px; font-weight: 650; color: var(--primary); word-break: break-word; }
+    .pdf-ticket .field-input { text-align: right; width: auto; flex: 1; min-width: 0; font-size: 14px; }
+    .sign-label {
+      margin: 12px 0 6px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; color: #8e8e93;
+    }
+    .sign-wrap {
+      position: relative;
+      border: 1px dashed #c7c7cc;
+      border-radius: 8px;
+      background: #fafafa;
+      overflow: hidden;
+    }
+    .sign-pad {
+      display: block;
+      width: 100%;
+      height: 110px;
+      touch-action: none;
+      cursor: crosshair;
+      background: transparent;
+    }
+    .sign-hint {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: #8e8e93; font-size: 13px; pointer-events: none;
+    }
+    .sign-hint[hidden] { display: none !important; }
+    .sign-tools {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0 2px;
+    }
+    .sign-tools .k {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; color: #8e8e93;
+    }
+    .sign-clear {
+      border: none; background: transparent; color: var(--blue);
+      font: inherit; font-size: 13px; font-weight: 650;
+      cursor: pointer; padding: 4px 0;
+    }
+    .sign-block { margin: 0 0 8px; padding-bottom: 8px; border-bottom: 0.5px solid #e5e5ea; }
+    .sign-block img {
+      display: block; width: 100%; height: 88px;
+      object-fit: contain; background: #fafafa; border-radius: 6px;
+    }
+    .sign-caption { font-size: 11px; color: #636366; margin-top: 6px; line-height: 1.35; }
     .pdf-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #e5e5ea; }
     .pdf-meta .lab { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8e8e93; }
     .pdf-meta .val { font-size: 12px; font-weight: 650; margin-top: 2px; }
@@ -1854,6 +2094,442 @@
     .btn-full svg { width: 16px; height: 16px; flex-shrink: 0; }
     .job-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 
+    /* —— Windows computer —— */
+    .win-titlebar,
+    .win-taskbar,
+    .win-desktop,
+    .laptop-deck { display: none; }
+
+    html[data-device="windows"] {
+      --device-w: min(940px, calc(100vw - 4rem));
+      --device-h: min(560px, max(440px, calc(100vh - 320px)));
+      --device-radius: 10px 10px 2px 2px;
+      --screen-radius: 2px;
+      --device-pad: 10px 10px 16px;
+      --status-h: 0px;
+      --tab-h: 0px;
+      --content-x: 20px;
+      --win-side: 168px;
+      --win-title: 32px;
+      --win-head: 44px;
+      --win-task: 48px;
+      --win-window-top: 10px;
+      --win-window-left: 96px;
+      --win-window-right: 28px;
+      --win-window-bottom: calc(var(--win-task) + 8px);
+    }
+
+    html[data-device="windows"] .stage {
+      max-width: calc(var(--device-w) + 5rem);
+      padding: 1.2rem 1.15rem 1.05rem;
+    }
+    html[data-device="windows"] .stage-label { max-width: min(680px, 100%); }
+    html[data-device="windows"] .controls { max-width: min(680px, 100%); }
+
+    html[data-device="windows"] .device {
+      background: linear-gradient(180deg, #2a2d31 0%, #16181b 70%, #0e0f11 100%);
+      box-shadow:
+        0 0 0 1px #3a3e44,
+        0 0 0 2px #0a0a0c,
+        0 22px 44px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    }
+    html[data-device="windows"] .device::before { display: none; }
+    html[data-device="windows"] .device::after { box-shadow: none; }
+    html[data-device="windows"] .btn-silent,
+    html[data-device="windows"] .btn-vol-up,
+    html[data-device="windows"] .btn-vol-down,
+    html[data-device="windows"] .btn-power,
+    html[data-device="windows"] .btn-top,
+    html[data-device="windows"] .island,
+    html[data-device="windows"] .status-bar,
+    html[data-device="windows"] .home-indicator { display: none; }
+    html[data-device="windows"] .camera-dot {
+      display: block;
+      top: 5px;
+      width: 6px;
+      height: 6px;
+    }
+
+    html[data-device="windows"] .screen {
+      background-color: #0a4eae;
+      background-image:
+        radial-gradient(ellipse 22% 55% at 6% 42%, rgba(255, 255, 255, 0.88) 0%, rgba(170, 216, 255, 0.35) 42%, transparent 72%),
+        radial-gradient(ellipse 50% 46% at 62% 38%, rgba(255, 255, 255, 0.72) 0%, rgba(150, 205, 255, 0.28) 36%, transparent 68%),
+        radial-gradient(ellipse 36% 30% at 88% 80%, rgba(6, 36, 110, 0.4), transparent 70%),
+        linear-gradient(165deg, #3b8ef0 0%, #0e5ec8 46%, #08357c 100%);
+    }
+
+    html[data-device="windows"] .win-desktop {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: absolute;
+      z-index: 1;
+      top: 8px;
+      left: 6px;
+      width: 76px;
+      pointer-events: none;
+      font-family: "Segoe UI", "Plus Jakarta Sans", system-ui, sans-serif;
+    }
+    .win-desk-icon {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.15;
+      text-align: center;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+    }
+    .win-desk-icon svg {
+      width: 36px;
+      height: 36px;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+    }
+    .win-desk-icon span { max-width: 72px; }
+
+    html[data-device="windows"] .app {
+      position: absolute;
+      top: var(--win-window-top);
+      left: var(--win-window-left);
+      right: var(--win-window-right);
+      bottom: var(--win-window-bottom);
+      z-index: 2;
+      display: grid;
+      grid-template-columns: var(--win-side) minmax(0, 1fr);
+      grid-template-rows: var(--win-title) var(--win-head) minmax(0, 1fr) auto;
+      padding-top: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--bg);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.18),
+        0 12px 32px rgba(0, 0, 0, 0.28);
+      flex: none;
+    }
+
+    html[data-device="windows"] .win-titlebar {
+      display: flex;
+      grid-column: 1 / -1;
+      grid-row: 1;
+      align-items: center;
+      gap: 6px;
+      height: var(--win-title);
+      padding: 0 0 0 10px;
+      background: #f3f3f3;
+      border-bottom: 1px solid #e5e5e5;
+      color: #1a1a1a;
+      font-family: "Segoe UI", "Plus Jakarta Sans", system-ui, sans-serif;
+      user-select: none;
+    }
+    .win-title-mark {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      background: #1b64f2;
+      flex-shrink: 0;
+    }
+    .win-title-text { font-size: 12px; font-weight: 400; }
+    .win-caption { font-size: 12px; font-weight: 400; color: #1a1a1a; }
+    .win-controls {
+      margin-left: auto;
+      display: flex;
+      align-items: stretch;
+      height: 100%;
+    }
+    .win-controls i {
+      width: 46px;
+      position: relative;
+      display: block;
+    }
+    .win-controls i::before,
+    .win-controls i::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      background: #3a4452;
+    }
+    .win-controls i:nth-child(1)::before {
+      width: 10px; height: 1px; margin-left: -5px; margin-top: -0.5px;
+    }
+    .win-controls i:nth-child(2)::before {
+      width: 9px; height: 8px; margin-left: -4.5px; margin-top: -4px;
+      background: transparent;
+      box-shadow: inset 0 0 0 1px #3a4452;
+    }
+    .win-controls i.win-close::before,
+    .win-controls i.win-close::after {
+      width: 11px; height: 1px; margin-left: -5.5px; margin-top: -0.5px;
+    }
+    .win-controls i.win-close::before { transform: rotate(45deg); }
+    .win-controls i.win-close::after { transform: rotate(-45deg); }
+
+    html[data-device="windows"] .tabbar {
+      display: flex !important;
+      position: relative;
+      left: auto;
+      right: auto;
+      bottom: auto;
+      grid-column: 1;
+      grid-row: 2 / 5;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 2px;
+      width: auto;
+      height: auto;
+      min-height: 0;
+      padding: 10px 8px;
+      border-radius: 0;
+      background: #fff;
+      border-right: 1px solid rgba(14, 26, 43, 0.08);
+      box-shadow: none;
+      overflow: auto;
+      z-index: 3;
+    }
+    html[data-device="windows"] .tab {
+      flex: 0 0 auto;
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+    }
+    html[data-device="windows"] .tab span {
+      font-size: 13px;
+      font-weight: 620;
+      max-width: none;
+    }
+    html[data-device="windows"] .tab.is-active {
+      background: rgba(27, 100, 242, 0.1);
+      box-shadow: inset 3px 0 0 var(--blue);
+    }
+    html[data-device="windows"] .tab svg { width: 18px; height: 18px; }
+
+    html[data-device="windows"] .top-bar {
+      grid-column: 2;
+      grid-row: 2;
+      height: var(--win-head);
+      background: #fff;
+    }
+    html[data-device="windows"] .content {
+      grid-column: 2;
+      grid-row: 3;
+      min-height: 0;
+      padding-top: 14px;
+      padding-bottom: 18px;
+    }
+    html[data-device="windows"] .dock {
+      position: static;
+      grid-column: 2;
+      grid-row: 4;
+      background: #f3f5f8;
+      border-top: 1px solid rgba(14, 26, 43, 0.08);
+    }
+    html[data-device="windows"] .map-panel,
+    html[data-device="windows"] .map-panel.map-us { height: 220px; }
+    html[data-device="windows"] .detail-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    html[data-device="windows"] .hdr h2 { font-size: 26px; }
+    html[data-device="windows"] .btn-full {
+      width: auto;
+      min-width: 188px;
+      max-width: 320px;
+    }
+    html[data-device="windows"] .btn-row .btn { flex: 0 1 200px; }
+
+    html[data-device="windows"] .sheet-overlay {
+      top: calc(var(--win-window-top) + var(--win-title) + var(--win-head));
+      left: calc(var(--win-window-left) + var(--win-side));
+      right: var(--win-window-right);
+      bottom: var(--win-window-bottom);
+      z-index: 30;
+      border-radius: 0;
+      background: rgba(10, 22, 44, 0.38);
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    html[data-device="windows"] .sheet-body {
+      width: min(560px, 100%);
+      max-height: 100%;
+      min-height: 0;
+      flex: 1 1 auto;
+      height: auto;
+      margin: 0;
+      padding: 8px 18px 20px;
+      background: #f3f5f8;
+      border-radius: 12px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+    }
+    html[data-device="windows"] .field-row .field-input,
+    html[data-device="windows"] .field-row select {
+      direction: ltr;
+      text-align: right;
+      width: auto;
+      max-width: none;
+      flex: 1;
+      min-width: 0;
+    }
+    html[data-device="windows"] .toast { bottom: 70px; }
+
+    html[data-device="windows"] .win-taskbar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: var(--win-task);
+      z-index: 6;
+      align-items: center;
+      padding: 0;
+      background: rgba(243, 243, 243, 0.72);
+      border-top: 1px solid rgba(255, 255, 255, 0.4);
+      backdrop-filter: blur(28px) saturate(1.5);
+      -webkit-backdrop-filter: blur(28px) saturate(1.5);
+      color: #1a1a1a;
+      font-family: "Segoe UI", "Plus Jakarta Sans", system-ui, sans-serif;
+    }
+    .win-task-center {
+      grid-column: 2;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 100%;
+    }
+    .win-start,
+    .win-search,
+    .win-taskview,
+    .win-pinned {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .win-start svg,
+    .win-search svg,
+    .win-taskview svg { width: 18px; height: 18px; display: block; }
+    .win-pinned.is-on { background: rgba(255, 255, 255, 0.72); }
+    .win-pinned.is-on::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 3px;
+      width: 8px;
+      height: 3px;
+      margin-left: -4px;
+      border-radius: 2px;
+      background: #0067c0;
+    }
+    .win-pinned-mark {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      background: linear-gradient(145deg, #4d8dff, #1b64f2);
+    }
+    .win-tray {
+      grid-column: 3;
+      justify-self: end;
+      display: flex;
+      align-items: stretch;
+      height: 100%;
+    }
+    .win-sys {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 0 6px;
+    }
+    .win-sys svg { width: 16px; height: 16px; display: block; }
+    .win-clockblock {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0 10px 0 8px;
+      font-size: 12px;
+      line-height: 1.15;
+      font-variant-numeric: tabular-nums;
+    }
+    .win-showdesktop {
+      width: 5px;
+      align-self: stretch;
+      border-left: 1px solid rgba(0, 0, 0, 0.12);
+    }
+
+    html[data-device="windows"] .laptop-deck {
+      display: block;
+      width: var(--device-w);
+      margin-top: -2px;
+    }
+    .laptop-hinge {
+      display: block;
+      height: 8px;
+      margin: 0 22px;
+      background: linear-gradient(180deg, #3a3e44, #1a1c1f);
+      border-radius: 0 0 2px 2px;
+    }
+    .laptop-deck-body {
+      display: block;
+      height: 74px;
+      margin-top: -1px;
+      border-radius: 2px 2px 12px 12px;
+      background: linear-gradient(180deg, #2c3036 0%, #1c1f24 100%);
+      box-shadow: 0 14px 24px rgba(0, 0, 0, 0.28);
+      position: relative;
+    }
+    .laptop-deck-body::before {
+      content: "";
+      position: absolute;
+      left: 7%;
+      right: 7%;
+      top: 8px;
+      height: 36px;
+      border-radius: 4px;
+      background-color: #23272c;
+      background-image:
+        repeating-linear-gradient(90deg, #3c424a 0 14px, transparent 14px 18px),
+        repeating-linear-gradient(#3c424a 0 5px, transparent 5px 8px);
+      background-size: auto 8px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+    .laptop-deck-body::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 7px;
+      width: 92px;
+      height: 14px;
+      transform: translateX(-50%);
+      border-radius: 6px;
+      background: #14171a;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+
+    @media (max-width: 720px) {
+      html[data-device="windows"] {
+        --win-side: 58px;
+        --win-window-left: 8px;
+        --win-window-right: 8px;
+        --device-w: calc(100vw - 1.4rem);
+        --content-x: 12px;
+      }
+      html[data-device="windows"] .tab { justify-content: center; padding: 10px 0; }
+      html[data-device="windows"] .tab span { display: none; }
+      html[data-device="windows"] .win-caption,
+      html[data-device="windows"] .win-desktop,
+      html[data-device="windows"] .win-search,
+      html[data-device="windows"] .win-taskview { display: none; }
+      html[data-device="windows"] .sheet-overlay { padding: 8px; }
+    }
+
     @media (max-width: 380px) {
       :root {
         --phone-w: min(300px, calc(100vw - 2rem));
@@ -1901,6 +2577,12 @@
 
     html.is-embed[data-device="ipad"] {
       --embed-scale: 0.58;
+    }
+
+    html.is-embed[data-device="windows"] {
+      --embed-scale: 0.42;
+      --device-w: 940px;
+      --device-h: 540px;
     }
 
     html.is-embed,
@@ -2004,14 +2686,14 @@
         document.documentElement.classList.add("is-modal");
       }
       var device = params.get("device");
-      if (device !== "iphone" && device !== "ipad") {
+      if (device !== "iphone" && device !== "ipad" && device !== "windows") {
         try {
           device = localStorage.getItem("fleetdispatch-sim-device");
         } catch (e) {
           device = null;
         }
       }
-      if (device !== "ipad") device = "iphone";
+      if (device !== "ipad" && device !== "windows") device = "iphone";
       document.documentElement.setAttribute("data-device", device);
     })();
   </script>
@@ -2028,7 +2710,7 @@
   <div class="stage">
     <div class="stage-label">
       <h1>FleetDispatch simulator</h1>
-      <p>Live ops demo. Switch iPhone or iPad, then walk the board as Dispatcher, Driver, Office, Owner, or Mechanic.</p>
+      <p>Lone Star Freight starts empty: 1 owner, 1 dispatcher, 1 office, 1 mechanic, and 2 drivers. Open it on iPhone, iPad, or a Windows computer. Dispatch a load, answer as that driver, sign the ticket, then bill it. Reset clears the work and keeps the crew.</p>
     </div>
 
     <div class="stage-main">
@@ -2040,6 +2722,10 @@
         <button type="button" class="device-chip" role="tab" data-device="ipad" aria-selected="false" id="device-ipad">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2.5" width="16" height="19" rx="2"/><path d="M10 18.5h4"/></svg>
           iPad
+        </button>
+        <button type="button" class="device-chip" role="tab" data-device="windows" aria-selected="false" id="device-windows">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4" width="19" height="12.5" rx="1.5"/><path d="M8 20h8M12 16.5V20"/></svg>
+          Windows
         </button>
       </div>
 
@@ -2064,21 +2750,52 @@
           </span>
         </div>
 
+        <div class="win-desktop" aria-hidden="true">
+          <div class="win-desk-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#8fd0ff" d="M9 11h14l-1.1 15H10.1z"/><path fill="#e8f6ff" d="M7 8h18v3.2H7z"/><path fill="#fff" d="M13 6.2h6V8h-6z"/><path fill="#1a6fe0" d="M13 15h1.4v7H13zm4.6 0H19v7h-1.4z"/></svg><span>Recycle Bin</span></div>
+          <div class="win-desk-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="4" width="26" height="17" rx="1.4" fill="#e7f3ff"/><rect x="5" y="6" width="22" height="13" fill="#1a6fe0"/><path fill="#d5dee8" d="M11 23h10v2h4v2H7v-2h4z"/></svg><span>This PC</span></div>
+          <div class="win-desk-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="4" width="24" height="24" rx="6" fill="#1b64f2"/><path fill="#fff" d="M9 17.2h6.2V11H17v6.2H23V19h-6v6.2h-1.8V19H9z"/></svg><span>FleetDispatch</span></div>
+        </div>
         <div class="app" id="app">
+          <div class="win-titlebar" aria-hidden="true">
+            <span class="win-title-mark"></span>
+            <span class="win-title-text">FleetDispatch</span>
+            <span class="win-caption">— Lone Star Freight</span>
+            <span class="win-controls"><i></i><i></i><i class="win-close"></i></span>
+          </div>
           <div class="top-bar" id="top-bar">
             <button type="button" class="nav-btn" id="nav-back">Back</button>
             <span id="top-title">Owner</span>
             <button type="button" class="nav-btn nav-btn-right" id="nav-right">Send</button>
           </div>
           <div class="content" id="content"></div>
+          <div class="dock" id="dock" hidden></div>
           <nav class="tabbar" id="tabbar" aria-label="App tabs"></nav>
         </div>
 
         <div class="sheet-overlay" id="sheet" hidden></div>
         <div class="toast" id="toast" role="status"></div>
         <div class="home-indicator" aria-hidden="true"></div>
+        <div class="win-taskbar" aria-hidden="true">
+          <div class="win-task-center">
+            <span class="win-start"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="#0078d4" d="M0 0h7.2v7.2H0zM8.8 0H16v7.2H8.8zM0 8.8h7.2V16H0zM8.8 8.8H16V16H8.8z"/></svg></span>
+            <span class="win-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5" fill="none" stroke="#1a1a1a" stroke-width="1.7"/><path d="M14.8 14.8 19 19" stroke="#1a1a1a" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+            <span class="win-taskview"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="12" height="10" rx="1.2" fill="none" stroke="#1a1a1a" stroke-width="1.5"/><rect x="8" y="9" width="13" height="11" rx="1.2" fill="#f3f3f3" stroke="#1a1a1a" stroke-width="1.5"/></svg></span>
+            <span class="win-pinned is-on"><span class="win-pinned-mark"></span></span>
+          </div>
+          <div class="win-tray">
+            <span class="win-sys">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14l5-5 5 5" fill="none" stroke="#1a1a1a" stroke-width="1.6" stroke-linecap="round"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16c2.2-2.4 4.8-3.6 8-3.6s5.8 1.2 8 3.6" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/><path d="M7.2 16c1.4-1.3 3-2 4.8-2s3.4.7 4.8 2" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.1" fill="#1a1a1a"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10h3l4-4v12l-4-4H5z" fill="#1a1a1a"/><path d="M15 9.5a4 4 0 0 1 0 5" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="16" height="10" rx="1.4" fill="none" stroke="#1a1a1a" stroke-width="1.4"/><rect x="4.5" y="8.5" width="11" height="7" fill="#1a1a1a"/><path d="M20 10v4" stroke="#1a1a1a" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </span>
+            <span class="win-clockblock"><span id="win-clock">9:41 AM</span><span id="win-date">10/3/2026</span></span>
+            <span class="win-showdesktop"></span>
+          </div>
+        </div>
       </div>
     </div>
+    <div class="laptop-deck" aria-hidden="true"><span class="laptop-hinge"></span><span class="laptop-deck-body"></span></div>
     </div><!-- /.stage-main -->
 
     <button type="button" class="refresh-btn" id="refresh-btn" aria-label="Reset demo data">
@@ -2091,6 +2808,6 @@
   </div>
   </main>
 
-  <script src="js/fleet-sim.js"></script>
+  <script src="js/fleet-sim.js?v=6"></script>
 </body>
 </html>

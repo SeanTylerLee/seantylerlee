@@ -55,7 +55,15 @@
     map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>',
     pin: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"/></svg>',
     crown: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.5 5 7l4.5 4.5L12 5l2.5 6.5L19 7l2 10.5H3zM4 19h16v2H4v-2z"/></svg>',
-    building: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 21v-5h6v5M8 7h2M14 7h2M8 11h2M14 11h2"/></svg>'
+    building: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 21v-5h6v5M8 7h2M14 7h2M8 11h2M14 11h2"/></svg>',
+    dollar: function (f) {
+      return f
+        ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 3h2v2.05c1.9.25 3.4 1.45 3.4 3.3 0 1.7-1.15 2.7-3.15 3.15L11.4 12c-.95.2-1.4.55-1.4 1.15 0 .7.6 1.1 1.65 1.1.95 0 1.7-.35 2.15-.95l1.65 1.15c-.7.95-1.85 1.55-3.45 1.75V19h-2v-2.1c-1.95-.25-3.45-1.5-3.45-3.35 0-1.75 1.2-2.8 3.25-3.25l1.9-.45c.9-.2 1.3-.55 1.3-1.1 0-.6-.55-1-1.5-1-.85 0-1.5.3-1.95.85L7.4 7.7C8.15 6.7 9.4 6.05 11 5.8V3z"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v18M16.2 7.2c-.7-1.1-2-1.8-4.2-1.8-2.4 0-4 1.2-4 3s1.6 2.7 4.2 3.2l.6.1c2.3.5 3.7 1.2 3.7 2.9s-1.7 3-4.3 3c-2.2 0-3.6-.8-4.4-2"/></svg>';
+    },
+    more: function () {
+      return '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>';
+    }
   };
 
   /* —— Constants —— */
@@ -124,12 +132,25 @@
     completed: "Complete"
   };
 
-  var CANNED = [
-    "Running 15 min late",
-    "At the gate — waiting",
-    "Loaded, rolling now",
-    "Need a scale ticket",
-    "Detention starting"
+  var DISPATCH_COMMANDS = [
+    { id: "check", label: "Check call", text: "Check call. Send your status and location." },
+    { id: "roll", label: "Roll now", text: "You are clear to roll." },
+    { id: "hold", label: "Hold", text: "Hold where you are until dispatch clears you." },
+    { id: "scale", label: "Get scale", text: "Get a scale ticket and send the weight." },
+    { id: "bol", label: "Send BOL", text: "Send the signed BOL." },
+    { id: "eta", label: "Update ETA", text: "Update your ETA to the receiver." },
+    { id: "call", label: "Call office", text: "Call dispatch when you can stop safely." },
+    { id: "yard", label: "Back to yard", text: "After this drop, return to the yard." }
+  ];
+
+  var DRIVER_REPLIES = [
+    { id: "copy", label: "Copy", text: "Copy." },
+    { id: "late", label: "Running late", text: "Running about 15 minutes late." },
+    { id: "gate", label: "At the gate", text: "At the gate, waiting to get in." },
+    { id: "loaded", label: "Loaded", text: "Loaded and rolling." },
+    { id: "scale", label: "Need a scale", text: "I need a scale nearby." },
+    { id: "detention", label: "Detention", text: "Detention is starting." },
+    { id: "arrived", label: "Arrived", text: "Arrived on site." }
   ];
 
   /* —— Demo data —— */
@@ -180,221 +201,23 @@
   }
 
   function makeSamples() {
-    var tbrooks = "tbrooks";
-    var mblake = "mblake";
-    var cquinn = "cquinn";
-    var rhayes = "rhayes";
-
-    var jobs = [
-      {
-        id: uid(),
-        loadReference: "LS-4829",
-        customerName: "Gulf Coast Aggregates",
-        commodity: "Crushed limestone",
-        origin: "Dallas, TX",
-        destination: "Houston, TX",
-        ox: 42, oy: 28, dx: 58, dy: 72,
-        driverName: "Taylor Brooks",
-        driverUsername: tbrooks,
-        equipmentUnit: "Unit 12",
-        rateAmount: 1850,
-        miles: 242,
-        etaLabel: "4:40 PM",
-        pickupAppt: "Today 7:00 AM",
-        deliveryAppt: "Today 4:00 PM",
-        status: "inTransit",
-        notes: "Scale ticket required.",
-        timeline: makeTimeline("inTransit"),
-        messages: [
-          { from: "dispatch", text: "Scale at exit 38 — keep ticket with BOL.", at: "09:12" },
-          { from: "driver", text: "Copy. Rolling south on 45.", at: "09:18" }
-        ]
-      },
-      {
-        id: uid(),
-        loadReference: "LS-4828",
-        customerName: "Lone Star Steel",
-        commodity: "Coil steel",
-        origin: "Fort Worth, TX",
-        destination: "San Antonio, TX",
-        ox: 28, oy: 34, dx: 36, dy: 78,
-        driverName: "Morgan Blake",
-        driverUsername: mblake,
-        equipmentUnit: "Unit 7",
-        rateAmount: 2100,
-        miles: 268,
-        etaLabel: "6:15 PM",
-        pickupAppt: "Today 8:30 AM",
-        deliveryAppt: "Today 5:30 PM",
-        status: "loaded",
-        notes: "Tarps tight. Chains on corners.",
-        timeline: makeTimeline("loaded"),
-        messages: [
-          { from: "dispatch", text: "Confirm coil count before rolling.", at: "08:40" }
-        ]
-      },
-      {
-        id: uid(),
-        loadReference: "LS-4827",
-        customerName: "Prairie Feed Co",
-        commodity: "Bulk feed",
-        origin: "Amarillo, TX",
-        destination: "Oklahoma City, OK",
-        ox: 18, oy: 18, dx: 62, dy: 22,
-        driverName: "Casey Quinn",
-        driverUsername: cquinn,
-        equipmentUnit: "Unit 3",
-        rateAmount: 1725,
-        miles: 260,
-        etaLabel: "3:20 PM",
-        pickupAppt: "Today 6:00 AM",
-        deliveryAppt: "Today 2:30 PM",
-        status: "atPickup",
-        notes: "Call before arrival.",
-        timeline: makeTimeline("atPickup"),
-        messages: []
-      },
-      {
-        id: uid(),
-        loadReference: "LS-4826",
-        customerName: "Red River Lumber",
-        commodity: "Dimensional lumber",
-        origin: "Shreveport, LA",
-        destination: "Tyler, TX",
-        ox: 78, oy: 40, dx: 68, dy: 48,
-        driverName: "Riley Hayes",
-        driverUsername: rhayes,
-        equipmentUnit: "Unit 19",
-        rateAmount: 980,
-        miles: 98,
-        etaLabel: "1:10 PM",
-        pickupAppt: "Today 10:00 AM",
-        deliveryAppt: "Today 1:00 PM",
-        status: "accepted",
-        notes: "Lumber must be tarped.",
-        timeline: makeTimeline("accepted"),
-        messages: [
-          { from: "dispatch", text: "Unit 19 ready at yard.", at: "07:55" }
-        ]
-      },
-      {
-        id: uid(),
-        loadReference: "LS-4825",
-        customerName: "Metro Concrete",
-        commodity: "Bagged cement",
-        origin: "Austin, TX",
-        destination: "Waco, TX",
-        ox: 40, oy: 68, dx: 44, dy: 46,
-        driverName: "Taylor Brooks",
-        driverUsername: tbrooks,
-        equipmentUnit: "Unit 12",
-        rateAmount: 1100,
-        miles: 106,
-        etaLabel: "—",
-        pickupAppt: "Today 2:00 PM",
-        deliveryAppt: "Today 5:00 PM",
-        status: "sent",
-        notes: "Next after Houston drop.",
-        timeline: makeTimeline("sent"),
-        messages: []
-      },
-      {
-        id: uid(),
-        loadReference: "LS-4824",
-        customerName: "Hill Country Pipe",
-        commodity: "Steel pipe",
-        origin: "Odessa, TX",
-        destination: "Midland, TX",
-        ox: 12, oy: 55, dx: 16, dy: 52,
-        driverName: "Morgan Blake",
-        driverUsername: mblake,
-        equipmentUnit: "Unit 7",
-        rateAmount: 650,
-        miles: 22,
-        etaLabel: "—",
-        pickupAppt: "Tomorrow 6:00 AM",
-        deliveryAppt: "Tomorrow 8:00 AM",
-        status: "sent",
-        notes: "Urgent — cover if available.",
-        timeline: makeTimeline("sent"),
-        messages: []
-      },
-      {
-        id: uid(),
-        loadReference: "LS-4822",
-        customerName: "Panhandle Ag",
-        commodity: "Fertilizer",
-        origin: "Lubbock, TX",
-        destination: "Abilene, TX",
-        ox: 22, oy: 42, dx: 32, dy: 50,
-        driverName: "Casey Quinn",
-        driverUsername: cquinn,
-        equipmentUnit: "Unit 3",
-        rateAmount: 1400,
-        miles: 160,
-        etaLabel: "Done",
-        pickupAppt: "Yesterday 7:00 AM",
-        deliveryAppt: "Yesterday 2:00 PM",
-        status: "completed",
-        notes: "",
-        timeline: makeTimeline("completed"),
-        messages: []
-      },
-      {
-        id: uid(),
-        loadReference: "LS-4820",
-        customerName: "Bayou Plastics",
-        commodity: "Resin pellets",
-        origin: "Beaumont, TX",
-        destination: "Dallas, TX",
-        ox: 72, oy: 70, dx: 42, dy: 28,
-        driverName: "Riley Hayes",
-        driverUsername: rhayes,
-        equipmentUnit: "Unit 19",
-        rateAmount: 1550,
-        miles: 275,
-        etaLabel: "—",
-        pickupAppt: "Mon 9:00 AM",
-        deliveryAppt: "Mon 5:00 PM",
-        status: "declined",
-        notes: "Driver declined — hours.",
-        timeline: makeTimeline("declined"),
-        messages: []
-      }
-    ];
-
     return {
       companyName: "Lone Star Freight",
       role: "dispatcher",
       delegateUserManagementToDispatcher: false,
-      signedInDriverUsername: tbrooks,
+      signedInDriverUsername: "tbrooks",
+      activity: [],
       teamMembers: [
-        { id: uid(), name: "Alex Rivera", username: "arivera", role: "owner", driverNumber: null, ticketSequence: 0, dutyStatus: null, locationLabel: null },
-        { id: uid(), name: "Jordan Lee", username: "jlee", role: "dispatcher", driverNumber: null, ticketSequence: 0, dutyStatus: null, locationLabel: null },
-        { id: uid(), name: "Sam Ortiz", username: "sortiz", role: "office", driverNumber: null, ticketSequence: 0, dutyStatus: null, locationLabel: null },
-        { id: uid(), name: "Chris Nguyen", username: "cnguyen", role: "mechanic", driverNumber: null, ticketSequence: 0, dutyStatus: null, locationLabel: null },
-        { id: uid(), name: "Taylor Brooks", username: tbrooks, role: "driver", driverNumber: 1432, ticketSequence: 3, dutyStatus: "onLoad", locationLabel: "I-45 S · Huntsville", mapLon: -95.55, mapLat: 30.72 },
-        { id: uid(), name: "Morgan Blake", username: mblake, role: "driver", driverNumber: 1433, ticketSequence: 2, dutyStatus: "onLoad", locationLabel: "FW yard · loading", mapLon: -97.33, mapLat: 32.76 },
-        { id: uid(), name: "Casey Quinn", username: cquinn, role: "driver", driverNumber: 1434, ticketSequence: 1, dutyStatus: "onLoad", locationLabel: "Amarillo terminal", mapLon: -101.83, mapLat: 35.22 },
-        { id: uid(), name: "Riley Hayes", username: rhayes, role: "driver", driverNumber: 1435, ticketSequence: 0, dutyStatus: "available", locationLabel: "Tyler yard", mapLon: -95.30, mapLat: 32.35 },
-        { id: uid(), name: "Devon Park", username: "dpark", role: "driver", driverNumber: 1436, ticketSequence: 0, dutyStatus: "offDuty", locationLabel: "Home · Dallas", mapLon: -96.80, mapLat: 32.78 }
+        { id: uid(), name: "Alex Rivera", username: "arivera", role: "owner", core: true, driverNumber: null, ticketSequence: 0, dutyStatus: null, locationLabel: null },
+        { id: uid(), name: "Jordan Lee", username: "jlee", role: "dispatcher", core: true, driverNumber: null, ticketSequence: 0, dutyStatus: null, locationLabel: null },
+        { id: uid(), name: "Sam Ortiz", username: "sortiz", role: "office", core: true, driverNumber: null, ticketSequence: 0, dutyStatus: null, locationLabel: null },
+        { id: uid(), name: "Chris Nguyen", username: "cnguyen", role: "mechanic", core: true, driverNumber: null, ticketSequence: 0, dutyStatus: null, locationLabel: null },
+        { id: uid(), name: "Taylor Brooks", username: "tbrooks", role: "driver", core: true, driverNumber: 1432, ticketSequence: 0, dutyStatus: "available", locationLabel: "Yard · Dallas", mapLon: -96.80, mapLat: 32.78 },
+        { id: uid(), name: "Morgan Blake", username: "mblake", role: "driver", core: true, driverNumber: 1433, ticketSequence: 0, dutyStatus: "available", locationLabel: "Yard · Fort Worth", mapLon: -97.33, mapLat: 32.75 }
       ],
-      dispatches: jobs,
-      tickets: [
-        { id: uid(), number: "1432815253", customerName: "Gulf Coast Aggregates", loadReference: "LS-4818", origin: "Dallas, TX", destination: "Houston, TX", driverName: "Taylor Brooks", driverUsername: tbrooks, equipmentUnit: "Unit 12", commodity: "Limestone", rateAmount: 1850, miles: 242, status: "submitted", notes: "Delivered clean. BOL signed." },
-        { id: uid(), number: "1433815252", customerName: "Lone Star Steel", loadReference: "LS-4815", origin: "Fort Worth, TX", destination: "San Antonio, TX", driverName: "Morgan Blake", driverUsername: mblake, equipmentUnit: "Unit 7", commodity: "Coil steel", rateAmount: 2100, miles: 268, status: "submitted", notes: "Detention 1.5 hrs." },
-        { id: uid(), number: "1434815251", customerName: "Prairie Feed Co", loadReference: "LS-4812", origin: "Amarillo, TX", destination: "Oklahoma City, OK", driverName: "Casey Quinn", driverUsername: cquinn, equipmentUnit: "Unit 3", commodity: "Bulk feed", rateAmount: 1725, miles: 260, status: "submitted", notes: "" },
-        { id: uid(), number: "1432814252", customerName: "Red River Lumber", loadReference: "LS-4801", origin: "Shreveport, LA", destination: "Tyler, TX", driverName: "Taylor Brooks", driverUsername: tbrooks, equipmentUnit: "Unit 12", commodity: "Lumber", rateAmount: 950, miles: 98, status: "billed", notes: "Lumber tarped." },
-        { id: uid(), number: "1433814251", customerName: "Metro Concrete", loadReference: "LS-4790", origin: "Austin, TX", destination: "Waco, TX", driverName: "Morgan Blake", driverUsername: mblake, equipmentUnit: "Unit 7", commodity: "Cement", rateAmount: 1100, miles: 106, status: "billed", notes: "" }
-      ],
-      writeUps: [
-        { id: uid(), number: "W-221", equipmentUnit: "Unit 14", title: "Brake light out", description: "Right rear brake light not working on pre-trip.", driverName: "Taylor Brooks", priority: "medium", status: "open" },
-        { id: uid(), number: "W-220", equipmentUnit: "Unit 7", title: "Air leak at glad hands", description: "Hissing at trailer connection after a couple hours.", driverName: "Morgan Blake", priority: "high", status: "open" },
-        { id: uid(), number: "W-219", equipmentUnit: "Unit 3", title: "Check engine light", description: "CEL near Amarillo. Truck still runs.", driverName: "Casey Quinn", priority: "high", status: "inProgress", mechanicNotes: "Scanning codes." },
-        { id: uid(), number: "W-218", equipmentUnit: "Trailer 44", title: "Tire wear outer dual", description: "Outer dual axle 2 low tread.", driverName: "Taylor Brooks", priority: "low", status: "open" },
-        { id: uid(), number: "W-215", equipmentUnit: "Unit 12", title: "Wiper blade shredded", description: "Driver-side wiper streaking in rain.", driverName: "Morgan Blake", priority: "medium", status: "fixed", mechanicNotes: "Replaced both blades." },
-        { id: uid(), number: "W-210", equipmentUnit: "Unit 9", title: "Transmission slipping", description: "Hard shift 3–4 under load.", driverName: "Casey Quinn", priority: "outOfService", status: "cannotRepair", mechanicNotes: "Needs dealer rebuild. Unit parked." }
-      ]
+      dispatches: [],
+      tickets: [],
+      writeUps: []
     };
   }
 
@@ -573,7 +396,7 @@
   }
 
   function nextLoadRef() {
-    var max = 4829;
+    var max = 1000;
     var i, m, n;
     for (i = 0; i < session.dispatches.length; i++) {
       m = String(session.dispatches[i].loadReference).match(/\d+/);
@@ -581,6 +404,17 @@
       if (n > max) max = n;
     }
     return "LS-" + (max + 1);
+  }
+
+  function nextTicketNumber() {
+    var max = 1000;
+    var i, m, n;
+    for (i = 0; i < session.tickets.length; i++) {
+      m = String(session.tickets[i].number).match(/\d+/);
+      n = m ? parseInt(m[0], 10) : 0;
+      if (n > max) max = n;
+    }
+    return String(max + 1);
   }
 
   function setDriverDuty(username, status, locationLabel) {
@@ -596,6 +430,223 @@
 
   function advanceTimeline(job, status) {
     job.timeline = makeTimeline(status);
+  }
+
+  function firstName(name) {
+    var parts = String(name || "").trim().split(/\s+/);
+    return parts[0] || "Driver";
+  }
+
+  function plural(n, word) {
+    return n + " " + word + (n === 1 ? "" : "s");
+  }
+
+  function memberByRole(role) {
+    var i;
+    for (i = 0; i < session.teamMembers.length; i++) {
+      if (session.teamMembers[i].role === role) return session.teamMembers[i];
+    }
+    return null;
+  }
+
+  function actorName() {
+    if (session.role === "driver") {
+      var d = currentDriver();
+      return d ? d.name : "Driver";
+    }
+    var m = memberByRole(session.role);
+    return m ? m.name : roleTitle(session.role);
+  }
+
+  function isDispatchRole() {
+    return session.role === "dispatcher" || session.role === "owner";
+  }
+
+  function logEvent(text) {
+    if (!session.activity) session.activity = [];
+    session.activity.unshift({ id: uid(), text: text, at: fmtAt(Date.now()) });
+    if (session.activity.length > 30) session.activity.length = 30;
+  }
+
+  function addMessage(job, partial) {
+    if (!job.messages) job.messages = [];
+    var msg = {
+      id: uid(),
+      from: partial.from,
+      kind: partial.kind || (partial.from === "dispatch" ? "command" : partial.from === "system" ? "system" : "reply"),
+      text: partial.text,
+      at: partial.at || fmtAt(Date.now()),
+      status: partial.status || null,
+      byName: partial.byName || "",
+      commandId: partial.commandId || null
+    };
+    if (msg.kind !== "command") msg.status = null;
+    job.messages.push(msg);
+    return msg;
+  }
+
+  function unfinishedCommands(job) {
+    return (job.messages || []).filter(function (m) {
+      return m.kind === "command" && m.status !== "done";
+    });
+  }
+
+  function latestUnfinished(job) {
+    var list = unfinishedCommands(job);
+    return list.length ? list[list.length - 1] : null;
+  }
+
+  function commandStatusLabel(status) {
+    if (status === "done") return "Done";
+    if (status === "copied") return "Copied";
+    return "Waiting";
+  }
+
+  function markCommand(job, mid, status) {
+    var msgs = job.messages || [];
+    var i;
+    for (i = 0; i < msgs.length; i++) {
+      if (msgs[i].id === mid && msgs[i].kind === "command") {
+        msgs[i].status = status;
+        return msgs[i];
+      }
+    }
+    return null;
+  }
+
+  function unreadForViewer(job) {
+    if (session.role === "driver") {
+      var me = currentDriver();
+      if (!me || job.driverUsername !== me.username) return 0;
+      return job.unreadDriver || 0;
+    }
+    if (isDispatchRole()) return job.unreadDispatch || 0;
+    return 0;
+  }
+
+  function unreadTotal() {
+    var list = session.role === "driver" ? myDispatches() : session.dispatches;
+    var n = 0;
+    var i;
+    for (i = 0; i < list.length; i++) n += unreadForViewer(list[i]);
+    return n;
+  }
+
+  function clearUnread(job) {
+    if (!job) return;
+    if (session.role === "driver") job.unreadDriver = 0;
+    else if (isDispatchRole()) job.unreadDispatch = 0;
+  }
+
+  function companyOpenCommands() {
+    var n = 0;
+    var i;
+    for (i = 0; i < session.dispatches.length; i++) n += unfinishedCommands(session.dispatches[i]).length;
+    return n;
+  }
+
+  function sumRate(list) {
+    var s = 0;
+    var i;
+    for (i = 0; i < list.length; i++) s += Number(list[i].rateAmount) || 0;
+    return s;
+  }
+
+  function roadLoads() {
+    return session.dispatches.filter(function (d) {
+      return d.status === "sent" || isMoving(d.status);
+    });
+  }
+
+  function deliveredUnticketed() {
+    return session.dispatches.filter(function (d) {
+      if (d.status !== "completed") return false;
+      var i;
+      for (i = 0; i < session.tickets.length; i++) {
+        if (session.tickets[i].loadReference === d.loadReference) return false;
+      }
+      return true;
+    });
+  }
+
+  function driverByUsername(username) {
+    var list = drivers();
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i].username === username) return list[i];
+    }
+    return null;
+  }
+
+  function refreshDuty(username) {
+    var moving = session.dispatches.filter(function (j) {
+      return j.driverUsername === username && isMoving(j.status);
+    });
+    var person = driverByUsername(username);
+    if (!person) return;
+    if (moving.length) {
+      setDriverDuty(username, "onLoad", moving[0].origin);
+      return;
+    }
+    if (person.dutyStatus !== "offDuty") setDriverDuty(username, "available", person.locationLabel || "Yard");
+  }
+
+  function driverUnit(person) {
+    var i;
+    for (i = 0; i < session.dispatches.length; i++) {
+      if (session.dispatches[i].driverUsername === person.username && session.dispatches[i].equipmentUnit) {
+        return session.dispatches[i].equipmentUnit;
+      }
+    }
+    return "Unit";
+  }
+
+  function nextWriteUpNumber() {
+    var max = 100;
+    var i, m, n;
+    for (i = 0; i < session.writeUps.length; i++) {
+      m = String(session.writeUps[i].number).match(/\d+/);
+      n = m ? parseInt(m[0], 10) : 0;
+      if (n > max) max = n;
+    }
+    return "W-" + (max + 1);
+  }
+
+  function noteDriverUpdate(job, text) {
+    var who = driverByUsername(job.driverUsername);
+    addMessage(job, { from: "driver", kind: "reply", text: text, byName: who ? who.name : job.driverName });
+    job.unreadDispatch = (job.unreadDispatch || 0) + 1;
+  }
+
+  function placeFrom(text) {
+    var key = String(text || "").split(",")[0].trim().toLowerCase();
+    var city = {
+      dallas: [-96.8, 32.78],
+      houston: [-95.37, 29.76],
+      "fort worth": [-97.33, 32.75],
+      austin: [-97.74, 30.27],
+      "san antonio": [-98.49, 29.42],
+      waco: [-97.15, 31.55],
+      tyler: [-95.3, 32.35],
+      amarillo: [-101.83, 35.22],
+      lubbock: [-101.85, 33.58],
+      odessa: [-102.37, 31.85],
+      midland: [-102.08, 31.997],
+      beaumont: [-94.1, 30.08],
+      shreveport: [-93.75, 32.51],
+      "oklahoma city": [-97.52, 35.47],
+      abilene: [-99.73, 32.45]
+    };
+    return city[key] || null;
+  }
+
+  function pinTo(username, place) {
+    var hit = placeFrom(place);
+    var person = driverByUsername(username);
+    if (!person || !hit) return;
+    person.mapLon = hit[0];
+    person.mapLat = hit[1];
+    person.locationLabel = String(place || "").split(",")[0];
   }
 
   /* —— Render helpers —— */
@@ -714,22 +765,34 @@
     };
   }
 
-  function driverPinHtml(d) {
+  function driverPinHtml(d, nudge) {
     var pt = projectUs(d.mapLon != null ? d.mapLon : -97.5, d.mapLat != null ? d.mapLat : 31.5);
     var duty = d.dutyStatus || "available";
     var title = d.name + (d.locationLabel ? " · " + d.locationLabel : "") + " · " + duty;
     return (
-      '<button type="button" class="driver-pin" data-action="goDrivers" title="' + esc(title) + '" ' +
+      '<button type="button" class="driver-pin' + (nudge ? " nudge-" + nudge : "") + '" data-action="openDriver" data-id="' + esc(d.id) + '" title="' + esc(title) + '" ' +
         'aria-label="' + esc(title) + '" style="left:' + pt.x.toFixed(2) + "%;top:" + pt.y.toFixed(2) + '%">' +
         '<span class="driver-pin-glyph" aria-hidden="true"></span>' +
         '<span class="driver-pin-pulse" aria-hidden="true"></span>' +
+        '<span class="driver-pin-name">' + esc(firstName(d.name)) + "</span>" +
       "</button>"
     );
   }
 
   function mapPanel() {
     var list = drivers();
-    var pins = list.map(driverPinHtml).join("");
+    var used = [];
+    var pins = list.map(function (d) {
+      var pt = projectUs(d.mapLon != null ? d.mapLon : -97.5, d.mapLat != null ? d.mapLat : 31.5);
+      var nudge = 0;
+      var i;
+      for (i = 0; i < used.length; i++) {
+        if (Math.abs(used[i].x - pt.x) < 6 && Math.abs(used[i].y - pt.y) < 8) nudge = Math.max(nudge, used[i].nudge + 1);
+      }
+      if (nudge > 2) nudge = 2;
+      used.push({ x: pt.x, y: pt.y + nudge * 6, nudge: nudge });
+      return driverPinHtml(d, nudge);
+    }).join("");
     var activeCount = list.filter(function (d) { return d.dutyStatus !== "offDuty"; }).length;
 
     return (
@@ -772,13 +835,13 @@
         var dutyLabel = duty === "onLoad" ? "On load" : duty === "offDuty" ? "Off duty" : "Available";
         var pillClass = duty === "onLoad" ? "st-onLoad" : duty === "offDuty" ? "st-offDuty" : "st-available";
         return (
-          '<div class="driver-chip duty-' + esc(duty) + '">' +
+          '<button type="button" class="driver-chip duty-' + esc(duty) + '" data-action="openDriver" data-id="' + esc(d.id) + '">' +
             '<span class="team-avatar role-driver">' + esc(initials(d.name)) + "</span>" +
             '<span class="driver-info">' +
               '<span class="n">' + esc(d.name.split(" ")[0]) + "</span>" +
               '<span class="status-pill ' + pillClass + '" style="padding:2px 6px;font-size:9px">' + esc(dutyLabel) + "</span>" +
             "</span>" +
-          "</div>"
+          "</button>"
         );
       }).join("") +
       "</div>"
@@ -852,9 +915,9 @@
         return [
           { id: "home", title: "Home", icon: "house" },
           { id: "loads", title: "Loads", icon: "list" },
-          { id: "shop", title: "Shop", icon: "wrench" },
-          { id: "team", title: "Team", icon: "people" },
-          { id: "settings", title: "Settings", icon: "gear" }
+          { id: "money", title: "Money", icon: "dollar" },
+          { id: "messages", title: "Messages", icon: "message" },
+          { id: "more", title: "More", icon: "more" }
         ];
       case "office":
         return [
@@ -862,16 +925,14 @@
           { id: "tickets", title: "Tickets", icon: "doc" },
           { id: "settings", title: "Settings", icon: "gear" }
         ];
-      case "dispatcher": {
-        var t = [
+      case "dispatcher":
+        return [
           { id: "board", title: "Board", icon: "map" },
           { id: "loads", title: "Loads", icon: "clipboard" },
+          { id: "messages", title: "Messages", icon: "message" },
+          { id: "tickets", title: "Tickets", icon: "doc" },
           { id: "drivers", title: "Drivers", icon: "wheel" }
         ];
-        if (canManageUsers()) t.push({ id: "team", title: "Team", icon: "people" });
-        t.push({ id: "settings", title: "Settings", icon: "gear" });
-        return t;
-      }
       case "mechanic":
         return [
           { id: "home", title: "Home", icon: "house" },
@@ -889,6 +950,10 @@
     }
   }
 
+  function ownerSubTab(tab) {
+    return tab === "shop" || tab === "team" || tab === "drivers" || tab === "settings";
+  }
+
   function defaultTabForRole(role) {
     if (role === "dispatcher") return "board";
     return "home";
@@ -896,12 +961,21 @@
 
   function titleForScreen() {
     if (nav.sheet === "newDispatch") return "New dispatch";
-    if (nav.sheet === "ticket") return "Submit ticket";
+    if (nav.sheet === "ticket") return "Freight ticket";
     if (nav.sheet === "addUser") return "Add user";
-    if (nav.screen === "detail") return "Load detail";
-    if (nav.screen === "thread") return "Messages";
+    if (nav.sheet === "reassign") return "Reassign";
+    if (nav.sheet === "writeup") return "Report issue";
+    if (nav.screen === "detail") {
+      var load = findDispatch(nav.detailId);
+      return load ? load.loadReference : "Load";
+    }
+    if (nav.screen === "thread") {
+      var threaded = findDispatch(nav.detailId);
+      return threaded ? threaded.loadReference : "Command";
+    }
     if (nav.screen === "ticketDetail") return "Ticket";
     if (nav.screen === "writeupDetail") return "Write-up";
+    if (nav.screen === "driverDetail") return "Driver";
     switch (nav.tab) {
       case "board": return "Dispatch board";
       case "loads": return "Loads";
@@ -909,6 +983,8 @@
       case "jobs": return "My jobs";
       case "messages": return "Messages";
       case "tickets": return "Tickets";
+      case "money": return "Money";
+      case "more": return "More";
       case "shop": return "Shop";
       case "team": return "Team";
       case "settings": return "Settings";
@@ -940,12 +1016,134 @@
         { value: String(writeUpsOos().length), label: "OOS" }
       ]) +
       mapPanel() +
-      sectionHead("Needs a driver", pending.length ? "All loads" : null, "goLoads") +
+      renderCommandQueue() +
+      sectionHead(pending.length ? "Needs a driver" : "Queue", pending.length ? "All loads" : null, "goLoads") +
       (urgent.length
         ? '<div class="card mb-14">' + urgent.map(function (j) { return loadCard(j); }).join("") + "</div>"
-        : emptyState("Queue clear", "No pending dispatches")) +
+        : emptyState("No loads yet", "Tap Dispatch to send the first offer.")) +
+      renderTicketPeek() +
       sectionHead("Drivers") +
-      driverRail(drivers())
+      driverRail(drivers()) +
+      '<div class="card">' +
+        '<button type="button" class="row" data-action="goSettings"><span class="ico-blue">' + I.gear(true) + '</span><span class="body"><span class="t">Settings</span><span class="s">Crew and reset</span></span><span class="chev">' + I.chev + "</span></button>" +
+      "</div>"
+    );
+  }
+
+  function ticketForLoad(ref) {
+    var i;
+    for (i = 0; i < session.tickets.length; i++) {
+      if (session.tickets[i].loadReference === ref) return session.tickets[i];
+    }
+    return null;
+  }
+
+  function ticketEligible(job) {
+    if (!job) return false;
+    return job.status !== "sent" && job.status !== "declined";
+  }
+
+  function canViewTicket(t) {
+    if (!t) return false;
+    if (session.role === "mechanic") return false;
+    if (session.role === "driver") {
+      var me = currentDriver();
+      return !!(me && t.driverUsername === me.username);
+    }
+    return session.role === "office" || session.role === "owner" || session.role === "dispatcher";
+  }
+
+  function myTickets() {
+    var me = currentDriver();
+    if (!me) return [];
+    return session.tickets.filter(function (t) { return t.driverUsername === me.username; });
+  }
+
+  function ticketButtonHtml(job, primary) {
+    var filed = ticketForLoad(job.loadReference);
+    if (filed) {
+      return '<button type="button" class="btn btn-secondary btn-full" style="margin-top:8px" data-action="openTicket" data-id="' + esc(filed.id) + '">View ticket</button>';
+    }
+    if (!ticketEligible(job)) return "";
+    var cls = primary ? "btn btn-primary btn-full" : "btn btn-secondary btn-full";
+    return '<button type="button" class="' + cls + '" style="margin-top:8px" data-action="createTicket" data-id="' + esc(job.id) + '">Start ticket</button>';
+  }
+
+  function renderTicketPeek() {
+    var list = ticketsAwaiting();
+    if (!list.length) return "";
+    return (
+      sectionHead("Signed tickets", "All", "goTickets") +
+      '<div class="card mb-14">' + list.slice(0, 3).map(ticketRow).join("") + "</div>"
+    );
+  }
+
+  function threadPreview(job) {
+    var last = job.messages && job.messages.length ? job.messages[job.messages.length - 1] : null;
+    if (!last) return "No messages yet";
+    if (last.kind === "command") return "Command · " + last.text;
+    if (last.from === "system" || last.kind === "system") return last.text;
+    var who = last.from === "driver" ? firstName(job.driverName) : "Dispatch";
+    return who + ": " + last.text;
+  }
+
+  function commandQueueJobs() {
+    return session.dispatches.filter(function (j) {
+      return (j.unreadDispatch || 0) > 0 || unfinishedCommands(j).length > 0;
+    });
+  }
+
+  function renderCommandQueue() {
+    var list = commandQueueJobs();
+    if (!list.length) return "";
+    return (
+      sectionHead("Commands", "Inbox", "goMessages") +
+      '<div class="card mb-14">' +
+      list.slice(0, 4).map(function (j) {
+        var open = unfinishedCommands(j);
+        var waiting = open.filter(function (m) { return m.status === "sent"; }).length;
+        var meta = waiting ? plural(waiting, "command") + " waiting on a copy" : plural(open.length, "command") + " copied";
+        if ((j.unreadDispatch || 0) > 0 && !waiting) meta = "Driver replied";
+        return (
+          '<button type="button" class="list-row" data-action="openThread" data-id="' + esc(j.id) + '">' +
+            ((j.unreadDispatch || 0) > 0 ? '<span class="unread-pip"></span>' : '<span class="mark" style="color:var(--blue)">' + I.message(true) + "</span>") +
+            '<span class="main">' +
+              '<span class="top"><span class="name">' + esc(j.loadReference) + " · " + esc(firstName(j.driverName)) + "</span></span>" +
+              '<span class="line">' + esc(meta) + "</span>" +
+            "</span>" +
+            '<span class="chev">' + I.chev + "</span>" +
+          "</button>"
+        );
+      }).join("") +
+      "</div>"
+    );
+  }
+
+  function renderActivity(limit) {
+    var list = (session.activity || []).slice(0, limit || 6);
+    if (!list.length) return emptyState("Nothing yet", "The day starts when you dispatch a load.");
+    return (
+      '<div class="card">' +
+      list.map(function (a) {
+        return (
+          '<div class="list-row">' +
+            '<span class="main">' +
+              '<span class="top"><span class="activity-copy">' + esc(a.text) + '</span><span class="status">' + esc(a.at) + "</span></span>" +
+            "</span>" +
+          "</div>"
+        );
+      }).join("") +
+      "</div>"
+    );
+  }
+
+  function attnRow(action, title, sub, tone) {
+    return (
+      '<button type="button" class="list-row" data-action="' + esc(action) + '">' +
+        '<span class="attn-dot attn-' + esc(tone) + '"></span>' +
+        '<span class="main"><span class="name">' + esc(title) + '</span><span class="line">' + esc(sub) + "</span></span>" +
+        '<span class="chev">' + I.chev + "</span>" +
+      "</button>"
     );
   }
 
@@ -962,7 +1160,7 @@
       segFilters() +
       (list.length
         ? '<div class="card">' + list.map(function (j) { return loadCard(j); }).join("") + "</div>"
-        : emptyState("No loads", "Nothing in this filter"))
+        : emptyState(nav.filter === "all" ? "No loads yet" : "No loads", nav.filter === "all" ? "Dispatch one and it shows up here." : "Nothing in this filter"))
     );
   }
 
@@ -976,13 +1174,14 @@
         var duty = d.dutyStatus || "available";
         var dutyLabel = duty === "onLoad" ? "On load" : duty === "offDuty" ? "Off duty" : "Available";
         return (
-          '<div class="list-row">' +
-            '<span class="team-avatar">' + esc(initials(d.name)) + "</span>" +
+          '<button type="button" class="list-row" data-action="openDriver" data-id="' + esc(d.id) + '">' +
+            '<span class="team-avatar role-driver">' + esc(initials(d.name)) + "</span>" +
             '<span class="main">' +
               '<span class="top"><span class="name">' + esc(d.name) + '</span><span class="status">' + esc(dutyLabel) + "</span></span>" +
-              '<span class="line">#' + esc(String(d.driverNumber || "—")) + " · " + esc(d.locationLabel || "—") + "</span>" +
+              '<span class="line">#' + esc(String(d.driverNumber || "—")) + " · " + esc(d.locationLabel || "Yard") + "</span>" +
             "</span>" +
-          "</div>"
+            '<span class="chev">' + I.chev + "</span>" +
+          "</button>"
         );
       }).join("") +
       "</div>"
@@ -990,21 +1189,96 @@
   }
 
   function renderOwnerHome() {
-    var openIssues = writeUpsOpen().length + pendingJobs().length;
+    var billed = sumRate(ticketsBilled());
+    var due = sumRate(ticketsAwaiting());
+    var road = sumRate(roadLoads());
+    var openCmds = companyOpenCommands();
+    var avail = drivers().filter(function (d) { return d.dutyStatus === "available"; });
+    var rows = [];
+    if (pendingJobs().length) rows.push(attnRow("goLoads", plural(pendingJobs().length, "load") + " waiting on a driver", "Open loads to follow the offer", "warn"));
+    if (ticketsAwaiting().length) rows.push(attnRow("goMoney", plural(ticketsAwaiting().length, "ticket") + " ready to bill", money(due) + " sitting with office", "money"));
+    if (writeUpsOos().length) rows.push(attnRow("goShop", plural(writeUpsOos().length, "unit") + " out of service", "Shop needs a look", "hot"));
+    if (openCmds) rows.push(attnRow("goMessages", plural(openCmds, "command") + " still open", "Waiting on a copy or a done", "msg"));
+    var unticketed = deliveredUnticketed();
+    if (unticketed.length) rows.push(attnRow("goLoads", plural(unticketed.length, "delivery") + " with no ticket", "Driver still needs to submit", "warn"));
+
     return (
-      hdr("Owner overview", "Company pulse") +
+      '<div class="fab-row">' +
+        hdr("Today", "The whole company") +
+        '<button type="button" class="btn btn-primary btn-new" data-action="newDispatch">' + I.plus + " Dispatch</button>" +
+      "</div>" +
       kpiStrip([
-        { value: money(mockRevenue()), label: "Pipeline $" },
+        { value: money(billed), label: "Billed" },
+        { value: money(due), label: "To invoice" },
+        { value: money(road), label: "On the road" }
+      ], "kpi-3") +
+      kpiStrip([
         { value: String(movingJobs().length), label: "Moving" },
-        { value: String(ticketsAwaiting().length), label: "To bill" },
-        { value: String(openIssues), label: "Open issues" }
-      ]) +
+        { value: String(avail.length), label: "Open" },
+        { value: String(writeUpsOos().length), label: "OOS" },
+        { value: String(openCmds), label: "Commands" }
+      ], "kpi-4") +
       mapPanel() +
-      sectionHead("Quick links") +
+      (rows.length
+        ? sectionHead("Needs you") + '<div class="card mb-14">' + rows.join("") + "</div>"
+        : emptyState("Company is clear", "Dispatch a load and the board fills in.")) +
+      sectionHead("Fleet") +
+      driverRail(drivers()) +
+      sectionHead("Today") +
+      renderActivity(6)
+    );
+  }
+
+  function renderMoney() {
+    var awaiting = ticketsAwaiting();
+    var billed = ticketsBilled();
+    var road = roadLoads();
+    var missing = deliveredUnticketed();
+    return (
+      hdr("Money", "Billed, ready to invoice, and still moving") +
+      kpiStrip([
+        { value: money(sumRate(billed)), label: "Billed" },
+        { value: money(sumRate(awaiting)), label: "To invoice" },
+        { value: money(sumRate(road)), label: "On the road" }
+      ], "kpi-3") +
+      (missing.length
+        ? '<div class="alert-banner alert-warn">' + I.alert +
+            '<span class="alert-copy"><strong>' + missing.length + "</strong> delivered with no ticket yet</span></div>"
+        : "") +
+      sectionHead("Awaiting bill") +
+      (awaiting.length
+        ? '<div class="card mb-14">' + awaiting.map(ticketRow).join("") + "</div>"
+        : emptyState("Nothing to bill", "Tickets show up after a driver delivers.")) +
+      sectionHead("On the road") +
+      (road.length
+        ? '<div class="card mb-14">' + road.map(function (j) { return loadCard(j); }).join("") + "</div>"
+        : emptyState("No live freight", "Open loads appear here with their rate.")) +
+      sectionHead("Billed") +
+      (billed.length
+        ? '<div class="card">' + billed.map(ticketRow).join("") + "</div>"
+        : emptyState("No billed tickets yet"))
+    );
+  }
+
+  function ticketRow(t) {
+    return (
+      '<button type="button" class="list-row" data-action="openTicket" data-id="' + esc(t.id) + '">' +
+        '<span class="main">' +
+          '<span class="top"><span class="name">#' + esc(t.number) + '</span><span class="status">' + money(t.rateAmount) + "</span></span>" +
+          '<span class="line">' + esc(t.customerName) + " · " + esc(t.driverName) + " · " + esc(t.status === "billed" ? "Billed" : "Signed") + "</span>" +
+        "</span>" +
+      "</button>"
+    );
+  }
+
+  function renderMore() {
+    return (
+      hdr("More", "Shop, people, and settings") +
       '<div class="card">' +
-        '<button type="button" class="row" data-action="goLoads"><span class="ico-blue">' + I.list(true) + '</span><span class="body"><span class="t">Loads</span><span class="s">Company-wide jobs</span></span><span class="chev">' + I.chev + "</span></button>" +
-        '<button type="button" class="row" data-action="goShop"><span class="ico-blue">' + I.wrench(true) + '</span><span class="body"><span class="t">Shop board</span><span class="s">Write-ups & OOS</span></span><span class="chev">' + I.chev + "</span></button>" +
-        '<button type="button" class="row" data-action="goTeam"><span class="ico-blue">' + I.people(true) + '</span><span class="body"><span class="t">Team</span><span class="s">Roles & access</span></span><span class="chev">' + I.chev + "</span></button>" +
+        '<button type="button" class="row" data-action="goShop"><span class="ico-blue">' + I.wrench(true) + '</span><span class="body"><span class="t">Shop</span><span class="s">' + esc(String(writeUpsOpen().length)) + " open write-ups</span></span><span class=\"chev\">" + I.chev + "</span></button>" +
+        '<button type="button" class="row" data-action="goDrivers"><span class="ico-blue">' + I.wheel + '</span><span class="body"><span class="t">Drivers</span><span class="s">Taylor and Morgan</span></span><span class="chev">' + I.chev + "</span></button>" +
+        '<button type="button" class="row" data-action="goTeam"><span class="ico-blue">' + I.people(true) + '</span><span class="body"><span class="t">Team</span><span class="s">Owner, dispatch, office, shop, two drivers</span></span><span class="chev">' + I.chev + "</span></button>" +
+        '<button type="button" class="row" data-action="goSettings"><span class="ico-blue">' + I.gear(true) + '</span><span class="body"><span class="t">Settings</span><span class="s">Company and reset</span></span><span class="chev">' + I.chev + "</span></button>" +
       "</div>"
     );
   }
@@ -1067,7 +1341,14 @@
     var me = currentDriver();
     var pending = myPending();
     var active = myActive();
-    var html = hdr(me ? me.name : "Driver", me ? "#" + me.driverNumber + " · " + (me.locationLabel || "") : "");
+    var html = hdr(me ? me.name : "Driver", me ? "#" + me.driverNumber + " · " + (me.locationLabel || "Yard") : "");
+    html +=
+      '<div class="who-scroll">' +
+      drivers().map(function (d) {
+        var on = me && d.username === me.username;
+        return '<button type="button" class="who-chip' + (on ? " is-active" : "") + '" data-action="switchDriver" data-user="' + esc(d.username) + '">' + esc(firstName(d.name)) + "</button>";
+      }).join("") +
+      "</div>";
 
     if (pending.length) {
       html += sectionHead("Offer");
@@ -1076,7 +1357,7 @@
           '<div class="card pad outline-orange mb-14">' +
             statusPill(job.status) +
             '<div class="load-ref" style="font-size:18px;font-weight:700;margin:8px 0 4px">' + esc(job.loadReference) + "</div>" +
-            '<div class="load-cust">' + esc(job.customerName) + "</div>" +
+            '<div class="offer-cust">' + esc(job.customerName) + "</div>" +
             '<div class="load-route">' + esc(job.origin) + " → " + esc(job.destination) + "</div>" +
             '<div class="load-meta" style="margin-bottom:12px">' + esc(job.commodity) + " · " + money(job.rateAmount) + "</div>" +
             '<div class="btn-row">' +
@@ -1105,18 +1386,40 @@
               esc(CHECK_LABELS[next] || "Update status") +
             "</button>" +
           "</div>";
-      } else {
-        html +=
-          '<button type="button" class="btn btn-primary btn-full" data-action="createTicket" data-id="' + esc(active.id) + '">Submit ticket</button>';
       }
+      html += ticketButtonHtml(active, !next);
       html +=
         '<button type="button" class="btn btn-secondary btn-full" style="margin-top:8px" data-action="openThread" data-id="' + esc(active.id) + '">Message dispatch</button>' +
         "</div>";
     }
 
-    if (!pending.length && !active) {
-      html += emptyState("You're clear", "No offers or active loads right now");
+    var needsTicket = myDispatches().filter(function (j) {
+      return ticketEligible(j) && !isMoving(j.status) && !ticketForLoad(j.loadReference);
+    });
+    if (needsTicket.length) {
+      html += sectionHead("Needs a ticket");
+      needsTicket.forEach(function (job) {
+        html +=
+          '<div class="card pad mb-14">' +
+            '<div class="load-ref" style="font-weight:700">' + esc(job.loadReference) + "</div>" +
+            '<div class="load-route">' + esc(job.origin) + " → " + esc(job.destination) + "</div>" +
+            ticketButtonHtml(job, true) +
+          "</div>";
+      });
     }
+
+    var filed = myTickets();
+    if (filed.length) {
+      html += sectionHead("My tickets");
+      html += '<div class="card mb-14">' + filed.map(ticketRow).join("") + "</div>";
+    }
+
+    if (!pending.length && !active && !needsTicket.length && !filed.length) {
+      html += emptyState("You're clear", "Offers from dispatch land here.");
+    }
+
+    html +=
+      '<button type="button" class="btn btn-secondary btn-full" data-action="reportIssue">' + I.wrench(false) + " Report a unit issue</button>";
 
     return html;
   }
@@ -1131,28 +1434,59 @@
     );
   }
 
-  function renderMessagesList() {
-    var threads = myDispatches().filter(function (j) {
+  function threadsForRole() {
+    var list = session.role === "driver" ? myDispatches() : session.dispatches.slice();
+    return list.filter(function (j) {
       return (j.messages && j.messages.length) || isMoving(j.status) || j.status === "sent";
+    }).sort(function (a, b) {
+      return unreadForViewer(b) - unreadForViewer(a);
     });
+  }
+
+  function renderMessagesList() {
+    var threads = threadsForRole();
+    var sub = session.role === "driver" ? "Commands from dispatch" : "Commands and driver replies";
     return (
-      hdr("Messages", "Dispatch threads") +
+      hdr("Messages", sub) +
       (threads.length
         ? '<div class="card">' +
           threads.map(function (j) {
-            var last = (j.messages && j.messages.length) ? j.messages[j.messages.length - 1] : null;
+            var unread = unreadForViewer(j);
+            var open = unfinishedCommands(j);
+            var waiting = open.filter(function (m) { return m.status === "sent"; }).length;
+            var meta = waiting ? plural(waiting, "command") + " waiting" : threadPreview(j);
             return (
               '<button type="button" class="list-row" data-action="openThread" data-id="' + esc(j.id) + '">' +
-                '<span class="mark" style="color:var(--blue)">' + I.message(true) + "</span>" +
+                (unread ? '<span class="unread-pip"></span>' : '<span class="mark" style="color:var(--blue)">' + I.message(true) + "</span>") +
                 '<span class="main">' +
-                  '<span class="top"><span class="name">' + esc(j.loadReference) + '</span><span class="chev">' + I.chev + "</span></span>" +
-                  '<span class="line">' + esc(last ? last.text : "Tap to message dispatch") + "</span>" +
+                  '<span class="top"><span class="name">' + esc(j.loadReference) + " · " + esc(firstName(j.driverName)) + '</span><span class="chev">' + I.chev + "</span></span>" +
+                  '<span class="line">' + esc(meta) + "</span>" +
                 "</span>" +
               "</button>"
             );
           }).join("") +
           "</div>"
-        : emptyState("No threads", "Accept a load to chat with dispatch"))
+        : emptyState("No threads yet", session.role === "driver" ? "A command shows up after dispatch sends you a load." : "Dispatch a load, then send a command from the load."))
+    );
+  }
+
+  function renderMessage(m) {
+    if (!m.id) m.id = uid();
+    if (m.from === "system" || m.kind === "system") {
+      return '<div class="msg-system">' + esc(m.text) + (m.at ? " · " + esc(m.at) : "") + "</div>";
+    }
+    var mine = session.role === "driver" ? m.from === "driver" : m.from === "dispatch";
+    var kicker = "";
+    if (m.kind === "command") {
+      kicker = '<span class="cmd-kicker">Command · ' + esc(commandStatusLabel(m.status)) + "</span>";
+    }
+    var who = m.byName ? firstName(m.byName) + " · " : "";
+    return (
+      '<div class="msg ' + (mine ? "me" : "them") + (m.kind === "command" ? " is-command" : "") + '">' +
+        kicker +
+        '<span class="msg-text">' + esc(m.text) + "</span>" +
+        '<span class="when">' + esc(who + (m.at || "")) + "</span>" +
+      "</div>"
     );
   }
 
@@ -1160,39 +1494,74 @@
     var job = findDispatch(id);
     if (!job) return emptyState("Thread not found");
     var msgs = job.messages || [];
+    var open = unfinishedCommands(job);
     var html =
       '<div class="card pad mb-14">' +
-        '<div class="load-ref" style="font-weight:700">' + esc(job.loadReference) + "</div>" +
-        '<div class="load-route">' + esc(job.origin) + " → " + esc(job.destination) + "</div>" +
+        '<div class="load-ref" style="font-weight:760">' + esc(job.loadReference) + " · " + esc(job.driverName) + "</div>" +
+        '<div class="thread-sub">' + esc(job.origin) + " → " + esc(job.destination) + "</div>" +
+        (open.length ? '<div class="thread-sub">' + esc(plural(open.length, "open command")) + "</div>" : "") +
       "</div>" +
       '<div class="msg-thread">';
-
     if (!msgs.length) {
-      html += '<div class="empty"><div class="s">No messages yet — send a canned reply below.</div></div>';
+      html += '<div class="msg-system">No messages yet. Send a command and the driver copies it here.</div>';
     } else {
-      msgs.forEach(function (m) {
-        var cls = m.from === "driver" ? "me" : "them";
-        html +=
-          '<div class="msg ' + cls + '">' +
-            '<div class="bubble">' + esc(m.text) + "</div>" +
-            '<div class="at">' + esc(m.at || "") + "</div>" +
-          "</div>";
-      });
+      msgs.forEach(function (m) { html += renderMessage(m); });
     }
     html += "</div>";
-    html += '<div class="canned">';
-    CANNED.forEach(function (t) {
-      html += '<button type="button" class="btn btn-secondary" data-action="sendCanned" data-id="' + esc(job.id) + '" data-text="' + esc(t) + '">' + esc(t) + "</button>";
-    });
-    html += "</div>";
     return html;
+  }
+
+  function renderComposer(job) {
+    var banner = "";
+    var open = latestUnfinished(job);
+    if (session.role === "driver" && open && currentDriver() && job.driverUsername === currentDriver().username) {
+      var extra = unfinishedCommands(job).length - 1;
+      banner =
+        '<div class="cmd-banner">' +
+          '<div class="cmd-banner-kicker">Command · ' + esc(commandStatusLabel(open.status)) + "</div>" +
+          '<div class="cmd-banner-text">' + esc(open.text) + "</div>" +
+          (extra > 0 ? '<div class="cmd-banner-more">' + extra + " earlier command" + (extra === 1 ? "" : "s") + " still open</div>" : "") +
+          '<div class="btn-row">' +
+            (open.status === "sent"
+              ? '<button type="button" class="btn btn-primary" data-action="ackCommand" data-id="' + esc(job.id) + '" data-mid="' + esc(open.id) + '" data-status="copied">Copy</button>'
+              : "") +
+            '<button type="button" class="btn btn-secondary" data-action="ackCommand" data-id="' + esc(job.id) + '" data-mid="' + esc(open.id) + '" data-status="done">Mark done</button>' +
+          "</div>" +
+        "</div>";
+    }
+    var chips = "";
+    var placeholder = "Write a message";
+    if (session.role === "driver") {
+      placeholder = "Reply to dispatch";
+      chips = DRIVER_REPLIES.map(function (r) {
+        return '<button type="button" class="chip-btn" data-action="sendReply" data-id="' + esc(job.id) + '" data-text="' + esc(r.text) + '">' + esc(r.label) + "</button>";
+      }).join("");
+    } else if (isDispatchRole()) {
+      placeholder = "Custom command";
+      chips = DISPATCH_COMMANDS.map(function (c) {
+        return '<button type="button" class="chip-btn" data-action="sendCommand" data-id="' + esc(job.id) + '" data-cmd="' + esc(c.id) + '" data-text="' + esc(c.text) + '">' + esc(c.label) + "</button>";
+      }).join("");
+    } else {
+      return "";
+    }
+    return (
+      banner +
+      '<div class="composer">' +
+        '<div class="canned">' + chips + "</div>" +
+        '<div class="compose-row">' +
+          '<input id="compose-text" class="compose-input" data-id="' + esc(job.id) + '" placeholder="' + esc(placeholder) + '" autocomplete="off" />' +
+          '<button type="button" class="btn btn-primary compose-send" data-action="sendCompose" data-id="' + esc(job.id) + '">Send</button>' +
+        "</div>" +
+      "</div>"
+    );
   }
 
   function renderTickets() {
     var awaiting = ticketsAwaiting();
     var billed = ticketsBilled();
+    var sub = session.role === "dispatcher" ? "Signed tickets from drivers" : "Billing queue";
     return (
-      hdr("Tickets", "Billing queue") +
+      hdr("Tickets", sub) +
       sectionHead("Awaiting bill") +
       (awaiting.length
         ? '<div class="card mb-14">' + awaiting.map(function (t) {
@@ -1246,11 +1615,11 @@
     if (!canManageUsers()) return emptyState("Not allowed", "Team management is owner-only unless delegated");
     var members = session.teamMembers;
     return (
-      hdr("Team", members.length + " people") +
+      hdr("Team", "Owner, dispatcher, office, mechanic, two drivers") +
       '<button type="button" class="btn btn-primary btn-full mb-14" data-action="addUser">' + I.plus + " Add user</button>" +
       '<div class="card">' +
       members.map(function (m) {
-        var canRemove = m.role !== "owner";
+        var canRemove = !m.core;
         return (
           '<div class="list-row">' +
             '<span class="team-avatar">' + esc(initials(m.name)) + "</span>" +
@@ -1275,7 +1644,8 @@
       hdr("Settings", "Demo controls") +
       '<div class="card mb-14">' +
         '<div class="field-row"><span class="k">Company</span><span class="v">' + esc(session.companyName) + "</span></div>" +
-        '<div class="field-row"><span class="k">Signed in as</span><span class="v">' + esc(roleTitle(session.role)) + "</span></div>" +
+        '<div class="field-row"><span class="k">Signed in as</span><span class="v">' + esc(actorName()) + "</span></div>" +
+        '<div class="field-row"><span class="k">Role</span><span class="v">' + esc(roleTitle(session.role)) + "</span></div>" +
         '<div class="field-row"><span class="k">App</span><span class="v">FleetDispatch</span></div>' +
       "</div>" +
       (showTeamLink
@@ -1291,7 +1661,35 @@
             "</div>" +
           "</div>"
         : "") +
-      '<button type="button" class="btn btn-danger" data-action="reset">Reset demo data</button>'
+      '<p class="group-footer">Reset clears loads, tickets, commands, and shop notes. The crew stays: one owner, one dispatcher, one office, one mechanic, and two drivers.</p>' +
+      '<button type="button" class="btn btn-danger" data-action="reset">Reset demo</button>'
+    );
+  }
+
+  function renderDriverDetail(id) {
+    var person = findById(session.teamMembers, id);
+    if (!person || person.role !== "driver") return emptyState("Driver not found");
+    var duty = person.dutyStatus || "available";
+    var dutyLabel = duty === "onLoad" ? "On load" : duty === "offDuty" ? "Off duty" : "Available";
+    var jobs = session.dispatches.filter(function (j) { return j.driverUsername === person.username; });
+    var active = null;
+    var i;
+    for (i = 0; i < jobs.length; i++) {
+      if (isMoving(jobs[i].status) || jobs[i].status === "sent") { active = jobs[i]; break; }
+    }
+    return (
+      hdr(person.name, "#" + person.driverNumber + " · " + dutyLabel) +
+      '<div class="card mb-14">' +
+        '<div class="field-row"><span class="k">Where</span><span class="v">' + esc(person.locationLabel || "Yard") + "</span></div>" +
+        '<div class="field-row"><span class="k">Status</span><span class="v">' + esc(dutyLabel) + "</span></div>" +
+      "</div>" +
+      (active && isDispatchRole()
+        ? '<button type="button" class="btn btn-primary btn-full mb-14" data-action="openThread" data-id="' + esc(active.id) + '">Send command</button>'
+        : "") +
+      sectionHead("Loads") +
+      (jobs.length
+        ? '<div class="card">' + jobs.map(function (j) { return loadCard(j); }).join("") + "</div>"
+        : emptyState("No loads yet", "Dispatch one to " + firstName(person.name) + "."))
     );
   }
 
@@ -1365,42 +1763,68 @@
               esc(CHECK_LABELS[next] || "Check call") +
             "</button>";
         }
-        if (job.status === "atDelivery" || job.status === "completed") {
-          html += '<button type="button" class="btn btn-primary btn-full mb-8" data-action="createTicket" data-id="' + esc(job.id) + '">Submit ticket</button>';
-        }
-        html += '<button type="button" class="btn btn-secondary btn-full" data-action="openThread" data-id="' + esc(job.id) + '">Messages</button>';
+        html += '<button type="button" class="btn btn-secondary btn-full mb-8" data-action="openThread" data-id="' + esc(job.id) + '">Messages</button>';
       }
+      if (mine) html += ticketButtonHtml(job, true);
+    }
+
+    var filedLoad = ticketForLoad(job.loadReference);
+    if (filedLoad && (session.role === "dispatcher" || session.role === "owner" || session.role === "office")) {
+      html += '<button type="button" class="btn btn-secondary btn-full mb-8" data-action="openTicket" data-id="' + esc(filedLoad.id) + '">View ticket</button>';
     }
 
     if (session.role === "dispatcher" || session.role === "owner") {
-      html += '<button type="button" class="btn btn-secondary btn-full" data-action="openThread" data-id="' + esc(job.id) + '">Message thread</button>';
+      html +=
+        '<div class="action-stack">' +
+          '<button type="button" class="btn btn-primary btn-full" data-action="openThread" data-id="' + esc(job.id) + '">Send command</button>' +
+          (job.status !== "completed"
+            ? '<button type="button" class="btn btn-secondary btn-full" data-action="reassign" data-id="' + esc(job.id) + '">' +
+                (job.status === "declined" ? "Offer to another driver" : "Reassign driver") +
+              "</button>"
+            : "") +
+        "</div>";
     }
 
     return html;
   }
 
+  function ticketField(label, value) {
+    return '<div class="field-row"><span class="k">' + esc(label) + '</span><span class="v">' + esc(value || "—") + "</span></div>";
+  }
+
   function renderTicketDetail(id) {
     var t = findById(session.tickets, id);
-    if (!t) return emptyState("Ticket not found");
-    var canBill = session.role === "office" && t.status === "submitted";
+    if (!t || !canViewTicket(t)) return emptyState("Ticket not found");
+    var canBill = (session.role === "office" || session.role === "owner") && t.status === "submitted";
+    var signedLine = t.signature
+      ? '<div class="sign-block"><img src="' + t.signature + '" alt="Electronic signature" /><div class="sign-caption">Electronically signed by ' + esc(t.signedBy || t.driverName) + (t.signedAt ? " · " + esc(t.signedAt) : "") + "</div></div>"
+      : "";
     return (
       '<div class="pdf-ticket">' +
         '<div class="pdf-ticket-banner">' +
           '<div class="co">' + esc(session.companyName) + "</div>" +
           '<div class="doc-type">Freight ticket</div>' +
-          '<div class="doc-sub">#' + esc(t.number) + " · " + esc(t.status === "billed" ? "BILLED" : "SUBMITTED") + "</div>" +
+          '<div class="doc-sub">#' + esc(t.number) + " · " + esc(t.status === "billed" ? "BILLED" : "SIGNED") + "</div>" +
         "</div>" +
         '<div class="pdf-ticket-body">' +
-          '<div class="field-row"><span class="k">Customer</span><span class="v">' + esc(t.customerName) + "</span></div>" +
-          '<div class="field-row"><span class="k">Load</span><span class="v">' + esc(t.loadReference) + "</span></div>" +
-          '<div class="field-row"><span class="k">Route</span><span class="v">' + esc(t.origin) + " → " + esc(t.destination) + "</span></div>" +
-          '<div class="field-row"><span class="k">Driver</span><span class="v">' + esc(t.driverName) + "</span></div>" +
-          '<div class="field-row"><span class="k">Unit</span><span class="v">' + esc(t.equipmentUnit) + "</span></div>" +
-          '<div class="field-row"><span class="k">Commodity</span><span class="v">' + esc(t.commodity || "—") + "</span></div>" +
-          '<div class="field-row"><span class="k">Amount</span><span class="v">' + money2(t.rateAmount) + "</span></div>" +
-          (t.notes ? '<div class="field-row"><span class="k">Notes</span><span class="v">' + esc(t.notes) + "</span></div>" : "") +
+          signedLine +
+          ticketField("Customer", t.customerName) +
+          ticketField("Load", t.loadReference) +
+          ticketField("Commodity", t.commodity) +
+          ticketField("Origin", t.origin) +
+          ticketField("Destination", t.destination) +
+          ticketField("Driver", t.driverName) +
+          ticketField("Unit", t.equipmentUnit) +
+          ticketField("Miles", t.miles ? String(t.miles) : "") +
+          ticketField("Weight", t.weight && /[a-z]/i.test(t.weight) ? t.weight : (t.weight ? t.weight + " lbs" : "")) +
+          ticketField("Rate", money2(t.rateAmount)) +
+          ticketField("Received by", t.receiver) +
+          (t.notes ? ticketField("Notes", t.notes) : "") +
         "</div>" +
       "</div>" +
+      (session.role === "dispatcher"
+        ? '<p class="group-footer">Office and the owner can bill this ticket.</p>'
+        : "") +
       (canBill
         ? '<button type="button" class="btn btn-primary btn-full" style="margin-top:14px" data-action="billTicket" data-id="' + esc(t.id) + '">Mark as billed</button>'
         : "")
@@ -1476,14 +1900,14 @@
       '<div class="sheet-body">' +
         '<div class="card mb-14">' +
           '<div class="field-row"><span class="k">Load #</span><input id="nd-load" class="field-input" value="' + esc(nextLoadRef()) + '"/></div>' +
-          '<div class="field-row"><span class="k">Customer</span><input id="nd-customer" class="field-input" placeholder="Customer name" value="Hill Country Pipe"/></div>' +
-          '<div class="field-row"><span class="k">Commodity</span><input id="nd-commodity" class="field-input" placeholder="Commodity" value="Steel pipe"/></div>' +
-          '<div class="field-row"><span class="k">Origin</span><input id="nd-origin" class="field-input" value="Odessa, TX"/></div>' +
-          '<div class="field-row"><span class="k">Destination</span><input id="nd-dest" class="field-input" value="Midland, TX"/></div>' +
+          '<div class="field-row"><span class="k">Customer</span><input id="nd-customer" class="field-input" placeholder="Customer name"/></div>' +
+          '<div class="field-row"><span class="k">Commodity</span><input id="nd-commodity" class="field-input" placeholder="Commodity"/></div>' +
+          '<div class="field-row"><span class="k">Origin</span><input id="nd-origin" class="field-input" placeholder="City, ST"/></div>' +
+          '<div class="field-row"><span class="k">Destination</span><input id="nd-dest" class="field-input" placeholder="City, ST"/></div>' +
           '<div class="field-row"><span class="k">Driver</span><select id="nd-driver">' + opts + "</select></div>" +
-          '<div class="field-row"><span class="k">Unit</span><input id="nd-unit" class="field-input" value="Unit 19"/></div>' +
-          '<div class="field-row"><span class="k">Rate</span><input id="nd-rate" class="field-input" type="number" value="650"/></div>' +
-          '<div class="field-row"><span class="k">Miles</span><input id="nd-miles" class="field-input" type="number" value="22"/></div>' +
+          '<div class="field-row"><span class="k">Unit</span><input id="nd-unit" class="field-input" placeholder="Unit 12"/></div>' +
+          '<div class="field-row"><span class="k">Rate</span><input id="nd-rate" class="field-input" type="number" placeholder="0"/></div>' +
+          '<div class="field-row"><span class="k">Miles</span><input id="nd-miles" class="field-input" type="number" placeholder="0"/></div>' +
           '<div class="field-row"><span class="k">Notes</span><input id="nd-notes" class="field-input" placeholder="Optional notes"/></div>' +
         "</div>" +
         '<p class="group-footer">Send pushes this load to the driver’s offer queue.</p>' +
@@ -1512,11 +1936,63 @@
     );
   }
 
+  function renderReassignSheet() {
+    var job = findDispatch(nav.detailId);
+    if (!job) return emptyState("Load not found");
+    var opts = drivers().map(function (d) {
+      var mark = d.username === job.driverUsername ? " · current" : (d.dutyStatus === "available" ? " · available" : "");
+      return '<option value="' + esc(d.username) + '"' + (d.username === job.driverUsername ? " selected" : "") + ">" + esc(d.name) + mark + "</option>";
+    }).join("");
+    return (
+      '<div class="sheet-body">' +
+        '<div class="card mb-14">' +
+          '<div class="field-row"><span class="k">Load</span><span class="v">' + esc(job.loadReference) + "</span></div>" +
+          '<div class="field-row"><span class="k">Driver</span><select id="ra-driver">' + opts + "</select></div>" +
+        "</div>" +
+        '<p class="group-footer">The new driver gets this offer. A declined load is sent again.</p>' +
+        '<button type="button" class="btn btn-primary btn-full" data-action="reassignSubmit" data-id="' + esc(job.id) + '">Save driver</button>' +
+      "</div>"
+    );
+  }
+
+  function renderWriteUpSheet() {
+    var me = currentDriver();
+    var unit = me ? driverUnit(me) : "";
+    if (unit === "Unit") unit = "";
+    return (
+      '<div class="sheet-body">' +
+        '<div class="card mb-14">' +
+          '<div class="field-row"><span class="k">Unit</span><input id="wu-unit" class="field-input" placeholder="Unit 12" value="' + esc(unit) + '"/></div>' +
+          '<div class="field-row"><span class="k">Issue</span><input id="wu-title" class="field-input" placeholder="What is wrong"/></div>' +
+          '<div class="field-row"><span class="k">Priority</span>' +
+            '<select id="wu-priority">' +
+              '<option value="low">Low</option>' +
+              '<option value="medium" selected>Medium</option>' +
+              '<option value="high">High</option>' +
+              '<option value="outOfService">Out of service</option>' +
+            "</select>" +
+          "</div>" +
+          '<div class="field-row"><span class="k">Notes</span><input id="wu-notes" class="field-input" placeholder="What you saw"/></div>' +
+        "</div>" +
+        '<p class="group-footer">This goes straight to the shop board.</p>' +
+        '<button type="button" class="btn btn-primary btn-full" data-action="submitWriteUp">Send to shop</button>' +
+      "</div>"
+    );
+  }
+
+  function tkInput(id, label, value, placeholder, type) {
+    return (
+      '<div class="field-row"><span class="k">' + esc(label) + "</span>" +
+        '<input id="' + id + '" class="field-input" type="' + (type || "text") + '" value="' + esc(value || "") + '"' +
+        (placeholder ? ' placeholder="' + esc(placeholder) + '"' : "") +
+        " /></div>"
+    );
+  }
+
   function renderTicketSheet(jobId) {
     var job = findDispatch(jobId);
     if (!job) return emptyState("Load not found");
-    var me = currentDriver();
-    var num = me ? String(me.driverNumber || 1400) + String(Math.floor(Date.now() / 1000) % 100000) : "T-" + Date.now();
+    var num = nextTicketNumber();
     return (
       '<div class="sheet-body">' +
         '<div class="pdf-ticket">' +
@@ -1526,17 +2002,28 @@
             '<div class="doc-sub">Draft · #' + esc(num) + "</div>" +
           "</div>" +
           '<div class="pdf-ticket-body">' +
-            '<div class="field-row"><span class="k">Customer</span><span class="v">' + esc(job.customerName) + "</span></div>" +
             '<div class="field-row"><span class="k">Load</span><span class="v">' + esc(job.loadReference) + "</span></div>" +
-            '<div class="field-row"><span class="k">Route</span><span class="v">' + esc(job.origin) + " → " + esc(job.destination) + "</span></div>" +
-            '<div class="field-row"><span class="k">Commodity</span><span class="v">' + esc(job.commodity || "—") + "</span></div>" +
-            '<div class="field-row"><span class="k">Amount</span><input id="tk-rate" class="field-input" type="number" value="' + esc(String(job.rateAmount || 0)) + '" style="text-align:right"/></div>' +
-            '<div class="field-row"><span class="k">Notes</span><input id="tk-notes" class="field-input" placeholder="Optional" value="' + esc(job.notes || "") + '"/></div>' +
+            tkInput("tk-customer", "Customer", job.customerName, "Customer") +
+            tkInput("tk-commodity", "Commodity", job.commodity, "Commodity") +
+            tkInput("tk-origin", "Origin", job.origin, "City, ST") +
+            tkInput("tk-dest", "Destination", job.destination, "City, ST") +
+            tkInput("tk-unit", "Unit", job.equipmentUnit, "Unit") +
+            tkInput("tk-miles", "Miles", job.miles ? String(job.miles) : "", "0", "number") +
+            tkInput("tk-weight", "Weight", "", "lbs") +
+            tkInput("tk-rate", "Rate", String(job.rateAmount || 0), "0", "number") +
+            tkInput("tk-receiver", "Received by", "", "Name at the dock") +
+            tkInput("tk-notes", "Notes", job.notes, "Seal, gate, exceptions") +
+            '<div class="sign-label">Driver signature</div>' +
+            '<div class="sign-wrap">' +
+              '<canvas id="sign-pad" class="sign-pad" aria-label="Sign the ticket"></canvas>' +
+              '<div class="sign-hint">Sign with your finger</div>' +
+            "</div>" +
+            '<div class="sign-tools"><span class="k">Required</span><button type="button" class="sign-clear" data-action="clearSignature">Clear</button></div>' +
           "</div>" +
         "</div>" +
         '<input type="hidden" id="tk-job" value="' + esc(job.id) + '"/>' +
         '<input type="hidden" id="tk-number" value="' + esc(num) + '"/>' +
-        '<p class="group-footer">Submit sends this ticket to Office for billing.</p>' +
+        '<p class="group-footer">Signing and submitting closes the load. Office, dispatch, and the owner can open the ticket.</p>' +
         '<button type="button" class="btn btn-primary btn-full" data-action="submitTicketSheet">Submit ticket</button>' +
       "</div>"
     );
@@ -1553,15 +2040,38 @@
     bar.style.display = "flex";
     var tabs = tabsForRole();
     bar.innerHTML = tabs.map(function (t) {
-      var active = nav.tab === t.id && nav.screen === "home";
+      var active = !nav.sheet && (nav.tab === t.id || (t.id === "more" && session.role === "owner" && ownerSubTab(nav.tab)));
       var iconFn = I[t.icon];
       var icon = typeof iconFn === "function" ? iconFn(active) : (iconFn || I.house(active));
+      var badge = badgeForTab(t.id);
+      var badgeHtml = badge ? '<i class="tab-badge">' + (badge > 9 ? "9+" : badge) + "</i>" : "";
       return (
         '<button type="button" class="tab' + (active ? " is-active" : "") + '" data-tab="' + esc(t.id) + '" aria-label="' + esc(t.title) + '">' +
-          icon + "<span>" + esc(t.title) + "</span>" +
+          '<span class="tab-ico">' + icon + badgeHtml + "</span><span>" + esc(t.title) + "</span>" +
         "</button>"
       );
     }).join("");
+  }
+
+  function badgeForTab(id) {
+    if (id === "messages") return unreadTotal();
+    if (id === "home" && session.role === "driver") return myPending().length;
+    if ((id === "money" && session.role === "owner") || (id === "tickets" && (session.role === "office" || session.role === "dispatcher"))) return ticketsAwaiting().length;
+    if (id === "more" && session.role === "owner") return writeUpsOos().length;
+    if (id === "shop" && session.role === "mechanic") return writeUpsOos().length;
+    return 0;
+  }
+
+  function inOwnerHub() {
+    return session.role === "owner" && nav.screen === "home" && ownerSubTab(nav.tab);
+  }
+
+  function inDispatchTeam() {
+    return session.role === "dispatcher" && nav.tab === "team" && nav.screen === "home";
+  }
+
+  function inDispatchSettings() {
+    return session.role === "dispatcher" && nav.tab === "settings" && nav.screen === "home";
   }
 
   function renderChips() {
@@ -1584,7 +2094,7 @@
     if (!bar || !title) return;
 
     title.textContent = titleForScreen();
-    var hasBack = (nav.screen !== "home" && !nav.sheet) || !!nav.sheet;
+    var hasBack = (nav.screen !== "home" && !nav.sheet) || !!nav.sheet || inOwnerHub() || inDispatchTeam() || inDispatchSettings();
     bar.classList.toggle("has-back", hasBack);
     if (back) back.textContent = nav.sheet ? "Cancel" : "Back";
 
@@ -1605,7 +2115,7 @@
       rightAction = "addUserSubmit";
     } else if (nav.screen === "ticketDetail") {
       var t = findById(session.tickets, nav.detailId);
-      if (t && t.status === "submitted" && session.role === "office") {
+      if (t && t.status === "submitted" && (session.role === "office" || session.role === "owner")) {
         rightLabel = "Bill";
         rightAction = "billTicket";
       }
@@ -1637,6 +2147,8 @@
       html = renderTicketDetail(nav.detailId);
     } else if (nav.screen === "writeupDetail") {
       html = renderWriteUpDetail(nav.detailId);
+    } else if (nav.screen === "driverDetail") {
+      html = renderDriverDetail(nav.detailId);
     } else {
       switch (nav.tab) {
         case "board": html = renderDispatcherBoard(); break;
@@ -1645,6 +2157,8 @@
         case "jobs": html = renderDriverJobs(); break;
         case "messages": html = renderMessagesList(); break;
         case "tickets": html = renderTickets(); break;
+        case "money": html = renderMoney(); break;
+        case "more": html = renderMore(); break;
         case "shop": html = renderShop(); break;
         case "team": html = renderTeam(); break;
         case "settings": html = renderSettings(); break;
@@ -1655,7 +2169,7 @@
     }
 
     root.innerHTML = html;
-    root.scrollTop = 0;
+    if (nav.screen !== "thread") root.scrollTop = 0;
   }
 
   function renderSheet() {
@@ -1670,7 +2184,30 @@
     if (nav.sheet === "newDispatch") sheet.innerHTML = renderNewDispatchSheet();
     else if (nav.sheet === "ticket") sheet.innerHTML = renderTicketSheet(nav.detailId);
     else if (nav.sheet === "addUser") sheet.innerHTML = renderAddUserSheet();
+    else if (nav.sheet === "reassign") sheet.innerHTML = renderReassignSheet();
+    else if (nav.sheet === "writeup") sheet.innerHTML = renderWriteUpSheet();
     else sheet.innerHTML = "";
+  }
+
+  function renderDock() {
+    var dock = document.getElementById("dock");
+    var root = document.getElementById("content");
+    if (!dock) return;
+    var job = nav.screen === "thread" && !nav.sheet ? findDispatch(nav.detailId) : null;
+    var canCompose = job && (session.role === "driver" || isDispatchRole());
+    if (!canCompose) {
+      dock.hidden = true;
+      dock.innerHTML = "";
+      if (root) root.style.paddingBottom = "";
+      return;
+    }
+    dock.hidden = false;
+    dock.innerHTML = renderComposer(job);
+    if (root) {
+      var desktop = document.documentElement.getAttribute("data-device") === "windows";
+      root.style.paddingBottom = desktop ? "" : (dock.offsetHeight + 86) + "px";
+      root.scrollTop = root.scrollHeight;
+    }
   }
 
   function renderAll() {
@@ -1681,6 +2218,85 @@
     renderContent();
     renderTabBar();
     renderSheet();
+    renderDock();
+    if (nav.sheet === "ticket") requestAnimationFrame(function () { bindSignaturePad(0); });
+  }
+
+  function bindSignaturePad(tries) {
+    var canvas = document.getElementById("sign-pad");
+    if (!canvas || canvas.dataset.bound === "1") return;
+    if (!canvas.clientWidth) {
+      if (tries > 8) return;
+      requestAnimationFrame(function () { bindSignaturePad(tries + 1); });
+      return;
+    }
+    canvas.dataset.bound = "1";
+    var ratio = Math.min(window.devicePixelRatio || 1, 2);
+    var w = canvas.clientWidth;
+    var h = canvas.clientHeight || 110;
+    canvas.width = Math.max(1, Math.floor(w * ratio));
+    canvas.height = Math.max(1, Math.floor(h * ratio));
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#0e1a2b";
+    var drawing = false;
+    var last = { x: 0, y: 0 };
+
+    function point(e) {
+      var r = canvas.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+
+    function markSigned() {
+      canvas.dataset.signed = "1";
+      var hint = canvas.parentNode ? canvas.parentNode.querySelector(".sign-hint") : null;
+      if (hint) hint.hidden = true;
+    }
+
+    canvas.addEventListener("pointerdown", function (e) {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      drawing = true;
+      markSigned();
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+      last = point(e);
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(last.x + 0.4, last.y + 0.4);
+      ctx.stroke();
+      e.preventDefault();
+    });
+    canvas.addEventListener("pointermove", function (e) {
+      if (!drawing) return;
+      var p = point(e);
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      last = p;
+      e.preventDefault();
+    });
+    function stop(e) {
+      drawing = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+    }
+    canvas.addEventListener("pointerup", stop);
+    canvas.addEventListener("pointercancel", stop);
+  }
+
+  function clearSignaturePad() {
+    var canvas = document.getElementById("sign-pad");
+    if (!canvas) return;
+    var ctx = canvas.getContext("2d");
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    canvas.dataset.signed = "";
+    var hint = canvas.parentNode ? canvas.parentNode.querySelector(".sign-hint") : null;
+    if (hint) hint.hidden = false;
   }
 
   /* —— Navigation —— */
@@ -1690,6 +2306,7 @@
     nav.detailId = null;
     nav.sheet = null;
     nav.msgId = null;
+    nav.threadFrom = null;
     renderAll();
   }
 
@@ -1704,8 +2321,9 @@
     nav.detailId = null;
     nav.sheet = null;
     nav.filter = "all";
+    nav.threadFrom = null;
     renderAll();
-    toast("Signed in as " + roleTitle(role));
+    toast("Signed in as " + (role === "driver" && currentDriver() ? currentDriver().name : roleTitle(role)));
   }
 
   function val(id) {
@@ -1722,6 +2340,10 @@
     if (action === "goShop") return goTab("shop");
     if (action === "goTeam") return goTab("team");
     if (action === "goDrivers") return goTab("drivers");
+    if (action === "goMoney") return goTab("money");
+    if (action === "goMessages") return goTab("messages");
+    if (action === "goMore") return goTab("more");
+    if (action === "goSettings") return goTab("settings");
     if (action === "goHome") return goTab(defaultTabForRole(session.role));
 
     if (action === "setFilter") {
@@ -1751,7 +2373,17 @@
       return;
     }
 
+    if (action === "clearSignature") {
+      clearSignaturePad();
+      return;
+    }
+
     if (action === "openTicket") {
+      var ticketOpen = findById(session.tickets, id);
+      if (!canViewTicket(ticketOpen)) {
+        toast("You can't open this ticket");
+        return;
+      }
       nav.screen = "ticketDetail";
       nav.detailId = id;
       nav.sheet = null;
@@ -1767,11 +2399,48 @@
       return;
     }
 
+    if (action === "openDriver") {
+      nav.screen = "driverDetail";
+      nav.detailId = id;
+      nav.sheet = null;
+      renderAll();
+      return;
+    }
+
+    if (action === "switchDriver") {
+      var user = el.getAttribute("data-user");
+      if (!driverByUsername(user)) return;
+      session.signedInDriverUsername = user;
+      nav.screen = "home";
+      nav.detailId = null;
+      nav.sheet = null;
+      renderAll();
+      toast("Viewing as " + currentDriver().name);
+      return;
+    }
+
+    if (action === "reportIssue") {
+      if (session.role !== "driver") return;
+      nav.sheet = "writeup";
+      renderAll();
+      return;
+    }
+
+    if (action === "reassign") {
+      if (!isDispatchRole()) return;
+      nav.sheet = "reassign";
+      nav.detailId = id || nav.detailId;
+      renderAll();
+      return;
+    }
+
     if (action === "openThread") {
+      nav.threadFrom = { screen: nav.screen, tab: nav.tab, detailId: nav.detailId };
       nav.screen = "thread";
       nav.detailId = id;
       nav.msgId = id;
       nav.sheet = null;
+      clearUnread(findDispatch(id));
       renderAll();
       return;
     }
@@ -1782,6 +2451,9 @@
         jobA.status = "accepted";
         advanceTimeline(jobA, "accepted");
         setDriverDuty(jobA.driverUsername, "onLoad", jobA.origin);
+        pinTo(jobA.driverUsername, jobA.origin);
+        noteDriverUpdate(jobA, "Accepted.");
+        logEvent(firstName(jobA.driverName) + " accepted " + jobA.loadReference);
         toast("Job accepted");
         renderAll();
       }
@@ -1793,6 +2465,8 @@
       if (jobD && jobD.status === "sent") {
         jobD.status = "declined";
         advanceTimeline(jobD, "declined");
+        noteDriverUpdate(jobD, "Declined.");
+        logEvent(firstName(jobD.driverName) + " declined " + jobD.loadReference);
         toast("Job declined");
         renderAll();
       }
@@ -1806,10 +2480,21 @@
       if (CHECK_FLOW.indexOf(next) < 0) return;
       jobC.status = next;
       advanceTimeline(jobC, next);
-      if (next === "atPickup") setDriverDuty(jobC.driverUsername, "onLoad", jobC.origin);
-      else if (next === "loaded" || next === "inTransit") setDriverDuty(jobC.driverUsername, "onLoad", "En route · " + jobC.destination);
-      else if (next === "atDelivery") setDriverDuty(jobC.driverUsername, "onLoad", jobC.destination);
-      else if (next === "completed") setDriverDuty(jobC.driverUsername, "available", jobC.destination);
+      if (next === "atPickup") {
+        setDriverDuty(jobC.driverUsername, "onLoad", jobC.origin);
+        pinTo(jobC.driverUsername, jobC.origin);
+      } else if (next === "loaded") {
+        setDriverDuty(jobC.driverUsername, "onLoad", jobC.origin);
+        pinTo(jobC.driverUsername, jobC.origin);
+      } else if (next === "inTransit" || next === "atDelivery") {
+        setDriverDuty(jobC.driverUsername, "onLoad", next === "inTransit" ? "En route · " + jobC.destination : jobC.destination);
+        pinTo(jobC.driverUsername, jobC.destination);
+      } else if (next === "completed") {
+        setDriverDuty(jobC.driverUsername, "available", jobC.destination);
+        pinTo(jobC.driverUsername, jobC.destination);
+      }
+      noteDriverUpdate(jobC, (CHECK_LABELS[next] || "Updated") + ".");
+      logEvent(firstName(jobC.driverName) + " · " + (CHECK_LABELS[next] || "Updated") + " · " + jobC.loadReference);
       toast(CHECK_LABELS[next] || "Updated");
       renderAll();
       return;
@@ -1817,27 +2502,36 @@
 
     if (action === "sendDispatch") {
       var driverUser = val("nd-driver");
+      var customer = val("nd-customer");
+      var origin = val("nd-origin");
+      var dest = val("nd-dest");
+      var unit = val("nd-unit");
+      if (!customer) { toast("Enter a customer"); return; }
+      if (!origin || !dest) { toast("Enter origin and destination"); return; }
+      if (!driverUser) { toast("Choose a driver"); return; }
+      if (!unit) { toast("Enter a unit"); return; }
       var member = null;
       var i;
       for (i = 0; i < session.teamMembers.length; i++) {
         if (session.teamMembers[i].username === driverUser) { member = session.teamMembers[i]; break; }
       }
+      if (!member) { toast("Choose a driver"); return; }
       var rate = parseFloat(val("nd-rate")) || 0;
       var miles = parseInt(val("nd-miles"), 10) || 0;
-      session.dispatches.unshift({
+      var created = {
         id: uid(),
         loadReference: val("nd-load") || nextLoadRef(),
-        customerName: val("nd-customer") || "Customer",
+        customerName: customer,
         commodity: val("nd-commodity") || "Freight",
-        origin: val("nd-origin") || "Origin",
-        destination: val("nd-dest") || "Destination",
+        origin: origin,
+        destination: dest,
         ox: 20 + Math.floor(Math.random() * 60),
         oy: 15 + Math.floor(Math.random() * 40),
         dx: 20 + Math.floor(Math.random() * 60),
         dy: 20 + Math.floor(Math.random() * 45),
-        driverName: member ? member.name : "Driver",
+        driverName: member.name,
         driverUsername: driverUser,
-        equipmentUnit: val("nd-unit") || "Unit 1",
+        equipmentUnit: unit,
         rateAmount: rate,
         miles: miles,
         etaLabel: "TBD",
@@ -1846,17 +2540,42 @@
         status: "sent",
         notes: val("nd-notes"),
         timeline: makeTimeline("sent"),
-        messages: []
+        messages: [],
+        unreadDriver: 1,
+        unreadDispatch: 0
+      };
+      session.dispatches.unshift(created);
+      addMessage(created, {
+        from: "system",
+        kind: "system",
+        text: actorName() + " dispatched this load to " + member.name + "."
       });
+      logEvent(actorName() + " sent " + created.loadReference + " to " + firstName(member.name));
       nav.sheet = null;
-      nav.tab = "loads";
+      nav.tab = session.role === "owner" ? "loads" : "loads";
       nav.screen = "home";
       renderAll();
-      toast("Dispatch sent");
+      toast("Dispatch sent to " + firstName(member.name));
       return;
     }
 
     if (action === "createTicket") {
+      if (session.role !== "driver") return;
+      var jobStart = findDispatch(id);
+      var meStart = currentDriver();
+      if (!jobStart || !meStart || jobStart.driverUsername !== meStart.username) return;
+      var already = ticketForLoad(jobStart.loadReference);
+      if (already) {
+        nav.screen = "ticketDetail";
+        nav.detailId = already.id;
+        nav.sheet = null;
+        renderAll();
+        return;
+      }
+      if (!ticketEligible(jobStart)) {
+        toast("Accept the load first");
+        return;
+      }
       nav.sheet = "ticket";
       nav.detailId = id;
       renderAll();
@@ -1867,40 +2586,75 @@
       var jobId = val("tk-job");
       var jobT = findDispatch(jobId);
       var driverT = currentDriver();
-      if (!jobT || !driverT) return;
-      var amount = parseFloat(val("tk-rate")) || jobT.rateAmount || 0;
+      if (session.role !== "driver" || !jobT || !driverT || jobT.driverUsername !== driverT.username) return;
+      if (ticketForLoad(jobT.loadReference)) {
+        toast("Ticket already filed");
+        return;
+      }
+      var customer = val("tk-customer");
+      var origin = val("tk-origin");
+      var dest = val("tk-dest");
+      if (!customer) { toast("Enter a customer"); return; }
+      if (!origin || !dest) { toast("Enter origin and destination"); return; }
+      var pad = document.getElementById("sign-pad");
+      if (!pad || pad.dataset.signed !== "1") {
+        toast("Sign the ticket");
+        return;
+      }
+      var signature = pad.toDataURL("image/png");
+      var amount = parseFloat(val("tk-rate"));
+      if (isNaN(amount)) amount = jobT.rateAmount || 0;
+      var miles = parseInt(val("tk-miles"), 10);
+      if (isNaN(miles)) miles = jobT.miles || 0;
       driverT.ticketSequence = (driverT.ticketSequence || 0) + 1;
+      var ticketNumber = val("tk-number") || nextTicketNumber();
       session.tickets.unshift({
         id: uid(),
-        number: val("tk-number") || String(Date.now()),
-        customerName: jobT.customerName,
+        number: ticketNumber,
+        customerName: customer,
         loadReference: jobT.loadReference,
-        origin: jobT.origin,
-        destination: jobT.destination,
+        origin: origin,
+        destination: dest,
         driverName: driverT.name,
         driverUsername: driverT.username,
-        equipmentUnit: jobT.equipmentUnit,
-        commodity: jobT.commodity,
+        equipmentUnit: val("tk-unit") || jobT.equipmentUnit,
+        commodity: val("tk-commodity") || jobT.commodity,
         rateAmount: amount,
-        miles: jobT.miles,
+        miles: miles,
+        weight: val("tk-weight"),
+        receiver: val("tk-receiver"),
         status: "submitted",
-        notes: val("tk-notes")
+        notes: val("tk-notes"),
+        signature: signature,
+        signedBy: driverT.name,
+        signedAt: fmtAt(Date.now())
       });
       jobT.status = "completed";
+      jobT.customerName = customer;
+      jobT.origin = origin;
+      jobT.destination = dest;
+      jobT.commodity = val("tk-commodity") || jobT.commodity;
+      jobT.equipmentUnit = val("tk-unit") || jobT.equipmentUnit;
+      jobT.rateAmount = amount;
+      jobT.miles = miles;
       advanceTimeline(jobT, "completed");
-      setDriverDuty(driverT.username, "available", jobT.destination);
+      setDriverDuty(driverT.username, "available", dest);
+      pinTo(driverT.username, dest);
+      addMessage(jobT, { from: "system", kind: "system", text: driverT.name + " signed a ticket for " + money(amount) + "." });
+      logEvent(firstName(driverT.name) + " signed ticket " + jobT.loadReference);
       nav.sheet = null;
       nav.tab = "home";
       nav.screen = "home";
       renderAll();
-      toast("Ticket submitted to Office");
+      toast("Ticket sent to office, dispatch, and the owner");
       return;
     }
 
     if (action === "billTicket") {
-      var ticket = findById(session.tickets, id || (el && el.getAttribute("data-id")));
-      if (ticket && ticket.status === "submitted") {
+      var ticket = findById(session.tickets, id || (el && el.getAttribute("data-id")) || nav.detailId);
+      if (ticket && ticket.status === "submitted" && (session.role === "office" || session.role === "owner")) {
         ticket.status = "billed";
+        logEvent(actorName() + " billed ticket " + ticket.loadReference);
         toast("Ticket billed");
         renderAll();
       }
@@ -1951,11 +2705,16 @@
     if (action === "removeUser") {
       if (!canManageUsers()) return;
       var member = findById(session.teamMembers, id);
-      if (!member || member.role === "owner") {
-        toast("Can't remove the owner");
+      if (!member || member.core || member.role === "owner") {
+        toast("The demo crew stays");
         return;
       }
       session.teamMembers = session.teamMembers.filter(function (m) { return m.id !== id; });
+      if (session.signedInDriverUsername === member.username) {
+        var fallback = drivers()[0];
+        session.signedInDriverUsername = fallback ? fallback.username : "tbrooks";
+      }
+      logEvent(actorName() + " removed " + member.name);
       renderAll();
       toast(member.name + " removed");
       return;
@@ -1968,21 +2727,105 @@
       return;
     }
 
-    if (action === "sendCanned") {
+    if (action === "sendCommand" || action === "sendReply" || action === "sendCompose" || action === "sendCanned") {
       var jobM = findDispatch(id);
       if (!jobM) return;
-      if (!jobM.messages) jobM.messages = [];
-      var text = el.getAttribute("data-text") || "";
-      var now = new Date();
-      var mm = String(now.getMinutes());
-      if (mm.length < 2) mm = "0" + mm;
-      jobM.messages.push({
-        from: session.role === "driver" ? "driver" : "dispatch",
-        text: text,
-        at: now.getHours() + ":" + mm
-      });
-      toast("Sent");
+      var text = action === "sendCompose" ? val("compose-text") : (el.getAttribute("data-text") || "");
+      if (!text) { toast(session.role === "driver" ? "Write a reply" : "Write a command"); return; }
+      if (session.role === "driver") {
+        var meSend = currentDriver();
+        if (!meSend || jobM.driverUsername !== meSend.username) { toast("Not your load"); return; }
+        addMessage(jobM, { from: "driver", kind: "reply", text: text, byName: meSend.name });
+        jobM.unreadDispatch = (jobM.unreadDispatch || 0) + 1;
+        var pendingCmd = null;
+        var mi;
+        var stack = jobM.messages || [];
+        for (mi = stack.length - 1; mi >= 0; mi--) {
+          if (stack[mi].kind === "command" && stack[mi].status === "sent") { pendingCmd = stack[mi]; break; }
+        }
+        if (pendingCmd) pendingCmd.status = "copied";
+        logEvent(firstName(meSend.name) + " replied on " + jobM.loadReference);
+        toast("Sent to dispatch");
+      } else if (isDispatchRole()) {
+        addMessage(jobM, {
+          from: "dispatch",
+          kind: "command",
+          commandId: (el && el.getAttribute("data-cmd")) || "custom",
+          text: text,
+          status: "sent",
+          byName: actorName()
+        });
+        jobM.unreadDriver = (jobM.unreadDriver || 0) + 1;
+        logEvent(firstName(actorName()) + " commanded " + firstName(jobM.driverName) + " on " + jobM.loadReference);
+        toast("Command sent");
+      }
       renderAll();
+      return;
+    }
+
+    if (action === "ackCommand") {
+      var jobK = findDispatch(id);
+      var mid = el.getAttribute("data-mid");
+      var ack = el.getAttribute("data-status") === "done" ? "done" : "copied";
+      if (!jobK || !mid) return;
+      var meAck = currentDriver();
+      if (!meAck || jobK.driverUsername !== meAck.username) { toast("Not your load"); return; }
+      if (!markCommand(jobK, mid, ack)) return;
+      addMessage(jobK, { from: "driver", kind: "reply", text: ack === "done" ? "Done." : "Copy.", byName: meAck.name });
+      jobK.unreadDispatch = (jobK.unreadDispatch || 0) + 1;
+      logEvent(firstName(meAck.name) + (ack === "done" ? " finished a command on " : " copied a command on ") + jobK.loadReference);
+      toast(ack === "done" ? "Marked done" : "Copied");
+      renderAll();
+      return;
+    }
+
+    if (action === "reassignSubmit") {
+      if (!isDispatchRole()) return;
+      var jobR = findDispatch(id || nav.detailId);
+      var nextUser = val("ra-driver");
+      var nextDriver = driverByUsername(nextUser);
+      if (!jobR || !nextDriver) { toast("Choose a driver"); return; }
+      var prevUser = jobR.driverUsername;
+      jobR.driverName = nextDriver.name;
+      jobR.driverUsername = nextUser;
+      if (jobR.status === "declined") {
+        jobR.status = "sent";
+        advanceTimeline(jobR, "sent");
+      }
+      jobR.unreadDriver = (jobR.unreadDriver || 0) + 1;
+      addMessage(jobR, { from: "system", kind: "system", text: actorName() + " assigned this load to " + nextDriver.name + "." });
+      if (isMoving(jobR.status)) setDriverDuty(nextUser, "onLoad", jobR.origin);
+      if (prevUser && prevUser !== nextUser) refreshDuty(prevUser);
+      logEvent(actorName() + " assigned " + jobR.loadReference + " to " + firstName(nextDriver.name));
+      nav.sheet = null;
+      nav.screen = "detail";
+      nav.detailId = jobR.id;
+      renderAll();
+      toast("Assigned to " + firstName(nextDriver.name));
+      return;
+    }
+
+    if (action === "submitWriteUp") {
+      var reporter = currentDriver();
+      if (!reporter) return;
+      var issue = val("wu-title");
+      var wuUnit = val("wu-unit");
+      if (!wuUnit) { toast("Enter a unit"); return; }
+      if (!issue) { toast("Describe the issue"); return; }
+      session.writeUps.unshift({
+        id: uid(),
+        number: nextWriteUpNumber(),
+        equipmentUnit: wuUnit,
+        title: issue,
+        description: val("wu-notes") || issue,
+        driverName: reporter.name,
+        priority: val("wu-priority") || "medium",
+        status: "open"
+      });
+      logEvent(firstName(reporter.name) + " reported " + issue + " on " + wuUnit);
+      nav.sheet = null;
+      renderAll();
+      toast("Sent to the shop");
       return;
     }
 
@@ -1990,6 +2833,10 @@
       var wu = findById(session.writeUps, id);
       if (wu) {
         wu.status = el.getAttribute("data-status");
+        if (wu.status === "inProgress" && !wu.mechanicNotes) wu.mechanicNotes = actorName() + " started this.";
+        if (wu.status === "fixed") wu.mechanicNotes = (wu.mechanicNotes ? wu.mechanicNotes + " " : "") + "Marked fixed.";
+        if (wu.status === "cannotRepair") wu.mechanicNotes = (wu.mechanicNotes ? wu.mechanicNotes + " " : "") + "Cannot repair.";
+        logEvent(actorName() + " updated " + wu.number + " · " + (WRITEUP_STATUS[wu.status] || wu.status));
         toast("Write-up updated");
         renderAll();
       }
@@ -2000,9 +2847,9 @@
       var keep = session.role;
       session = makeSamples();
       session.role = keep;
-      nav = { tab: defaultTabForRole(keep), screen: "home", detailId: null, sheet: null, filter: "all", msgId: null };
+      nav = { tab: defaultTabForRole(keep), screen: "home", detailId: null, sheet: null, filter: "all", msgId: null, threadFrom: null };
       renderAll();
-      toast("Demo reset");
+      toast("Cleared. Crew kept.");
       return;
     }
   }
@@ -2044,10 +2891,30 @@
         renderAll();
         return;
       }
-      nav.screen = "home";
-      nav.detailId = null;
-      nav.msgId = null;
-      renderAll();
+      if (nav.screen === "thread" && nav.threadFrom) {
+        var from = nav.threadFrom;
+        nav.threadFrom = null;
+        nav.screen = from.screen || "home";
+        nav.tab = from.tab || nav.tab;
+        if (from.screen === "detail" || from.screen === "driverDetail" || from.screen === "ticketDetail" || from.screen === "writeupDetail") {
+          nav.detailId = from.detailId;
+        } else {
+          nav.detailId = null;
+          nav.screen = "home";
+        }
+        renderAll();
+        return;
+      }
+      if (nav.screen !== "home") {
+        nav.screen = "home";
+        nav.detailId = null;
+        nav.msgId = null;
+        renderAll();
+        return;
+      }
+      if (inOwnerHub()) { goTab("more"); return; }
+      if (inDispatchTeam()) { goTab("settings"); return; }
+      if (inDispatchSettings()) { goTab("board"); return; }
     });
   }
 
@@ -2062,6 +2929,18 @@
   var sheetEl = document.getElementById("sheet");
   if (sheetEl) sheetEl.addEventListener("click", onActionClick);
 
+  var dockEl = document.getElementById("dock");
+  if (dockEl) {
+    dockEl.addEventListener("click", onActionClick);
+    dockEl.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter") return;
+      var input = e.target && e.target.id === "compose-text" ? e.target : null;
+      if (!input) return;
+      e.preventDefault();
+      handleAction("sendCompose", input);
+    });
+  }
+
   var refreshBtn = document.getElementById("refresh-btn");
   if (refreshBtn) {
     refreshBtn.addEventListener("click", function () {
@@ -2070,9 +2949,14 @@
   }
 
   /* —— Device switch —— */
+  function normalizeDevice(device) {
+    device = String(device || "").toLowerCase();
+    if (device === "ipad" || device === "windows") return device;
+    return "iphone";
+  }
+
   function currentDevice() {
-    var d = document.documentElement.getAttribute("data-device");
-    return d === "ipad" ? "ipad" : "iphone";
+    return normalizeDevice(document.documentElement.getAttribute("data-device"));
   }
 
   function syncDeviceUi(device) {
@@ -2089,16 +2973,14 @@
     }
     var shell = document.getElementById("device");
     if (shell) {
-      shell.setAttribute(
-        "aria-label",
-        (device === "ipad" ? "iPad" : "iPhone") + " with FleetDispatch simulator"
-      );
+      var deviceName = device === "ipad" ? "iPad" : device === "windows" ? "Windows computer" : "iPhone";
+      shell.setAttribute("aria-label", deviceName + " with FleetDispatch simulator");
     }
   }
 
   function setDevice(device, opts) {
     opts = opts || {};
-    if (device !== "ipad") device = "iphone";
+    device = normalizeDevice(device);
     if (currentDevice() === device && !opts.force) {
       syncDeviceUi(device);
       return;
@@ -2123,10 +3005,10 @@
     try {
       var params = new URLSearchParams(window.location.search);
       var q = (params.get("device") || "").toLowerCase();
-      if (q === "ipad" || q === "iphone") device = q;
+      if (q === "ipad" || q === "iphone" || q === "windows") device = q;
       else {
         var stored = localStorage.getItem("fleetdispatch-sim-device");
-        if (stored === "ipad" || stored === "iphone") device = stored;
+        if (stored === "ipad" || stored === "iphone" || stored === "windows") device = stored;
       }
     } catch (e) {}
     setDevice(device, { force: true, skipUrl: false });
@@ -2139,10 +3021,13 @@
 
     switchEl.addEventListener("keydown", function (e) {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") return;
-      var order = ["iphone", "ipad"];
+      var order = ["iphone", "ipad", "windows"];
       var idx = order.indexOf(currentDevice());
-      if (e.key === "ArrowLeft" || e.key === "Home") idx = 0;
-      if (e.key === "ArrowRight" || e.key === "End") idx = 1;
+      if (idx < 0) idx = 0;
+      if (e.key === "Home") idx = 0;
+      else if (e.key === "End") idx = order.length - 1;
+      else if (e.key === "ArrowRight") idx = (idx + 1) % order.length;
+      else if (e.key === "ArrowLeft") idx = (idx + order.length - 1) % order.length;
       e.preventDefault();
       setDevice(order[idx]);
       var focusBtn = document.getElementById("device-" + order[idx]);
@@ -2151,12 +3036,20 @@
   }
 
   function tickClock() {
-    var el = document.getElementById("clock");
-    if (!el) return;
     var d = new Date();
     var m = String(d.getMinutes());
     if (m.length < 2) m = "0" + m;
-    el.textContent = d.getHours() + ":" + m;
+    var hm = d.getHours() + ":" + m;
+    var el = document.getElementById("clock");
+    if (el) el.textContent = hm;
+    var winClock = document.getElementById("win-clock");
+    if (winClock) {
+      var h12 = d.getHours() % 12;
+      if (h12 === 0) h12 = 12;
+      winClock.textContent = h12 + ":" + m + (d.getHours() >= 12 ? " PM" : " AM");
+    }
+    var winDate = document.getElementById("win-date");
+    if (winDate) winDate.textContent = (d.getMonth() + 1) + "/" + d.getDate() + "/" + d.getFullYear();
   }
 
   function initRole() {
