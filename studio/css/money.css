@@ -358,6 +358,16 @@
   padding: 0 8px;
 }
 
+.money-actions select {
+  min-height: 24px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 0 8px;
+  font-size: 12px;
+  background: var(--card);
+  color: var(--ink);
+}
+
 .money-empty {
   background: var(--card);
   border-radius: var(--r-card);

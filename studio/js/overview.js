@@ -7,9 +7,6 @@
   var db = null;
   var selectedYear = new Date().getFullYear();
   var selectedMonth = new Date().getMonth() + 1;
-  var incomes = [];
-  var expenses = [];
-  var draws = [];
   var renewals = [];
   var documents = [];
   var projects = [];
@@ -17,12 +14,8 @@
   var issues = [];
   var apps = [];
   var appIssues = [];
-  var companyDocs = [];
-  var mileageTrips = [];
-  var mileageRate = 0.70;
   var inboxUnread = 0;
   var supportOpen = 0;
-  var exporting = false;
 
   function M() { return window.STLMoney; }
 
@@ -53,25 +46,6 @@
     var p = String(iso).slice(0, 10).split("-");
     if (p.length !== 3) return null;
     return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
-  }
-
-  function yearIncome() {
-    return M().round2(incomes.filter(function (r) { return Number(r.year) === selectedYear; })
-      .reduce(function (s, r) { return s + M().yearTotal(r); }, 0));
-  }
-
-  function yearExpense() {
-    return M().round2(expenses.filter(function (r) { return Number(r.year) === selectedYear; })
-      .reduce(function (s, r) { return s + M().yearTotal(r); }, 0));
-  }
-
-  function yearProfit() {
-    return M().round2(yearIncome() - yearExpense());
-  }
-
-  function yearDraws() {
-    return M().round2(draws.filter(function (r) { return Number(r.year) === selectedYear; })
-      .reduce(function (s, r) { return s + Number(r.amount || 0); }, 0));
   }
 
   function daysUntil(iso) {
@@ -204,39 +178,14 @@
   }
 
   function render() {
-    var profit = yearProfit();
     var count = needsYouCount();
     var html = "";
 
     html +=
       '<div class="ov-card">' +
-        '<div style="display:flex;align-items:center;gap:10px">' +
-          "<h2>" + selectedYear + " profit</h2>" +
-          '<div class="ov-year-nav" style="margin-left:auto">' +
-            '<button type="button" data-el="year-prev">‹</button>' +
-            '<button type="button" data-el="year-next"' + (selectedYear >= M().currentYear() ? " disabled" : "") + ">›</button>" +
-          "</div>" +
-        "</div>" +
-        '<div class="ov-profit ' + (profit >= 0 ? "ok" : "bad") + '">' + M().money(profit) + "</div>" +
-        '<div class="ov-chips">' +
-          '<button type="button" class="ov-chip ok" data-go="income"><span class="k">Income</span><span class="v">' + M().money(yearIncome()) + "</span></button>" +
-          '<button type="button" class="ov-chip warn" data-go="expenses"><span class="k">Expenses</span><span class="v">' + M().money(yearExpense()) + "</span></button>" +
-          '<button type="button" class="ov-chip draw" data-go="ownerDraws"><span class="k">Owner draws</span><span class="v">' + M().money(yearDraws()) + "</span></button>" +
-        "</div>" +
         '<div class="ov-chips ov-chips-ops">' +
           '<button type="button" class="ov-chip inbox' + (inboxUnread ? " has-alert" : "") + '" data-go="inbox"><span class="k">Messages unread</span><span class="v">' + inboxUnread + "</span></button>" +
           '<button type="button" class="ov-chip support' + (supportOpen ? " has-alert" : "") + '" data-go="support"><span class="k">Support open</span><span class="v">' + supportOpen + "</span></button>" +
-        "</div>" +
-        '<p class="ov-note">Draws are not expenses. Profit is still income minus expenses. Tap Messages or Support to jump there.</p>' +
-        '<div class="ov-toolbar">' +
-          '<span class="ov-note" style="margin:0">Month report</span>' +
-          '<select data-el="month">' +
-            MONTHS.map(function (name, i) {
-              return '<option value="' + (i + 1) + '"' + (selectedMonth === i + 1 ? " selected" : "") + ">" + name + "</option>";
-            }).join("") +
-          "</select>" +
-          '<button class="btn btn-ghost" type="button" data-el="export-month"' + (exporting ? " disabled" : "") + ">Export " + MONTHS[selectedMonth - 1] + " report</button>" +
-          '<button class="btn btn-primary" type="button" data-el="export-tax"' + (exporting ? " disabled" : "") + ">Export " + selectedYear + " tax packet</button>" +
         "</div>" +
       "</div>";
 
@@ -493,279 +442,6 @@
     });
   }
 
-  function exportMonthReport() {
-    if (!window.STLStudioPdf) return showMsg("PDF library missing.", false);
-    exporting = true;
-    render();
-    var slices = M().monthSlices(selectedYear, incomes.filter(function (r) { return Number(r.year) === selectedYear; }), expenses.filter(function (r) { return Number(r.year) === selectedYear; }));
-    var slice = slices[selectedMonth - 1] || { income: 0, expense: 0, profit: 0 };
-    var paid = documents.filter(function (doc) {
-      if (doc.kind !== "invoice" || doc.status !== "paid") return false;
-      var payload = doc.payload || {};
-      var date = String(doc.paid_on || payload.paidDate || doc.issued_on || "");
-      return date.slice(0, 7) === selectedYear + "-" + String(selectedMonth).padStart(2, "0");
-    });
-    var monthName = MONTHS[selectedMonth - 1];
-    showMsg("Building PDF…", true);
-    window.STLStudioPdf.open({
-      db: db,
-      word: "MONTHLY REPORT",
-      yearLabel: monthName + " " + selectedYear
-    }).then(function (pdf) {
-      pdf.heading(monthName + " " + selectedYear, 13);
-      pdf.note("Prepared " + window.STLStudioPdf.prepared() + " from studio books for this month.");
-      pdf.chips([
-        ["Income", window.STLStudioPdf.money(slice.income)],
-        ["Expenses", window.STLStudioPdf.money(slice.expense)],
-        ["Profit", window.STLStudioPdf.money(slice.profit)],
-        ["Paid invoices", String(paid.length)]
-      ]);
-      pdf.heading("Paid invoices", 12);
-      if (!paid.length) {
-        pdf.note("None this month.");
-      } else {
-        var colW = [90, pdf.maxW - 90 - 90, 90];
-        pdf.tableHeader(["Number", "Client", "Amount"], colW, 2);
-        paid.forEach(function (inv, i) {
-          pdf.tableRow(
-            [inv.number || "Invoice", inv.client_name || "—", window.STLStudioPdf.money(inv.amount)],
-            colW,
-            {
-              sizes: [9, 9, 9],
-              aligns: ["left", "left", "right"],
-              stripe: i % 2 === 1
-            }
-          );
-        });
-      }
-      pdf.totalLine("Profit " + monthName, window.STLStudioPdf.money(slice.profit));
-      pdf.save("STL-Apps-LLC_Month_" + selectedYear + "-" + String(selectedMonth).padStart(2, "0") + ".pdf");
-      exporting = false;
-      showMsg("Month report downloaded.", true);
-      render();
-    }).catch(function (err) {
-      exporting = false;
-      showMsg((err && err.message) || "Could not build the PDF.", false);
-      render();
-    });
-  }
-
-  function downloadBlob(blob, filename) {
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
-  }
-
-  function paidInvoicesForYear() {
-    return documents.filter(function (doc) {
-      if (doc.kind !== "invoice") return false;
-      var t = invoiceTotals(doc);
-      if (t.balance > 0) return false;
-      var date = String(doc.paid_on || (doc.payload && doc.payload.paidDate) || doc.issued_on || "");
-      return date.slice(0, 4) === String(selectedYear) || Number(doc.year) === selectedYear;
-    });
-  }
-
-  function exportTaxPacket() {
-    if (!window.STLStudioPdf) return showMsg("PDF library missing.", false);
-    if (!window.JSZip) return showMsg("Zip library missing. Refresh the page.", false);
-    exporting = true;
-    render();
-    var yearIn = incomes.filter(function (r) { return Number(r.year) === selectedYear; });
-    var yearEx = expenses.filter(function (r) { return Number(r.year) === selectedYear; });
-    var slices = M().monthSlices(selectedYear, yearIn, yearEx);
-    var paid = paidInvoicesForYear();
-    showMsg("Building tax packet zip…", true);
-
-    var pl = window.STLStudioPdf.open({
-      db: db,
-      word: "TAX PACKET",
-      yearLabel: "Tax year " + selectedYear
-    }).then(function (pdf) {
-      pdf.heading("Profit & Loss — " + selectedYear, 13);
-      pdf.note("Prepared " + window.STLStudioPdf.prepared() + " for tax records. This is a record packet for your accountant. It is not tax advice.");
-      pdf.chips([
-        ["Income", window.STLStudioPdf.money(yearIncome())],
-        ["Expenses", window.STLStudioPdf.money(yearExpense())],
-        ["Profit", window.STLStudioPdf.money(yearProfit())],
-        ["Owner draws", window.STLStudioPdf.money(yearDraws())]
-      ]);
-      pdf.heading("What’s in this zip", 12);
-      pdf.note("00-Profit-and-Loss.pdf · 01-Monthly-Summary.pdf · 02-Mileage.pdf · 03-Expenses.pdf · 04-Income.pdf · Receipts · Paid-Invoices · Company-Documents. Expense and income reports include labeled exhibit pages for every attached receipt.");
-      pdf.heading("Summary", 12);
-      var sumW = [pdf.maxW - 120, 120];
-      pdf.tableHeader(["Line", "Amount"], sumW, 1);
-      [
-        ["Income", yearIncome()],
-        ["Expenses", yearExpense()],
-        ["Profit", yearProfit()],
-        ["Owner draws (not expenses)", yearDraws()]
-      ].forEach(function (row, i) {
-        pdf.tableRow(
-          [row[0], window.STLStudioPdf.money(row[1])],
-          sumW,
-          { sizes: [10, 10], bolds: [i === 2, i === 2], aligns: ["left", "right"], stripe: i % 2 === 1 }
-        );
-      });
-      pdf.totalLine("Profit " + selectedYear, window.STLStudioPdf.money(yearProfit()));
-      return pdf.blob();
-    });
-
-    var monthly = window.STLStudioPdf.open({
-      db: db,
-      word: "MONTHLY SUMMARY",
-      yearLabel: "Tax year " + selectedYear
-    }).then(function (pdf) {
-      pdf.heading("Month-by-month — " + selectedYear, 13);
-      pdf.note("Prepared " + window.STLStudioPdf.prepared() + " from studio books.");
-      var colW = [120, (pdf.maxW - 120) / 3, (pdf.maxW - 120) / 3, (pdf.maxW - 120) / 3];
-      pdf.tableHeader(["Month", "Income", "Expenses", "Profit"], colW, 1);
-      slices.forEach(function (m, i) {
-        pdf.tableRow(
-          [
-            MONTHS[m.month - 1] + " " + selectedYear,
-            window.STLStudioPdf.money(m.income),
-            window.STLStudioPdf.money(m.expense),
-            window.STLStudioPdf.money(m.profit)
-          ],
-          colW,
-          { sizes: [9, 9, 9, 9], bolds: [false, false, false, true], aligns: ["left", "right", "right", "right"], stripe: i % 2 === 1 }
-        );
-      });
-      pdf.totalLine("Year profit", window.STLStudioPdf.money(yearProfit()));
-      return pdf.blob();
-    });
-
-    var yearMiles = mileageTrips.filter(function (t) {
-      return Number(String(t.trip_date || "").slice(0, 4)) === selectedYear;
-    });
-    var milesTotal = M().round2(yearMiles.reduce(function (s, t) { return s + (Number(t.miles) || 0); }, 0));
-    var milesDeduction = M().round2(milesTotal * mileageRate);
-    var mileagePdf = window.STLStudioPdf.open({
-      db: db,
-      word: "MILEAGE LOG",
-      yearLabel: "Tax year " + selectedYear
-    }).then(function (pdf) {
-      pdf.heading("Business mileage — " + selectedYear, 13);
-      pdf.note("Prepared " + window.STLStudioPdf.prepared() + ". Rate " + window.STLStudioPdf.money(mileageRate) + " per mile.");
-      pdf.chips([
-        ["Trips", String(yearMiles.length)],
-        ["Miles", milesTotal.toLocaleString("en-US")],
-        ["Rate", window.STLStudioPdf.money(mileageRate) + "/mi"],
-        ["Deduction", window.STLStudioPdf.money(milesDeduction)]
-      ]);
-      var colW = [70, 120, pdf.maxW - 70 - 120 - 55 - 70, 55, 70];
-      pdf.tableHeader(["Date", "Purpose", "Route", "Miles", "Amount"], colW, 1);
-      if (!yearMiles.length) {
-        pdf.note("No trips logged for this year.");
-      } else {
-        yearMiles.slice().sort(function (a, b) {
-          return String(b.trip_date || "") < String(a.trip_date || "") ? -1 : 1;
-        }).forEach(function (trip, i) {
-          var miles = Number(trip.miles) || 0;
-          var start = String(trip.start_place || "").trim();
-          var end = String(trip.end_place || "").trim();
-          var route = start && end ? start + " → " + end : (start || end || "—");
-          pdf.tableRow(
-            [
-              String(trip.trip_date || "").slice(0, 10),
-              trip.purpose || "Trip",
-              route,
-              miles.toLocaleString("en-US"),
-              window.STLStudioPdf.money(M().round2(miles * mileageRate))
-            ],
-            colW,
-            { sizes: [8, 8, 8, 8, 8], aligns: ["left", "left", "left", "right", "right"], stripe: i % 2 === 1 }
-          );
-        });
-      }
-      pdf.totalLine(selectedYear + " mileage deduction", window.STLStudioPdf.money(milesDeduction));
-      return pdf.blob();
-    });
-
-    var invoicePdfs = Promise.all(paid.map(function (doc) {
-      if (!window.STLBillingDoc || !window.STLBillingDoc.buildPdf) return null;
-      var payload = Object.assign({}, doc.payload || {}, {
-        kind: "receipt",
-        number: doc.number,
-        clientName: doc.client_name,
-        amountPaid: (doc.payload && doc.payload.amountPaid) != null ? doc.payload.amountPaid : doc.amount
-      });
-      return window.STLBillingDoc.buildPdf(payload).then(function (out) {
-        var name = (doc.number || "Invoice") + "-" + (doc.client_name || "Client") + ".pdf";
-        name = name.replace(/[\/\\?%*:|"<>]/g, "-");
-        return { name: name, blob: out.blob };
-      }).catch(function () { return null; });
-    })).then(function (list) {
-      return list.filter(Boolean);
-    });
-
-    var companyFiles = Promise.all((companyDocs || []).filter(function (d) { return d.storage_path; }).map(function (doc) {
-      return db.storage.from("business-docs").download(doc.storage_path).then(function (res) {
-        if (res.error) return null;
-        var ext = String(doc.file_name || doc.storage_path || "pdf").split(".").pop() || "pdf";
-        var name = (doc.name || "Document") + "." + ext;
-        name = name.replace(/[\/\\?%*:|"<>]/g, "-");
-        return { name: name, blob: res.data };
-      }).catch(function () { return null; });
-    })).then(function (list) {
-      return list.filter(Boolean);
-    });
-
-    function ledgerReport(kind, rows) {
-      if (!window.STLLedgerPdf) return Promise.resolve(null);
-      var has = (rows || []).some(function (r) { return Number(r.year) === selectedYear; });
-      if (!has) return Promise.resolve(null);
-      return window.STLLedgerPdf.buildYear({
-        db: db,
-        rows: rows,
-        year: selectedYear,
-        kind: kind
-      }).catch(function () { return null; });
-    }
-
-    Promise.all([
-      pl,
-      monthly,
-      mileagePdf,
-      invoicePdfs,
-      companyFiles,
-      ledgerReport("expenses", expenses),
-      ledgerReport("income", incomes)
-    ]).then(function (parts) {
-      var zip = new window.JSZip();
-      var folder = zip.folder("STL-Apps-LLC-Tax-Packet-" + selectedYear);
-      folder.file("00-Profit-and-Loss.pdf", parts[0]);
-      folder.file("01-Monthly-Summary.pdf", parts[1]);
-      folder.file("02-Mileage.pdf", parts[2]);
-      if (parts[5] && parts[5].blob) folder.file("03-Expenses.pdf", parts[5].blob);
-      if (parts[6] && parts[6].blob) folder.file("04-Income.pdf", parts[6].blob);
-      var recEx = folder.folder("Receipts/Expenses");
-      ((parts[5] && parts[5].receipts) || []).forEach(function (file) { recEx.file(file.name, file.blob); });
-      var recIn = folder.folder("Receipts/Income");
-      ((parts[6] && parts[6].receipts) || []).forEach(function (file) { recIn.file(file.name, file.blob); });
-      var inv = folder.folder("Paid-Invoices");
-      (parts[3] || []).forEach(function (file) { inv.file(file.name, file.blob); });
-      var co = folder.folder("Company-Documents");
-      (parts[4] || []).forEach(function (file) { co.file(file.name, file.blob); });
-      return zip.generateAsync({ type: "blob" });
-    }).then(function (blob) {
-      downloadBlob(blob, "STL-Apps-LLC_Tax-Packet_" + selectedYear + ".zip");
-      exporting = false;
-      showMsg("Tax packet zip downloaded.", true);
-      render();
-    }).catch(function (err) {
-      exporting = false;
-      showMsg((err && err.message) || "Could not build the packet.", false);
-      render();
-    });
-  }
-
   function safe(table, cols) {
     return db.from(table).select(cols || "*").then(function (res) {
       return res.error ? [] : (res.data || []);
@@ -775,9 +451,6 @@
   function load() {
     showMsg("Loading overview…", true);
     Promise.all([
-      safe("business_incomes"),
-      safe("business_expenses"),
-      safe("owner_draws"),
       safe("renewal_items"),
       safe("billing_documents"),
       safe("client_projects"),
@@ -785,33 +458,18 @@
       safe("project_issues"),
       safe("managed_apps"),
       safe("app_issues"),
-      safe("business_documents"),
-      safe("mileage_trips"),
-      db.from("studio_settings").select("value").eq("key", "mileage_rate").maybeSingle()
-        .then(function (res) {
-          if (res.error || !res.data) return 0.70;
-          var n = Number(res.data.value);
-          return Number.isFinite(n) && n >= 0 ? n : 0.70;
-        })
-        .catch(function () { return 0.70; }),
       safe("studio_inbox", "id,status"),
       safe("support_tickets", "id,status")
     ]).then(function (pair) {
-      incomes = pair[0];
-      expenses = pair[1];
-      draws = pair[2];
-      renewals = pair[3];
-      documents = pair[4];
-      projects = pair[5];
-      hours = pair[6];
-      issues = pair[7];
-      apps = pair[8];
-      appIssues = pair[9];
-      companyDocs = pair[10] || [];
-      mileageTrips = pair[11] || [];
-      mileageRate = pair[12] == null ? 0.70 : pair[12];
-      inboxUnread = (pair[13] || []).filter(function (row) { return row.status === "unread"; }).length;
-      supportOpen = (pair[14] || []).filter(function (row) {
+      renewals = pair[0];
+      documents = pair[1];
+      projects = pair[2];
+      hours = pair[3];
+      issues = pair[4];
+      apps = pair[5];
+      appIssues = pair[6];
+      inboxUnread = (pair[7] || []).filter(function (row) { return row.status === "unread"; }).length;
+      supportOpen = (pair[8] || []).filter(function (row) {
         return row.status === "open" || row.status === "inProgress" || row.status === "waiting";
       }).length;
       var paths = [];

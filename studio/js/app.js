@@ -8,7 +8,7 @@
   // Same order and grouping as the Mac app sidebar. Cache bust 52.
   var NAV_GROUPS = [
     [
-      { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Profit, needs-you board, and studio snapshot." },
+      { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Needs-you board and studio snapshot." },
       { id: "bank", title: "Bank", icon: "building-columns-fill", tint: "#1F6B52", body: "Mercury cash, accounts, and activity." },
       { id: "business", title: "Business Info", icon: "building-2-fill", tint: "#12213D", body: "Company details will live here." },
       { id: "loginVault", title: "Login Vault", icon: "key-fill", tint: "#D98C2E", body: "Saved passwords will live here." },
