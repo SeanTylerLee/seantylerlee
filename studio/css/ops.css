@@ -228,6 +228,45 @@
   font-size: 12px;
 }
 
+.inbox-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  align-items: center;
+}
+
+.inbox-head-actions .btn.is-on {
+  background: #12213d;
+  color: #fff;
+  border-color: #12213d;
+}
+
+.mail-page-notes {
+  margin: 0 16px 10px;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.mail-page-notes[hidden] {
+  display: none !important;
+}
+
+.mail-page-notes .ops-field {
+  margin-bottom: 8px;
+}
+
+.mail-page-notes textarea {
+  min-height: 160px;
+}
+
+.mail-page-notes-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .inbox-head input[type="search"] {
   width: min(280px, 100%);
   min-height: 30px;

@@ -6,7 +6,7 @@
     "calendar_day_notes", "studio_settings", "business_expenses", "business_expense_skips",
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
     "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos",
-    "sop_guides", "support_tickets", "studio_inbox", "email_lists", "email_contacts", "email_templates",
+    "sop_guides", "support_tickets", "studio_inbox", "email_lists", "email_contacts", "email_templates", "email_page_notes",
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
     "project_logins", "project_costs", "project_hour_entries", "project_issues",
     "project_handoff_items", "meeting_logs", "billing_documents", "studio_notes",
@@ -547,10 +547,18 @@
   }
 
   function emails(pdf, pack) {
-    openMenu(pdf, "Email Lists", "Open Email Lists. Recreate each list, then add emails.");
+    openMenu(pdf, "Email Lists", "Open Email Lists. Recreate each list, then add emails. Paste the page notes into the Notes button at the top.");
     var lists = pack.tables.email_lists || [];
     var contacts = groupBy(pack.tables.email_contacts, "list_id");
-    if (!lists.length) { empty(pdf); return; }
+    var pageNote = ((pack.tables.email_page_notes || [])[0] || {}).body || "";
+    if (String(pageNote).trim()) {
+      pdf.heading("Page notes", 12);
+      longText(pdf, pageNote);
+    }
+    if (!lists.length) {
+      if (!String(pageNote).trim()) empty(pdf);
+      return;
+    }
     lists.forEach(function (list, i) {
       pdf.recordHead(list.name || "Untitled list", i + 1, lists.length);
       var people = contacts[list.id] || [];

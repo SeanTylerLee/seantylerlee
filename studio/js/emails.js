@@ -6,6 +6,9 @@
   var lists = [];
   var contacts = [];
   var selectedListId = null;
+  var pageNotesId = null;
+  var pageNotesSaved = "";
+  var pageNotesOpen = false;
 
   function el(name) { return root ? root.querySelector('[data-el="' + name + '"]') : null; }
   function esc(s) {
@@ -61,7 +64,19 @@
       '<div class="ops-workspace inbox-shell">' +
         '<div class="inbox-head">' +
           "<div><h1>Email Lists</h1><p>Name a list, then add emails. Nothing is sent from Studio.</p></div>" +
-          '<button class="btn btn-ghost" type="button" data-el="add-list">New list</button>' +
+          '<div class="inbox-head-actions">' +
+            '<button class="btn btn-ghost" type="button" data-el="page-notes-toggle" aria-expanded="false">Notes</button>' +
+            '<button class="btn btn-ghost" type="button" data-el="add-list">New list</button>' +
+          "</div>" +
+        "</div>" +
+        '<div class="mail-page-notes" data-el="page-notes" hidden>' +
+          '<div class="ops-field">' +
+            "<label>Notes</label>" +
+            '<textarea data-el="page-notes-body" rows="8" placeholder="Notes for Email Lists. Saved on this page only."></textarea>' +
+          "</div>" +
+          '<div class="mail-page-notes-bar">' +
+            '<button class="btn btn-primary" type="button" data-el="page-notes-save" disabled>Save notes</button>' +
+          "</div>" +
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="inbox-split">' +
@@ -197,10 +212,84 @@
     }
   }
 
+  function pageNotesDirty() {
+    var box = el("page-notes-body");
+    return !!box && box.value !== pageNotesSaved;
+  }
+
+  function syncPageNotesSave() {
+    var btn = el("page-notes-save");
+    if (btn) btn.disabled = !pageNotesDirty();
+  }
+
+  function paintPageNotes(fill) {
+    var panel = el("page-notes");
+    var toggle = el("page-notes-toggle");
+    var box = el("page-notes-body");
+    if (panel) {
+      if (pageNotesOpen) panel.removeAttribute("hidden");
+      else panel.setAttribute("hidden", "");
+    }
+    if (toggle) {
+      toggle.classList.toggle("is-on", pageNotesOpen);
+      toggle.setAttribute("aria-expanded", pageNotesOpen ? "true" : "false");
+    }
+    if (box && fill && (document.activeElement !== box || !box.value)) box.value = pageNotesSaved;
+    syncPageNotesSave();
+  }
+
+  function togglePageNotes() {
+    pageNotesOpen = !pageNotesOpen;
+    paintPageNotes();
+    if (pageNotesOpen) {
+      var box = el("page-notes-body");
+      if (box) box.focus();
+    }
+  }
+
+  function savePageNotes() {
+    var box = el("page-notes-body");
+    if (!box || !pageNotesDirty()) return;
+    var body = box.value;
+    var btn = el("page-notes-save");
+    if (btn) btn.disabled = true;
+    var req = pageNotesId
+      ? db.from("email_page_notes").update({ body: body }).eq("id", pageNotesId).select("id, body").single()
+      : db.from("email_page_notes").insert({ body: body }).select("id, body").single();
+    req.then(function (res) {
+      if (res.error) {
+        syncPageNotesSave();
+        var missing = /does not exist|schema cache/i.test(res.error.message || "");
+        showMsg(missing ? "Run sql/033_email_page_notes.sql in Supabase." : res.error.message, false);
+        return;
+      }
+      pageNotesId = res.data.id;
+      pageNotesSaved = res.data.body || "";
+      if (box && box.value === body) box.value = pageNotesSaved;
+      syncPageNotesSave();
+      showMsg("Notes saved.", true);
+    });
+  }
+
+  function loadPageNotes() {
+    return db.from("email_page_notes").select("id, body").limit(1).maybeSingle().then(function (res) {
+      if (res.error) {
+        if (/does not exist|schema cache/i.test(res.error.message || "")) {
+          showMsg("Run sql/033_email_page_notes.sql in Supabase.", false);
+        }
+        return;
+      }
+      pageNotesId = res.data ? res.data.id : null;
+      pageNotesSaved = res.data && res.data.body ? res.data.body : "";
+      paintPageNotes(true);
+    });
+  }
+
   function render() {
     renderLists();
     renderDetail();
     hideSave();
+    paintPageNotes(false);
   }
 
   function addListFn() {
@@ -281,9 +370,19 @@
       panel.classList.add("ops-wide");
       panel.innerHTML = shell();
       hideSave();
+      pageNotesId = null;
+      pageNotesSaved = "";
+      pageNotesOpen = false;
       var add = el("add-list");
       if (add) add.onclick = addListFn;
+      var notesToggle = el("page-notes-toggle");
+      if (notesToggle) notesToggle.onclick = togglePageNotes;
+      var notesBox = el("page-notes-body");
+      if (notesBox) notesBox.addEventListener("input", syncPageNotesSave);
+      var notesSave = el("page-notes-save");
+      if (notesSave) notesSave.onclick = savePageNotes;
       load();
+      loadPageNotes();
     },
     unmount: function (panel) {
       hideSave();
