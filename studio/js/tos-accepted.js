@@ -2,7 +2,6 @@
   "use strict";
 
   var root = null;
-  var app = null;
   var rows = [];
   var platform = "android";
   var expandedId = "";
@@ -19,14 +18,6 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
-  }
-
-  function isPermitPath(row) {
-    if (!row) return false;
-    var blob = [row.name, row.bundle_identifier, row.google_package_name].join(" ").toLowerCase();
-    return blob.indexOf("permit") >= 0 ||
-      blob.indexOf("com.haulpath.permitpath") >= 0 ||
-      blob.indexOf("com.seantylerlee.permitpath") >= 0;
   }
 
   function shortId(value) {
@@ -73,11 +64,6 @@
     });
     var note = el("note");
     var list = el("list");
-    if (!isPermitPath(app)) {
-      if (note) note.textContent = "TOS Accepted is kept for Permit Path. Select Permit Path to see Android and Apple acceptances.";
-      if (list) list.innerHTML = "";
-      return;
-    }
     if (loading) {
       if (note) note.textContent = "Loading acceptances…";
       if (list) list.innerHTML = "";
@@ -125,13 +111,6 @@
   }
 
   function load() {
-    if (!isPermitPath(app)) {
-      rows = [];
-      error = "";
-      loading = false;
-      render();
-      return;
-    }
     if (!window.STLLocalApi || !window.STLLocalApi.available || !window.STLLocalApi.available()) {
       error = "Sign in, then open Studio again so the terms list can load.";
       loading = false;
@@ -168,11 +147,9 @@
     },
     unmount: function () {
       root = null;
-      app = null;
       rows = [];
     },
-    setApp: function (next) {
-      app = next || null;
+    setApp: function () {
       expandedId = "";
       load();
     }
