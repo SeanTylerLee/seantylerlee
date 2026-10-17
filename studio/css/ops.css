@@ -1204,6 +1204,93 @@
   margin-top: 4px;
 }
 
+.pc4h-tabs {
+  padding: 0 16px 12px;
+}
+
+.pc4h-updated {
+  margin: 0 0 10px;
+}
+
+.pc4h-watch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.pc4h-watch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pc4h-watch-head h3,
+.pc4h-watch-head h4,
+.pc4h-home h3,
+.pc4h-home h4 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.pc4h-watch-head h3,
+.pc4h-watch-head h4 {
+  margin: 0;
+}
+
+.pc4h-person,
+.pc4h-person-static {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  color: var(--ink);
+}
+
+.pc4h-person-static {
+  cursor: default;
+}
+
+.pc4h-service-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.pc4h-service-chip {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.pc4h-service-chip b {
+  margin-right: 4px;
+}
+
+.pc4h-gaps {
+  margin-top: 8px;
+}
+
+.pc4h-sort {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .pc4h-watch {
+    grid-template-columns: 1fr;
+  }
+}
+
 .pc4h-home-actions .btn,
 .pc4h-form-actions .btn,
 .pc4h-actions .btn {

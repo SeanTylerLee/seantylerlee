@@ -3,6 +3,7 @@
 
   var KEYS_HINT =
     "Add Pilot Car 4 Hire URL + service_role key to secrets/pilotcar4hire_*.txt on this Mac, run sql/024_pilotcar4hire_announce.sql, then open Studio once while signed in.";
+  var PROTECTED_EMAIL = "seantylerlee@outlook.com";
 
   var LISTING_SERVICES = [
     { value: "Lead", label: "Lead" },
@@ -51,7 +52,9 @@
   var formMode = "create";
   var editingPilot = null;
   var incompleteOnly = false;
+  var listingOnly = false;
   var pilotSearch = "";
+  var pilotSort = "new";
   var formBanner = "";
   var formBannerBad = false;
   var pilotsBanner = "";
@@ -197,19 +200,118 @@
     return map;
   }
   function registeredEmails() {
-    return (pilots || [])
-      .map(function (p) { return trim(p.email); })
-      .filter(Boolean)
-      .sort(function (a, b) { return a.localeCompare(b, undefined, { sensitivity: "base" }); });
+    return uniqueEmails((pilots || []).map(function (p) { return trim(p.email); }));
+  }
+  function publicEmails() {
+    return uniqueEmails((pilots || []).map(function (p) {
+      return trim(p.listing && p.listing.email);
+    }));
+  }
+  function uniqueEmails(list) {
+    var seen = {};
+    var out = [];
+    (list || []).forEach(function (email) {
+      var value = trim(email);
+      var key = value.toLowerCase();
+      if (!value || seen[key]) return;
+      seen[key] = true;
+      out.push(value);
+    });
+    out.sort(function (a, b) { return a.localeCompare(b, undefined, { sensitivity: "base" }); });
+    return out;
+  }
+  function isProtectedPilot(pilot) {
+    return trim(pilot && pilot.email).toLowerCase() === PROTECTED_EMAIL;
+  }
+  function serviceLabel(value) {
+    var hit = LISTING_SERVICES.filter(function (service) { return service.value === value; })[0];
+    return hit ? hit.label : (value || "");
+  }
+  function formatAgo(value) {
+    if (!value) return "";
+    var d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    var mins = Math.floor((Date.now() - d.getTime()) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + " min ago";
+    var hours = Math.floor(mins / 60);
+    if (hours < 24) return hours === 1 ? "1 hour ago" : hours + " hours ago";
+    var days = Math.floor(hours / 24);
+    if (days < 45) return days === 1 ? "1 day ago" : days + " days ago";
+    return formatSignedUp(value);
+  }
+  function boardCounts() {
+    var live = (pilots || []).filter(function (pilot) { return !!pilot.listing; }).length;
+    return {
+      total: (pilots || []).length,
+      live: live,
+      incomplete: Math.max(0, (pilots || []).length - live),
+      waiting: (handoffs || []).length
+    };
+  }
+  function stateCoverage() {
+    var map = {};
+    (pilots || []).forEach(function (pilot) {
+      var listing = pilot.listing;
+      if (!listing) return;
+      var states = listing.statesCertified && listing.statesCertified.length
+        ? listing.statesCertified
+        : (listing.homeState ? [listing.homeState] : []);
+      states.forEach(function (code) {
+        var key = String(code || "").toUpperCase();
+        if (!key) return;
+        map[key] = (map[key] || 0) + 1;
+      });
+    });
+    return map;
+  }
+  function serviceCoverage() {
+    var map = {};
+    LISTING_SERVICES.forEach(function (service) { map[service.value] = 0; });
+    (pilots || []).forEach(function (pilot) {
+      var listing = pilot.listing;
+      if (!listing || !listing.services) return;
+      listing.services.forEach(function (value) {
+        if (map[value] == null) map[value] = 0;
+        map[value] += 1;
+      });
+    });
+    return map;
+  }
+  function sortedPilots(list) {
+    var rows = (list || []).slice();
+    rows.sort(function (a, b) {
+      if (pilotSort === "name") {
+        return (a.name || a.email || "").localeCompare(b.name || b.email || "", undefined, { sensitivity: "base" });
+      }
+      if (pilotSort === "incomplete") {
+        var ai = a.listing ? 1 : 0;
+        var bi = b.listing ? 1 : 0;
+        if (ai !== bi) return ai - bi;
+      }
+      var at = new Date(a.createdAt || 0).getTime() || 0;
+      var bt = new Date(b.createdAt || 0).getTime() || 0;
+      return bt - at;
+    });
+    return rows;
   }
   function filteredPilots() {
     var q = trim(pilotSearch).toLowerCase();
-    return (pilots || []).filter(function (pilot) {
+    var rows = (pilots || []).filter(function (pilot) {
       if (incompleteOnly && pilot.listing) return false;
+      if (listingOnly && !pilot.listing) return false;
       if (!q) return true;
-      var hay = ((pilot.name || "") + " " + (pilot.email || "") + " " + ((pilot.listing && pilot.listing.businessName) || "")).toLowerCase();
+      var listing = pilot.listing || {};
+      var hay = (
+        (pilot.name || "") + " " +
+        (pilot.email || "") + " " +
+        (listing.businessName || "") + " " +
+        (listing.homeCity || "") + " " +
+        (listing.homeState || "")
+      ).toLowerCase();
       return hay.indexOf(q) !== -1;
     });
+    return sortedPilots(rows);
   }
 
   function shell() {
@@ -217,33 +319,92 @@
       '<div class="ops-workspace pc4h-admin">' +
         '<div class="ops-header">' +
           "<h1>PC4H Admin</h1>" +
-          "<p>Pilot Car 4 Hire accounts and listings — same tools as the website admin dashboard.</p>" +
+          "<p>Pilot accounts, live listings, and logins you still need to send.</p>" +
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
+        '<div class="ops-filters pc4h-tabs">' +
+          '<button type="button" class="ops-pill" data-nav="home">Overview</button>' +
+          '<button type="button" class="ops-pill" data-nav="pilots" data-pilot-mode="all">Pilots</button>' +
+          '<button type="button" class="ops-pill" data-nav="listings">To email</button>' +
+          '<button type="button" class="ops-pill" data-nav="emails">Emails</button>' +
+          '<button type="button" class="btn btn-primary" data-nav="form">Add listing</button>' +
+          '<button type="button" class="btn btn-ghost" data-el="refresh" style="margin-left:auto">Refresh</button>' +
+        "</div>" +
         '<div class="ops-body pc4h-admin-body" data-el="body"></div>' +
       "</div>"
     );
   }
 
   function homeHtml() {
-    var s = stats || {};
-    return (
-      '<div class="pc4h-home">' +
-        '<div class="ops-chips">' +
-          '<div class="ops-chip"><span class="k">Pilots</span><span class="v">' + esc(s.totalPilots || 0) + "</span></div>" +
-          '<div class="ops-chip ok"><span class="k">With listing</span><span class="v">' + esc(s.withListing || 0) + "</span></div>" +
-          '<div class="ops-chip warn"><span class="k">Incomplete</span><span class="v">' + esc(s.incomplete || 0) + "</span></div>" +
-          '<div class="ops-chip"><span class="k">Handoffs</span><span class="v">' + esc(s.handoffs || 0) + "</span></div>" +
-        "</div>" +
-        '<div class="pc4h-home-actions">' +
-          '<button type="button" class="btn btn-primary" data-nav="form">Add a pilot car listing</button>' +
-          '<button type="button" class="btn" data-nav="pilots">All pilots &amp; help incomplete</button>' +
-          '<button type="button" class="btn" data-nav="listings">Listings added by admin</button>' +
-          '<button type="button" class="btn" data-nav="emails">Registered emails</button>' +
-          '<button type="button" class="btn btn-ghost" data-el="refresh"' + (loading ? " disabled" : "") + ">" + (loading ? "Refreshing…" : "Refresh") + "</button>" +
-        "</div>" +
-      "</div>"
-    );
+    var counts = boardCounts();
+    var updated = formatAgo(stats && stats.generatedAt);
+    var incomplete = (pilots || []).filter(function (pilot) { return !pilot.listing; }).slice(0, 5);
+    var waiting = (handoffs || []).slice(0, 5);
+    var coverage = stateCoverage();
+    var services = serviceCoverage();
+    var covered = Object.keys(coverage).length;
+    var gaps = CERTIFICATION_REQUIRED_STATES.filter(function (code) { return !coverage[code]; });
+    var newest = (pilots || []).slice().sort(function (a, b) {
+      return (new Date(b.createdAt || 0).getTime() || 0) - (new Date(a.createdAt || 0).getTime() || 0);
+    }).slice(0, 6);
+    var html = '<div class="pc4h-home">';
+    if (updated) html += '<p class="sub pc4h-updated">Updated ' + esc(updated) + ".</p>";
+    html += '<div class="ops-chips">';
+    html += '<button type="button" class="ops-chip" data-nav="pilots" data-pilot-mode="all"><span class="k">Pilots</span><span class="v">' + counts.total + "</span></button>";
+    html += '<button type="button" class="ops-chip ok" data-nav="pilots" data-pilot-mode="live"><span class="k">Live listings</span><span class="v">' + counts.live + "</span></button>";
+    html += '<button type="button" class="ops-chip warn" data-nav="pilots" data-pilot-mode="incomplete"><span class="k">No listing yet</span><span class="v">' + counts.incomplete + "</span></button>";
+    html += '<button type="button" class="ops-chip' + (counts.waiting ? " danger" : "") + '" data-nav="listings"><span class="k">To email</span><span class="v">' + counts.waiting + "</span></button>";
+    html += "</div>";
+
+    html += '<div class="ops-card"><h3>Needs a look</h3><div class="pc4h-watch">';
+    html += '<section><div class="pc4h-watch-head"><h4>No listing yet</h4>';
+    if (counts.incomplete) {
+      html += '<button type="button" class="btn btn-ghost" data-nav="pilots" data-pilot-mode="incomplete">See all ' + counts.incomplete + "</button>";
+    }
+    html += "</div>";
+    if (!incomplete.length) html += '<p class="sub">Every account has a live listing.</p>';
+    incomplete.forEach(function (pilot) {
+      html += '<button type="button" class="pc4h-person" data-edit-pilot="' + esc(pilot.id) + '"><span>' +
+        esc(pilot.name || pilot.email || "Pilot") + "</span><span class=\"muted\">" +
+        esc(pilot.email || "Signed up " + formatSignedUp(pilot.createdAt)) + "</span></button>";
+    });
+    html += "</section>";
+    html += '<section><div class="pc4h-watch-head"><h4>Login not sent</h4>';
+    if (counts.waiting) html += '<button type="button" class="btn btn-ghost" data-nav="listings">See all ' + counts.waiting + "</button>";
+    html += "</div>";
+    if (!waiting.length) html += '<p class="sub">No logins waiting to be copied and sent.</p>';
+    waiting.forEach(function (handoff) {
+      html += '<div class="pc4h-person pc4h-person-static"><span>' + esc(handoff.contactName || handoff.loginEmail || "Pilot") +
+        "</span><span class=\"muted\">" + esc(handoff.loginEmail || "") +
+        (handoff.createdAt ? " · " + esc(formatAgo(handoff.createdAt)) : "") + "</span></div>";
+    });
+    html += "</section></div></div>";
+
+    html += '<div class="ops-card"><h3>Coverage</h3><p class="sub">' + covered + " state" + (covered === 1 ? "" : "s") + " with a certified pilot.</p>";
+    html += '<div class="pc4h-service-row">';
+    LISTING_SERVICES.forEach(function (service) {
+      html += '<span class="pc4h-service-chip"><b>' + (services[service.value] || 0) + "</b> " + esc(service.label) + "</span>";
+    });
+    html += "</div>";
+    if (gaps.length) {
+      html += '<p class="sub pc4h-gaps">No certified pilot yet in ' + esc(gaps.map(getStateName).join(", ")) + ".</p>";
+    } else {
+      html += '<p class="sub">Every state that requires certification has at least one pilot.</p>';
+    }
+    html += "</div>";
+
+    html += '<div class="ops-card"><div class="pc4h-watch-head"><h3>Newest accounts</h3></div>';
+    if (!newest.length) html += '<p class="sub">No pilots yet.</p>';
+    newest.forEach(function (pilot) {
+      var listing = pilot.listing;
+      var where = listing ? formatHomeLocation(listing.homeCity, listing.homeState) : "No listing yet";
+      html += '<button type="button" class="pc4h-person" data-edit-pilot="' + esc(pilot.id) + '"><span>' +
+        esc(pilot.name || pilot.email || "Pilot") + "</span><span class=\"muted\">" +
+        esc((formatAgo(pilot.createdAt) || formatSignedUp(pilot.createdAt)) + " · " + where) +
+        "</span></button>";
+    });
+    html += "</div></div>";
+    return html;
   }
 
   function successHtml() {
@@ -379,21 +540,22 @@
             "<div><dt>Based in</dt><dd>" + esc(formatHomeLocation(listing.homeCity, listing.homeState) || "—") + "</dd></div>" +
           "</dl>"
         : '<p class="pc4h-missing">Signed up but never finished a listing. Use Complete listing to fill it in for them.</p>';
-      var passwordHtml = handoff && handoff.tempPassword
-        ? '<p class="pc4h-password"><strong>Temp password on file:</strong> ' + esc(handoff.tempPassword) + ' <span class="pc4h-note">(from when you added them)</span></p>'
-        : '<p class="pc4h-note">Password can’t be viewed. Use Send reset email if they forgot it.</p>';
+      var place = listing ? formatHomeLocation(listing.homeCity, listing.homeState) : "";
+      var services = listing && listing.services && listing.services.length
+        ? listing.services.map(serviceLabel).join(", ")
+        : "";
+      var meta = [place, services, "Signed up " + formatSignedUp(pilot.createdAt)].filter(Boolean).join(" · ");
       return (
         '<article class="ops-card pc4h-pilot-card">' +
           '<div class="pc4h-pilot-head">' +
             "<div>" +
-              "<h3>" + esc(pilot.name || "—") + "</h3>" +
+              "<h3>" + esc(pilot.name || listing && listing.businessName || "—") + "</h3>" +
               '<p class="sub">' + esc(pilot.email || "—") + "</p>" +
-              '<p class="sub">Signed up ' + esc(formatSignedUp(pilot.createdAt)) + "</p>" +
+              '<p class="sub">' + esc(meta) + "</p>" +
             "</div>" +
             '<span class="pc4h-status ' + statusClass + '">' + statusLabel + "</span>" +
           "</div>" +
-          listingHtml +
-          passwordHtml +
+          (listing ? "" : listingHtml) +
           '<div class="pc4h-actions">' +
             '<button type="button" class="btn btn-primary" data-edit-pilot="' + esc(pilot.id) + '">' + (listing ? "Edit listing" : "Complete listing") + "</button>" +
             '<button type="button" class="btn" data-copy-pilot-email="' + esc(pilot.email || "") + '">Copy email</button>' +
@@ -401,7 +563,9 @@
             (handoff && handoff.tempPassword
               ? '<button type="button" class="btn" data-copy-pilot-password="' + esc(handoff.tempPassword) + '">Copy temp password</button>'
               : "") +
-            '<button type="button" class="btn btn-danger" data-delete-pilot="' + esc(pilot.id) + '">Delete user</button>' +
+            (isProtectedPilot(pilot)
+              ? ""
+              : '<button type="button" class="btn btn-danger" data-delete-pilot="' + esc(pilot.id) + '">Delete user</button>') +
           "</div>" +
         "</article>"
       );
@@ -410,12 +574,16 @@
     return (
       '<div class="pc4h-view">' +
         '<div class="pc4h-view-top">' +
-          '<button type="button" class="btn btn-ghost" data-nav="home">Back</button>' +
-          "<div><h2>All pilots</h2><p>See who signed up, whether they finished a listing, and help them get back in.</p></div>" +
+          "<div><h2>Pilots</h2><p>Who has a live listing, and who still needs one.</p></div>" +
         "</div>" +
         '<div class="pc4h-toolbar">' +
-          '<label class="pc4h-toggle"><input type="checkbox" data-el="incomplete-only"' + (incompleteOnly ? " checked" : "") + " /> Incomplete only (no listing yet)</label>" +
-          '<input type="search" data-el="pilot-search" class="pc4h-search" placeholder="Search name or email…" value="' + esc(pilotSearch) + '" autocomplete="off" />' +
+          '<label class="pc4h-toggle"><input type="checkbox" data-el="incomplete-only"' + (incompleteOnly ? " checked" : "") + " /> No listing yet</label>" +
+          '<input type="search" data-el="pilot-search" class="pc4h-search" placeholder="Search name, email, or city…" value="' + esc(pilotSearch) + '" autocomplete="off" />' +
+          '<div class="ops-filters pc4h-sort">' +
+            '<button type="button" class="ops-pill' + (pilotSort === "new" ? " is-on" : "") + '" data-pilot-sort="new">Newest</button>' +
+            '<button type="button" class="ops-pill' + (pilotSort === "name" ? " is-on" : "") + '" data-pilot-sort="name">Name</button>' +
+            '<button type="button" class="ops-pill' + (pilotSort === "incomplete" ? " is-on" : "") + '" data-pilot-sort="incomplete">Needs listing</button>' +
+          "</div>" +
         "</div>" +
         (pilotsBanner
           ? '<p class="status ops-banner is-on ' + (pilotsBannerBad ? "is-bad" : "is-ok") + '">' + esc(pilotsBanner) + "</p>"
@@ -433,9 +601,15 @@
     var cards = (handoffs || []).map(function (handoff) {
       return (
         '<article class="ops-card pc4h-handoff-card" data-handoff-id="' + esc(handoff.id) + '">' +
-          '<span class="pc4h-handoff-name">' + esc(handoff.contactName || "—") + "</span>" +
+          "<div>" +
+            '<span class="pc4h-handoff-name">' + esc(handoff.contactName || "—") + "</span>" +
+            '<p class="sub">' + esc(handoff.loginEmail || "—") +
+              (handoff.phone ? " · " + esc(handoff.phone) : "") +
+              (handoff.createdAt ? " · added " + esc(formatAgo(handoff.createdAt)) : "") +
+            "</p>" +
+          "</div>" +
           '<div class="pc4h-actions">' +
-            '<button type="button" class="btn" data-copy-handoff="' + esc(handoff.id) + '">Copy email</button>' +
+            '<button type="button" class="btn btn-primary" data-copy-handoff="' + esc(handoff.id) + '">Copy login message</button>' +
             '<button type="button" class="btn" data-remove-handoff="' + esc(handoff.id) + '">Remove</button>' +
           "</div>" +
         "</article>"
@@ -445,20 +619,19 @@
     return (
       '<div class="pc4h-view">' +
         '<div class="pc4h-view-top">' +
-          '<button type="button" class="btn btn-ghost" data-nav="home">Back</button>' +
-          "<div><h2>Listings added by admin</h2><p>Tap Copy email for each pilot, send them their login info, then Remove when done.</p></div>" +
+          "<div><h2>To email</h2><p>Copy the login message, send it, then remove the row so you know it is done.</p></div>" +
         "</div>" +
         (loading
           ? '<p class="ops-empty">Loading…</p>'
           : (handoffs.length
               ? '<div class="pc4h-handoff-list">' + cards + "</div>"
-              : '<p class="ops-empty">No pilots waiting. Everyone you’ve added has been emailed.</p>')) +
+              : '<p class="ops-empty">Nothing waiting. Every login you created has been cleared from this list.</p>')) +
       "</div>"
     );
   }
 
-  function emailsHtml() {
-    var emails = registeredEmails();
+  function emailBlock(title, note, emails, copyAllName) {
+    if (!emails.length) return '<div class="ops-card"><h3>' + esc(title) + '</h3><p class="sub">' + esc(note) + '</p><p class="sub">None yet.</p></div>';
     var rows = emails.map(function (email) {
       return (
         '<li class="ops-card pc4h-email-row">' +
@@ -467,28 +640,35 @@
         "</li>"
       );
     }).join("");
+    return (
+      '<div class="ops-card">' +
+        "<h3>" + esc(title) + "</h3>" +
+        '<p class="sub">' + esc(note) + "</p>" +
+        '<div class="pc4h-emails-toolbar">' +
+          "<p>" + emails.length + "</p>" +
+          '<button type="button" class="btn btn-primary" data-el="' + copyAllName + '">Copy all</button>' +
+        "</div>" +
+        '<textarea class="pc4h-emails-bulk" readonly rows="6">' + esc(emails.join("\n")) + "</textarea>" +
+        '<ul class="pc4h-email-list">' + rows + "</ul>" +
+      "</div>"
+    );
+  }
 
+  function emailsHtml() {
+    var emails = registeredEmails();
+    var publics = publicEmails();
     return (
       '<div class="pc4h-view">' +
         '<div class="pc4h-view-top">' +
-          '<button type="button" class="btn btn-ghost" data-nav="home">Back</button>' +
-          "<div><h2>Registered emails</h2><p>Every account email on file. Copy one, or copy them all at once.</p></div>" +
+          "<div><h2>Emails</h2><p>Account logins, and the public emails carriers see on listings.</p></div>" +
         "</div>" +
         (emailsBanner
           ? '<p class="status ops-banner is-on ' + (emailsBannerBad ? "is-bad" : "is-ok") + '">' + esc(emailsBanner) + "</p>"
           : "") +
         (loading
           ? '<p class="ops-empty">Loading…</p>'
-          : (emails.length
-              ? (
-                  '<div class="pc4h-emails-toolbar">' +
-                    "<p>" + emails.length + " registered email" + (emails.length === 1 ? "" : "s") + "</p>" +
-                    '<button type="button" class="btn btn-primary" data-el="copy-all-emails">Copy all emails</button>' +
-                  "</div>" +
-                  '<textarea class="pc4h-emails-bulk" data-el="emails-bulk" readonly rows="8">' + esc(emails.join("\n")) + "</textarea>" +
-                  '<ul class="pc4h-email-list">' + rows + "</ul>"
-                )
-              : '<p class="ops-empty">No registered accounts yet.</p>')) +
+          : emailBlock("Account emails", "The email they use to sign in.", emails, "copy-all-emails") +
+            emailBlock("Public listing emails", "The email printed on the listing.", publics, "copy-all-public")) +
       "</div>"
     );
   }
@@ -502,10 +682,51 @@
     return homeHtml();
   }
 
+  function syncTabs() {
+    if (!root) return;
+    root.querySelectorAll(".pc4h-tabs [data-nav]").forEach(function (btn) {
+      var next = btn.getAttribute("data-nav");
+      btn.classList.toggle("is-on", next !== "form" && next === view);
+    });
+    var refresh = el("refresh");
+    if (refresh) {
+      refresh.disabled = !!loading;
+      refresh.textContent = loading ? "Loading…" : "Refresh";
+    }
+  }
+
+  function goNav(btn) {
+    var next = btn.getAttribute("data-nav");
+    var mode = btn.getAttribute("data-pilot-mode");
+    if (mode === "incomplete") {
+      incompleteOnly = true;
+      listingOnly = false;
+    } else if (mode === "live") {
+      listingOnly = true;
+      incompleteOnly = false;
+    } else if (mode === "all" || next === "pilots") {
+      incompleteOnly = false;
+      listingOnly = false;
+    }
+    if (next === "form") {
+      setCreateFormMode();
+      refreshPassword();
+      setView("form");
+      return;
+    }
+    if (next === "pilots" || next === "listings" || next === "emails" || next === "home") {
+      setView(next);
+      if (next !== "home") loadSnapshot(true);
+      return;
+    }
+    setView(next);
+  }
+
   function render() {
     var body = el("body");
     if (!body) return;
     body.innerHTML = bodyHtml();
+    syncTabs();
     bindBody();
   }
 
@@ -697,25 +918,14 @@
     if (!body) return;
 
     body.querySelectorAll("[data-nav]").forEach(function (btn) {
+      btn.addEventListener("click", function () { goNav(btn); });
+    });
+    body.querySelectorAll("[data-pilot-sort]").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        var next = btn.getAttribute("data-nav");
-        if (next === "form") {
-          setCreateFormMode();
-          refreshPassword();
-          setView("form");
-          return;
-        }
-        if (next === "pilots" || next === "listings" || next === "emails" || next === "home") {
-          setView(next);
-          if (next !== "home" && next !== "success") loadSnapshot(false);
-          return;
-        }
-        setView(next);
+        pilotSort = btn.getAttribute("data-pilot-sort") || "new";
+        render();
       });
     });
-
-    var refresh = el("refresh");
-    if (refresh) refresh.addEventListener("click", function () { loadSnapshot(false); });
 
     var formBack = el("form-back");
     var formCancel = el("form-cancel");
@@ -792,6 +1002,7 @@
     if (incomplete) {
       incomplete.addEventListener("change", function () {
         incompleteOnly = !!incomplete.checked;
+        if (incompleteOnly) listingOnly = false;
         render();
       });
     }
@@ -915,7 +1126,18 @@
       copyAll.addEventListener("click", function () {
         var emails = registeredEmails();
         copyText(emails.join("\n"), copyAll).then(function () {
-          emailsBanner = "Copied " + emails.length + " email" + (emails.length === 1 ? "" : "s") + ".";
+          emailsBanner = "Copied " + emails.length + " account email" + (emails.length === 1 ? "" : "s") + ".";
+          emailsBannerBad = false;
+          render();
+        });
+      });
+    }
+    var copyPublic = el("copy-all-public");
+    if (copyPublic) {
+      copyPublic.addEventListener("click", function () {
+        var emails = publicEmails();
+        copyText(emails.join("\n"), copyPublic).then(function () {
+          emailsBanner = "Copied " + emails.length + " public email" + (emails.length === 1 ? "" : "s") + ".";
           emailsBannerBad = false;
           render();
         });
@@ -939,6 +1161,11 @@
       if (panel) panel.classList.add("ops-wide");
       root.innerHTML = shell();
       hideSave();
+      root.querySelectorAll(".pc4h-tabs [data-nav]").forEach(function (btn) {
+        btn.addEventListener("click", function () { goNav(btn); });
+      });
+      var refresh = el("refresh");
+      if (refresh) refresh.addEventListener("click", function () { loadSnapshot(false); });
       view = "home";
       setCreateFormMode();
       render();
