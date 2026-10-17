@@ -297,7 +297,7 @@
       "Work this booklet in order. Each page is one Studio menu. Type every field shown.",
       "When a line says “in zip”, upload that exact file from the matching folder.",
       "02-Studio-Data.json is the complete Studio copy (every row, including Notes formatting).",
-      "03-TOS-Accepted.json is every Permit Path terms acceptance, including IP address. Keep that file. It is your proof.",
+      "03-TOS-Accepted.json and TOS-Accepted/*.txt are every Permit Path terms acceptance, including IP address and the terms text they agreed to. Keep those files. They are your proof.",
       "Bank, Analytics, Subscribed, Permit Path Admin, and PC4H Admin are live screens. They come back when Secrets/ keys are in place."
     ]);
     pdf.heading("What is in this zip", 13);
@@ -308,6 +308,7 @@
         ["01-Restore-Guide.pdf", "This booklet. Type from it."],
         ["02-Studio-Data.json", "Full copy of every Studio row"],
         ["03-TOS-Accepted.json", "Every terms acceptance with IP"],
+        ["TOS-Accepted/", "One .txt proof file per acceptance"],
         ["Secrets/", "stl-studio/secrets/ on this Mac"],
         ["Company-Documents/", "Business Info documents"],
         ["Receipts/Expenses/", "Expense proofs"],
@@ -622,7 +623,7 @@
     openMenu(
       pdf,
       "TOS Accepted",
-      "This is the proof copy. Keep 03-TOS-Accepted.json with this booklet. Each record is one Permit Path terms acceptance, including IP address."
+      "This is the proof copy. Keep 03-TOS-Accepted.json and the TOS-Accepted/*.txt files. Each record is one Permit Path terms acceptance, including IP address and the terms they agreed to."
     );
     var err = tableError(pack, "tos_acceptances");
     if (err) {
@@ -1271,6 +1272,57 @@
     return base || fallback || "file";
   }
 
+  function tosProofText(row) {
+    var who = row.account_email || "Guest";
+    var lines = [
+      "STL Apps LLC — Permit Path terms of use acceptance",
+      "This file is a copy of the terms this person accepted, with the time and IP address recorded at acceptance.",
+      "",
+      "Accepted at: " + (row.accepted_at || ""),
+      "Platform: " + (row.platform || ""),
+      "IP address: " + (row.ip_address || ""),
+      "Account email: " + who,
+      "Account user id: " + (row.account_user_id || ""),
+      "Install id: " + (row.install_id || ""),
+      "App version: " + (row.app_version || ""),
+      "Terms version: " + (row.terms_version || ""),
+      "Record id: " + (row.id || ""),
+      ""
+    ];
+    if (String(row.highlights || "").trim()) {
+      lines.push("----- Highlights they saw -----", "", String(row.highlights).replace(/\r\n/g, "\n"), "");
+    }
+    lines.push("----- Full terms they accepted -----", "", String(row.terms_text || "").replace(/\r\n/g, "\n") || "(No terms text stored on this record.)", "");
+    return lines.join("\n");
+  }
+
+  function writeTosTextFiles(folder, pack) {
+    var rows = pack.tosAcceptances || [];
+    var used = {};
+    var index = [
+      "TOS Accepted proof files",
+      "Each .txt is one acceptance. Open the file for that person to show time, IP, and the terms they accepted.",
+      "",
+      "Count: " + rows.length,
+      ""
+    ];
+    rows.forEach(function (row, i) {
+      var stamp = String(row.accepted_at || "").replace(/[T:]/g, "-").slice(0, 19);
+      var who = safeFile(row.account_email || "guest", "guest");
+      var plat = safeFile(row.platform || "app", "app");
+      var name = uniqueName(used, (i + 1) + "-" + stamp + "-" + plat + "-" + who + ".txt");
+      folder.file(name, tosProofText(row));
+      index.push(
+        name +
+        "  |  " + (row.accepted_at || "") +
+        "  |  " + (row.platform || "") +
+        "  |  " + (row.account_email || "Guest") +
+        "  |  IP " + (row.ip_address || "—")
+      );
+    });
+    folder.file("00-INDEX.txt", index.join("\n"));
+  }
+
   function uniqueName(used, name) {
     var n = name;
     var i = 2;
@@ -1465,7 +1517,7 @@
       "- Analytics and Subscribed (App Store Connect and Google Play)",
       "- Permit Path Admin and PC4H Admin (live app databases)",
       "",
-      "TOS Accepted is copied. See 03-TOS-Accepted.json and the TOS Accepted pages in the PDF.",
+      "TOS Accepted is copied. See 03-TOS-Accepted.json, TOS-Accepted/*.txt, and the TOS Accepted pages in the PDF.",
       "",
       "Menus that did not load:",
       (pack.failed || []).length
@@ -1522,6 +1574,7 @@
             error: tableError(pack, "tos_acceptances") || "",
             rows: pack.tosAcceptances || []
           }, null, 2));
+          writeTosTextFiles(root.folder("TOS-Accepted"), pack);
           var secrets = root.folder("Secrets");
           writeSecrets(secrets, pack.secrets);
           secrets.file(
