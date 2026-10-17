@@ -297,7 +297,7 @@
       "Work this booklet in order. Each page is one Studio menu. Type every field shown.",
       "When a line says “in zip”, upload that exact file from the matching folder.",
       "02-Studio-Data.json is the complete Studio copy (every row, including Notes formatting).",
-      "03-TOS-Accepted.json and TOS-Accepted/*.txt are every Permit Path terms acceptance, including IP address and the terms text they agreed to. Keep those files. They are your proof.",
+      "03-TOS-Accepted.txt is the list of everyone who accepted, with time and IP, and the terms of use at the bottom. Keep that file. It is your proof.",
       "Bank, Analytics, Subscribed, Permit Path Admin, and PC4H Admin are live screens. They come back when Secrets/ keys are in place."
     ]);
     pdf.heading("What is in this zip", 13);
@@ -308,7 +308,7 @@
         ["01-Restore-Guide.pdf", "This booklet. Type from it."],
         ["02-Studio-Data.json", "Full copy of every Studio row"],
         ["03-TOS-Accepted.json", "Every terms acceptance with IP"],
-        ["TOS-Accepted/", "One .txt proof file per acceptance"],
+        ["03-TOS-Accepted.txt", "List of people, then the terms they accepted"],
         ["Secrets/", "stl-studio/secrets/ on this Mac"],
         ["Company-Documents/", "Business Info documents"],
         ["Receipts/Expenses/", "Expense proofs"],
@@ -623,7 +623,7 @@
     openMenu(
       pdf,
       "TOS Accepted",
-      "This is the proof copy. Keep 03-TOS-Accepted.json and the TOS-Accepted/*.txt files. Each record is one Permit Path terms acceptance, including IP address and the terms they agreed to."
+      "This is the proof copy. Keep 03-TOS-Accepted.txt. It lists every person who accepted, with time and IP, then the terms of use they agreed to."
     );
     var err = tableError(pack, "tos_acceptances");
     if (err) {
@@ -1272,55 +1272,61 @@
     return base || fallback || "file";
   }
 
-  function tosProofText(row) {
-    var who = row.account_email || "Guest";
+  function tosListText(pack) {
+    var rows = (pack.tosAcceptances || []).slice().sort(function (a, b) {
+      return String(b.accepted_at || "").localeCompare(String(a.accepted_at || ""));
+    });
     var lines = [
-      "STL Apps LLC — Permit Path terms of use acceptance",
-      "This file is a copy of the terms this person accepted, with the time and IP address recorded at acceptance.",
-      "",
-      "Accepted at: " + (row.accepted_at || ""),
-      "Platform: " + (row.platform || ""),
-      "IP address: " + (row.ip_address || ""),
-      "Account email: " + who,
-      "Account user id: " + (row.account_user_id || ""),
-      "Install id: " + (row.install_id || ""),
-      "App version: " + (row.app_version || ""),
-      "Terms version: " + (row.terms_version || ""),
-      "Record id: " + (row.id || ""),
-      ""
-    ];
-    if (String(row.highlights || "").trim()) {
-      lines.push("----- Highlights they saw -----", "", String(row.highlights).replace(/\r\n/g, "\n"), "");
-    }
-    lines.push("----- Full terms they accepted -----", "", String(row.terms_text || "").replace(/\r\n/g, "\n") || "(No terms text stored on this record.)", "");
-    return lines.join("\n");
-  }
-
-  function writeTosTextFiles(folder, pack) {
-    var rows = pack.tosAcceptances || [];
-    var used = {};
-    var index = [
-      "TOS Accepted proof files",
-      "Each .txt is one acceptance. Open the file for that person to show time, IP, and the terms they accepted.",
+      "STL Apps LLC — Permit Path terms of use acceptances",
+      "List of everyone who accepted. Time, IP, and account are on each line. The terms of use they agreed to are at the bottom.",
       "",
       "Count: " + rows.length,
       ""
     ];
+    if (!rows.length) {
+      lines.push("No acceptances on file.");
+      return lines.join("\n");
+    }
+    lines.push(
+      "#  Accepted at  |  Platform  |  IP address  |  Account email  |  Account user id  |  Install id  |  App version  |  Terms version  |  Record id"
+    );
     rows.forEach(function (row, i) {
-      var stamp = String(row.accepted_at || "").replace(/[T:]/g, "-").slice(0, 19);
-      var who = safeFile(row.account_email || "guest", "guest");
-      var plat = safeFile(row.platform || "app", "app");
-      var name = uniqueName(used, (i + 1) + "-" + stamp + "-" + plat + "-" + who + ".txt");
-      folder.file(name, tosProofText(row));
-      index.push(
-        name +
-        "  |  " + (row.accepted_at || "") +
-        "  |  " + (row.platform || "") +
-        "  |  " + (row.account_email || "Guest") +
-        "  |  IP " + (row.ip_address || "—")
+      lines.push(
+        (i + 1) + "  " +
+        (row.accepted_at || "—") + "  |  " +
+        (row.platform || "—") + "  |  " +
+        (row.ip_address || "—") + "  |  " +
+        (row.account_email || "Guest") + "  |  " +
+        (row.account_user_id || "—") + "  |  " +
+        (row.install_id || "—") + "  |  " +
+        (row.app_version || "—") + "  |  " +
+        (row.terms_version || "—") + "  |  " +
+        (row.id || "—")
       );
     });
-    folder.file("00-INDEX.txt", index.join("\n"));
+    var seen = {};
+    var blocks = [];
+    rows.forEach(function (row) {
+      var key = (row.platform || "") + "\n" + (row.terms_version || "") + "\n" + (row.terms_text || "") + "\n" + (row.highlights || "");
+      if (seen[key]) return;
+      seen[key] = true;
+      blocks.push(row);
+    });
+    lines.push("", "", "===== TERMS OF USE THEY ACCEPTED =====", "");
+    blocks.forEach(function (row, i) {
+      if (i) lines.push("");
+      lines.push(
+        "----- " +
+        (row.platform || "app") +
+        (row.terms_version ? " · version " + row.terms_version : "") +
+        " -----"
+      );
+      if (String(row.highlights || "").trim()) {
+        lines.push("", "Highlights", "", String(row.highlights).replace(/\r\n/g, "\n"));
+      }
+      lines.push("", String(row.terms_text || "").replace(/\r\n/g, "\n") || "(No terms text stored on this version.)", "");
+    });
+    return lines.join("\n");
   }
 
   function uniqueName(used, name) {
@@ -1517,7 +1523,7 @@
       "- Analytics and Subscribed (App Store Connect and Google Play)",
       "- Permit Path Admin and PC4H Admin (live app databases)",
       "",
-      "TOS Accepted is copied. See 03-TOS-Accepted.json, TOS-Accepted/*.txt, and the TOS Accepted pages in the PDF.",
+      "TOS Accepted is copied. See 03-TOS-Accepted.txt (the list plus terms), 03-TOS-Accepted.json, and the TOS Accepted pages in the PDF.",
       "",
       "Menus that did not load:",
       (pack.failed || []).length
@@ -1574,7 +1580,7 @@
             error: tableError(pack, "tos_acceptances") || "",
             rows: pack.tosAcceptances || []
           }, null, 2));
-          writeTosTextFiles(root.folder("TOS-Accepted"), pack);
+          root.file("03-TOS-Accepted.txt", tosListText(pack));
           var secrets = root.folder("Secrets");
           writeSecrets(secrets, pack.secrets);
           secrets.file(
