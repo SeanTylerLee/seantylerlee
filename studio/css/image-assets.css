@@ -52,11 +52,26 @@
 }
 
 .ia-card {
+  position: relative;
   margin: 0;
   background: var(--window);
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--line);
+}
+
+.ia-card.is-on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(26, 112, 235, 0.35);
+}
+
+.ia-hit {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
 .ia-card img,
@@ -66,6 +81,7 @@
   aspect-ratio: 1 / 1;
   object-fit: cover;
   background: #dfe5ee;
+  pointer-events: none;
 }
 
 .ia-grid.is-header .ia-card img,
@@ -94,27 +110,42 @@
 }
 
 .ia-card figcaption {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  display: block;
   padding: 8px;
-}
-
-.ia-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.ia-card figcaption span {
-  flex: 1;
-  min-width: 0;
   font-size: 11px;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ia-card-actions {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 2.6em;
+  align-items: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px;
+  background: linear-gradient(180deg, transparent 40%, rgba(18, 33, 61, 0.55));
+  pointer-events: none;
+}
+
+.ia-card.is-on .ia-card-actions {
+  display: flex;
+}
+
+.ia-card-actions .btn {
+  pointer-events: auto;
+}
+
+.ia-card-actions .btn {
+  min-height: 28px;
+  font-size: 12px;
 }
 
 html.is-phone .ia-notes textarea {

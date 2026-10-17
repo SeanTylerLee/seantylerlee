@@ -22,6 +22,7 @@
   var files = [];
   var urls = {};
   var savingNotes = false;
+  var selectedId = null;
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -83,16 +84,17 @@
   }
 
   function fileCard(row) {
+    var on = row.id === selectedId ? " is-on" : "";
     return (
-      '<figure class="ia-card" data-id="' + row.id + '">' +
-        thumb(row) +
-        "<figcaption>" +
-          "<span>" + esc(row.file_name || "image") + "</span>" +
-          '<span class="ia-card-actions">' +
-            '<button type="button" class="btn btn-ghost" data-download="' + row.id + '">Download</button>' +
-            '<button type="button" class="btn btn-ghost" data-remove="' + row.id + '">Remove</button>' +
-          "</span>" +
-        "</figcaption>" +
+      '<figure class="ia-card' + on + '" data-id="' + row.id + '">' +
+        '<button type="button" class="ia-hit" data-select="' + row.id + '">' +
+          thumb(row) +
+        "</button>" +
+        '<span class="ia-card-actions">' +
+          '<button type="button" class="btn btn-primary" data-download="' + row.id + '">Download</button>' +
+          '<button type="button" class="btn btn-ghost" data-remove="' + row.id + '">Delete</button>' +
+        "</span>" +
+        "<figcaption>" + esc(row.file_name || "image") + "</figcaption>" +
       "</figure>"
     );
   }
@@ -144,6 +146,7 @@
       btn.onclick = function () {
         harvestNotes();
         platform = btn.getAttribute("data-platform");
+        selectedId = null;
         render();
       };
     });
@@ -196,15 +199,31 @@
         uploadFiles(kind, list);
       };
     });
-    box.querySelectorAll("[data-download]").forEach(function (btn) {
+    box.querySelectorAll("[data-select]").forEach(function (btn) {
       btn.onclick = function () {
+        var id = btn.getAttribute("data-select");
+        selectedId = selectedId === id ? null : id;
+        paintSelected();
+      };
+    });
+    box.querySelectorAll("[data-download]").forEach(function (btn) {
+      btn.onclick = function (event) {
+        event.stopPropagation();
         downloadFile(btn.getAttribute("data-download"));
       };
     });
     box.querySelectorAll("[data-remove]").forEach(function (btn) {
-      btn.onclick = function () {
+      btn.onclick = function (event) {
+        event.stopPropagation();
         removeFile(btn.getAttribute("data-remove"));
       };
+    });
+  }
+
+  function paintSelected() {
+    if (!root) return;
+    root.querySelectorAll(".ia-card").forEach(function (card) {
+      card.classList.toggle("is-on", card.getAttribute("data-id") === selectedId);
     });
   }
 
@@ -324,9 +343,10 @@
   function removeFile(id) {
     var row = files.filter(function (f) { return f.id === id; })[0];
     if (!row) return;
-    if (!window.confirm("Remove this image?")) return;
+    if (!window.confirm("Delete this image?")) return;
     showMsg("Removing…", true);
     removeRow(row).then(function () {
+      selectedId = null;
       showMsg("Removed.", true);
       render();
     }).catch(function (err) {
@@ -395,6 +415,7 @@
       platform = "ios";
       files = [];
       urls = {};
+      selectedId = null;
       panel.classList.add("ops-wide");
       panel.innerHTML = shell();
       hideSave();
