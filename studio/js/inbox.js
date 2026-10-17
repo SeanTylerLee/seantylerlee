@@ -343,9 +343,107 @@
     var callLink = info.phone
       ? '<a class="btn btn-ghost" href="tel:' + esc(info.phone.replace(/[^\d+]/g, "")) + '">Call</a>'
       : "";
-    if (info.method === "phone") html += callLink + emailLink + addList;
-    else html += emailLink + addList + callLink;
+    var ticketBtn = linkedTicketId(row)
+      ? '<button class="btn btn-ghost" type="button" data-el="open-ticket">Open ticket</button>'
+      : '<button class="btn btn-ghost" type="button" data-el="make-ticket">Turn into ticket</button>';
+    if (info.method === "phone") html += callLink + emailLink + addList + ticketBtn;
+    else html += emailLink + addList + ticketBtn + callLink;
     return html;
+  }
+
+  function linkedTicketId(row) {
+    if (!row) return "";
+    if (row.support_ticket_id) return String(row.support_ticket_id);
+    var payload = asObject(row.payload);
+    return String(payload.supportTicketId || payload.support_ticket_id || "");
+  }
+
+  function appIdForSite(apps, site) {
+    var blobSite = String(site || "").toLowerCase();
+    function matches(app, needles) {
+      var blob = [app.name, app.bundle_identifier, app.google_package_name].join(" ").toLowerCase();
+      return needles.some(function (needle) { return blob.indexOf(needle) !== -1; });
+    }
+    if (blobSite.indexOf("permitpath") !== -1) {
+      var permit = (apps || []).filter(function (app) { return matches(app, ["permit path", "permitpath"]); })[0];
+      return permit ? permit.id : null;
+    }
+    if (blobSite.indexOf("pilotcar") !== -1) {
+      var pilot = (apps || []).filter(function (app) { return matches(app, ["pilot car", "pilotcar"]); })[0];
+      return pilot ? pilot.id : null;
+    }
+    return null;
+  }
+
+  function openTicket(ticketId) {
+    if (window.STLSupport && window.STLSupport.focusTicket) window.STLSupport.focusTicket(ticketId);
+    if (window.STLApp && window.STLApp.navigate) window.STLApp.navigate("support");
+  }
+
+  function turnIntoTicket(row) {
+    if (!row || !db) return;
+    var existing = linkedTicketId(row);
+    if (existing) {
+      openTicket(existing);
+      return;
+    }
+    var who = trim(row.name) || trim(row.email) || "Website";
+    if (!window.confirm("Create a support ticket from " + who + "?")) return;
+    showMsg("Creating ticket…", true);
+    Promise.all([
+      db.from("support_tickets").select("ticket_number"),
+      db.from("managed_apps").select("id,name,bundle_identifier,google_package_name")
+    ]).then(function (pair) {
+      if (pair[0].error) return showMsg(pair[0].error.message, false);
+      var max = 0;
+      (pair[0].data || []).forEach(function (ticket) {
+        var n = parseInt(ticket.ticket_number, 10);
+        if (!isNaN(n)) max = Math.max(max, n);
+      });
+      var number = String(max + 1).padStart(3, "0");
+      var info = row.source === "quote" ? quoteContact(row) : { phone: "", method: "email" };
+      var details = trim(row.message);
+      var fromLine = "From Messages · " + typeTitle(row.source) + " · " + siteTitle(row.site);
+      details = details ? (details + "\n\n" + fromLine) : fromLine;
+      return db.from("support_tickets").insert({
+        ticket_number: number,
+        title: (typeTitle(row.source) + " from " + who).slice(0, 180),
+        details: details,
+        customer_name: trim(row.name),
+        customer_email: trim(row.email),
+        customer_phone: info.phone || "",
+        platform: "Unknown",
+        source: "website",
+        category: row.source === "quote" ? "billing" : "other",
+        priority: "normal",
+        status: "open",
+        app_id: appIdForSite(pair[1].data, row.site),
+        internal_notes: "Inbox message " + row.id
+      }).select("id").single().then(function (res) {
+        if (res.error) return showMsg(res.error.message, false);
+        var ticketId = res.data.id;
+        var payload = asObject(row.payload);
+        payload.supportTicketId = ticketId;
+        return db.from("studio_inbox").update({
+          support_ticket_id: ticketId,
+          payload: payload
+        }).eq("id", row.id).then(function (up) {
+          if (up.error && /support_ticket_id|schema cache/i.test(up.error.message || "")) {
+            return db.from("studio_inbox").update({ payload: payload }).eq("id", row.id);
+          }
+          return up;
+        }).then(function (up) {
+          if (up && up.error) return showMsg(up.error.message, false);
+          row.support_ticket_id = ticketId;
+          row.payload = payload;
+          showMsg("Ticket #" + number + " created.", true);
+          render();
+          openTicket(ticketId);
+        });
+      });
+    }).catch(function (err) {
+      showMsg((err && err.message) || "Could not create the ticket.", false);
+    });
   }
 
   function filesHtml(row) {
@@ -680,6 +778,14 @@
   function bindRead() {
     var addListBtn = el("add-to-list");
     if (addListBtn) addListBtn.onclick = function () { addToList(selected()); };
+    var makeTicket = el("make-ticket");
+    if (makeTicket) makeTicket.onclick = function () { turnIntoTicket(selected()); };
+    var openTicketBtn = el("open-ticket");
+    if (openTicketBtn) openTicketBtn.onclick = function () {
+      var row = selected();
+      var ticketId = linkedTicketId(row);
+      if (ticketId) openTicket(ticketId);
+    };
     var sendBilling = el("send-billing");
     if (sendBilling) sendBilling.onclick = function () { sendToBilling(selected()); };
     var openBilling = el("open-billing");

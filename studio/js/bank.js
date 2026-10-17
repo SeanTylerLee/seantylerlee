@@ -8,7 +8,8 @@
   var revealNumbers = false;
   var loading = false;
   var loggingId = "";
-  var loggedTxIds = {};
+  var loggedTx = {};
+  var ownerNames = [];
   var tokenHint = "Not set";
 
   function el(name) {
@@ -121,8 +122,45 @@
     return amt < 0 && settledStatus(row) && !!txId(row);
   }
 
+  function normParty(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  }
+
+  function sameParty(who, name) {
+    if (!who || !name || name.length < 3) return false;
+    if (who === name) return true;
+    return who.length >= name.length && (" " + who + " ").indexOf(" " + name + " ") !== -1;
+  }
+
+  function isTransferOrOwnerMoney(row) {
+    var kind = String(row.kind || "");
+    if (/^(internalTransfer|treasuryTransfer|creditCardCredit|debitCardCredit)$/.test(kind)) return true;
+    var who = normParty(row.counterpartyName);
+    var note = normParty([row.note, row.bankDescription, row.externalMemo].filter(Boolean).join(" "));
+    if (/\bowner contribution\b|\bcapital contribution\b|\bowner deposit\b/.test(note)) return true;
+    var own = [];
+    accounts().forEach(function (account) {
+      [account.name, account.nickname, account.legalBusinessName].forEach(function (name) {
+        var party = normParty(name);
+        if (party) own.push(party);
+      });
+    });
+    if (who && own.some(function (name) { return sameParty(who, name); })) return true;
+    if (who && ownerNames.some(function (name) { return sameParty(who, name); })) return true;
+    return false;
+  }
+
+  function canLogIncome(row) {
+    var amt = Number(row.amount || 0);
+    return amt > 0 && settledStatus(row) && !!txId(row) && !isTransferOrOwnerMoney(row);
+  }
+
+  function loggedHit(row) {
+    return loggedTx[txId(row)] || null;
+  }
+
   function isLogged(row) {
-    return !!loggedTxIds[txId(row)];
+    return !!loggedHit(row);
   }
 
   function totals() {
@@ -157,7 +195,7 @@
       '<div class="bank-workspace">' +
         '<div class="bank-header">' +
           "<div><h1>Bank</h1>" +
-          "<p>Mercury — cash, accounts, and recent activity. Log an outgoing line to Expenses when you pay.</p></div>" +
+          "<p>Mercury — cash, accounts, and recent activity. Log money out to Expenses and money in to Income.</p></div>" +
           '<div class="actions">' +
             '<button class="btn btn-ghost" type="button" data-el="refresh">Refresh</button>' +
           "</div>" +
@@ -168,14 +206,20 @@
     );
   }
 
-  function expenseActionHtml(row) {
-    if (!canLogExpense(row)) return "";
+  function moneyActionHtml(row) {
+    var expense = canLogExpense(row);
+    var income = canLogIncome(row);
+    if (!expense && !income && !isLogged(row)) return "";
     var id = txId(row);
     if (isLogged(row)) {
-      return '<button class="btn btn-ghost bank-tx-btn is-logged" type="button" data-go-expenses="1">Logged</button>';
+      return '<button class="btn btn-ghost bank-tx-btn is-logged" type="button" data-go-logged="' + esc(id) + '">Logged</button>';
     }
+    if (!expense && !income) return "";
     if (loggingId === id) {
       return '<button class="btn btn-ghost bank-tx-btn" type="button" disabled>Logging…</button>';
+    }
+    if (income) {
+      return '<button class="btn btn-ghost bank-tx-btn" type="button" data-log-income="' + esc(id) + '">Log as income</button>';
     }
     return '<button class="btn btn-ghost bank-tx-btn" type="button" data-log-expense="' + esc(id) + '">Log as expense</button>';
   }
@@ -231,7 +275,7 @@
       html +=
         '<div class="bank-card"><h3>Activity' +
         (account ? (" · " + esc(displayName(account))) : "") +
-        '</h3><p class="sub">Last 45 days. Outgoing lines can be logged to Expenses.</p>';
+        '</h3><p class="sub">Last 45 days. Outgoing lines log to Expenses. Incoming lines log to Income. Transfers and money you put in are skipped.</p>';
       var rows = visibleTransactions();
       if (!rows.length) {
         html += '<p class="sub">No recent transactions.</p>';
@@ -245,11 +289,11 @@
               "<div class=\"bank-tx-main\"><div class=\"title\">" + esc(txTitle(row)) + "</div>" +
               '<div class="meta">' + esc(formatDay(row.createdAt)) + " · " + esc(kindLabel(row.kind)) +
               (isPending(row) ? " · Pending" : (settledStatus(row) ? "" : (" · " + esc(String(row.status || ""))))) +
-              (isLogged(row) ? " · In Expenses" : "") +
+              (isLogged(row) ? (loggedHit(row).page === "income" ? " · In Income" : " · In Expenses") : "") +
               "</div></div>" +
               '<div class="bank-tx-side">' +
                 '<div class="amt' + (amt > 0 ? " in" : "") + '">' + money(amt) + "</div>" +
-                expenseActionHtml(row) +
+                moneyActionHtml(row) +
               "</div>" +
             "</div>";
         });
@@ -295,62 +339,90 @@
       btn.addEventListener("click", function (event) {
         event.preventDefault();
         event.stopPropagation();
-        logAsExpense(btn.getAttribute("data-log-expense"));
+        logMoney(btn.getAttribute("data-log-expense"), "expenses");
       });
     });
-    root.querySelectorAll("[data-go-expenses]").forEach(function (btn) {
+    root.querySelectorAll("[data-log-income]").forEach(function (btn) {
       btn.addEventListener("click", function (event) {
         event.preventDefault();
         event.stopPropagation();
-        if (window.STLApp && window.STLApp.navigate) window.STLApp.navigate("expenses");
+        logMoney(btn.getAttribute("data-log-income"), "income");
+      });
+    });
+    root.querySelectorAll("[data-go-logged]").forEach(function (btn) {
+      btn.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var hit = loggedTx[btn.getAttribute("data-go-logged") || ""];
+        var page = hit && hit.page === "income" ? "income" : "expenses";
+        if (window.STLApp && window.STLApp.navigate) window.STLApp.navigate(page);
       });
     });
   }
 
-  function loadLoggedExpenses() {
-    if (!db) {
-      loggedTxIds = {};
-      return Promise.resolve();
-    }
-    return db.from("business_expenses")
+  function rememberLogged(rows, page) {
+    (rows || []).forEach(function (row) {
+      var mid = String(row.mercury_transaction_id || "").trim();
+      var match = String(row.notes || "").match(/Mercury tx:([A-Za-z0-9_-]+)/);
+      var key = mid || (match && match[1]) || "";
+      if (key && !loggedTx[key]) loggedTx[key] = { page: page, rowId: row.id };
+    });
+  }
+
+  function loadLoggedTable(table, page) {
+    return db.from(table)
       .select("id,mercury_transaction_id,notes")
       .then(function (res) {
-        loggedTxIds = {};
         if (res.error) {
           if (/mercury_transaction_id|schema cache|does not exist/i.test(res.error.message || "")) {
-            showMsg("Run sql/031_expense_mercury_tx.sql in Studio Supabase so Bank can remember logged lines.", false);
+            var file = page === "income" ? "sql/035_income_mercury_tx.sql" : "sql/031_expense_mercury_tx.sql";
+            showMsg("Run " + file + " in Studio Supabase so Bank can remember logged lines.", false);
           }
           return;
         }
-        (res.data || []).forEach(function (row) {
-          var mid = String(row.mercury_transaction_id || "").trim();
-          if (mid) loggedTxIds[mid] = row.id;
-          else {
-            var match = String(row.notes || "").match(/Mercury tx:([A-Za-z0-9_-]+)/);
-            if (match && match[1]) loggedTxIds[match[1]] = row.id;
-          }
-        });
+        rememberLogged(res.data, page);
       })
-      .catch(function () {
-        loggedTxIds = {};
-      });
+      .catch(function () {});
   }
 
-  function logAsExpense(id) {
+  function loadLogged() {
+    loggedTx = {};
+    if (!db) return Promise.resolve();
+    return Promise.all([
+      loadLoggedTable("business_expenses", "expenses"),
+      loadLoggedTable("business_incomes", "income")
+    ]);
+  }
+
+  function loadOwnerNames() {
+    ownerNames = [];
+    if (!db) return Promise.resolve();
+    return db.from("business_profile").select("contact").limit(1).then(function (res) {
+      var row = res.data && res.data[0];
+      var party = normParty(row && row.contact);
+      if (party) ownerNames = [party];
+    }).catch(function () {});
+  }
+
+  function logMoney(id, page) {
+    var income = page === "income";
+    var table = income ? "business_incomes" : "business_expenses";
+    var pageTitle = income ? "Income" : "Expenses";
+    var noun = income ? "income" : "expense";
     if (!db) {
-      showMsg("Sign in required to log expenses.", false);
+      showMsg("Sign in required to log " + noun + ".", false);
       return;
     }
     var row = transactions().filter(function (t) { return txId(t) === id; })[0];
-    if (!row || !canLogExpense(row)) return;
+    if (!row || (income ? !canLogIncome(row) : !canLogExpense(row))) return;
     if (isLogged(row)) {
-      showMsg("Already logged to Expenses.", true);
+      showMsg("Already logged to " + pageTitle + ".", true);
       return;
     }
     var amount = Math.abs(Number(row.amount) || 0);
     if (amount <= 0) return showMsg("Amount must be greater than zero.", false);
     var title = txTitle(row);
-    if (!window.confirm('Log "' + title + '" as a ' + money(amount) + " expense?")) return;
+    if (!window.confirm('Log "' + title + '" as ' + money(amount) + " " + noun + "?")) return;
 
     var date = isoDate(row.createdAt);
     var year = Number(date.slice(0, 4)) || new Date().getFullYear();
@@ -362,7 +434,7 @@
     if (row.note) noteBits.push(String(row.note).trim());
 
     loggingId = id;
-    showMsg("Logging to Expenses…", true);
+    showMsg("Logging to " + pageTitle + "…", true);
     render();
 
     var payload = {
@@ -378,34 +450,43 @@
       receipt_file_name: "",
       mercury_transaction_id: id
     };
+    if (income) {
+      payload.source_invoice_number = "";
+      payload.source_payment_key = "";
+    }
 
-    db.from("business_expenses").insert(payload).select("id,mercury_transaction_id").single()
+    function finish(rowId, extra) {
+      loggedTx[id] = { page: page, rowId: rowId || true };
+      loggingId = "";
+      showMsg("Logged to " + pageTitle + " for " + year + "." + (extra || " Open " + pageTitle + " to attach a receipt."), true);
+      render();
+    }
+
+    db.from(table).insert(payload).select("id,mercury_transaction_id").single()
       .then(function (res) {
         if (res.error) {
           loggingId = "";
-          var msg = res.error.message || "Could not create expense.";
+          var msg = res.error.message || ("Could not create " + noun + ".");
           if (/mercury_transaction_id|schema cache|does not exist/i.test(msg)) {
             delete payload.mercury_transaction_id;
-            return db.from("business_expenses").insert(payload).select("id").single().then(function (fallback) {
+            var file = income ? "sql/035_income_mercury_tx.sql" : "sql/031_expense_mercury_tx.sql";
+            return db.from(table).insert(payload).select("id").single().then(function (fallback) {
               if (fallback.error) {
                 showMsg(
                   /mercury_transaction_id|schema cache|does not exist/i.test(fallback.error.message || "")
-                    ? "Run sql/031_expense_mercury_tx.sql in Studio Supabase, then refresh."
-                    : (fallback.error.message || "Could not create expense."),
+                    ? "Run " + file + " in Studio Supabase, then refresh."
+                    : (fallback.error.message || ("Could not create " + noun + ".")),
                   false
                 );
                 render();
                 return;
               }
-              loggedTxIds[id] = fallback.data.id;
-              loggingId = "";
-              showMsg("Logged to Expenses for " + year + ". Open Expenses to attach a receipt.", true);
-              render();
+              finish(fallback.data.id);
             });
           }
           if (/duplicate|unique/i.test(msg)) {
-            loggedTxIds[id] = true;
-            showMsg("Already logged to Expenses.", true);
+            loggedTx[id] = { page: page, rowId: true };
+            showMsg("Already logged to " + pageTitle + ".", true);
             render();
             return;
           }
@@ -413,14 +494,11 @@
           render();
           return;
         }
-        loggedTxIds[id] = res.data.id;
-        loggingId = "";
-        showMsg("Logged to Expenses for " + year + ". Open Expenses to attach a receipt.", true);
-        render();
+        finish(res.data.id);
       })
       .catch(function (err) {
         loggingId = "";
-        showMsg((err && err.message) || "Could not log expense.", false);
+        showMsg((err && err.message) || ("Could not log " + noun + "."), false);
         render();
       });
   }
@@ -453,7 +531,8 @@
     render();
     Promise.all([
       window.STLLocalApi.get("/api/mercury/snapshot"),
-      loadLoggedExpenses()
+      loadLogged(),
+      loadOwnerNames()
     ]).then(function (pair) {
       var res = pair[0];
       loading = false;
@@ -485,7 +564,8 @@
       selectedAccountID = null;
       revealNumbers = false;
       loggingId = "";
-      loggedTxIds = {};
+      loggedTx = {};
+      ownerNames = [];
       panel.classList.add("bank-wide");
       panel.innerHTML = shell();
       loadStatus().then(function () {

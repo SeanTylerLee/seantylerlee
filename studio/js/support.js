@@ -47,6 +47,7 @@
   var search = "";
   var dirty = false;
   var saving = false;
+  var pendingTicketId = "";
 
   function el(name) { return root ? root.querySelector('[data-el="' + name + '"]') : null; }
   function esc(s) {
@@ -394,7 +395,21 @@
       clearDirty();
       showMsg("");
       render();
+      revealPendingTicket();
     });
+  }
+
+  function revealPendingTicket() {
+    if (!pendingTicketId || !root) return;
+    var ticket = tickets.filter(function (t) { return t.id === pendingTicketId; })[0];
+    if (!ticket) return;
+    pendingTicketId = "";
+    selectedAppId = "all";
+    if (ticket.status === "waiting") filter = "waiting";
+    else if (isDone(ticket.status)) filter = "done";
+    else filter = "open";
+    selectedId = ticket.id;
+    render();
   }
 
   window.STLSupport = {
@@ -411,6 +426,15 @@
       root = null;
     },
     saveAll: saveAll,
-    isDirty: function () { return dirty; }
+    isDirty: function () { return dirty; },
+    focusTicket: function (id) {
+      pendingTicketId = String(id || "");
+      if (!pendingTicketId || !root || !db) return;
+      if (tickets.some(function (t) { return t.id === pendingTicketId; })) {
+        revealPendingTicket();
+        return;
+      }
+      load();
+    }
   };
 })();

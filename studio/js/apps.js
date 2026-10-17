@@ -105,6 +105,24 @@
     return apps.filter(function (a) { return a.id === selectedId; })[0] || null;
   }
 
+  function isPermitPathApp(app) {
+    if (!app) return false;
+    var name = String(app.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    var bundle = String(app.bundle_identifier || "").toLowerCase();
+    var pkg = String(app.google_package_name || "").toLowerCase();
+    if (name.indexOf("permitpath") !== -1) return true;
+    if (bundle === "com.seantylerlee.permitpath") return true;
+    if (pkg === "com.haulpath.permitpath") return true;
+    return false;
+  }
+
+  function syncTosTab() {
+    if (!root) return;
+    if (pageTab === "tos" && !isPermitPathApp(selected())) pageTab = "app";
+    var tosBtn = root.querySelector('[data-page-tab="tos"]');
+    if (tosBtn) tosBtn.classList.toggle("hidden", !isPermitPathApp(selected()));
+  }
+
   function appLogins(appId) {
     return logins.filter(function (l) { return l.app_id === appId; })
       .sort(function (a, b) { return String(a.site_name || "").localeCompare(String(b.site_name || "")); });
@@ -241,6 +259,7 @@
 
   function applyPageTab() {
     if (!root) return;
+    syncTosTab();
     root.querySelectorAll("[data-page-tab]").forEach(function (btn) {
       btn.classList.toggle("is-on", btn.getAttribute("data-page-tab") === pageTab);
     });
@@ -270,6 +289,7 @@
 
   function setPageTab(tab) {
     if (tab !== "app" && tab !== "promos" && tab !== "analytics" && tab !== "tos") return;
+    if (tab === "tos" && !isPermitPathApp(selected())) return;
     if (!confirmLeaveTab(tab)) return;
     pageTab = tab;
     applyPageTab();
@@ -299,12 +319,15 @@
         if (pageTab === "promos" && window.STLPromos && window.STLPromos.setApp) {
           if (window.STLPromos.setApp(nextId) === false) return;
         }
+        var nextApp = apps.filter(function (a) { return a.id === nextId; })[0];
+        if (pageTab === "tos" && !isPermitPathApp(nextApp)) pageTab = "app";
         selectedId = nextId;
         editing = false;
         expandedIssue = null;
         expandedLogin = null;
         clearDirty();
         render();
+        applyPageTab();
         if (pageTab === "analytics" && window.STLAnalytics && window.STLAnalytics.setApp) window.STLAnalytics.setApp(selectedId);
         if (pageTab === "tos" && window.STLTos && window.STLTos.setApp) window.STLTos.setApp(selected());
       };
@@ -312,6 +335,7 @@
   }
 
   function render() {
+    syncTosTab();
     renderCapsules();
     var body = el("body");
     var app = selected();

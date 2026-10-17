@@ -618,6 +618,7 @@
         ["Staff notes", row.notes],
         ["Received", day(row.created_at)],
         ["Sent to billing", row.billing_id ? "Yes" : ""],
+        ["Support ticket", row.support_ticket_id || (payload.supportTicketId || "")],
         ["Quote number", (draft && draft.number) || ""],
         ["Quote total", draft && draft.total != null ? money(draft.total) : (payload.total != null ? money(payload.total) : "")],
         ["Project", (draft && draft.projectName) || ""],
