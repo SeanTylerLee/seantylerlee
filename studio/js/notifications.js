@@ -113,6 +113,10 @@
     if (id === "xlarge") return "24px";
     return "16px";
   }
+  function inputSizePx(id) {
+    if (document.documentElement.classList.contains("is-phone") && id === "small") return "16px";
+    return sizePx(id);
+  }
   function optionsHtml(list, selected) {
     return list.map(function (item) {
       return '<option value="' + esc(item.id) + '"' + (item.id === selected ? " selected" : "") + ">" +
@@ -125,7 +129,7 @@
       '<div class="ops-workspace">' +
         '<div class="ops-header">' +
           "<h1>App Notices</h1>" +
-          "<p>Write a card and send it to Permit Path or Pilot Car 4 Hire. The preview on the right is what users see on their phones.</p>" +
+          "<p>Write a card and send it to Permit Path or Pilot Car 4 Hire. The phone preview is what users see.</p>" +
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-body" data-el="body"></div>' +
@@ -189,8 +193,8 @@
     return (
       '<div class="ops-field"><label>Photo (optional)</label>' +
         (has
-          ? '<p class="sub" style="margin:0 0 8px">Photo added. See the phone preview on the right.</p>' +
-            '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
+          ? '<p class="sub" style="margin:0 0 8px">Photo added. It shows at the top of the phone preview.</p>' +
+            '<div class="notice-photo">' +
               '<input data-el="photo" type="file" accept="image/*" />' +
               '<button class="btn" type="button" data-el="clear-photo">Remove photo</button>' +
             "</div>"
@@ -204,12 +208,12 @@
     return lines.map(function (ln, i) {
       var on = i === selectedLine;
       return (
-        '<div style="display:flex;gap:8px;align-items:flex-start;margin:0 0 8px">' +
+        '<div class="notice-line">' +
           '<input data-line="' + i + '" type="text" maxlength="400" placeholder="Line ' + (i + 1) + '"' +
             ' value="' + esc(ln.text || "") + '"' +
-            ' style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid ' +
+            ' style="flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:2px solid ' +
             (on ? "#2966EB" : "rgba(60,60,67,.18)") +
-            ";font-size:" + sizePx(ln.size) +
+            ";font-size:" + inputSizePx(ln.size) +
             ";color:" + esc(ln.color || "#555555") +
             ";font-family:" + fontCss(ln.font) + '" />' +
           (lines.length > 1
@@ -269,8 +273,8 @@
     history.forEach(function (item) {
       var busy = deletingId && item.id === deletingId;
       html +=
-        '<div class="ops-card" style="background:rgba(60,60,67,.05);box-shadow:none;margin-bottom:8px">' +
-          '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">' +
+        '<div class="ops-card notice-sent">' +
+          '<div class="notice-sent-top">' +
             "<div>" +
               "<strong style=\"font-size:13px\">" + esc(item.subject || "(No subject)") + "</strong>" +
               '<span class="sub" style="display:block;margin:2px 0 0">' +
@@ -296,16 +300,16 @@
     var ln = currentLine();
     var swatchHtml = COLOR_PRESETS.map(function (hex) {
       var on = hex.toLowerCase() === String(ln.color || "").toLowerCase();
-      return '<button type="button" data-swatch="' + hex + '" title="' + hex + '" style="width:22px;height:22px;border-radius:50%;border:' +
-        (on ? "2px solid #111" : "1px solid rgba(0,0,0,.2)") + ";background:" + hex + ';padding:0;cursor:pointer"></button>';
+      return '<button type="button" class="notice-swatch" data-swatch="' + hex + '" title="' + hex + '" style="background:' + hex + ';border:' +
+        (on ? "2px solid #111" : "1px solid rgba(0,0,0,.2)") + '"></button>';
     }).join("");
     return (
-      '<p class="sub" style="margin:0 0 8px">Click a line, then set font, size, and color for that line only.</p>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">' +
+      '<p class="sub" style="margin:0 0 8px">Tap a line, then set font, size, and color for that line only.</p>' +
+      '<div class="notice-style">' +
         '<div class="ops-field"><label>Font</label><select data-el="font">' + optionsHtml(FONTS, ln.font || "system") + "</select></div>" +
         '<div class="ops-field"><label>Size</label><select data-el="size">' + optionsHtml(SIZES, ln.size || "medium") + "</select></div>" +
         '<div class="ops-field"><label>Color</label>' +
-          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+          '<div class="notice-colors">' +
             '<input data-el="color" type="color" value="' + esc(ln.color || "#555555") + '" style="width:42px;height:32px;padding:0;border:none;background:transparent" />' +
             swatchHtml +
           "</div>" +
@@ -334,7 +338,7 @@
       var on = idx === selectedLine;
       inputs[i].style.border = "2px solid " + (on ? "#2966EB" : "rgba(60,60,67,.18)");
       inputs[i].style.fontFamily = fontCss(ln.font);
-      inputs[i].style.fontSize = sizePx(ln.size);
+      inputs[i].style.fontSize = inputSizePx(ln.size);
       inputs[i].style.color = ln.color || "#555555";
     }
     updatePreview();
@@ -504,11 +508,11 @@
     }).join("");
 
     body.innerHTML =
-      '<div style="display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start">' +
-        '<div>' +
+      '<div class="notice-layout">' +
+        '<div class="notice-compose">' +
           '<div class="ops-card">' +
             "<h3>Compose</h3>" +
-            '<p class="sub">Each line can have its own font, size, and color. Click a line to style it.</p>' +
+            '<p class="sub">Each line can have its own font, size, and color. Tap a line to style it.</p>' +
             '<div class="ops-field"><label>App</label><select data-el="app">' + options + "</select></div>" +
             '<div class="ops-field"><label>Subject</label><input data-el="subject" type="text" maxlength="120" placeholder="Short title users will see" value="' + esc(subject) + '" /></div>' +
             photoStatusHtml() +
@@ -525,8 +529,8 @@
           "</div>" +
           historyHtml() +
         "</div>" +
-        '<div>' +
-          '<div class="ops-card" style="position:sticky;top:16px">' +
+        '<div class="notice-preview">' +
+          '<div class="ops-card">' +
             "<h3>Phone preview</h3>" +
             '<p class="sub">This is the card signed-in users see in the selected app.</p>' +
             '<div data-el="preview">' + phonePreviewHtml() + "</div>" +

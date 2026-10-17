@@ -128,6 +128,123 @@
   color: var(--muted);
 }
 
+.notice-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 24px;
+  align-items: start;
+}
+
+.notice-preview .ops-card {
+  position: sticky;
+  top: 16px;
+}
+
+.notice-line {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 0 8px;
+}
+
+.notice-line input {
+  flex: 1;
+  min-width: 0;
+}
+
+.notice-photo,
+.notice-colors,
+.notice-sent-top {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.notice-sent-top {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.notice-style {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.notice-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  padding: 0;
+}
+
+.notice-sent {
+  background: rgba(60, 60, 67, 0.05);
+  box-shadow: none;
+  margin-bottom: 8px;
+}
+
+html.is-phone .notice-layout,
+.notice-layout.notice-layout {
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  html.is-phone .app.is-notifications .ops-body,
+  .app.is-notifications .ops-body {
+    padding: 8px 14px 32px;
+  }
+}
+
+html.is-phone .notice-layout {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+html.is-phone .notice-preview {
+  order: -1;
+}
+
+html.is-phone .notice-preview .ops-card {
+  position: static;
+  padding: 14px 12px 18px;
+}
+
+html.is-phone .notice-style {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+html.is-phone .notice-colors {
+  gap: 10px;
+}
+
+html.is-phone .notice-swatch {
+  width: 36px;
+  height: 36px;
+}
+
+html.is-phone .notice-sent-top {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+html.is-phone .notice-sent-top .btn,
+html.is-phone .app.is-notifications [data-el="send"],
+html.is-phone .app.is-notifications [data-el="add-line"] {
+  width: 100%;
+}
+
+html.is-phone .app.is-notifications .ops-header p {
+  font-size: 14px;
+  max-width: none;
+}
+
+html.is-phone .app.is-notifications .ops-card {
+  padding: 14px;
+}
+
 .ops-filters {
   display: flex;
   flex-wrap: wrap;
