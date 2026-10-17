@@ -11,7 +11,7 @@
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
     "project_logins", "project_costs", "project_hour_entries", "project_issues",
     "project_handoff_items", "meeting_logs", "billing_documents", "studio_notes",
-    "studio_pricing_items", "studio_pricing_settings"
+    "studio_pricing_items", "studio_pricing_settings", "studio_secrets"
   ];
 
   function money(n) {
@@ -323,7 +323,8 @@
         ["Billing", String((t.billing_documents || []).length)],
         ["Notes", (t.studio_notes || []).length ? "notepad" : "empty"],
         ["Pricing", String((t.studio_pricing_items || []).length)],
-        ["Settings", "defaults + store IDs"]
+        ["Settings", String((t.studio_settings || []).length) + " prefs"],
+        ["Secrets", pack.secrets && Object.keys(pack.secrets).length ? "in Secrets/ and JSON" : "empty"]
       ],
       [180, pdf.maxW - 180],
       1
@@ -576,7 +577,8 @@
         ["Summary", g.summary],
         ["Link title", g.link_title],
         ["Link URL", g.link_url],
-        ["Sort", g.sort_order]
+        ["Sort", g.sort_order],
+        ["Built-in key", g.seed_key]
       ]);
       pdf.heading("Steps (mark DONE if the box was checked)", 12);
       var steps = stepsOf(g);
@@ -747,7 +749,9 @@
       pdf.recordHead(list.name || "Untitled list", i + 1, lists.length);
       filled(pdf, [
         ["Mail subject", list.subject],
-        ["Mail notes", list.notes]
+        ["Mail notes", list.notes],
+        ["Imported from", list.source_file_name],
+        ["Columns", Array.isArray(list.column_names) ? list.column_names.join(", ") : list.column_names]
       ]);
       var people = (contacts[list.id] || []).slice().sort(function (a, b) {
         return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
@@ -779,6 +783,7 @@
     rows.forEach(function (n, i) {
       pdf.recordHead((n.app_name || "App") + ": " + (n.subject || "No subject"), i + 1, rows.length);
       filled(pdf, [
+        ["App", appName(pack, n.app_id) || n.app_name],
         ["Sent", day(n.created_at)],
         ["Font", n.message_font],
         ["Size", n.message_size],
@@ -933,9 +938,9 @@
         pdf.heading("Handoff", 12);
         table(
           pdf,
-          ["Done", "Item", "Notes"],
-          pHand.map(function (h) { return [yesNo(h.is_done), h.title || "", h.notes || ""]; }),
-          [40, 180, pdf.maxW - 220],
+          ["Done", "When", "Item", "Notes"],
+          pHand.map(function (h) { return [yesNo(h.is_done), clock(h.done_at), h.title || "", h.notes || ""]; }),
+          [40, 78, 160, pdf.maxW - 278],
           1
         );
       }
@@ -1004,6 +1009,8 @@
         ["Phone", p.clientPhone],
         ["Address", p.clientAddress],
         ["Project", doc.project_name || p.projectName],
+        ["Linked client id", p.linkedClientID],
+        ["Linked project id", p.linkedProjectID],
         ["Issued", day(doc.issued_on || p.documentDate)],
         ["Due", day(doc.due_on || p.dueDate)],
         ["Paid on", day(doc.paid_on || p.paidDate)],
