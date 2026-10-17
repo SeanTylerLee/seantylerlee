@@ -51,6 +51,10 @@
   grid-template-columns: repeat(auto-fill, minmax(240px, 320px));
 }
 
+.ia-grid.is-web {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
 .ia-card {
   position: relative;
   margin: 0;
@@ -91,7 +95,14 @@
   background: #1a2230;
 }
 
-.ia-grid:not(.is-icon):not(.is-header) .ia-card img {
+.ia-grid.is-web .ia-card img,
+.ia-grid.is-web .ia-empty {
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: #1a2230;
+}
+
+.ia-grid:not(.is-icon):not(.is-header):not(.is-web) .ia-card img {
   aspect-ratio: 9 / 16;
   object-fit: contain;
   background: #1a2230;

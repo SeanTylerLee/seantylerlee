@@ -589,15 +589,20 @@
       var body = notePlain((note && note.body) || "");
       if (String(body).trim()) longText(pdf, body);
       else empty(pdf, "No notes.");
-      var kinds = [
-        ["icon", plat === "web" ? "Logos" : "App icons"],
-        ["screenshot", "Screenshots"],
-        ["header", "Header images"]
-      ];
-      kinds.forEach(function (pair) {
-        var list = fileRows.filter(function (f) { return f.platform === plat && f.kind === pair[0]; });
-        filled(pdf, [[pair[1], list.length ? list.map(function (f) { return f.file_name || f.storage_path; }).join(", ") : "empty"]]);
-      });
+      if (plat === "web") {
+        var webFiles = fileRows.filter(function (f) { return f.platform === "web"; });
+        filled(pdf, [["Images", webFiles.length ? webFiles.map(function (f) { return f.file_name || f.storage_path; }).join(", ") : "empty"]]);
+      } else {
+        var kinds = [
+          ["icon", "App icons"],
+          ["screenshot", "Screenshots"],
+          ["header", "Header images"]
+        ];
+        kinds.forEach(function (pair) {
+          var list = fileRows.filter(function (f) { return f.platform === plat && f.kind === pair[0]; });
+          filled(pdf, [[pair[1], list.length ? list.map(function (f) { return f.file_name || f.storage_path; }).join(", ") : "empty"]]);
+        });
+      }
     });
   }
 

@@ -71,7 +71,9 @@
 
   function filesOf(kind) {
     return files.filter(function (f) {
-      return f.platform === platform && f.kind === kind;
+      if (f.platform !== platform) return false;
+      if (platform === "web") return true;
+      return f.kind === kind;
     }).sort(function (a, b) {
       return String(b.created_at || "").localeCompare(String(a.created_at || ""));
     });
@@ -99,6 +101,13 @@
     );
   }
 
+  function gridClass(kind) {
+    if (platform === "web" || kind === "image") return " is-web";
+    if (kind === "icon") return " is-icon";
+    if (kind === "header") return " is-header";
+    return "";
+  }
+
   function section(kind, title) {
     var rows = filesOf(kind);
     var html =
@@ -110,7 +119,7 @@
         "</div>";
     if (!rows.length) html += '<p class="sub">Nothing stored yet.</p>';
     else {
-      html += '<div class="ia-grid' + (kind === "icon" ? " is-icon" : kind === "header" ? " is-header" : "") + '">';
+      html += '<div class="ia-grid' + gridClass(kind) + '">';
       rows.forEach(function (row) { html += fileCard(row); });
       html += "</div>";
     }
@@ -155,7 +164,12 @@
   function renderPage() {
     var box = el("page");
     if (!box) return;
-    var iconTitle = ICON_LABEL[platform] || "App icon";
+    var iconTitle = ICON_LABEL[platform] || "App icons";
+    var sections = platform === "web"
+      ? section("image", "Images")
+      : section("icon", iconTitle) +
+        section("screenshot", "Screenshots") +
+        section("header", "Header images");
     box.innerHTML =
       '<div class="ops-card ia-notes">' +
         "<h3>Notes</h3>" +
@@ -167,9 +181,7 @@
           '<button type="button" class="btn btn-primary" data-el="save-notes">Save notes</button>' +
         "</div>" +
       "</div>" +
-      section("icon", iconTitle) +
-      section("screenshot", "Screenshots") +
-      section("header", "Header images");
+      sections;
 
     var notesBox = el("notes");
     var saveBtn = el("save-notes");
