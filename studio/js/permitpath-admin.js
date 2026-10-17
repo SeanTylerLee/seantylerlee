@@ -35,6 +35,8 @@
   var tab = "overview";
   var userFilter = null;
   var userSearch = "";
+  var userSort = "seen";
+  var generatedAt = "";
   var deletionFilter = "all";
   var selectedKey = "";
   var selectedProfile = null;
@@ -256,6 +258,101 @@
     if (isLapsedProfile(profile)) return { kind: "lapsed", label: "Lapsed" };
     return { kind: "inactive", label: "Not subscribed" };
   }
+  function formatShortDate(isoOrStr) {
+    var d = profileDate(isoOrStr);
+    if (!d) return "";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+  function planLabel(productId) {
+    var raw = trim(productId);
+    var s = raw.toLowerCase();
+    if (!s) return "No plan";
+    if (/year|annual/.test(s)) return "Yearly";
+    if (/month/.test(s)) return "Monthly";
+    if (/week/.test(s)) return "Weekly";
+    return raw;
+  }
+  function renewLine(profile) {
+    var when = formatShortDate(profile && profile.subscription_expires_at);
+    if (isTruthyFlag(profile && profile.subscription_is_active)) {
+      if (!when) return "Subscribed";
+      return isTruthyFlag(profile.subscription_will_auto_renew) ? "Renews " + when : "Ends " + when;
+    }
+    if (isLapsedProfile(profile) && when) return "Ended " + when;
+    return "Not subscribed";
+  }
+  function displayName(profile) {
+    return trim(profile && profile.full_name) || trim(profile && profile.email) || trim(profile && profile.user_id) || "Unknown";
+  }
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    return Promise.reject(new Error("Copy is not available in this browser."));
+  }
+  function byCreatedDesc(a, b) {
+    var at = profileDate(a.created_at);
+    var bt = profileDate(b.created_at);
+    return (bt ? bt.getTime() : 0) - (at ? at.getTime() : 0);
+  }
+  function sortedProfiles(list) {
+    var rows = (list || []).slice();
+    rows.sort(function (a, b) {
+      if (userSort === "name") return displayName(a).localeCompare(displayName(b));
+      if (userSort === "new") return byCreatedDesc(a, b);
+      var as = profileDate(a.last_seen_at);
+      var bs = profileDate(b.last_seen_at);
+      if (!as && !bs) return byCreatedDesc(a, b);
+      if (!as) return 1;
+      if (!bs) return -1;
+      return bs.getTime() - as.getTime();
+    });
+    return rows;
+  }
+  function peopleInGroup(filterKey, limit) {
+    var rows = (profiles || []).filter(function (p) {
+      return profileMatchesUserFilter(p, filterKey);
+    });
+    if (filterKey === "expiring_soon") {
+      rows.sort(function (a, b) {
+        var at = profileDate(a.subscription_expires_at);
+        var bt = profileDate(b.subscription_expires_at);
+        return (at ? at.getTime() : 0) - (bt ? bt.getTime() : 0);
+      });
+    } else if (filterKey === "paying_inactive") {
+      rows.sort(function (a, b) {
+        var at = profileDate(a.last_seen_at);
+        var bt = profileDate(b.last_seen_at);
+        return (at ? at.getTime() : 0) - (bt ? bt.getTime() : 0);
+      });
+    } else if (filterKey === "lapsed") {
+      rows.sort(function (a, b) {
+        var at = profileDate(a.subscription_expires_at);
+        var bt = profileDate(b.subscription_expires_at);
+        return (bt ? bt.getTime() : 0) - (at ? at.getTime() : 0);
+      });
+    } else {
+      rows.sort(byCreatedDesc);
+    }
+    return limit ? rows.slice(0, limit) : rows;
+  }
+  function usagePeopleCounts(events) {
+    var sets = Object.create(null);
+    USAGE_EVENT_TYPE_ORDER.forEach(function (key) {
+      sets[key] = Object.create(null);
+    });
+    (events || []).forEach(function (ev) {
+      var key = eventTypeKey(ev);
+      var uid = userIdFromUsageEvent(ev);
+      if (!sets[key] || !uid) return;
+      sets[key][uid] = true;
+    });
+    var counts = Object.create(null);
+    USAGE_EVENT_TYPE_ORDER.forEach(function (key) {
+      counts[key] = Object.keys(sets[key]).length;
+    });
+    return counts;
+  }
   function deletionSourceLabel(source) {
     if (source === "self") return "Self-deleted";
     if (source === "admin") return "Removed by admin";
@@ -280,7 +377,7 @@
       '<div class="ops-workspace pp-admin">' +
         '<div class="ops-header">' +
           "<h1>Permit Path Admin</h1>" +
-          "<p>App users, subscription status, and deletions from the Permit Path database.</p>" +
+          "<p>Signed-in users, subscription status, and who needs a look.</p>" +
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-filters pp-admin-tabs">' +
@@ -406,6 +503,11 @@
     var activity = countProfileActivity(uid);
     var periods = periodsByUser[uid] || [];
     var html = "";
+    html += '<div class="pp-admin-drawer-status"><span class="pp-admin-pill pp-admin-pill--' + esc(status.kind) + '">' + esc(status.label) + "</span>";
+    html += '<span class="pp-admin-drawer-plan">' + esc(planLabel(profile.subscription_product_id)) + " · " + esc(renewLine(profile)) + "</span></div>";
+    if (trim(profile.email)) {
+      html += '<button type="button" class="btn btn-ghost" data-el="copy-email">Copy email</button>';
+    }
     html += '<div class="pp-admin-detail-grid">';
     html += detailCell("Email", trim(profile.email) || "—");
     html += detailCell("User ID", uid || "—", true);
@@ -496,17 +598,72 @@
     );
   }
 
+  function personButton(profile, extra) {
+    var key = profileListKey(profile);
+    var email = trim(profile.email);
+    var name = displayName(profile);
+    return (
+      '<button type="button" class="pp-admin-person" data-open-profile="' +
+      esc(key) +
+      '"><span class="pp-admin-person-name">' +
+      esc(name) +
+      "</span><span class=\"pp-admin-person-meta\">" +
+      esc(extra || email || renewLine(profile)) +
+      "</span></button>"
+    );
+  }
+
+  function watchGroup(title, filterKey, emptyText) {
+    var rows = peopleInGroup(filterKey, 5);
+    var total = (profiles || []).filter(function (p) {
+      return profileMatchesUserFilter(p, filterKey);
+    }).length;
+    var html =
+      '<section class="pp-admin-watch-group"><div class="pp-admin-watch-head"><h4>' +
+      esc(title) +
+      "</h4>";
+    if (total) {
+      html +=
+        '<button type="button" class="btn btn-ghost" data-user-filter="' +
+        esc(filterKey) +
+        '">See all ' +
+        total +
+        "</button>";
+    }
+    html += "</div>";
+    if (!rows.length) {
+      html += '<p class="sub">' + esc(emptyText) + "</p>";
+    } else {
+      rows.forEach(function (profile) {
+        var extra = renewLine(profile);
+        if (filterKey === "paying_inactive") {
+          extra = formatRelativeTimeAgo(profile.last_seen_at) || "No last seen";
+        }
+        html += personButton(profile, extra);
+      });
+    }
+    html += "</section>";
+    return html;
+  }
+
   function overviewHtml() {
     var metrics = computeProfileMetrics(profiles);
     var activity = aggregateUsageCounts(usageEvents);
+    var people = usagePeopleCounts(usageEvents);
     var deletedCount = (deletedAccounts || []).length;
+    var updated = formatRelativeTimeAgo(generatedAt);
+    var newest = (profiles || []).slice().sort(byCreatedDesc).slice(0, 6);
     var html = "";
+
+    if (updated) {
+      html += '<p class="sub pp-admin-updated">Updated ' + esc(updated) + ".</p>";
+    }
 
     html += '<div class="ops-chips pp-admin-chips">';
     html += chipCard("Users", metrics.total, "all", userFilter == null, "");
     html += chipCard("Subscribed", metrics.subscribed, "subscribed", userFilter === "subscribed", "ok");
-    html += chipCard("Not subscribed", metrics.notSubscribed, "not_subscribed", userFilter === "not_subscribed", "warn");
-    html += chipCard("Active (7 days)", metrics.active7, "active7", userFilter === "active7", "");
+    html += chipCard("Active in 7 days", metrics.active7, "active7", userFilter === "active7", "");
+    html += chipCard("New in 7 days", metrics.new7, "new7", userFilter === "new7", "");
     html +=
       '<button type="button" class="ops-chip pp-admin-chip' +
       (deletedCount ? " danger" : "") +
@@ -516,32 +673,42 @@
       "</span></button>";
     html += "</div>";
 
+    html += '<div class="ops-card"><h3>Needs a look</h3>';
+    html += '<div class="pp-admin-watch">';
+    html += watchGroup("Expiring in 7 days", "expiring_soon", "No subscriptions end in the next 7 days.");
+    html += watchGroup("Subscribed, quiet 14 days", "paying_inactive", "Every subscriber has opened the app in the last 14 days.");
+    html += watchGroup("Lapsed", "lapsed", "No lapsed subscriptions.");
+    html += "</div></div>";
+
     html += '<div class="ops-card"><h3>Activity · last ' + USAGE_EVENTS_WINDOW_DAYS + " days</h3>";
     html += '<div class="pp-admin-activity-grid">';
     USAGE_EVENT_TYPE_ORDER.forEach(function (key) {
+      var folks = people[key] || 0;
       html +=
         '<div class="pp-admin-activity-item"><strong>' +
         esc(String(activity[key] || 0)) +
         "</strong><span>" +
         esc(USAGE_EVENT_TYPE_LABELS[key] || key) +
+        "</span><span class=\"muted\">" +
+        esc(folks === 1 ? "1 person" : folks + " people") +
         "</span></div>";
     });
     html += "</div></div>";
 
-    html += '<div class="ops-card"><h3>Browse by group</h3><p class="sub">Tap a group to open the Users list filtered to that set.</p>';
-    html += '<div class="pp-admin-segments">';
-    html += chipCard("New (7 days)", metrics.new7, "new7", userFilter === "new7", "");
-    html += chipCard("New (30 days)", metrics.new30, "new30", userFilter === "new30", "");
-    html += chipCard("Expiring soon", metrics.expiringSoon, "expiring_soon", userFilter === "expiring_soon", "warn");
-    html += chipCard(
-      "Subscribed, inactive 14d+",
-      metrics.payingInactive,
-      "paying_inactive",
-      userFilter === "paying_inactive",
-      "warn"
-    );
-    html += chipCard("Lapsed", metrics.lapsed, "lapsed", userFilter === "lapsed", "");
-    html += "</div></div>";
+    html += '<div class="ops-card"><div class="pp-admin-watch-head"><h3>Newest accounts</h3>';
+    html +=
+      '<button type="button" class="btn btn-ghost" data-user-filter="new30">New in 30 days · ' +
+      metrics.new30 +
+      "</button></div>";
+    if (!newest.length) {
+      html += '<p class="sub">No accounts yet.</p>';
+    } else {
+      newest.forEach(function (profile) {
+        var when = formatRelativeTimeAgo(profile.created_at) || formatShortDate(profile.created_at);
+        html += personButton(profile, (when ? when + " · " : "") + renewLine(profile));
+      });
+    }
+    html += "</div>";
     return html;
   }
 
@@ -572,7 +739,7 @@
   }
 
   function usersHtml() {
-    var list = filteredProfiles();
+    var list = sortedProfiles(filteredProfiles());
     var html = "";
     html += '<div class="pp-admin-toolbar">';
     html +=
@@ -580,6 +747,22 @@
       '<input data-el="user-search" type="search" placeholder="Name, email, or user ID…" value="' +
       esc(userSearch) +
       '" autocomplete="off" spellcheck="false" /></div>';
+    html += '<div class="ops-filters pp-admin-sort">';
+    [
+      ["seen", "Last seen"],
+      ["new", "Newest"],
+      ["name", "Name"]
+    ].forEach(function (pair) {
+      html +=
+        '<button type="button" class="ops-pill' +
+        (userSort === pair[0] ? " is-on" : "") +
+        '" data-user-sort="' +
+        pair[0] +
+        '">' +
+        pair[1] +
+        "</button>";
+    });
+    html += "</div>";
     if (userFilter) {
       var meta = USER_FILTER_META[userFilter];
       html +=
@@ -610,7 +793,7 @@
     }
 
     html += '<div class="pp-admin-table-wrap"><table class="pp-admin-table"><thead><tr>';
-    ["Name", "Email", "Status", "Last seen", "Routes", "Expires"].forEach(function (h) {
+    ["Name", "Status", "Last seen", "Routes", "Plan"].forEach(function (h) {
       html += "<th>" + esc(h) + "</th>";
     });
     html += "</tr></thead><tbody>";
@@ -624,27 +807,30 @@
         '"' +
         (key && key === selectedKey ? ' class="is-selected"' : "") +
         ">" +
-        "<td><div class=\"pp-admin-table-name\">" +
-        esc(trim(p.full_name) || trim(p.email) || trim(p.user_id) || "Unknown") +
+        '<td data-label="Name"><div class="pp-admin-table-name">' +
+        esc(displayName(p)) +
+        "</div>" +
+        (trim(p.email) && trim(p.full_name)
+          ? '<div class="pp-admin-table-sub">' + esc(trim(p.email)) + "</div>"
+          : "") +
+        '<div class="pp-admin-table-sub">' +
+        esc(renewLine(p)) +
         "</div></td>" +
-        "<td>" +
-        esc(trim(p.email) || "—") +
-        "</td>" +
-        '<td><span class="pp-admin-pill pp-admin-pill--' +
+        '<td data-label="Status"><span class="pp-admin-pill pp-admin-pill--' +
         esc(status.kind) +
         '">' +
         esc(status.label) +
         "</span></td>" +
-        '<td title="' +
+        '<td data-label="Last seen" title="' +
         esc(formatDisplayDate(p.last_seen_at)) +
         '">' +
         esc(ago || "—") +
         "</td>" +
-        "<td>" +
+        '<td data-label="Routes">' +
         esc(p.routes_built_count == null ? "—" : String(p.routes_built_count)) +
         "</td>" +
-        "<td>" +
-        esc(p.subscription_expires_at ? formatDisplayDate(p.subscription_expires_at) : "—") +
+        '<td data-label="Plan">' +
+        esc(planLabel(p.subscription_product_id)) +
         "</td>" +
         "</tr>";
     });
@@ -787,6 +973,21 @@
         render();
       });
     }
+    root.querySelectorAll("[data-user-sort]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        userSort = btn.getAttribute("data-user-sort") || "seen";
+        renderBodyOnly();
+      });
+    });
+    root.querySelectorAll("[data-open-profile]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var key = btn.getAttribute("data-open-profile");
+        var profile = profiles.filter(function (p) {
+          return profileListKey(p) === key;
+        })[0];
+        if (profile) openDrawer(profile);
+      });
+    });
     root.querySelectorAll("tr[data-profile-key]").forEach(function (row) {
       row.addEventListener("click", function () {
         var key = row.getAttribute("data-profile-key");
@@ -803,6 +1004,16 @@
     if (del) {
       del.addEventListener("click", function () {
         if (selectedProfile) openDeleteModal(selectedProfile);
+      });
+    }
+    var copy = el("copy-email");
+    if (copy && selectedProfile && trim(selectedProfile.email)) {
+      copy.addEventListener("click", function () {
+        copyText(trim(selectedProfile.email)).then(function () {
+          showMsg("Copied " + trim(selectedProfile.email), true);
+        }).catch(function () {
+          showMsg("Could not copy that email.", false);
+        });
       });
     }
   }
@@ -860,14 +1071,8 @@
         usageEvents = Array.isArray(data.usage_events) ? data.usage_events : [];
         subscriptionPeriods = Array.isArray(data.subscription_periods) ? data.subscription_periods : [];
         indexPeriods(subscriptionPeriods);
-        showMsg(
-          "Loaded " +
-            profiles.length +
-            " users · " +
-            deletedAccounts.length +
-            " deletions",
-          true
-        );
+        generatedAt = (data.stats && data.stats.generated_at) || new Date().toISOString();
+        showMsg("");
         render();
       })
       .catch(function (err) {
