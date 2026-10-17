@@ -2600,17 +2600,25 @@
       height: auto;
       display: flex;
       align-items: flex-start;
-      justify-content: flex-end;
+      justify-content: center;
       padding: 4px 0 6px;
       margin: 0;
       overflow: visible;
+    }
+
+    html.is-embed .sim-top {
+      display: none;
+    }
+
+    html.is-embed .sim-main {
+      padding: 0;
     }
 
     html.is-embed .stage {
       gap: 0;
       width: max-content;
       max-width: none;
-      align-items: flex-end;
+      align-items: center;
       /* zoom scales layout + paint together → correct proportions */
       zoom: var(--embed-scale);
       padding: 0;
@@ -2627,14 +2635,13 @@
       html.is-embed .stage {
         zoom: normal;
         transform: scale(var(--embed-scale));
-        transform-origin: top right;
+        transform-origin: top center;
         margin-bottom: calc((1 - var(--embed-scale)) * -100%);
       }
     }
 
     html.is-embed .stage-label,
-    html.is-embed .refresh-btn,
-    html.is-embed .device-switch {
+    html.is-embed .refresh-btn {
       display: none;
     }
 
@@ -2703,7 +2710,7 @@
     <a class="brand" href="index.html">
       <img class="brand-logo" src="images/stlapps-logo.jpg" alt="STL Apps LLC" width="200" height="40" />
     </a>
-    <a class="back" href="index.html">← Back</a>
+    <a class="back" href="build.html#dispatch">← Back</a>
   </header>
 
   <main class="sim-main">

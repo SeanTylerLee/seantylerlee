@@ -170,7 +170,7 @@
 
   function emailBody(d, intent) {
     var lines = [];
-    lines.push(intent === "interested" ? "I'm interested in this quote." : "A quote was saved from seantylerlee.com/quote.html.");
+    lines.push(intent === "interested" ? "I'm interested in this quote." : "A quote was saved from seantylerlee.com/build.html.");
     lines.push("");
     lines.push("Quote: " + d.quoteNumber);
     lines.push("Name: " + (d.clientName || "—"));

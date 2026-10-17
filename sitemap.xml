@@ -21,8 +21,13 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://seantylerlee.com/quote.html</loc>
+    <loc>https://seantylerlee.com/build.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://seantylerlee.com/quote.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
   </url>
 </urlset>
