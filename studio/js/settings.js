@@ -39,6 +39,7 @@
     { id: "mileage", title: "Mileage" },
     { id: "apps", title: "Apps" },
     { id: "sop", title: "SOP" },
+    { id: "imageAssets", title: "Image Assets" },
     { id: "support", title: "Support" },
     { id: "permitPathAdmin", title: "Permit Path Admin" },
     { id: "pc4hAdmin", title: "PC4H Admin" },

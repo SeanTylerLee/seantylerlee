@@ -26,6 +26,7 @@
     [
       { id: "apps", title: "Apps", icon: "square-stack-3d-up-fill", tint: "#2E9E7A", body: "Products, promos, analytics, and store logins." },
       { id: "sop", title: "SOP", icon: "list-clipboard-fill", tint: "#336BB3", body: "How-to guides with checkable steps." },
+      { id: "imageAssets", title: "Image Assets", icon: "square-stack-3d-up-fill", tint: "#7A5C99", body: "Screenshots, icons, and store art." },
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
       { id: "inbox", title: "Messages", icon: "tray-fill", tint: "#3D6B99", body: "Website contact and notify-me messages." },
       { id: "emails", title: "Email Lists", icon: "envelope-fill", tint: "#738094", body: "Named lists of emails." },
@@ -106,6 +107,7 @@
     permitPathAdmin: "is-permitPathAdmin",
     pc4hAdmin: "is-pc4hAdmin",
     sop: "is-sop",
+    imageAssets: "is-imageAssets",
     apps: "is-apps",
     support: "is-support",
     inbox: "is-inbox",
@@ -134,6 +136,7 @@
     permitPathAdmin: "STLPermitPathAdmin",
     pc4hAdmin: "STLPc4hAdmin",
     sop: "STLSOP",
+    imageAssets: "STLImageAssets",
     apps: "STLApps",
     support: "STLSupport",
     inbox: "STLInbox",
