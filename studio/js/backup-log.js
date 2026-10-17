@@ -1273,37 +1273,65 @@
   }
 
   function tosListText(pack) {
+    var rule = "------------------------------------------------------------";
+    var ruleWide = "============================================================";
+    function blank(v) {
+      var s = String(v == null ? "" : v).trim();
+      return s || "—";
+    }
+    function platformName(v) {
+      var p = String(v || "").toLowerCase();
+      if (p === "ios") return "Apple";
+      if (p === "android") return "Android";
+      return blank(v);
+    }
+    function when(iso) {
+      var raw = String(iso || "").trim();
+      if (!raw) return "—";
+      var date = new Date(raw);
+      if (isNaN(date.getTime())) return raw;
+      return raw.replace("T", " ").replace(/\.\d+Z$/, " UTC").replace(/Z$/, " UTC");
+    }
+    function field(label, value) {
+      var pad = label + "               ".slice(label.length);
+      return "    " + pad + blank(value);
+    }
+
     var rows = (pack.tosAcceptances || []).slice().sort(function (a, b) {
       return String(b.accepted_at || "").localeCompare(String(a.accepted_at || ""));
     });
     var lines = [
-      "STL Apps LLC — Permit Path terms of use acceptances",
-      "List of everyone who accepted. Time, IP, and account are on each line. The terms of use they agreed to are at the bottom.",
+      "STL Apps LLC",
+      "Permit Path — terms of use acceptances",
       "",
-      "Count: " + rows.length,
+      "Everyone who accepted is listed below.",
+      "Each block is one person. Time and IP are the proof of where they accepted from.",
+      "The terms of use they agreed to are at the bottom of this file.",
+      "",
+      "Total: " + rows.length,
       ""
     ];
     if (!rows.length) {
       lines.push("No acceptances on file.");
       return lines.join("\n");
     }
-    lines.push(
-      "#  Accepted at  |  Platform  |  IP address  |  Account email  |  Account user id  |  Install id  |  App version  |  Terms version  |  Record id"
-    );
     rows.forEach(function (row, i) {
-      lines.push(
-        (i + 1) + "  " +
-        (row.accepted_at || "—") + "  |  " +
-        (row.platform || "—") + "  |  " +
-        (row.ip_address || "—") + "  |  " +
-        (row.account_email || "Guest") + "  |  " +
-        (row.account_user_id || "—") + "  |  " +
-        (row.install_id || "—") + "  |  " +
-        (row.app_version || "—") + "  |  " +
-        (row.terms_version || "—") + "  |  " +
-        (row.id || "—")
-      );
+      var who = blank(row.account_email) === "—" ? "Guest" : String(row.account_email).trim();
+      lines.push(rule);
+      lines.push("  " + (i + 1) + ".  " + who);
+      lines.push(field("When", when(row.accepted_at)));
+      lines.push(field("Platform", platformName(row.platform)));
+      lines.push(field("IP", row.ip_address));
+      lines.push(field("Email", row.account_email || "Guest"));
+      lines.push(field("User id", row.account_user_id));
+      lines.push(field("Install", row.install_id));
+      lines.push(field("App", row.app_version));
+      lines.push(field("Terms", row.terms_version));
+      lines.push(field("Record", row.id));
+      lines.push("");
     });
+    lines.push(rule);
+
     var seen = {};
     var blocks = [];
     rows.forEach(function (row) {
@@ -1312,19 +1340,16 @@
       seen[key] = true;
       blocks.push(row);
     });
-    lines.push("", "", "===== TERMS OF USE THEY ACCEPTED =====", "");
+    lines.push("", "", ruleWide, "TERMS OF USE THEY ACCEPTED", ruleWide, "");
     blocks.forEach(function (row, i) {
-      if (i) lines.push("");
-      lines.push(
-        "----- " +
-        (row.platform || "app") +
-        (row.terms_version ? " · version " + row.terms_version : "") +
-        " -----"
-      );
+      if (i) lines.push("", rule, "");
+      var title = platformName(row.platform);
+      if (row.terms_version) title += "  ·  version " + row.terms_version;
+      lines.push(title, "");
       if (String(row.highlights || "").trim()) {
-        lines.push("", "Highlights", "", String(row.highlights).replace(/\r\n/g, "\n"));
+        lines.push("Highlights", "", String(row.highlights).replace(/\r\n/g, "\n").trim(), "");
       }
-      lines.push("", String(row.terms_text || "").replace(/\r\n/g, "\n") || "(No terms text stored on this version.)", "");
+      lines.push("Full terms", "", String(row.terms_text || "").replace(/\r\n/g, "\n").trim() || "(No terms text stored on this version.)", "");
     });
     return lines.join("\n");
   }
