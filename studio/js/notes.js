@@ -7,10 +7,33 @@
     { id: "20px", label: "L" }
   ];
   var COLORS = [
-    { id: "#e64747", label: "Red", swatch: "red" },
-    { id: "#1a70eb", label: "Blue", swatch: "blue" },
-    { id: "#1d1d1f", label: "Black", swatch: "ink" }
+    { id: "#e64747", label: "Red" },
+    { id: "#e07a1f", label: "Orange" },
+    { id: "#1f8a4c", label: "Green" },
+    { id: "#0f766e", label: "Teal" },
+    { id: "#1a70eb", label: "Blue" },
+    { id: "#6b46c1", label: "Purple" },
+    { id: "#12213d", label: "Navy" },
+    { id: "#1d1d1f", label: "Black" }
   ];
+  var FONTS = [
+    { id: "sans", label: "Sans", css: "system-ui, sans-serif" },
+    { id: "serif", label: "Serif", css: "Georgia, serif" },
+    { id: "mono", label: "Mono", css: "ui-monospace, Menlo, monospace" },
+    { id: "round", label: "Round", css: "ui-rounded, sans-serif" }
+  ];
+  var FONT_STACKS = {
+    "system-ui": "system-ui, sans-serif",
+    "sans-serif": "system-ui, sans-serif",
+    "-apple-system": "system-ui, sans-serif",
+    "georgia": "Georgia, serif",
+    "serif": "Georgia, serif",
+    "ui-monospace": "ui-monospace, Menlo, monospace",
+    "menlo": "ui-monospace, Menlo, monospace",
+    "sf mono": "ui-monospace, Menlo, monospace",
+    "monospace": "ui-monospace, Menlo, monospace",
+    "ui-rounded": "ui-rounded, sans-serif"
+  };
 
   var root = null;
   var db = null;
@@ -108,6 +131,9 @@
         if (/^\d+(\.\d+)?px$/i.test(v)) out.push("font-size:" + v.toLowerCase());
       } else if (k === "font-weight") {
         if (/^(bold|normal|400|600|700)$/i.test(v)) out.push("font-weight:" + v.toLowerCase());
+      } else if (k === "font-family") {
+        var stack = fontStack(v);
+        if (stack) out.push("font-family:" + stack);
       }
     });
     return out.join(";");
@@ -139,6 +165,8 @@
         var size = child.getAttribute("size");
         if (color) span.style.color = color;
         if (size) span.style.fontSize = sizeFromFontAttr(size);
+        var face = fontStack(child.getAttribute("face"));
+        if (face) span.style.fontFamily = face;
         while (child.firstChild) span.appendChild(child.firstChild);
         node.replaceChild(span, child);
         sanitizeNode(span);
@@ -258,6 +286,8 @@
       span.style.fontSize = px;
       var color = fonts[i].getAttribute("color") || fonts[i].style.color;
       if (color) span.style.color = color;
+      var family = fontStack(fonts[i].style.fontFamily || fonts[i].getAttribute("face"));
+      if (family) span.style.fontFamily = family;
       while (fonts[i].firstChild) span.appendChild(fonts[i].firstChild);
       fonts[i].parentNode.replaceChild(span, fonts[i]);
     }
@@ -294,6 +324,40 @@
     runCommand(function () {
       document.execCommand("fontSize", false, "7");
       replaceExecSize(px);
+    });
+  }
+
+  function fontKey(value) {
+    return String(value || "").replace(/["']/g, "").split(",")[0].trim().toLowerCase();
+  }
+
+  function fontStack(value) {
+    return FONT_STACKS[fontKey(value)] || "";
+  }
+
+  function fontButtonId(value) {
+    var stack = value ? fontStack(value) : "system-ui, sans-serif";
+    if (!stack) return "";
+    var found = FONTS.filter(function (font) { return font.css === stack; })[0];
+    return found ? found.id : "";
+  }
+
+  function normalizeEditorFonts() {
+    var editor = el("body");
+    if (!editor) return;
+    var nodes = editor.querySelectorAll("font, span, div, p");
+    for (var i = 0; i < nodes.length; i++) {
+      var raw = (nodes[i].style && nodes[i].style.fontFamily) || nodes[i].getAttribute("face") || "";
+      var stack = fontStack(raw);
+      if (stack) nodes[i].style.fontFamily = stack;
+    }
+  }
+
+  function applyFont(css) {
+    var name = String(css || "").split(",")[0].trim();
+    runCommand(function () {
+      document.execCommand("fontName", false, name);
+      normalizeEditorFonts();
     });
   }
 
@@ -339,6 +403,22 @@
     for (var s = 0; s < sizeBtns.length; s++) {
       sizeBtns[s].classList.toggle("is-on", sizeBtns[s].getAttribute("data-size") === size);
     }
+    var fontId = fontButtonId(currentFontFamily());
+    var fontBtns = root.querySelectorAll("[data-font]");
+    for (var f = 0; f < fontBtns.length; f++) {
+      fontBtns[f].classList.toggle("is-on", fontBtns[f].getAttribute("data-font-id") === fontId);
+    }
+  }
+
+  function currentFontFamily() {
+    var pack = rangeInEditor();
+    var node = pack ? pack.range.startContainer : null;
+    if (node && node.nodeType === 3) node = node.parentNode;
+    while (node && node !== el("body")) {
+      if (node.nodeType === 1 && node.style && node.style.fontFamily) return node.style.fontFamily;
+      node = node.parentNode;
+    }
+    return "";
   }
 
   function load() {
@@ -403,9 +483,14 @@
   }
 
   function toolsHtml() {
+    var fontBtns = FONTS.map(function (font) {
+      return '<button class="notes-font" type="button" data-font="' + esc(font.css) + '" data-font-id="' +
+        font.id + '" title="' + esc(font.label) + '" style="font-family:' + esc(font.css) + '">' +
+        esc(font.label) + "</button>";
+    }).join("");
     var colorBtns = COLORS.map(function (c) {
-      return '<button class="notes-swatch notes-swatch-' + c.swatch + '" type="button" data-color="' +
-        c.id + '" title="' + c.label + '" aria-label="' + c.label + '"></button>';
+      return '<button class="notes-swatch" type="button" data-color="' + c.id + '" title="' + c.label +
+        '" aria-label="' + c.label + '" style="background:' + c.id + '"></button>';
     }).join("");
     var sizeBtns = SIZES.map(function (s) {
       return '<button class="notes-size" type="button" data-size="' + s.id + '" title="Size ' +
@@ -414,6 +499,8 @@
     return (
       '<div class="notes-tools" data-el="tools">' +
         '<button class="notes-tool notes-tool-bold" type="button" data-cmd="bold" title="Bold">B</button>' +
+        '<span class="notes-tools-sep"></span>' +
+        fontBtns +
         '<span class="notes-tools-sep"></span>' +
         colorBtns +
         '<span class="notes-tools-sep"></span>' +
@@ -493,6 +580,7 @@
       }
       if (!btn || btn === tools) return;
       if (btn.getAttribute("data-cmd") === "bold") applyBold();
+      else if (btn.getAttribute("data-font")) applyFont(btn.getAttribute("data-font"));
       else if (btn.getAttribute("data-color")) applyColor(btn.getAttribute("data-color"));
       else if (btn.getAttribute("data-size")) applySize(btn.getAttribute("data-size"));
     });

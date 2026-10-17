@@ -52,7 +52,8 @@
 }
 
 .notes-tool,
-.notes-size {
+.notes-size,
+.notes-font {
   min-width: 28px;
   height: 28px;
   padding: 0 8px;
@@ -71,7 +72,8 @@
 }
 
 .notes-tool.is-on,
-.notes-size.is-on {
+.notes-size.is-on,
+.notes-font.is-on {
   background: #e8f1fd;
   border-color: var(--accent);
   color: var(--accent);
@@ -85,10 +87,6 @@
   border: 1px solid rgba(0, 0, 0, 0.2);
   cursor: default;
 }
-
-.notes-swatch-red { background: #e64747; }
-.notes-swatch-blue { background: #1a70eb; }
-.notes-swatch-ink { background: #1d1d1f; }
 
 .notes-swatch.is-on {
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink);
