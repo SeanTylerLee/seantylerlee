@@ -78,7 +78,7 @@
 
   function thumb(row) {
     var src = urls[row.storage_path] || "";
-    if (!src) return '<div class="ia-empty">Loading…</div>';
+    if (!src) return '<div class="ia-empty">No preview</div>';
     return '<img src="' + esc(src) + '" alt="' + esc(row.file_name || "image") + '" />';
   }
 
@@ -108,7 +108,7 @@
         "</div>";
     if (!rows.length) html += '<p class="sub">Nothing stored yet.</p>';
     else {
-      html += '<div class="ia-grid' + (kind === "icon" || kind === "header" ? " is-single" : "") + '">';
+      html += '<div class="ia-grid' + (kind === "icon" ? " is-icon" : kind === "header" ? " is-header" : "") + '">';
       rows.forEach(function (row) { html += fileCard(row); });
       html += "</div>";
     }
