@@ -590,9 +590,9 @@
       if (String(body).trim()) longText(pdf, body);
       else empty(pdf, "No notes.");
       var kinds = [
-        ["icon", plat === "web" ? "Logo" : "App icon"],
+        ["icon", plat === "web" ? "Logos" : "App icons"],
         ["screenshot", "Screenshots"],
-        ["header", "Header image"]
+        ["header", "Header images"]
       ];
       kinds.forEach(function (pair) {
         var list = fileRows.filter(function (f) { return f.platform === plat && f.kind === pair[0]; });

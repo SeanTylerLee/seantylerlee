@@ -11,7 +11,7 @@
     android: "Hi-res icon 512×512 PNG. Phone screenshots 1080×1920. Feature graphic 1024×500.",
     web: "Favicon, Open Graph 1200×630, and any header or hero sizes you keep here."
   };
-  var ICON_LABEL = { ios: "App icon", android: "App icon", web: "Logo" };
+  var ICON_LABEL = { ios: "App icons", android: "App icons", web: "Logos" };
 
   var root = null;
   var db = null;
@@ -94,17 +94,14 @@
     );
   }
 
-  function section(kind, title, many) {
+  function section(kind, title) {
     var rows = filesOf(kind);
     var html =
       '<div class="ops-card ia-section">' +
         "<h3>" + esc(title) + "</h3>" +
         '<div class="ia-actions">' +
-          '<button type="button" class="btn btn-primary" data-add="' + kind + '">' +
-            (many ? "Add images" : rows.length ? "Replace" : "Add image") +
-          "</button>" +
-          '<input data-file="' + kind + '" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"' +
-            (many ? " multiple" : "") + " hidden />" +
+          '<button type="button" class="btn btn-primary" data-add="' + kind + '">Add images</button>' +
+          '<input data-file="' + kind + '" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple hidden />' +
         "</div>";
     if (!rows.length) html += '<p class="sub">Nothing stored yet.</p>';
     else {
@@ -164,9 +161,9 @@
           '<button type="button" class="btn btn-primary" data-el="save-notes">Save notes</button>' +
         "</div>" +
       "</div>" +
-      section("icon", iconTitle, false) +
-      section("screenshot", "Screenshots", true) +
-      section("header", "Header image", false);
+      section("icon", iconTitle) +
+      section("screenshot", "Screenshots") +
+      section("header", "Header images");
 
     var notesBox = el("notes");
     var saveBtn = el("save-notes");
@@ -239,7 +236,7 @@
     return ext;
   }
 
-  function uploadOne(kind, file, replaceRows) {
+  function uploadOne(kind, file) {
     var ext = extOf(file);
     var id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
     var path = userId + "/" + platform + "/" + kind + "/" + id + "." + ext;
@@ -254,12 +251,7 @@
     }).then(function (res) {
       if (res.error) throw res.error;
       files.unshift(res.data);
-      return signOne(res.data.storage_path).then(function () {
-        if (!replaceRows || !replaceRows.length) return;
-        return Promise.all(replaceRows.map(function (old) {
-          return removeRow(old, true);
-        }));
-      });
+      return signOne(res.data.storage_path);
     });
   }
 
@@ -269,12 +261,11 @@
       return /^image\//i.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name || "");
     });
     if (!list.length) return showMsg("Use a PNG, JPEG, or WebP image.", false);
-    var replaceRows = kind === "screenshot" ? [] : filesOf(kind).slice();
     showMsg("Uploading…", true);
     var chain = Promise.resolve();
-    list.forEach(function (file, i) {
+    list.forEach(function (file) {
       chain = chain.then(function () {
-        return uploadOne(kind, file, i === 0 ? replaceRows : []);
+        return uploadOne(kind, file);
       });
     });
     chain.then(function () {
