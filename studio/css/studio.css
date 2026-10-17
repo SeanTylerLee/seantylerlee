@@ -989,3 +989,221 @@ textarea {
 @keyframes studio-hud-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Phone: the side list becomes a Menu button so the working screen can use the full width. */
+.phone-menu,
+.phone-menu-backdrop {
+  display: none;
+}
+
+html.is-phone .phone-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+html.is-phone .phone-menu-bars {
+  width: 16px;
+  height: 12px;
+  background:
+    linear-gradient(currentColor, currentColor) 0 0 / 100% 2px no-repeat,
+    linear-gradient(currentColor, currentColor) 0 5px / 100% 2px no-repeat,
+    linear-gradient(currentColor, currentColor) 0 10px / 100% 2px no-repeat;
+}
+
+html.is-phone .phone-menu.has-unread::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e23d3d;
+}
+
+html.is-phone .app {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "top"
+    "main";
+  --fs-page: 17px;
+  --fs-body: 16px;
+  --fs-callout: 14px;
+  --fs-caption: 13px;
+  --btn-h: 40px;
+  --btn-h-sm: 36px;
+  --field-h: 40px;
+}
+
+html.is-phone .topbar {
+  position: relative;
+  z-index: 40;
+  min-height: 52px;
+  height: auto;
+  padding: env(safe-area-inset-top) 10px 0 max(10px, env(safe-area-inset-left));
+  padding-right: max(10px, env(safe-area-inset-right));
+  gap: 8px;
+}
+
+html.is-phone .topbar img {
+  height: 22px;
+}
+
+html.is-phone .topbar-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+}
+
+html.is-phone .topbar .who {
+  display: none;
+}
+
+html.is-phone .topbar-btn,
+html.is-phone .btn,
+html.is-phone .sidebar-item {
+  min-height: 40px;
+  height: auto;
+  font-size: 15px;
+}
+
+html.is-phone .app.is-mobile-scrolled {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+html.is-phone .app.is-mobile-scrolled .topbar,
+html.is-phone .app.is-mobile-scrolled .ops-header,
+html.is-phone .app.is-mobile-scrolled .money-header,
+html.is-phone .app.is-mobile-scrolled .analytics-header,
+html.is-phone .app.is-mobile-scrolled .bank-header,
+html.is-phone .app.is-mobile-scrolled .clients-header,
+html.is-phone .app.is-mobile-scrolled .business-header,
+html.is-phone .app.is-mobile-scrolled .vault-header,
+html.is-phone .app.is-mobile-scrolled .renewals-header,
+html.is-phone .app.is-mobile-scrolled .notes-bar,
+html.is-phone .app.is-mobile-scrolled .apps-header,
+html.is-phone .app.is-mobile-scrolled .billing-rail > h1 {
+  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+  overflow: visible;
+}
+
+html.is-phone .sidebar {
+  display: none;
+  position: fixed;
+  z-index: 36;
+  top: calc(58px + env(safe-area-inset-top));
+  left: max(10px, env(safe-area-inset-left));
+  right: max(10px, env(safe-area-inset-right));
+  width: auto;
+  max-width: none;
+  max-height: calc(100dvh - 76px - env(safe-area-inset-top));
+  padding: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
+}
+
+html.is-phone .app.menu-open .sidebar {
+  display: flex;
+}
+
+html.is-phone .sidebar-item {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 16px;
+  gap: 10px;
+}
+
+html.is-phone .sidebar-icon {
+  width: 28px;
+  height: 28px;
+}
+
+html.is-phone .sidebar-icon img {
+  width: 16px;
+  height: 16px;
+}
+
+html.is-phone .phone-menu-backdrop {
+  display: none;
+}
+
+html.is-phone .app.menu-open .phone-menu-backdrop {
+  display: block;
+  position: fixed;
+  top: calc(52px + env(safe-area-inset-top));
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 35;
+  border: 0;
+  padding: 0;
+  background: rgba(15, 23, 42, 0.28);
+}
+
+html.is-phone .main {
+  min-width: 0;
+  overflow: auto;
+}
+
+html.is-phone .main > .panel,
+html.is-phone .panel {
+  padding: 12px 12px 28px;
+}
+
+html.is-phone .field input,
+html.is-phone .field select,
+html.is-phone .field textarea,
+html.is-phone .ops-field input,
+html.is-phone .ops-field select,
+html.is-phone .ops-field textarea,
+html.is-phone .money-field input,
+html.is-phone .money-field select,
+html.is-phone .money-field textarea,
+html.is-phone .proj-field input,
+html.is-phone .proj-field select,
+html.is-phone .proj-field textarea {
+  font-size: 16px;
+  min-height: 40px;
+}
+
+html.is-phone .billing-workspace,
+html.is-phone .calendar-workspace,
+html.is-phone .sop-split,
+html.is-phone .ops-split,
+html.is-phone .inbox-split {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+html.is-phone .billing-rail,
+html.is-phone .inbox-list,
+html.is-phone .sop-list {
+  max-height: 38vh;
+  border-right: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+html.is-phone .app.is-billing .main,
+html.is-phone .app.is-projects .main,
+html.is-phone .app.is-calendar .main,
+html.is-phone .app.is-apps .main,
+html.is-phone .app.is-sop .main,
+html.is-phone .app.is-inbox .main {
+  overflow: auto;
+}

@@ -83,6 +83,8 @@
   var whoEl = document.getElementById("who");
   var sidebar = document.getElementById("sidebar");
   var pagesEl = document.getElementById("pages");
+  var phoneMenuBtn = document.getElementById("phone-menu");
+  var phoneMenuBackdrop = document.getElementById("phone-menu-backdrop");
   var pageHosts = {};
   var appReady = false;
 
@@ -217,7 +219,21 @@
     signUpBtn.disabled = on;
   }
 
+  function closePhoneMenu() {
+    if (!app) return;
+    app.classList.remove("menu-open");
+    if (phoneMenuBtn) phoneMenuBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function togglePhoneMenu() {
+    if (!app) return;
+    var open = !app.classList.contains("menu-open");
+    app.classList.toggle("menu-open", open);
+    if (phoneMenuBtn) phoneMenuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
   function paintInboxDot() {
+    if (phoneMenuBtn) phoneMenuBtn.classList.toggle("has-unread", inboxUnread > 0);
     if (!sidebar) return;
     var btn = sidebar.querySelector('[data-section="inbox"]');
     if (!btn) return;
@@ -340,6 +356,7 @@
           (section.id === "inbox" && inboxUnread > 0 ? '<span class="sidebar-dot" aria-hidden="true"></span>' : "");
         btn.addEventListener("click", function () {
           currentSection = section.id;
+          closePhoneMenu();
           renderNav();
           renderPanel();
         });
@@ -360,6 +377,7 @@
       '<span class="sidebar-label">' + SETTINGS_SECTION.title + "</span>";
     settingsBtn.addEventListener("click", function () {
       currentSection = "settings";
+      closePhoneMenu();
       renderNav();
       renderPanel();
     });
@@ -469,7 +487,14 @@
 
   signOutBtn.addEventListener("click", function () {
     if (!client) return;
+    closePhoneMenu();
     client.auth.signOut();
+  });
+
+  if (phoneMenuBtn) phoneMenuBtn.addEventListener("click", togglePhoneMenu);
+  if (phoneMenuBackdrop) phoneMenuBackdrop.addEventListener("click", closePhoneMenu);
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") closePhoneMenu();
   });
 
   if (globalSaveBtn) {
@@ -480,6 +505,10 @@
   }
 
   document.addEventListener("scroll", function (event) {
+    if (document.documentElement.classList.contains("is-phone")) {
+      app.classList.remove("is-mobile-scrolled");
+      return;
+    }
     if (!window.matchMedia || !window.matchMedia("(max-width: 800px), (orientation: landscape) and (max-height: 520px)").matches) {
       app.classList.remove("is-mobile-scrolled");
       return;

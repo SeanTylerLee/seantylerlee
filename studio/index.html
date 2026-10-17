@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- studio pages bust 2026101701 -->
+<!-- studio pages bust 2026101702 -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -10,7 +10,7 @@
   <meta name="mobile-web-app-capable" content="no" />
   <title>Studio · STL Apps LLC</title>
   <link rel="icon" href="images/stlapps-layers.png" type="image/png" />
-  <link rel="stylesheet" href="css/studio.css?v=29" />
+  <link rel="stylesheet" href="css/studio.css?v=30" />
   <link rel="stylesheet" href="css/billing.css?v=18" />
   <link rel="stylesheet" href="css/notes.css?v=14" />
   <link rel="stylesheet" href="css/projects.css?v=13" />
@@ -29,6 +29,18 @@
   <link rel="stylesheet" href="css/inventory.css?v=13" />
   <link rel="stylesheet" href="css/mileage.css?v=1" />
   <script>
+    (function () {
+      var ua = navigator.userAgent || "";
+      var phone = /iPhone|iPod|Windows Phone|IEMobile|BlackBerry|Opera Mini/i.test(ua) ||
+        (/Android/i.test(ua) && /Mobile/i.test(ua));
+      if (!phone) {
+        var touch = (navigator.maxTouchPoints || 0) > 1;
+        var shortSide = Math.min(screen.width || 0, screen.height || 0);
+        var longSide = Math.max(screen.width || 0, screen.height || 0);
+        phone = touch && shortSide > 0 && shortSide <= 500 && longSide <= 1000;
+      }
+      if (phone) document.documentElement.classList.add("is-phone");
+    })();
     window.addEventListener("beforeinstallprompt", function (event) { event.preventDefault(); });
   </script>
 </head>
@@ -57,12 +69,17 @@
 
   <div class="app hidden" id="app">
     <header class="topbar">
+      <button class="phone-menu" id="phone-menu" type="button" aria-expanded="false" aria-controls="sidebar">
+        <span class="phone-menu-bars" aria-hidden="true"></span>
+        Menu
+      </button>
       <img src="images/stlapps-logo.jpg" alt="STL Apps LLC" />
       <span class="topbar-title">Private studio</span>
       <span class="who" id="who"></span>
       <button class="btn topbar-btn topbar-btn-primary hidden" type="button" id="global-save" disabled>Save</button>
       <button class="btn topbar-btn" type="button" id="sign-out">Sign out</button>
     </header>
+    <button class="phone-menu-backdrop" id="phone-menu-backdrop" type="button" aria-label="Close menu"></button>
     <nav class="sidebar" id="sidebar" aria-label="Studio"></nav>
     <main class="main" id="pages"></main>
   </div>
@@ -108,6 +125,6 @@
   <script src="js/promos.js?v=4"></script>
   <script src="js/pricing.js?v=8"></script>
   <script src="js/settings.js?v=11"></script>
-  <script src="js/app.js?v=53"></script>
+  <script src="js/app.js?v=54"></script>
 </body>
 </html>
