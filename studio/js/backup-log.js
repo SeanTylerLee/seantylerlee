@@ -648,11 +648,12 @@
     var company = c.company || "";
     var phone = c.phone || "";
     var notes = c.notes || "";
+    var sent = c.is_sent ? ("Yes" + (c.sent_at ? " " + day(c.sent_at) : "")) : "No";
     if (!email && !name && !company && !phone && !notes && Array.isArray(c.cells)) {
       var cells = c.cells.map(function (cell) { return cell == null ? "" : String(cell); });
-      return [cells[0] || "", cells[1] || "", cells[2] || "", cells[3] || "", cells.slice(4).filter(Boolean).join(" ")];
+      return [cells[0] || "", cells[1] || "", cells[2] || "", cells[3] || "", cells.slice(4).filter(Boolean).join(" "), sent];
     }
-    return [email, name, company, phone, notes];
+    return [email, name, company, phone, notes, sent];
   }
 
   function emails(pdf, pack) {
@@ -685,9 +686,9 @@
       else {
         table(
           pdf,
-          ["Email", "Name", "Company", "Phone", "Notes"],
+          ["Email", "Name", "Company", "Phone", "Notes", "Contacted"],
           people.map(contactLine),
-          [150, 90, 90, 80, pdf.maxW - 410],
+          [130, 80, 80, 70, pdf.maxW - 460, 70],
           1
         );
       }

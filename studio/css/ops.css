@@ -765,6 +765,72 @@ html.is-phone .app.is-notifications .ops-card {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mail-emails li.is-sent span,
+.mail-emails li.is-sent .mail-pick span {
+  color: #6b7388;
+}
+
+.mail-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  font-size: 13px;
+}
+
+.mail-pick input {
+  flex-shrink: 0;
+}
+
+.mail-sent-tag {
+  font-style: normal;
+  font-size: 11px;
+  color: #6b7388;
+  white-space: nowrap;
+}
+
+.mail-batch,
+.mail-queue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.mail-queue {
+  background: var(--chip);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+}
+
+.mail-queue p {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.mail-filters {
+  margin-top: 4px;
+}
+
+html.is-phone .mail-emails li {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+html.is-phone .mail-email-actions {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+html.is-phone .mail-batch .btn,
+html.is-phone .mail-queue-actions .btn {
+  min-height: 36px;
 }
 
 .mail-add {
