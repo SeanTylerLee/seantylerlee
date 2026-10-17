@@ -50,13 +50,22 @@
   function saveListField(key, value) {
     var list = selectedList();
     if (!list) return;
+    list[key] = value;
     var patch = {};
     patch[key] = value;
     db.from("email_lists").update(patch).eq("id", list.id).then(function (res) {
       if (res.error) return showMsg(res.error.message, false);
-      list[key] = value;
       if (key === "name") renderLists();
     });
+  }
+
+  function harvestListFields() {
+    var list = selectedList();
+    if (!list) return;
+    var subjectEl = el("list-subject");
+    var notesEl = el("list-notes");
+    if (subjectEl && trim(subjectEl.value) !== trim(list.subject || "")) saveListField("subject", trim(subjectEl.value));
+    if (notesEl && notesEl.value !== (list.notes || "")) saveListField("notes", notesEl.value);
   }
 
   function shell() {
@@ -308,6 +317,7 @@
   }
 
   function addEmail(email, extra) {
+    harvestListFields();
     var list = selectedList();
     if (!list) return;
     extra = extra || {};
@@ -334,6 +344,7 @@
   }
 
   function removeEmail(id) {
+    harvestListFields();
     db.from("email_contacts").delete().eq("id", id).then(function (res) {
       if (res.error) return showMsg(res.error.message, false);
       contacts = contacts.filter(function (c) { return c.id !== id; });

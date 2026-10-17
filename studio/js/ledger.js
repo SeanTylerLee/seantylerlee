@@ -7,6 +7,7 @@
     var db = null;
     var rows = [];
     var skips = [];
+    var paymentSkips = [];
     var selectedYear = new Date().getFullYear();
     var expandedId = null;
     var dirty = false;
@@ -73,7 +74,7 @@
       yearRows().forEach(function (r) { existing[r.series_id] = true; });
       var skipped = {};
       skips.forEach(function (s) {
-        if (Number(s.year) === selectedYear) skipped[s.series_id] = true;
+        if (Number(s.year) <= selectedYear) skipped[s.series_id] = true;
       });
       return Object.keys(bySeries)
         .filter(function (id) { return !existing[id] && !skipped[id]; })
@@ -427,6 +428,11 @@
             skips = (skipRes && skipRes.data) || skips;
           });
         }
+        if (config.backfillFromBilling && (item.source_payment_key || item.source_invoice_number)) {
+          if (item.source_payment_key) paymentSkips.push(item.source_payment_key);
+          if (item.source_invoice_number) paymentSkips.push("inv:" + String(item.source_invoice_number).toLowerCase());
+          return savePaymentSkips();
+        }
       }).then(function () {
         render();
         if (dirty) showMsg("Unsaved changes", true);
@@ -688,6 +694,31 @@
       });
     }
 
+    function loadPaymentSkips() {
+      if (!config.backfillFromBilling) return Promise.resolve([]);
+      return db.from("studio_settings").select("value").eq("key", "income_payment_skips").limit(1).then(function (res) {
+        var row = res && res.data && res.data[0];
+        if (!row || !row.value) return [];
+        try {
+          var parsed = JSON.parse(row.value);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (err) {
+          return [];
+        }
+      }).catch(function () { return []; });
+    }
+
+    function savePaymentSkips() {
+      var unique = [];
+      paymentSkips.forEach(function (key) {
+        if (key && unique.indexOf(key) < 0) unique.push(key);
+      });
+      paymentSkips = unique;
+      var row = { key: "income_payment_skips", value: JSON.stringify(unique) };
+      if (userId) row.user_id = userId;
+      return db.from("studio_settings").upsert(row, { onConflict: "user_id,key" });
+    }
+
     function maybeBackfillIncome() {
       if (!config.backfillFromBilling) return Promise.resolve();
       return db.from("billing_documents").select("*").eq("kind", "invoice").then(function (res) {
@@ -706,6 +737,7 @@
           var key = "pay:" + doc.id;
           var numKey = doc.number ? ("inv:" + String(doc.number).toLowerCase()) : "";
           if (existingKeys[key] || (numKey && existingKeys[numKey])) return;
+          if (paymentSkips.indexOf(key) >= 0 || (numKey && paymentSkips.indexOf(numKey) >= 0)) return;
           inserts.push({
             title: (doc.client_name ? doc.client_name + " · " : "") + (doc.number || "Invoice"),
             amount: Number(doc.amount) || 0,
@@ -731,7 +763,8 @@
         userId = authRes.data && authRes.data.user && authRes.data.user.id;
         return Promise.all([
           db.from(config.table).select("*").order("date", { ascending: false }),
-          db.from(config.skipsTable).select("*")
+          db.from(config.skipsTable).select("*"),
+          loadPaymentSkips()
         ]);
       }).then(function (pair) {
         if (pair[0].error) {
@@ -743,6 +776,7 @@
         }
         rows = pair[0].data || [];
         skips = (pair[1] && pair[1].data) || [];
+        paymentSkips = pair[2] || [];
         return maybeBackfillIncome();
       }).then(function () {
         clearDirty();
@@ -777,7 +811,11 @@
         root = null;
       },
       saveAll: saveAll,
-      isDirty: function () { return dirty; }
+      isDirty: function () { return dirty; },
+      shown: function () {
+        if (!root || !db || dirty || saving) return;
+        load();
+      }
     };
   }
 

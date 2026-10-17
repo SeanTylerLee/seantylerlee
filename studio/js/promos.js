@@ -412,11 +412,12 @@
     isDirty: function () { return dirty; },
     setApp: function (id) {
       var next = id || (embedded ? "" : "all");
-      if (selectedAppId === next) return;
-      if (dirty && !window.confirm("You have unsaved promo changes. Switch apps without saving?")) return;
+      if (selectedAppId === next) return true;
+      if (dirty && !window.confirm("You have unsaved promo changes. Switch apps without saving?")) return false;
       selectedAppId = next;
       expandedId = null;
       if (root) render();
+      return true;
     },
     shown: function () {
       if (root) syncSave();

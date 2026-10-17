@@ -21,6 +21,7 @@
   var appEl = null;
   var scaleTimer = null;
   var pendingOpenId = null;
+  var draftDirty = false;
 
   function Doc() {
     return window.STLBillingDoc;
@@ -178,15 +179,31 @@
     return "Thank you for your business.";
   }
 
+  function pricingDefaults() {
+    var deposit = 50;
+    var days = 14;
+    if (window.STLPricing && typeof window.STLPricing.defaults === "function") {
+      var saved = window.STLPricing.defaults() || {};
+      var d = Number(saved.depositPercent);
+      var v = Number(saved.validDays);
+      if (Number.isFinite(d)) deposit = Math.max(0, Math.min(100, d));
+      if (Number.isFinite(v) && v >= 1) days = v;
+    }
+    return { deposit: deposit, days: days };
+  }
+
   function emptyDraft() {
     var D = Doc();
     var today = D.todayISO();
     var kind = currentKind === "quote" ? "quote" : "invoice";
+    var defs = pricingDefaults();
+    var dayKey = (defs.days === 7 || defs.days === 14 || defs.days === 30) ? String(defs.days) : "custom";
+    var until = D.addDays(today, defs.days);
     return Object.assign({
       kind: kind,
       number: nextNumber(kind),
       documentDate: today,
-      dueDate: kind === "quote" ? D.addDays(today, 14) : D.dueFromTerms(today, "14"),
+      dueDate: kind === "quote" ? until : D.dueFromTerms(today, "14"),
       terms: "14",
       poNumber: "",
       projectName: "",
@@ -203,9 +220,9 @@
       paidDate: "",
       paymentNotes: "",
       notes: defaultNotes(),
-      validDays: "14",
-      validUntil: D.addDays(today, 14),
-      depositPercent: 50,
+      validDays: dayKey,
+      validUntil: until,
+      depositPercent: defs.deposit,
       hourlyRate: 150,
       status: currentKind === "quote" ? "estimate" : "unpaid"
     }, FROM);
@@ -314,6 +331,7 @@
   }
 
   function fillForm(doc) {
+    draftDirty = false;
     currentId = doc && doc.id ? doc.id : null;
     if (doc && doc.kind) currentKind = doc.kind === "quote" ? "quote" : "invoice";
     var d = doc ? draftFromDoc(doc) : emptyDraft();
@@ -516,7 +534,7 @@
           return;
         }
       }
-      if (!currentId) fillForm(null);
+      if (!currentId && !draftDirty) fillForm(null);
     });
   }
 
@@ -752,7 +770,12 @@
     el("mark-paid").addEventListener("click", markPaid);
     el("convert").addEventListener("click", convertQuote);
     el("pdf").addEventListener("click", downloadPdf);
-    el("form").addEventListener("input", function () {
+    el("form").addEventListener("input", function (event) {
+      draftDirty = true;
+      if (event.target === el("due")) {
+        if (currentKind === "quote" && el("valid-days")) el("valid-days").value = "custom";
+        else if (el("terms")) el("terms").value = "custom";
+      }
       showMsg("");
       refreshPreview();
     });

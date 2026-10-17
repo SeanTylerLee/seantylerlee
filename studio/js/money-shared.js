@@ -148,9 +148,11 @@
       if (item.year !== year) return;
       if (rec === "monthly") {
         var count = resolvedMonthCount(item);
+        var start = startMonth;
+        if (start + count - 1 > 12) start = Math.max(1, 13 - count);
         var m;
         for (m = 0; m < count; m += 1) {
-          var idx = startMonth - 1 + m;
+          var idx = start - 1 + m;
           if (idx >= 0 && idx < 12) {
             if (kind === "income") months[idx].income = round2(months[idx].income + amount);
             else months[idx].expense = round2(months[idx].expense + amount);

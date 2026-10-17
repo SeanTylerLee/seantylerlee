@@ -175,6 +175,11 @@
               return;
             }
             items.splice(i, 1);
+            if (row.id && snapshot && snapshot.items) {
+              snapshot.items = snapshot.items.filter(function (item) {
+                return item.id !== row.id;
+              });
+            }
             render();
           });
         } else {
@@ -263,16 +268,21 @@
           loaded = true;
           return;
         }
-        if (res.data && res.data.length) {
-          items = res.data;
-          return db.from("studio_pricing_settings").select("*").limit(1).maybeSingle().then(function (set) {
-            if (set && set.data) {
-              depositPercent = Number(set.data.deposit_percent) || depositPercent;
-              validDays = Number(set.data.valid_days) || validDays;
-            }
-          });
-        }
-        return seedToDatabase();
+        return db.from("studio_pricing_settings").select("*").limit(1).maybeSingle().then(function (set) {
+          if (set && set.data) {
+            depositPercent = Number(set.data.deposit_percent) || depositPercent;
+            validDays = Number(set.data.valid_days) || validDays;
+          }
+          if (res.data && res.data.length) {
+            items = res.data;
+            return;
+          }
+          if (set && set.data) {
+            items = [];
+            return;
+          }
+          return seedToDatabase();
+        });
       }).then(function () {
         loaded = true;
       });
@@ -385,6 +395,9 @@
     ready: function () { return loaded; },
     isOpen: function () {
       return !!(panel && !panel.classList.contains("hidden"));
+    },
+    defaults: function () {
+      return { depositPercent: depositPercent, validDays: validDays };
     },
     applyDefaults: function (deposit, days) {
       var d = Number(deposit);

@@ -16,6 +16,7 @@
   var mileageRate = DEFAULT_MILEAGE_RATE;
   var taxReserve = DEFAULT_TAX_RESERVE;
   var defaultSection = "overview";
+  var defaultSectionReady = false;
   var depositPercent = DEFAULT_DEPOSIT;
   var validDays = DEFAULT_QUOTE_DAYS;
   var vendorDraft = "";
@@ -84,7 +85,13 @@
     box.classList.toggle("is-bad", !!msg && !ok);
   }
 
+  function settingsVisible() {
+    var app = document.getElementById("app");
+    return !!(app && app.classList.contains("is-settings"));
+  }
+
   function syncSave() {
+    if (!settingsVisible()) return;
     var btn = document.getElementById("global-save");
     if (!btn) return;
     btn.classList.remove("hidden");
@@ -338,11 +345,10 @@
     var jobs = [];
     var vendor = vendorDraft.trim();
     var bucket = bucketDraft.trim();
-    if (vendor) {
-      jobs.push(api.post("/api/subscriptions/vendor", { vendorNumber: vendor }).then(function (res) {
+    jobs.push(api.post("/api/subscriptions/vendor", { vendorNumber: vendor }).then(function (res) {
         if (!res.ok) throw new Error((res.data && res.data.error) || "Could not save vendor number.");
         var digits = vendor.replace(/\D/g, "");
-        if (db && digits && api.isLocal && api.isLocal()) {
+        if (db && api.isLocal && api.isLocal()) {
           return db.auth.getUser().then(function (auth) {
             var user = auth.data && auth.data.user;
             if (!user) return;
@@ -350,9 +356,7 @@
           }).catch(function () {});
         }
       }));
-    }
-    if (bucket) {
-      jobs.push(api.post("/api/subscriptions/play-bucket", { bucket: bucket }).then(function (res) {
+    jobs.push(api.post("/api/subscriptions/play-bucket", { bucket: bucket }).then(function (res) {
         if (!res.ok) throw new Error((res.data && res.data.error) || "Could not save Play bucket.");
         if (db && api.isLocal && api.isLocal()) {
           return db.auth.getUser().then(function (auth) {
@@ -362,8 +366,6 @@
           }).catch(function () {});
         }
       }));
-    }
-    if (!jobs.length) return Promise.resolve();
     return Promise.all(jobs);
   }
 
@@ -411,7 +413,7 @@
       showMsg("Saved on your account", true);
       setTimeout(function () { showMsg(""); }, 900);
       return loadConnections().then(function () {
-        if (root) render();
+        if (root && !dirty) render();
       });
     }).catch(function (err) {
       saving = false;
@@ -549,7 +551,11 @@
     isDirty: function () { return dirty; },
     saveAll: saveAll,
     defaultSection: function () {
-      return defaultSection || readStoredDefault();
+      if (!defaultSectionReady) {
+        defaultSection = readStoredDefault();
+        defaultSectionReady = true;
+      }
+      return defaultSection || "overview";
     },
     hydrate: hydrate
   };

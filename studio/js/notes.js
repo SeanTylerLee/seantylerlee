@@ -151,7 +151,7 @@
       }
       var attrs = Array.prototype.slice.call(child.attributes || []);
       attrs.forEach(function (a) {
-        if (tag === "SPAN" && a.name === "style") {
+        if ((tag === "SPAN" || tag === "DIV" || tag === "P") && a.name === "style") {
           var cleaned = cleanStyle(a.value);
           if (cleaned) child.setAttribute("style", cleaned);
           else child.removeAttribute("style");
@@ -170,11 +170,23 @@
     return wrap.innerHTML;
   }
 
+  function decodeEntities(s) {
+    var box = document.createElement("textarea");
+    var cur = String(s || "");
+    var i;
+    for (i = 0; i < 5; i += 1) {
+      box.innerHTML = cur;
+      if (box.value === cur) break;
+      cur = box.value;
+    }
+    return cur;
+  }
+
   function toEditorHtml(body) {
     var s = String(body || "");
     if (!s) return "";
     if (looksLikeHtml(s)) return sanitizeHtml(s);
-    return esc(s).replace(/\n/g, "<br>");
+    return esc(decodeEntities(s)).replace(/\n/g, "<br>");
   }
 
   function fromEditor() {
@@ -249,11 +261,11 @@
       while (fonts[i].firstChild) span.appendChild(fonts[i].firstChild);
       fonts[i].parentNode.replaceChild(span, fonts[i]);
     }
-    var spans = editor.querySelectorAll("span");
-    for (var j = 0; j < spans.length; j++) {
-      var fs = String(spans[j].style.fontSize || "");
+    var sized = editor.querySelectorAll("span, div, p");
+    for (var j = 0; j < sized.length; j++) {
+      var fs = String(sized[j].style.fontSize || "");
       if (fs === "xxx-large" || fs === "xx-large" || fs === "-webkit-xxx-large" || fs === "x-large") {
-        spans[j].style.fontSize = px;
+        sized[j].style.fontSize = px;
       }
     }
   }
@@ -341,16 +353,14 @@
           return;
         }
         var editor = el("body");
-        if (res.data) {
-          noteId = res.data.id;
-          if (editor) editor.innerHTML = toEditorHtml(res.data.body || "");
-        } else {
-          noteId = null;
-          if (editor) editor.innerHTML = "";
+        if (res.data) noteId = res.data.id;
+        else noteId = null;
+        if (editor && !dirty) {
+          editor.innerHTML = res.data ? toEditorHtml(res.data.body || "") : "";
+          clearDirty();
         }
-        clearDirty();
         syncPlaceholder();
-        showMsg(res.data ? "" : "Empty notepad — type, then Save.", true);
+        if (!dirty) showMsg(res.data ? "" : "Empty notepad — type, then Save.", true);
         setTimeout(function () {
           if (!dirty) showMsg("");
         }, 1200);

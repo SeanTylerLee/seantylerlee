@@ -446,7 +446,7 @@
       var t = invoiceTotals(doc);
       if (t.balance > 0) return false;
       var date = String(doc.paid_on || (doc.payload && doc.payload.paidDate) || doc.issued_on || "");
-      return date.slice(0, 4) === String(selectedYear) || Number(doc.year) === selectedYear;
+      return date.slice(0, 4) === String(selectedYear);
     });
   }
 
@@ -679,7 +679,7 @@
       safe("business_incomes"),
       safe("business_expenses"),
       safe("owner_draws"),
-      safe("billing_documents", "id,kind,number,client_name,amount,status,paid_on,issued_on,year,payload"),
+      safe("billing_documents", "id,kind,number,client_name,amount,status,paid_on,issued_on,payload"),
       safe("business_profile"),
       safe("business_documents", "id,name,file_name,storage_path"),
       db.from("studio_settings").select("key,value").in("key", ["tax_reserve_percent", "mileage_rate"])
@@ -734,6 +734,10 @@
       root = null;
     },
     saveAll: saveAll,
-    isDirty: function () { return dirty; }
+    isDirty: function () { return dirty; },
+    shown: function () {
+      if (!root || !db || dirty || saving) return;
+      load();
+    }
   };
 })();

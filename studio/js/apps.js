@@ -293,14 +293,18 @@
     }).join("");
     wrap.querySelectorAll("[data-id]").forEach(function (btn) {
       btn.onclick = function () {
+        var nextId = btn.getAttribute("data-id");
+        if (!nextId || nextId === selectedId) return;
         if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) return;
-        selectedId = btn.getAttribute("data-id");
+        if (pageTab === "promos" && window.STLPromos && window.STLPromos.setApp) {
+          if (window.STLPromos.setApp(nextId) === false) return;
+        }
+        selectedId = nextId;
         editing = false;
         expandedIssue = null;
         expandedLogin = null;
         clearDirty();
         render();
-        if (pageTab === "promos" && window.STLPromos && window.STLPromos.setApp) window.STLPromos.setApp(selectedId);
         if (pageTab === "analytics" && window.STLAnalytics && window.STLAnalytics.setApp) window.STLAnalytics.setApp(selectedId);
         if (pageTab === "tos" && window.STLTos && window.STLTos.setApp) window.STLTos.setApp(selected());
       };

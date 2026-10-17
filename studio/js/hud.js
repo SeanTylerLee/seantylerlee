@@ -7,6 +7,7 @@
   var current = "";
   var timer = null;
   var shownGood = "";
+  var shownFail = "";
 
   var BUSY = /loading|saving|sending|upload|building|publish|deleting|zipping|collecting|writing restore|signing/i;
   var SKIP = /unsaved changes/i;
@@ -54,17 +55,26 @@
     }
   }
 
+  function onHiddenPage(node) {
+    var page = node.closest ? node.closest(".panel") : null;
+    return !!(page && page.classList.contains("hidden"));
+  }
+
   function readState() {
     var busy = false;
     var good = false;
     var fail = false;
+    var failKey = "";
     var nodes = document.querySelectorAll(".status.is-on");
     var i;
     for (i = 0; i < nodes.length; i += 1) {
+      if (onHiddenPage(nodes[i])) continue;
       var text = String(nodes[i].textContent || "").trim();
       if (!text) continue;
-      if (nodes[i].classList.contains("is-bad")) fail = true;
-      else if (BUSY.test(text)) busy = true;
+      if (nodes[i].classList.contains("is-bad")) {
+        fail = true;
+        failKey += text + "|";
+      } else if (BUSY.test(text)) busy = true;
       else if (SKIP.test(text)) continue;
       else if (nodes[i].classList.contains("is-ok")) good = true;
     }
@@ -73,9 +83,13 @@
     if (fail) {
       lastBusy = false;
       shownGood = "";
-      setMode("bad");
+      if (shownFail !== failKey) {
+        shownFail = failKey;
+        setMode("bad");
+      }
       return;
     }
+    shownFail = "";
     if (busy) {
       lastBusy = true;
       shownGood = "";
@@ -85,6 +99,7 @@
     if (good) {
       var key = "";
       for (i = 0; i < nodes.length; i += 1) {
+        if (onHiddenPage(nodes[i])) continue;
         if (nodes[i].classList.contains("is-ok")) key += (nodes[i].textContent || "") + "|";
       }
       if (lastBusy || shownGood !== key) {

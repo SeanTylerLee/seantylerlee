@@ -59,6 +59,7 @@
   var emailsBanner = "";
   var emailsBannerBad = false;
   var successWarning = "";
+  var successPassword = "";
   var formDraft = emptyDraft();
 
   function emptyDraft() {
@@ -251,6 +252,7 @@
         "<h3>Successfully added</h3>" +
         "<p class=\"sub\">Their listing is live. Send login details from Listings added by admin.</p>" +
         (successWarning ? '<p class="status ops-banner is-on is-bad">' + esc(successWarning) + "</p>" : "") +
+        (successPassword ? '<p class="sub">Temporary password: <strong>' + esc(successPassword) + "</strong></p><p class=\"sub\">Copy it now. It was not saved on the admin list.</p>" : "") +
         '<button type="button" class="btn" data-nav="home">Back</button>' +
       "</div>"
     );
@@ -672,6 +674,7 @@
         listing: payload
       }).then(function (result) {
         successWarning = result.handoffWarning || "";
+        successPassword = successWarning ? (result.password || password) : "";
         setCreateFormMode();
         view = "success";
         return loadSnapshot(true);

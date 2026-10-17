@@ -234,7 +234,7 @@
       btn.onclick = function () {
         harvest();
         filter = btn.getAttribute("data-filter");
-        if (selectedId && !visible().some(function (t) { return t.id === selectedId; })) {
+        if (selectedId && !visibleTickets().some(function (t) { return t.id === selectedId; })) {
           selectedId = null;
         }
         render();

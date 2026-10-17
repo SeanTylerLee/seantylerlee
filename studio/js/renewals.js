@@ -379,8 +379,8 @@
       amount: amount,
       year: year,
       date: due,
-      is_recurring: true,
-      recurrence: "yearly",
+      is_recurring: false,
+      recurrence: "none",
       recurring_month_count: 0,
       notes: noteBits.join("\n"),
       receipt_path: "",
@@ -409,9 +409,11 @@
           return;
         }
         renewals = renewals.map(function (row) {
-          return row.id === id ? up.data : row;
+          if (row.id !== id) return row;
+          row.amount = amount;
+          row.logged_expense_id = (up.data && up.data.logged_expense_id) || res.data.id;
+          return row;
         });
-        clearDirty();
         render();
         showMsg("Logged to Expenses for " + year + ". Open Expenses to attach a receipt.", true);
       });

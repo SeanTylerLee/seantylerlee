@@ -476,29 +476,38 @@
       (payload.clientPhone ? " · " + payload.clientPhone : "") + ".";
     payload.notes = contactLine + (payload.notes ? "\n\n" + payload.notes : "");
     showMsg("Sending to Billing…", true);
-    db.from("billing_documents").insert({
-      kind: "quote",
-      number: payload.number || ("QTE-WEB-" + Date.now()),
-      client_name: payload.clientName,
-      client_email: payload.clientEmail,
-      project_name: payload.projectName,
-      status: "estimate",
-      amount: total,
-      issued_on: payload.documentDate || null,
-      due_on: payload.validUntil || null,
-      notes: payload.notes,
-      payload: payload
-    }).select("*").single().then(function (res) {
-      if (res.error) return showMsg(res.error.message, false);
-      db.from("studio_inbox").update({ billing_id: res.data.id, status: "archived" }).eq("id", row.id).then(function (up) {
-        if (up.error) return showMsg(up.error.message, false);
-        row.billing_id = res.data.id;
-        row.status = "archived";
-        publishUnread();
-        showMsg("Moved to Billing.", true);
-        openInBilling(res.data.id);
+    function insertQuote(attempt) {
+      var number = payload.number || ("QTE-WEB-" + Date.now());
+      if (attempt) number = number + "-" + attempt;
+      payload.number = number;
+      return db.from("billing_documents").insert({
+        kind: "quote",
+        number: number,
+        client_name: payload.clientName,
+        client_email: payload.clientEmail,
+        project_name: payload.projectName,
+        status: "estimate",
+        amount: total,
+        issued_on: payload.documentDate || null,
+        due_on: payload.validUntil || null,
+        notes: payload.notes,
+        payload: payload
+      }).select("*").single().then(function (res) {
+        if (res.error && attempt < 5 && /duplicate|unique|billing_documents_user_kind_number/i.test(res.error.message || "")) {
+          return insertQuote(attempt + 1);
+        }
+        if (res.error) return showMsg(res.error.message, false);
+        db.from("studio_inbox").update({ billing_id: res.data.id, status: "archived" }).eq("id", row.id).then(function (up) {
+          if (up.error) return showMsg(up.error.message, false);
+          row.billing_id = res.data.id;
+          row.status = "archived";
+          publishUnread();
+          showMsg("Moved to Billing.", true);
+          openInBilling(res.data.id);
+        });
       });
-    });
+    }
+    insertQuote(0);
   }
 
   function bindSearch() {

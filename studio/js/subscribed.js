@@ -191,8 +191,6 @@
       else if (googleErr || err) {
         html += '<div class="ops-card"><p class="sub" style="margin:0">' + esc(googleErr || err) + "</p>" +
           '<button class="btn btn-ghost" type="button" data-el="retry-google" style="margin-top:8px">Retry Google counts</button></div>';
-      } else {
-        html += bucketForm("");
       }
     }
     if (!appleReady && needsVendor(appleErr || err || "")) html += vendorForm(appleErr || err);
@@ -314,8 +312,12 @@
       });
   }
 
+  var loadSeq = 0;
+
   function loadCounts() {
     var app = selected();
+    var seq = ++loadSeq;
+    var appId = app && app.id;
     if (!app) {
       snapshot = null;
       render();
@@ -331,6 +333,7 @@
     render();
     window.STLLocalApi.get("/api/subscriptions?" + queryFor(app))
       .then(function (res) {
+        if (seq !== loadSeq || selectedAppId !== appId) return;
         loading = false;
         if (!res.ok) {
           snapshot = { error: (res.data && res.data.error) || "Could not load subscriber counts." };
@@ -343,6 +346,7 @@
         render();
       })
       .catch(function (err) {
+        if (seq !== loadSeq || selectedAppId !== appId) return;
         loading = false;
         snapshot = { error: (err && err.message) || "Could not reach the studio server." };
         showMsg(snapshot.error, false);

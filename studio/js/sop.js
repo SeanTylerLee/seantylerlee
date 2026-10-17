@@ -239,7 +239,6 @@
       btn.onclick = function () {
         if (dirty && editing && !window.confirm("You have unsaved edits. Leave without saving?")) return;
         selectedId = btn.getAttribute("data-id");
-        checkedSteps = {};
         editing = false;
         clearDirty();
         render();
@@ -313,7 +312,7 @@
         html += '<div class="sop-section-title">' + esc(step.slice(3)) + "</div>";
         return;
       }
-      var done = !!checkedSteps[index];
+      var done = !!checksOf(selected())[index];
       html +=
         '<label class="sop-step' + (done ? " is-done" : "") + '">' +
           '<input type="checkbox" data-step="' + index + '"' + (done ? " checked" : "") + " />" +
@@ -331,7 +330,12 @@
     detail.innerHTML = html;
     detail.querySelectorAll("[data-step]").forEach(function (input) {
       input.onchange = function () {
-        checkedSteps[Number(input.getAttribute("data-step"))] = input.checked;
+        var guide = selected();
+        if (!guide) return;
+        var map = checksOf(guide);
+        map[String(input.getAttribute("data-step"))] = input.checked;
+        guide.checks = map;
+        saveChecks(guide);
         renderDetail();
       };
     });
@@ -342,7 +346,11 @@
       renderDetail();
     };
     el("reset-checks").onclick = function () {
-      checkedSteps = {};
+      var guide = selected();
+      if (guide) {
+        guide.checks = {};
+        saveChecks(guide);
+      }
       renderDetail();
     };
     el("delete").onclick = function () {
@@ -428,12 +436,41 @@
     });
   }
 
+  function checksKey(id) {
+    return "stl_sop_checks_" + id;
+  }
+
+  function readLocalChecks(id) {
+    try {
+      var parsed = JSON.parse(localStorage.getItem(checksKey(id)) || "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function writeLocalChecks(id, map) {
+    try { localStorage.setItem(checksKey(id), JSON.stringify(map || {})); } catch (err) {}
+  }
+
+  function checksOf(guide) {
+    if (!guide) return {};
+    if (!guide.checks || typeof guide.checks !== "object" || Array.isArray(guide.checks)) {
+      guide.checks = readLocalChecks(guide.id);
+    }
+    return guide.checks;
+  }
+
+  function saveChecks(guide) {
+    if (!guide || !guide.id) return;
+    writeLocalChecks(guide.id, guide.checks || {});
+    if (!db) return;
+    db.from("sop_guides").update({ checks: guide.checks || {} }).eq("id", guide.id).then(function () {});
+  }
+
   function seedIfNeeded() {
-    var have = {};
-    guides.forEach(function (g) {
-      if (g.seed_key) have[g.seed_key] = true;
-    });
-    var missing = SEEDS.filter(function (seed) { return !have[seed.seed_key]; }).map(function (seed) {
+    if (guides.length) return Promise.resolve();
+    var missing = SEEDS.map(function (seed) {
       return {
         seed_key: seed.seed_key,
         title: seed.title,
@@ -463,7 +500,12 @@
         render();
         return;
       }
-      guides = res.data || [];
+      guides = (res.data || []).map(function (guide) {
+        if (!guide.checks || typeof guide.checks !== "object" || Array.isArray(guide.checks)) {
+          guide.checks = readLocalChecks(guide.id);
+        }
+        return guide;
+      });
       return seedIfNeeded();
     }).then(function () {
       ensureSelection();

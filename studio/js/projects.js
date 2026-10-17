@@ -27,6 +27,7 @@
   var db = null;
   var projects = [];
   var selectedId = null;
+  var pendingBillId = null;
   var section = "overview";
   var cache = { logins: [], costs: [], hours: [], issues: [], handoff: [], meetings: [], billing: [] };
   var timerTick = null;
@@ -747,8 +748,16 @@
     }
     if (action === "toggle-issue" && id) {
       var issue = cache.issues.filter(function (i) { return i.id === id; })[0];
+      if (!issue) return;
       var next = (issue.status === "open" || issue.status === "inProgress") ? "fixed" : "open";
-      return updateChild("project_issues", id, { status: next }, true);
+      issue.status = next;
+      return db.from("project_issues").update({ status: next }).eq("id", id).then(function (res) {
+        if (res.error) {
+          issue.status = next === "fixed" ? "open" : "fixed";
+          return showMsg(res.error.message, false);
+        }
+        renderBody();
+      });
     }
     if (action === "add-login") {
       return db.from("project_logins").insert({ project_id: p.id, site_name: "" }).then(reloadChildren);
@@ -850,7 +859,7 @@
 
   function stopTimer() {
     return stopTimerFor(selected()).then(function () {
-      return loadChildren().then(renderAll);
+      return reloadChildren();
     });
   }
 
@@ -888,14 +897,27 @@
     }, 1000);
   }
 
+  function hourlyRateForBill() {
+    var rate = 150;
+    if (window.STLPricing && typeof window.STLPricing.items === "function") {
+      var hit = window.STLPricing.items().filter(function (item) {
+        return /hour/i.test(item.name || "") && Number(item.rate) > 0;
+      })[0];
+      if (hit) rate = Number(hit.rate);
+    }
+    return rate;
+  }
+
   function billUnbilled(p) {
     var hours = unbilledHours();
     if (hours <= 0) return;
-    var rate = 150;
+    var rate = hourlyRateForBill();
     var total = round2(hours * rate);
     if (!confirm("Bill " + trimmed(hours) + " unbilled hours at " + money(rate) + "/hr (" + money(total) + ")?")) return;
     var year = new Date().getFullYear();
     var number = "INV-" + year + "-EXTRA";
+    var client = studioClients.filter(function (c) { return c.link_id && c.link_id === p.linked_client_id; })[0];
+    var clientName = (client && (client.company_name || client.name)) || p.company_name || p.name;
     var draft = {
       kind: "invoice",
       number: number,
@@ -904,8 +926,12 @@
       terms: "14",
       projectName: p.name,
       linkedProjectID: p.link_id,
+      linkedClientID: (client && client.link_id) || p.linked_client_id || "",
       isExtraWork: true,
-      clientName: p.company_name || p.name,
+      clientName: clientName,
+      clientEmail: (client && client.email) || "",
+      clientPhone: (client && client.phone) || "",
+      clientAddress: (client && client.address) || "",
       fromName: "STL Apps LLC",
       fromContact: "Sean Tyler Lee",
       fromEmail: "seantylerlee@icloud.com",
@@ -919,6 +945,7 @@
       kind: "invoice",
       number: number + "-" + String(Date.now()).slice(-4),
       client_name: draft.clientName,
+      client_email: draft.clientEmail || "",
       project_name: p.name,
       status: "unpaid",
       amount: total,
@@ -933,7 +960,7 @@
       return db.from("project_hour_entries").update({ is_billed: true }).in("id", ids).then(function (res2) {
         if (res2.error) return showMsg(res2.error.message, false);
         showMsg("Invoice created and hours marked billed. Open Billing to edit/download.", true);
-        return loadChildren().then(renderBody);
+        return reloadChildren();
       });
     });
   }
@@ -1049,13 +1076,18 @@
         return;
       }
       projects = res.data || [];
+      if (pendingBillId && projects.some(function (p) { return p.id === pendingBillId; })) selectedId = pendingBillId;
       if (selectedId && !projects.some(function (p) { return p.id === selectedId; })) selectedId = null;
       if (!selectedId && projects[0]) selectedId = projects[0].id;
       return loadChildren().then(function () {
         clearDirty();
         renderAll();
+        var billId = pendingBillId;
+        var billed = billId && selected() && selected().id === billId ? selected() : null;
+        pendingBillId = null;
         if (!projects.length) showMsg("No projects yet — click New.", true);
         else showMsg("");
+        if (billed) billUnbilled(billed);
       });
     })
       .catch(function (err) {
@@ -1096,13 +1128,6 @@
         var payload = doc.payload || {};
         return payload.linkedProjectID === p.link_id || doc.project_name === p.name;
       });
-      if (!cache.handoff.length) {
-        return seedHandoff(p.id).then(function (seedRes) {
-          if (seedRes && seedRes.error) return;
-          return db.from("project_handoff_items").select("*").eq("project_id", p.id).order("sort_order")
-            .then(function (res) { cache.handoff = res.data || []; });
-        });
-      }
     }).catch(function (err) {
       showMsg((err && err.message) || "Could not load project details.", false);
     });
@@ -1124,8 +1149,8 @@
     mount: function (panel, client) {
       db = client;
       root = panel;
-      selectedId = null;
-      section = "overview";
+      selectedId = pendingBillId || null;
+      section = pendingBillId ? "hours" : "overview";
       dirty = false;
       saving = false;
       panel.classList.add("projects-wide");
@@ -1141,6 +1166,13 @@
       root = null;
     },
     saveAll: saveAll,
-    isDirty: function () { return dirty; }
+    isDirty: function () { return dirty; },
+    openAndBill: function (projectId) {
+      if (!projectId) return;
+      pendingBillId = projectId;
+      selectedId = projectId;
+      section = "hours";
+      if (root && db) loadProjects();
+    }
   };
 })();

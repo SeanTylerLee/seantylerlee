@@ -741,8 +741,13 @@
       return db.from("app_notifications").insert(row).select("*").single().then(function (res) {
         if (res.error) throw res.error;
         var saved = res.data;
-        history = [saved].concat(history);
-        return publishToApp(row, saved && saved.id, target);
+        return publishToApp(row, saved && saved.id, target).then(function () {
+          history = [saved].concat(history);
+        }).catch(function (err) {
+          return db.from("app_notifications").delete().eq("id", saved.id).then(function () {
+            throw err;
+          });
+        });
       });
     }).then(function () {
       sending = false;

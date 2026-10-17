@@ -86,6 +86,11 @@
     return String(row.status || "").toLowerCase() === "pending";
   }
 
+  function settledStatus(row) {
+    var status = String(row.status || "").toLowerCase();
+    return !status || status === "sent" || status === "posted" || status === "completed";
+  }
+
   function parseDate(raw) {
     if (!raw) return null;
     var d = new Date(raw);
@@ -113,7 +118,7 @@
 
   function canLogExpense(row) {
     var amt = Number(row.amount || 0);
-    return amt < 0 && !isPending(row) && !!txId(row);
+    return amt < 0 && settledStatus(row) && !!txId(row);
   }
 
   function isLogged(row) {
@@ -144,7 +149,7 @@
     if (account) {
       rows = rows.filter(function (t) { return t.accountId === account.id; });
     }
-    return rows.slice(0, 30);
+    return rows;
   }
 
   function shell() {
@@ -239,7 +244,7 @@
               '<span class="bank-dot ' + cls + '"></span>' +
               "<div class=\"bank-tx-main\"><div class=\"title\">" + esc(txTitle(row)) + "</div>" +
               '<div class="meta">' + esc(formatDay(row.createdAt)) + " · " + esc(kindLabel(row.kind)) +
-              (isPending(row) ? " · Pending" : "") +
+              (isPending(row) ? " · Pending" : (settledStatus(row) ? "" : (" · " + esc(String(row.status || ""))))) +
               (isLogged(row) ? " · In Expenses" : "") +
               "</div></div>" +
               '<div class="bank-tx-side">' +

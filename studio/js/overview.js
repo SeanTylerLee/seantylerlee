@@ -121,12 +121,14 @@
   }
 
   function needsYouCount() {
+    var renewalIds = {};
+    attentionRenewals().forEach(function (item) { if (item.id) renewalIds[item.id] = true; });
+    unloggedRenewalsDueThisMonth().forEach(function (item) { if (item.id) renewalIds[item.id] = true; });
     return followUpDocuments().length
       + unbilledProjects().length
       + overdueProjects().length
-      + attentionRenewals().length
+      + Object.keys(renewalIds).length
       + openProjectIssues().length
-      + unloggedRenewalsDueThisMonth().length
       + inboxUnread
       + supportOpen;
   }
@@ -178,6 +180,7 @@
   }
 
   function render() {
+    if (!root || !el("body")) return;
     var count = needsYouCount();
     var html = "";
 
@@ -316,7 +319,9 @@
         html += "</div>";
       }
 
-      var renew = attentionRenewals();
+      var loggedIds = {};
+      unlogged.forEach(function (item) { if (item.id) loggedIds[item.id] = true; });
+      var renew = attentionRenewals().filter(function (item) { return !loggedIds[item.id]; });
       if (renew.length) {
         html += '<div class="ov-section"><h3>Renewals</h3>';
         renew.forEach(function (item) {
@@ -424,6 +429,10 @@
         if (action.indexOf("fixIssue:") === 0) {
           fixIssue(action.slice(10));
         } else if (action.indexOf("bill:") === 0) {
+          var projectId = action.slice(5);
+          if (window.STLProjects && typeof window.STLProjects.openAndBill === "function") {
+            window.STLProjects.openAndBill(projectId);
+          }
           go("projects");
         }
       });
