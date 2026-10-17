@@ -252,15 +252,37 @@
         if (result && result.error) failed.push({ table: name, error: result.error });
       });
     })).then(function () {
-      return Promise.all([loadSecretsRow(db), loadUserEmail(db)]);
+      onStatus("Loading TOS Accepted…");
+      return Promise.all([loadSecretsRow(db), loadUserEmail(db), loadTosAcceptances()]);
     }).then(function (extra) {
+      var tos = extra[2] || { rows: [], error: "" };
+      if (tos.error) failed.push({ table: "tos_acceptances", error: tos.error });
       return {
         tables: tables,
         secrets: extra[0] || {},
         email: extra[1] || "",
+        tosAcceptances: tos.rows || [],
         failed: failed,
         missingFiles: []
       };
+    });
+  }
+
+  function loadTosAcceptances() {
+    var api = window.STLLocalApi;
+    if (!api || typeof api.get !== "function") {
+      return Promise.resolve({ rows: [], error: "Could not reach TOS Accepted." });
+    }
+    return api.get("/api/tos-acceptances").then(function (res) {
+      if (!res || !res.ok) {
+        return {
+          rows: [],
+          error: (res && res.data && res.data.error) || "Could not load TOS Accepted."
+        };
+      }
+      return { rows: (res.data && res.data.rows) || [], error: "" };
+    }).catch(function (err) {
+      return { rows: [], error: (err && err.message) || "Could not load TOS Accepted." };
     });
   }
 
@@ -275,7 +297,8 @@
       "Work this booklet in order. Each page is one Studio menu. Type every field shown.",
       "When a line says “in zip”, upload that exact file from the matching folder.",
       "02-Studio-Data.json is the complete Studio copy (every row, including Notes formatting).",
-      "Bank, Analytics, Subscribed, TOS Accepted, Permit Path Admin, and PC4H Admin are live screens. They come back when Secrets/ keys are in place. They are not typed from this booklet."
+      "03-TOS-Accepted.json is every Permit Path terms acceptance, including IP address. Keep that file. It is your proof.",
+      "Bank, Analytics, Subscribed, Permit Path Admin, and PC4H Admin are live screens. They come back when Secrets/ keys are in place."
     ]);
     pdf.heading("What is in this zip", 13);
     table(
@@ -284,6 +307,7 @@
       [
         ["01-Restore-Guide.pdf", "This booklet. Type from it."],
         ["02-Studio-Data.json", "Full copy of every Studio row"],
+        ["03-TOS-Accepted.json", "Every terms acceptance with IP"],
         ["Secrets/", "stl-studio/secrets/ on this Mac"],
         ["Company-Documents/", "Business Info documents"],
         ["Receipts/Expenses/", "Expense proofs"],
@@ -311,6 +335,7 @@
         ["Inventory", String((t.inventory_items || []).length)],
         ["Mileage", String((t.mileage_trips || []).length)],
         ["Apps", String((t.managed_apps || []).length) + " · " + String((t.app_promos || []).length) + " promos"],
+        ["TOS Accepted", String((pack.tosAcceptances || []).length) + " acceptances"],
         ["SOP", String((t.sop_guides || []).length)],
         ["Image Assets", String((t.image_asset_files || []).length) + " files"],
         ["Support", String((t.support_tickets || []).length)],
@@ -589,6 +614,51 @@
           if (String(step).indexOf("## ") === 0) return step;
           return (checks[String(index)] ? "DONE — " : "") + step;
         }));
+      }
+    });
+  }
+
+  function tosAccepted(pdf, pack) {
+    openMenu(
+      pdf,
+      "TOS Accepted",
+      "This is the proof copy. Keep 03-TOS-Accepted.json with this booklet. Each record is one Permit Path terms acceptance, including IP address."
+    );
+    var err = tableError(pack, "tos_acceptances");
+    if (err) {
+      pdf.note("Could not copy TOS Accepted. " + err + " Fix Permit Path keys in Secrets/, then download Backup Log again.");
+      return;
+    }
+    var rows = (pack.tosAcceptances || []).slice().sort(function (a, b) {
+      return String(b.accepted_at || "").localeCompare(String(a.accepted_at || ""));
+    });
+    if (!rows.length) {
+      empty(pdf, "No acceptances on file.");
+      return;
+    }
+    pdf.note(rows.length + " acceptance" + (rows.length === 1 ? "" : "s") + ".");
+    rows.forEach(function (row, i) {
+      var who = row.account_email || "Guest";
+      var when = row.accepted_at ? String(row.accepted_at) : "";
+      pdf.recordHead((row.platform || "app") + " · " + who, i + 1, rows.length);
+      filled(pdf, [
+        ["Accepted at", when],
+        ["Platform", row.platform],
+        ["IP address", row.ip_address],
+        ["Account email", row.account_email],
+        ["Account user id", row.account_user_id],
+        ["Install id", row.install_id],
+        ["App version", row.app_version],
+        ["Terms version", row.terms_version],
+        ["Record id", row.id]
+      ]);
+      if (String(row.highlights || "").trim()) {
+        pdf.heading("Highlights they saw", 12);
+        longText(pdf, row.highlights);
+      }
+      if (String(row.terms_text || "").trim()) {
+        pdf.heading("Full terms they accepted", 12);
+        longText(pdf, row.terms_text);
       }
     });
   }
@@ -1177,7 +1247,7 @@
     sop(pdf, pack);
     imageAssets(pdf, pack);
     skipPage(pdf, "Analytics", "Open Apps, then Analytics. Loads from App Store Connect and Google Play once the Secrets/ keys are in place. Subscribed is a tab on that same screen.");
-    skipPage(pdf, "TOS Accepted", "Open Apps, then TOS Accepted. Acceptances stay in the Permit Path database. Restore the Permit Path keys in Secrets/ and the list loads again.");
+    tosAccepted(pdf, pack);
     support(pdf, pack);
     inbox(pdf, pack);
     emails(pdf, pack);
@@ -1393,7 +1463,9 @@
       "Not copied (they stay in their own databases, and the keys are in Secrets/):",
       "- Bank activity (Mercury)",
       "- Analytics and Subscribed (App Store Connect and Google Play)",
-      "- TOS Accepted, Permit Path Admin, and PC4H Admin",
+      "- Permit Path Admin and PC4H Admin (live app databases)",
+      "",
+      "TOS Accepted is copied. See 03-TOS-Accepted.json and the TOS Accepted pages in the PDF.",
       "",
       "Menus that did not load:",
       (pack.failed || []).length
@@ -1415,6 +1487,7 @@
       missing_files: pack.missingFiles || [],
       zip_index: pack.zipIndex || {},
       secrets: pack.secrets || {},
+      tos_acceptances: pack.tosAcceptances || [],
       tables: pack.tables || {}
     }, null, 2);
   }
@@ -1441,6 +1514,14 @@
           root.file("00-READ-ME.txt", readme(pack));
           root.file("01-Restore-Guide.pdf", pdf.blob());
           root.file("02-Studio-Data.json", dataSnapshot(pack));
+          root.file("03-TOS-Accepted.json", JSON.stringify({
+            exported_at: new Date().toISOString(),
+            signed_in_as: pack.email || "",
+            source: "Permit Path tos_acceptances",
+            count: (pack.tosAcceptances || []).length,
+            error: tableError(pack, "tos_acceptances") || "",
+            rows: pack.tosAcceptances || []
+          }, null, 2));
           var secrets = root.folder("Secrets");
           writeSecrets(secrets, pack.secrets);
           secrets.file(
