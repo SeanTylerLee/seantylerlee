@@ -7,6 +7,7 @@
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
     "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos",
     "sop_guides", "support_tickets", "studio_inbox", "email_lists", "email_contacts", "email_templates", "email_page_notes",
+    "image_asset_notes", "image_asset_files",
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
     "project_logins", "project_costs", "project_hour_entries", "project_issues",
     "project_handoff_items", "meeting_logs", "billing_documents", "studio_notes",
@@ -256,7 +257,7 @@
       "Sign in to Studio with " + (pack.email || "your usual email") + ".",
       "Copy every file from Secrets/ into the Mac folder stl-studio/secrets/, then open Studio signed in so the keys sync.",
       "Open each sidebar menu named on the following pages. Type each record exactly as printed.",
-      "Re-upload files from Company-Documents/, Receipts/, App-Icons/, Notification-Images/, and Message-Files/ onto the matching records.",
+      "Re-upload files from Company-Documents/, Receipts/, App-Icons/, Image-Assets/, Notification-Images/, and Message-Files/ onto the matching records.",
       "02-Studio-Data.json is every saved row, including Notes formatting and any field this booklet shortens.",
       "Bank, Analytics, Subscribed, TOS Accepted, Permit Path Admin, and PC4H Admin load again once the keys in Secrets/ are in place. Those live records stay in their own databases."
     ]);
@@ -272,6 +273,7 @@
         ["Receipts/Expenses/", "Expense proofs"],
         ["Receipts/Income/", "Income proofs"],
         ["App-Icons/", "App icons"],
+        ["Image-Assets/", "Image Assets library"],
         ["Notification-Images/", "Notification photos"],
         ["Message-Files/", "Message attachments"]
       ],
@@ -294,6 +296,7 @@
         ["Mileage", String((t.mileage_trips || []).length)],
         ["Apps", String((t.managed_apps || []).length) + " · " + String((t.app_promos || []).length) + " promos"],
         ["SOP", String((t.sop_guides || []).length)],
+        ["Image Assets", String((t.image_asset_files || []).length) + " files"],
         ["Support", String((t.support_tickets || []).length)],
         ["Messages", String((t.studio_inbox || []).length)],
         ["Email Lists", String((t.email_contacts || []).length) + " emails"],
@@ -565,6 +568,36 @@
       var steps = stepsOf(g);
       if (!steps.length) empty(pdf, "No steps.");
       else pdf.bullets(steps);
+    });
+  }
+
+  function imageAssets(pdf, pack) {
+    openMenu(pdf, "Image Assets", "Open Image Assets. Paste each tab’s notes, then re-upload files from Image-Assets/.");
+    if (tableError(pack, "image_asset_notes") || tableError(pack, "image_asset_files")) {
+      pdf.note("Could not read every Image Assets table. See the cover for which one failed.");
+    }
+    var notesRows = pack.tables.image_asset_notes || [];
+    var fileRows = pack.tables.image_asset_files || [];
+    if (!notesRows.length && !fileRows.length) {
+      noRows(pdf, pack, "image_asset_files");
+      return;
+    }
+    ["ios", "android", "web"].forEach(function (plat) {
+      var title = plat === "ios" ? "iOS" : plat === "android" ? "Android" : "Web";
+      pdf.heading(title, 13);
+      var note = notesRows.filter(function (n) { return n.platform === plat; })[0];
+      var body = notePlain((note && note.body) || "");
+      if (String(body).trim()) longText(pdf, body);
+      else empty(pdf, "No notes.");
+      var kinds = [
+        ["icon", plat === "web" ? "Logo" : "App icon"],
+        ["screenshot", "Screenshots"],
+        ["header", "Header image"]
+      ];
+      kinds.forEach(function (pair) {
+        var list = fileRows.filter(function (f) { return f.platform === plat && f.kind === pair[0]; });
+        filled(pdf, [[pair[1], list.length ? list.map(function (f) { return f.file_name || f.storage_path; }).join(", ") : "empty"]]);
+      });
     });
   }
 
@@ -1098,6 +1131,7 @@
     apps(pdf, pack);
     promos(pdf, pack);
     sop(pdf, pack);
+    imageAssets(pdf, pack);
     skipPage(pdf, "Analytics", "Open Apps, then Analytics. Loads from App Store Connect and Google Play once the Secrets/ keys are in place. Subscribed is a tab on that same screen.");
     skipPage(pdf, "TOS Accepted", "Open Apps, then TOS Accepted. Acceptances stay in the Permit Path database. Restore the Permit Path keys in Secrets/ and the list loads again.");
     support(pdf, pack);
@@ -1240,6 +1274,17 @@
         var ext = String(app.icon_path).split(".").pop() || "png";
         var name = uniqueName(usedIcons, safeFile(app.name || "app") + "." + ext);
         push("App-Icons", name, blob, "App icon: " + (app.name || app.icon_path));
+      }));
+    });
+
+    var usedAssets = {};
+    (pack.tables.image_asset_files || []).forEach(function (row) {
+      if (!row.storage_path) return;
+      jobs.push(storageBlob(db, "image-assets", row.storage_path).then(function (blob) {
+        var plat = row.platform || "other";
+        var kind = row.kind || "file";
+        var name = uniqueName(usedAssets, safeFile(row.file_name || row.storage_path.split("/").pop() || "image"));
+        push("Image-Assets/" + plat + "/" + kind, name, blob, "Image asset: " + plat + " " + kind);
       }));
     });
 
