@@ -88,7 +88,10 @@
         thumb(row) +
         "<figcaption>" +
           "<span>" + esc(row.file_name || "image") + "</span>" +
-          '<button type="button" class="btn btn-ghost" data-remove="' + row.id + '">Remove</button>' +
+          '<span class="ia-card-actions">' +
+            '<button type="button" class="btn btn-ghost" data-download="' + row.id + '">Download</button>' +
+            '<button type="button" class="btn btn-ghost" data-remove="' + row.id + '">Remove</button>' +
+          "</span>" +
         "</figcaption>" +
       "</figure>"
     );
@@ -193,6 +196,11 @@
         uploadFiles(kind, list);
       };
     });
+    box.querySelectorAll("[data-download]").forEach(function (btn) {
+      btn.onclick = function () {
+        downloadFile(btn.getAttribute("data-download"));
+      };
+    });
     box.querySelectorAll("[data-remove]").forEach(function (btn) {
       btn.onclick = function () {
         removeFile(btn.getAttribute("data-remove"));
@@ -287,6 +295,30 @@
     };
     if (!row.storage_path) return finish();
     return db.storage.from("image-assets").remove([row.storage_path]).then(finish, finish);
+  }
+
+  function saveBlob(blob, fileName) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "image";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  }
+
+  function downloadFile(id) {
+    var row = files.filter(function (f) { return f.id === id; })[0];
+    if (!row || !row.storage_path) return showMsg("Missing file.", false);
+    showMsg("Downloading…", true);
+    db.storage.from("image-assets").download(row.storage_path).then(function (res) {
+      if (res.error) return showMsg(sqlHint(res.error), false);
+      saveBlob(res.data, row.file_name || "image");
+      showMsg("Downloaded.", true);
+    }).catch(function (err) {
+      showMsg(sqlHint(err), false);
+    });
   }
 
   function removeFile(id) {
