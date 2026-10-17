@@ -160,6 +160,22 @@
     return pdf.fields(pairs, { skipEmpty: true });
   }
 
+  function zipAt(pack, key) {
+    return (pack && pack.zipIndex && pack.zipIndex[key]) || "";
+  }
+
+  function checksOf(guide) {
+    var raw = guide && guide.checks;
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw;
+    if (typeof raw === "string") {
+      try {
+        var parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") return parsed;
+      } catch (err) {}
+    }
+    return {};
+  }
+
   function table(pdf, headers, rows, widths, rightFrom) {
     if (!rows.length) return;
     pdf.tableHeader(headers, widths, rightFrom);
@@ -254,12 +270,12 @@
     pdf.note("Prepared " + window.STLStudioPdf.prepared() + ". Keep this zip private. It has passwords, receipts, company files, and API keys.");
     pdf.heading("How to restore", 13);
     pdf.bullets([
-      "Sign in to Studio with " + (pack.email || "your usual email") + ".",
-      "Copy every file from Secrets/ into the Mac folder stl-studio/secrets/, then open Studio signed in so the keys sync.",
-      "Open each sidebar menu named on the following pages. Type each record exactly as printed.",
-      "Re-upload files from Company-Documents/, Receipts/, App-Icons/, Image-Assets/, Notification-Images/, and Message-Files/ onto the matching records.",
-      "02-Studio-Data.json is every saved row, including Notes formatting and any field this booklet shortens.",
-      "Bank, Analytics, Subscribed, TOS Accepted, Permit Path Admin, and PC4H Admin load again once the keys in Secrets/ are in place. Those live records stay in their own databases."
+      "Sign in to Studio as " + (pack.email || "your usual email") + ".",
+      "Copy Secrets/ into stl-studio/secrets/ on this Mac, then open Studio signed in so keys sync.",
+      "Work this booklet in order. Each page is one Studio menu. Type every field shown.",
+      "When a line says “in zip”, upload that exact file from the matching folder.",
+      "02-Studio-Data.json is the complete Studio copy (every row, including Notes formatting).",
+      "Bank, Analytics, Subscribed, TOS Accepted, Permit Path Admin, and PC4H Admin are live screens. They come back when Secrets/ keys are in place. They are not typed from this booklet."
     ]);
     pdf.heading("What is in this zip", 13);
     table(
@@ -358,7 +374,7 @@
         pdf,
         ["Name in Studio", "File in zip"],
         docs.map(function (d) {
-          return [d.name || "Untitled", d.file_name || d.storage_path || "-"];
+          return [d.name || "Untitled", zipAt(pack, "doc:" + d.storage_path) || d.file_name || d.storage_path || "-"];
         }),
         [240, pdf.maxW - 240],
         1
@@ -412,36 +428,33 @@
   function ledgerPage(pdf, title, how, rows, kind, skips, pack, tableName) {
     openMenu(pdf, title, how);
     if (!rows.length) { noRows(pdf, pack, tableName); return; }
-    table(
-      pdf,
-      ["Date", "Title", "Year", "Type", "Amount", "Proof / notes"],
-      rows.map(function (r) {
-        var proofs = proofsOf(r).map(function (p) { return p.file_name || p.path; }).join(", ");
-        var extra = [
-          r.notes,
-          proofs,
-          r.source_invoice_number,
-          r.source_payment_key ? ("Payment " + r.source_payment_key) : "",
-          r.mercury_transaction_id ? ("Mercury " + r.mercury_transaction_id) : ""
-        ].filter(Boolean).join(" · ");
-        return [
-          day(r.date),
-          r.title || (kind === "draw" ? (r.reason || "Draw") : "Untitled"),
-          String(r.year || ""),
-          kind === "draw" ? (r.reason || "") : recTitle(r),
-          money(r.amount),
-          extra
-        ];
-      }),
-      [70, 120, 40, 78, 70, pdf.maxW - 378],
-      4
-    );
+    rows.forEach(function (r, i) {
+      var label = r.title || (kind === "draw" ? (r.reason || "Draw") : "Untitled");
+      pdf.recordHead(label, i + 1, rows.length);
+      var proofs = proofsOf(r).map(function (p) {
+        return zipAt(pack, "ledger:" + p.path) || p.file_name || p.path;
+      }).join("\n");
+      filled(pdf, [
+        ["Title", r.title || (kind === "draw" ? r.reason : "")],
+        ["Date", day(r.date)],
+        ["Year", r.year],
+        ["Amount", money(r.amount)],
+        ["Type", kind === "draw" ? (r.reason || "") : recTitle(r)],
+        ["Recurring", r.is_recurring ? (r.recurrence || "yes") : ""],
+        ["Recurring months", r.recurring_month_count],
+        ["Invoice #", r.source_invoice_number],
+        ["Payment key", r.source_payment_key],
+        ["Mercury id", r.mercury_transaction_id],
+        ["Notes", r.notes],
+        ["Proofs in zip", proofs]
+      ]);
+    });
     if (skips && skips.length) {
       pdf.heading("Skipped recurring years", 12);
       table(
         pdf,
-        ["Series", "Year skipped"],
-        skips.map(function (s) { return [String(s.series_id || "").slice(0, 8), String(s.year || "")]; }),
+        ["Series id", "Year skipped"],
+        skips.map(function (s) { return [String(s.series_id || ""), String(s.year || "")]; }),
         [pdf.maxW - 120, 120],
         1
       );
@@ -501,7 +514,7 @@
         ["Play version", app.google_play_version],
         ["Website", app.website_url],
         ["Accent hex", app.accent_hex],
-        ["Icon file", app.icon_path],
+        ["Icon in zip", zipAt(pack, "icon:" + app.icon_path) || app.icon_path],
         ["Notes", app.notes]
       ]);
       var appLogins = logins[app.id] || [];
@@ -538,7 +551,7 @@
     rows.forEach(function (r, i) {
       pdf.recordHead(r.title || "Promo", i + 1, rows.length);
       filled(pdf, [
-        ["App", r.app_name],
+        ["App", appName(pack, r.app_id) || r.app_name],
         ["Platform", r.platform],
         ["Kind", r.kind],
         ["Duration", r.duration],
@@ -562,12 +575,19 @@
         ["Category", g.category],
         ["Summary", g.summary],
         ["Link title", g.link_title],
-        ["Link URL", g.link_url]
+        ["Link URL", g.link_url],
+        ["Sort", g.sort_order]
       ]);
-      pdf.heading("Steps", 12);
+      pdf.heading("Steps (mark DONE if the box was checked)", 12);
       var steps = stepsOf(g);
+      var checks = checksOf(g);
       if (!steps.length) empty(pdf, "No steps.");
-      else pdf.bullets(steps);
+      else {
+        pdf.bullets(steps.map(function (step, index) {
+          if (String(step).indexOf("## ") === 0) return step;
+          return (checks[String(index)] ? "DONE — " : "") + step;
+        }));
+      }
     });
   }
 
@@ -587,21 +607,31 @@
       pdf.heading(title, 13);
       var note = notesRows.filter(function (n) { return n.platform === plat; })[0];
       var body = notePlain((note && note.body) || "");
-      if (String(body).trim()) longText(pdf, body);
-      else empty(pdf, "No notes.");
-      if (plat === "web") {
-        var webFiles = fileRows.filter(function (f) { return f.platform === "web"; });
-        filled(pdf, [["Images", webFiles.length ? webFiles.map(function (f) { return f.file_name || f.storage_path; }).join(", ") : "empty"]]);
-      } else {
-        var kinds = [
-          ["icon", "App icons"],
-          ["screenshot", "Screenshots"],
-          ["header", "Header images"]
-        ];
-        kinds.forEach(function (pair) {
-          var list = fileRows.filter(function (f) { return f.platform === plat && f.kind === pair[0]; });
-          filled(pdf, [[pair[1], list.length ? list.map(function (f) { return f.file_name || f.storage_path; }).join(", ") : "empty"]]);
-        });
+      if (String(body).trim()) {
+        pdf.heading("Notes to paste", 12);
+        longText(pdf, body);
+      } else empty(pdf, "No notes on this tab.");
+      var list = plat === "web"
+        ? fileRows.filter(function (f) { return f.platform === "web"; })
+        : fileRows.filter(function (f) { return f.platform === plat; });
+      if (!list.length) empty(pdf, "No files on this tab.");
+      else {
+        table(
+          pdf,
+          ["Section", "Original name", "File in this zip"],
+          list.map(function (f) {
+            var section = plat === "web"
+              ? "Images"
+              : (f.kind === "icon" ? "App icons" : f.kind === "header" ? "Header images" : "Screenshots");
+            return [
+              section,
+              f.file_name || "",
+              zipAt(pack, "image:" + f.storage_path) || (f.file_name || f.storage_path || "")
+            ];
+          }),
+          [90, 160, pdf.maxW - 250],
+          1
+        );
       }
     });
   }
@@ -660,7 +690,9 @@
         ["Quote number", (draft && draft.number) || ""],
         ["Quote total", draft && draft.total != null ? money(draft.total) : (payload.total != null ? money(payload.total) : "")],
         ["Project", (draft && draft.projectName) || ""],
-        ["Files in zip", files.map(function (file) { return file.name || file.path; }).join(", ")]
+        ["Files in zip", files.map(function (file) {
+          return zipAt(pack, "inbox:" + file.path) || file.name || file.path;
+        }).join("\n")]
       ]);
       var items = draft && Array.isArray(draft.items) ? draft.items : [];
       if (items.length) {
@@ -751,7 +783,7 @@
         ["Font", n.message_font],
         ["Size", n.message_size],
         ["Color", n.message_color],
-        ["Image", n.image_url],
+        ["Image in zip", zipAt(pack, "notice:" + (n.image_url || "")) || n.image_url],
         ["Message", n.message]
       ]);
       var blocks = blocksOf(n);
@@ -1071,8 +1103,8 @@
       ["Tax reserve %", setting(rows, "tax_reserve_percent", "")],
       ["Deposit %", bill.deposit_percent],
       ["Quote valid days", bill.valid_days],
-      ["Apple vendor number", s.asc_vendor_number],
-      ["Play report bucket", s.play_gcs_bucket]
+      ["Apple vendor number", s.asc_vendor_number ? "In Secrets/asc_vendor_number.txt" : "Missing"],
+      ["Play report bucket", s.play_gcs_bucket ? "In Secrets/play_gcs_bucket.txt" : "Missing"]
     ]);
     var known = { default_section: true, mileage_rate: true, tax_reserve_percent: true };
     var extra = rows.filter(function (r) { return r && r.key && !known[r.key]; });
@@ -1237,15 +1269,17 @@
 
   function collectFiles(db, pack, onStatus) {
     onStatus("Collecting receipts and documents…");
+    pack.zipIndex = pack.zipIndex || {};
     var jobs = [];
     var files = [];
 
-    function push(folder, name, blob, label) {
+    function push(folder, name, blob, label, key) {
       if (!blob) {
         rememberMiss(pack, label || (folder + "/" + name));
         return;
       }
       files.push({ folder: folder, name: name, blob: blob });
+      if (key) pack.zipIndex[key] = folder + "/" + name;
     }
 
     var usedCo = {};
@@ -1254,7 +1288,7 @@
       jobs.push(storageBlob(db, "business-docs", doc.storage_path).then(function (blob) {
         var ext = String(doc.file_name || doc.storage_path || "pdf").split(".").pop() || "pdf";
         var name = uniqueName(usedCo, safeFile(doc.name || doc.file_name || "Document") + "." + ext.replace(/^\./, ""));
-        push("Company-Documents", name, blob, "Company document: " + (doc.name || doc.file_name || doc.storage_path));
+        push("Company-Documents", name, blob, "Company document: " + (doc.name || doc.file_name || doc.storage_path), "doc:" + doc.storage_path);
       }));
     });
 
@@ -1264,7 +1298,7 @@
         proofsOf(row).forEach(function (proof) {
           jobs.push(storageBlob(db, "ledger-receipts", proof.path).then(function (blob) {
             var name = uniqueName(used, safeFile(proof.file_name || proof.path.split("/").pop() || "receipt"));
-            push(folder, name, blob, folder + ": " + (proof.file_name || proof.path));
+            push(folder, name, blob, folder + ": " + (proof.file_name || proof.path), "ledger:" + proof.path);
           }));
         });
       });
@@ -1278,7 +1312,7 @@
       jobs.push(storageBlob(db, "app-icons", app.icon_path).then(function (blob) {
         var ext = String(app.icon_path).split(".").pop() || "png";
         var name = uniqueName(usedIcons, safeFile(app.name || "app") + "." + ext);
-        push("App-Icons", name, blob, "App icon: " + (app.name || app.icon_path));
+        push("App-Icons", name, blob, "App icon: " + (app.name || app.icon_path), "icon:" + app.icon_path);
       }));
     });
 
@@ -1289,7 +1323,7 @@
         var plat = row.platform || "other";
         var kind = row.kind || "file";
         var name = uniqueName(usedAssets, safeFile(row.file_name || row.storage_path.split("/").pop() || "image"));
-        push("Image-Assets/" + plat + "/" + kind, name, blob, "Image asset: " + plat + " " + kind);
+        push("Image-Assets/" + plat + "/" + kind, name, blob, "Image asset: " + plat + " " + kind, "image:" + row.storage_path);
       }));
     });
 
@@ -1301,7 +1335,7 @@
         var ext = String(url).split(".").pop() || "jpg";
         if (ext.length > 5 || ext.indexOf("/") !== -1) ext = "jpg";
         var name = uniqueName(usedNote, safeFile(n.subject || n.app_name || "notice") + "." + ext);
-        push("Notification-Images", name, blob, "Notification image: " + (n.subject || n.app_name || url));
+        push("Notification-Images", name, blob, "Notification image: " + (n.subject || n.app_name || url), "notice:" + url);
       }));
     });
 
@@ -1310,7 +1344,7 @@
       inboxFilesOf(row).forEach(function (file) {
         jobs.push(storageBlob(db, "inbox-uploads", file.path).then(function (blob) {
           var name = uniqueName(usedInbox, safeFile(file.name || file.path.split("/").pop() || "attachment"));
-          push("Message-Files", name, blob, "Message file: " + (file.name || file.path));
+          push("Message-Files", name, blob, "Message file: " + (file.name || file.path), "inbox:" + file.path);
         }));
       });
     });
@@ -1347,7 +1381,7 @@
       "3. Open Studio signed in so the keys sync.",
       "4. Type every record from 01-Restore-Guide.pdf, menu by menu.",
       "5. 02-Studio-Data.json has every saved row, including Notes formatting.",
-      "6. Re-upload Company-Documents, Receipts, App-Icons, Notification-Images, and Message-Files.",
+      "6. Re-upload Company-Documents, Receipts, App-Icons, Image-Assets, Notification-Images, and Message-Files. The PDF names the exact zip path for each file.",
       "",
       "Not copied (they stay in their own databases, and the keys are in Secrets/):",
       "- Bank activity (Mercury)",
@@ -1372,6 +1406,8 @@
       signed_in_as: pack.email || "",
       failed_tables: pack.failed || [],
       missing_files: pack.missingFiles || [],
+      zip_index: pack.zipIndex || {},
+      secrets: pack.secrets || {},
       tables: pack.tables || {}
     }, null, 2);
   }
@@ -1383,14 +1419,15 @@
     if (!window.JSZip) return Promise.reject(new Error("Zip library missing. Refresh the page."));
     if (!db) return Promise.reject(new Error("Sign in first."));
     return loadAll(db, onStatus).then(function (pack) {
-      onStatus("Writing restore guide…");
-      return window.STLStudioPdf.open({
-        db: db,
-        word: "RESTORE GUIDE",
-        yearLabel: window.STLStudioPdf.prepared()
-      }).then(function (pdf) {
-        buildPdf(pdf, pack);
-        return collectFiles(db, pack, onStatus).then(function (files) {
+      pack.zipIndex = {};
+      return collectFiles(db, pack, onStatus).then(function (files) {
+        onStatus("Writing restore guide…");
+        return window.STLStudioPdf.open({
+          db: db,
+          word: "RESTORE GUIDE",
+          yearLabel: window.STLStudioPdf.prepared()
+        }).then(function (pdf) {
+          buildPdf(pdf, pack);
           onStatus("Zipping backup…");
           var zip = new window.JSZip();
           var root = zip.folder("STL-Apps-LLC_Backup-Log_" + stamp());
