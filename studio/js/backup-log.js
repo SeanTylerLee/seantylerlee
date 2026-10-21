@@ -3,7 +3,7 @@
 
   var TABLES = [
     "business_profile", "business_documents", "vault_logins", "renewal_items",
-    "calendar_day_notes", "studio_settings", "business_expenses", "business_expense_skips",
+    "calendar_day_notes", "calendar_hidden", "studio_settings", "business_expenses", "business_expense_skips",
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
     "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos",
     "sop_guides", "support_tickets", "studio_inbox", "email_lists", "email_contacts", "email_templates", "email_page_notes",
@@ -329,7 +329,7 @@
         ["Business Info", (t.business_profile || []).length ? "1 profile" : "empty"],
         ["Login Vault", String((t.vault_logins || []).length)],
         ["Renewals", String((t.renewal_items || []).length)],
-        ["Calendar", String((t.calendar_day_notes || []).length) + " day notes"],
+        ["Calendar", String((t.calendar_day_notes || []).length) + " day notes · " + String((t.calendar_hidden || []).length) + " hidden"],
         ["Expenses", String((t.business_expenses || []).length)],
         ["Income", String((t.business_incomes || []).length)],
         ["Owner Draw", String((t.owner_draws || []).length)],
@@ -441,15 +441,22 @@
   }
 
   function calendar(pdf, pack) {
-    openMenu(pdf, "Calendar", "Open Calendar. Click each date and paste the note.");
+    openMenu(pdf, "Calendar", "Open Calendar. Click each date and paste the note. Put back any hidden item you still want on the calendar.");
     var rows = (pack.tables.calendar_day_notes || []).slice().sort(function (a, b) {
       return String(a.day || "").localeCompare(String(b.day || ""));
     });
-    if (!rows.length) { noRows(pdf, pack, "calendar_day_notes", "No day notes."); return; }
+    var hidden = (pack.tables.calendar_hidden || []).slice().sort(function (a, b) {
+      return String(a.event_key || "").localeCompare(String(b.event_key || ""));
+    });
+    if (!rows.length && !hidden.length) { noRows(pdf, pack, "calendar_day_notes", "No day notes."); return; }
     rows.forEach(function (row, i) {
       pdf.recordHead(day(row.day), i + 1, rows.length);
       longText(pdf, row.body || "");
     });
+    if (hidden.length) {
+      pdf.recordHead("Hidden from the calendar", 1, 1);
+      longText(pdf, hidden.map(function (row) { return row.event_key || ""; }).filter(Boolean).join("\n"));
+    }
   }
 
   function ledgerPage(pdf, title, how, rows, kind, skips, pack, tableName) {
