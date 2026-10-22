@@ -1,5 +1,5 @@
 .comp-page {
-  max-width: 920px;
+  max-width: 880px;
 }
 
 .comp-card {
@@ -65,58 +65,77 @@
 .comp-compare-block {
   background: var(--card);
   border-radius: 14px;
-  padding: 14px 16px;
-  margin-bottom: 10px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
 }
 
 .comp-compare-block h3 {
-  margin: 0 0 2px;
-  font-size: 15px;
+  margin: 0 0 10px;
+  font-size: 16px;
 }
 
-.comp-compare-domains {
-  margin: 0 0 8px;
-  color: var(--muted);
-  font-size: 12px;
+.comp-metric {
+  margin: 0 0 16px;
 }
 
-.comp-line {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1fr) minmax(140px, 1.1fr);
-  gap: 8px;
-  align-items: baseline;
-  padding: 8px 0;
-  border-top: 1px solid var(--line);
+.comp-metric h4 {
+  margin: 0 0 6px;
   font-size: 13px;
-}
-
-.comp-line strong {
-  font-weight: 650;
-}
-
-.comp-you {
-  color: #1a70eb;
   font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
-.comp-them {
-  font-weight: 700;
+.comp-rank-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) 140px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1.35;
 }
 
-.comp-verdict.is-you {
+.comp-rank-row + .comp-rank-row {
+  margin-top: 4px;
+}
+
+.comp-rank-row.is-first {
+  background: #e8f5ee;
   color: #1f6b52;
   font-weight: 700;
 }
 
-.comp-verdict.is-them {
-  color: #9b1c1c;
+.comp-rank-row.is-you:not(.is-first) .comp-rank-who {
+  color: #1a70eb;
   font-weight: 700;
 }
 
-.comp-verdict.is-same,
-.comp-verdict.is-open {
-  color: var(--muted);
+.comp-rank-who {
   font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.comp-rank-day {
+  font-variant-numeric: tabular-nums;
+}
+
+.comp-rank-gap {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.comp-rank-row.is-first .comp-rank-gap {
+  color: #1f6b52;
+}
+
+.comp-rank-row.is-open .comp-rank-day,
+.comp-rank-row.is-open .comp-rank-gap {
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .comp-empty {
@@ -130,15 +149,9 @@
 }
 
 .comp-events-head h4 {
-  margin: 10px 0 2px;
+  margin: 10px 0 8px;
   font-size: 13px;
   font-weight: 700;
-}
-
-.comp-hint {
-  margin: 0 0 8px;
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .comp-event {
@@ -170,22 +183,34 @@
 }
 
 .comp-notes {
-  min-height: 140px;
+  min-height: 120px;
   resize: vertical;
 }
 
+.comp-notes-wrap {
+  margin-top: 8px;
+}
+
+.comp-notes-wrap summary {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 0;
+  min-height: 32px;
+}
+
 .comp-add-date {
-  margin: 2px 0 12px;
+  margin: 2px 0 4px;
 }
 
 .comp-time {
   display: grid;
-  grid-template-columns: 124px minmax(100px, 190px) minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 128px minmax(110px, 200px) minmax(0, 1fr);
+  gap: 10px;
   align-items: baseline;
-  padding: 8px 0;
+  padding: 9px 0;
   border-top: 1px solid var(--line);
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 1.35;
 }
 
 .comp-time-who.is-you {
@@ -202,7 +227,7 @@
 }
 
 html.is-phone .comp-grid,
-html.is-phone .comp-line,
+html.is-phone .comp-rank-row,
 html.is-phone .comp-event,
 html.is-phone .comp-time {
   grid-template-columns: 1fr;
@@ -210,11 +235,14 @@ html.is-phone .comp-time {
 
 html.is-phone .comp-remove,
 html.is-phone .comp-event .comp-remove,
-html.is-phone .comp-add-date {
+html.is-phone .comp-add-date,
+html.is-phone .comp-notes-wrap summary {
   min-height: 44px;
 }
 
 html.is-phone .comp-event input,
-html.is-phone .comp-notes {
+html.is-phone .comp-notes,
+html.is-phone .comp-rank-row,
+html.is-phone .comp-time {
   font-size: 16px;
 }

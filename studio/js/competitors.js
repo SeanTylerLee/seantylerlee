@@ -136,15 +136,11 @@
     return parseDay(iso) ? String(iso).slice(0, 10) : null;
   }
 
-  function verdict(mine, theirs) {
-    var a = parseDay(mine);
-    var b = parseDay(theirs);
-    if (!a || !b) return { text: "Add both dates", kind: "open" };
-    var diff = Math.round((b.getTime() - a.getTime()) / 86400000);
-    if (diff === 0) return { text: "Same day", kind: "same" };
-    if (diff > 0) return { text: "You were first by " + diff + (diff === 1 ? " day" : " days"), kind: "you" };
-    var n = Math.abs(diff);
-    return { text: "They were first by " + n + (n === 1 ? " day" : " days"), kind: "them" };
+  function daysBetween(earlier, later) {
+    var a = parseDay(earlier);
+    var b = parseDay(later);
+    if (!a || !b) return null;
+    return Math.round((b.getTime() - a.getTime()) / 86400000);
   }
 
   function field(label, key, value, type) {
@@ -156,8 +152,10 @@
 
   function notesField(value) {
     return (
-      '<div class="field comp-notes-field"><label>Notes</label>' +
-      '<textarea class="comp-notes" data-key="notes">' + esc(value || "") + "</textarea></div>"
+      '<details class="comp-notes-wrap">' +
+        "<summary>Notes</summary>" +
+        '<textarea class="comp-notes" data-key="notes">' + esc(value || "") + "</textarea>" +
+      "</details>"
     );
   }
 
@@ -174,7 +172,6 @@
     return (
       '<div class="comp-wide">' +
         '<div class="comp-events-head"><h4>Other dates</h4></div>' +
-        '<p class="comp-hint">A second product, a filing, a policy date, or anything else with a day.</p>' +
         lines +
         '<button class="btn btn-ghost comp-add-date" type="button" data-add-event>Add date</button>' +
         notesField(row.notes) +
@@ -184,6 +181,7 @@
 
   function personFields(row) {
     return (
+      field("Company", "company_name", row.company_name) +
       field("App name", "app_name", row.app_name) +
       field("Domain", "domain_name", row.domain_name) +
       field("Domain registered", "domain_registered_on", row.domain_registered_on, "date") +
@@ -257,9 +255,10 @@
     return (
       '<div class="comp-page">' +
         '<p class="status" data-el="banner"></p>' +
+        '<div data-el="compare"></div>' +
         '<section class="comp-card" data-block="self">' +
-          "<h2>You</h2>" +
-          '<p class="comp-sub">These dates are what each competitor is compared to.</p>' +
+          "<h2>Your dates</h2>" +
+          '<p class="comp-sub">Change a date and the comparison above updates.</p>' +
           '<div class="comp-grid">' + personFields(selfRow) + "</div>" +
         "</section>" +
         '<div class="comp-head">' +
@@ -267,8 +266,6 @@
           '<button class="btn btn-primary" type="button" data-el="add">Add competitor</button>' +
         "</div>" +
         '<div data-el="list"></div>' +
-        '<h2 class="comp-section-title">Compare</h2>' +
-        '<div data-el="compare"></div>' +
       "</div>"
     );
   }
@@ -285,7 +282,6 @@
             '<button class="comp-remove" type="button" data-remove="' + esc(row.localKey) + '">Remove</button>' +
           "</div>" +
           '<div class="comp-grid">' +
-            field("Company", "company_name", row.company_name) +
             personFields(row) +
           "</div>" +
         "</section>"
@@ -293,49 +289,76 @@
     }).join("");
   }
 
+  function peopleForMetric(metric) {
+    var people = [{ who: "You", on: selfRow[metric.key] || "", you: true }];
+    competitors.forEach(function (row, index) {
+      people.push({
+        who: competitorTitle(row, index),
+        on: row[metric.key] || "",
+        you: false
+      });
+    });
+    return people.slice().sort(function (a, b) {
+      if (!a.on && !b.on) return a.who.localeCompare(b.who);
+      if (!a.on) return 1;
+      if (!b.on) return -1;
+      if (a.on !== b.on) return a.on < b.on ? -1 : 1;
+      if (a.you && !b.you) return -1;
+      if (b.you && !a.you) return 1;
+      return a.who.localeCompare(b.who);
+    });
+  }
+
+  function rankBlock(metric) {
+    var people = peopleForMetric(metric);
+    var firstOn = "";
+    people.forEach(function (person) {
+      if (!firstOn && person.on) firstOn = person.on;
+    });
+    var rows = people.map(function (person) {
+      var first = !!(person.on && person.on === firstOn);
+      var cls = "comp-rank-row";
+      if (person.you) cls += " is-you";
+      if (first) cls += " is-first";
+      if (!person.on) cls += " is-open";
+      var gap = "No date";
+      if (person.on && first) gap = "First";
+      else if (person.on && firstOn) {
+        var n = daysBetween(firstOn, person.on);
+        gap = n === 0 ? "Same day" : n + (n === 1 ? " day later" : " days later");
+      }
+      return (
+        '<div class="' + cls + '">' +
+          '<span class="comp-rank-who">' + esc(person.who) + "</span>" +
+          '<span class="comp-rank-day">' + esc(formatDay(person.on) || "—") + "</span>" +
+          '<span class="comp-rank-gap">' + esc(gap) + "</span>" +
+        "</div>"
+      );
+    }).join("");
+    return (
+      '<div class="comp-metric">' +
+        "<h4>" + esc(metric.label) + "</h4>" +
+        rows +
+      "</div>"
+    );
+  }
+
   function compareHtml() {
-    var yours = factsOf(selfRow, "You");
-    var board = yours.slice();
+    var board = factsOf(selfRow, "You");
     competitors.forEach(function (row, index) {
       board = board.concat(factsOf(row, competitorTitle(row, index)));
     });
-    var boardBlock =
+    var ranks = METRICS.map(rankBlock).join("");
+    return (
+      '<article class="comp-compare-block">' +
+        "<h3>Who was first</h3>" +
+        ranks +
+      "</article>" +
       '<article class="comp-compare-block comp-board">' +
         "<h3>Every date</h3>" +
-        '<p class="comp-compare-domains">Oldest first. Your dates and every competitor.</p>' +
         timelineHtml(board, "Add dates to see the order.") +
-      "</article>";
-    if (!competitors.length) {
-      return boardBlock + '<p class="comp-empty">Add a competitor to see who was first.</p>';
-    }
-    var blocks = competitors.map(function (row, index) {
-      var name = competitorTitle(row, index);
-      var lines = METRICS.map(function (metric) {
-        var result = verdict(selfRow[metric.key], row[metric.key]);
-        var mine = formatDay(selfRow[metric.key]) || "No date";
-        var theirs = formatDay(row[metric.key]) || "No date";
-        return (
-          '<div class="comp-line">' +
-            "<strong>" + esc(metric.label) + "</strong>" +
-            '<span class="comp-you">You · ' + esc(mine) + "</span>" +
-            '<span class="comp-them">Them · ' + esc(theirs) + "</span>" +
-            '<span class="comp-verdict is-' + result.kind + '">' + esc(result.text) + "</span>" +
-          "</div>"
-        );
-      }).join("");
-      var domainLine = (selfRow.domain_name || "Your domain") + "  ·  " + (row.domain_name || "Their domain");
-      var pair = factsOf(selfRow, "You").concat(factsOf(row, name));
-      return (
-        '<article class="comp-compare-block">' +
-          "<h3>" + esc(selfRow.app_name || "You") + " and " + esc(name) + "</h3>" +
-          '<p class="comp-compare-domains">' + esc(domainLine) + "</p>" +
-          lines +
-          '<p class="comp-hint">Dates, oldest first</p>' +
-          timelineHtml(pair, "Add dates to see this pair.") +
-        "</article>"
-      );
-    }).join("");
-    return boardBlock + blocks;
+      "</article>"
+    );
   }
 
   function paintLists() {
@@ -489,7 +512,7 @@
   function payload(row, isSelf) {
     return {
       is_self: !!isSelf,
-      company_name: isSelf ? "" : (row.company_name || ""),
+      company_name: row.company_name || "",
       app_name: row.app_name || "",
       domain_name: row.domain_name || "",
       domain_registered_on: dateOrNull(row.domain_registered_on),
