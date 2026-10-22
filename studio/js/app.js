@@ -5,7 +5,7 @@
     event.preventDefault();
   });
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 52.
+  // Same order and grouping as the Mac app sidebar. Cache bust 56.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Needs-you board and studio snapshot." },
@@ -25,6 +25,7 @@
     ],
     [
       { id: "apps", title: "Apps", icon: "square-stack-3d-up-fill", tint: "#2E9E7A", body: "Products, promos, analytics, and store logins." },
+      { id: "competitors", title: "Competitors", icon: "chart-bar-xaxis", tint: "#C45C26", body: "" },
       { id: "sop", title: "SOP", icon: "list-clipboard-fill", tint: "#336BB3", body: "How-to guides with checkable steps." },
       { id: "imageAssets", title: "Image Assets", icon: "square-stack-3d-up-fill", tint: "#7A5C99", body: "Screenshots, icons, and store art." },
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
@@ -138,6 +139,7 @@
     sop: "STLSOP",
     imageAssets: "STLImageAssets",
     apps: "STLApps",
+    competitors: "STLCompetitors",
     support: "STLSupport",
     inbox: "STLInbox",
     emails: "STLEmails",
