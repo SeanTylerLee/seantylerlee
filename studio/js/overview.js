@@ -16,6 +16,7 @@
   var appIssues = [];
   var inboxUnread = 0;
   var supportOpen = 0;
+  var pc4hPendingReviews = 0;
 
   function M() { return window.STLMoney; }
 
@@ -130,7 +131,8 @@
       + Object.keys(renewalIds).length
       + openProjectIssues().length
       + inboxUnread
-      + supportOpen;
+      + supportOpen
+      + pc4hPendingReviews;
   }
 
   function unloggedRenewalsDueThisMonth() {
@@ -189,6 +191,7 @@
         '<div class="ov-chips ov-chips-ops">' +
           '<button type="button" class="ov-chip inbox' + (inboxUnread ? " has-alert" : "") + '" data-go="inbox"><span class="k">Messages unread</span><span class="v">' + inboxUnread + "</span></button>" +
           '<button type="button" class="ov-chip support' + (supportOpen ? " has-alert" : "") + '" data-go="support"><span class="k">Support open</span><span class="v">' + supportOpen + "</span></button>" +
+          '<button type="button" class="ov-chip pc4h' + (pc4hPendingReviews ? " has-alert" : "") + '" data-go="pc4hAdmin" data-pc4h-reviews="1"><span class="k">PC4H reviews waiting</span><span class="v">' + pc4hPendingReviews + "</span></button>" +
         "</div>" +
       "</div>";
 
@@ -242,6 +245,17 @@
           "Customer tickets waiting on you",
           "#BF5261",
           "support"
+        );
+        html += "</div>";
+      }
+
+      if (pc4hPendingReviews > 0) {
+        html += '<div class="ov-section"><h3>Pilot Car 4 Hire</h3>';
+        html += row(
+          pc4hPendingReviews === 1 ? "1 review waiting" : pc4hPendingReviews + " reviews waiting",
+          "Accept or reject before it shows on the listing",
+          "#0F1A2E",
+          "pc4hAdmin"
         );
         html += "</div>";
       }
@@ -418,6 +432,11 @@
       node.addEventListener("click", function (event) {
         if (event.target.closest("[data-secondary]")) return;
         var target = node.getAttribute("data-go");
+        if (target === "pc4hAdmin" || node.getAttribute("data-pc4h-reviews")) {
+          if (window.STLPc4hAdmin && typeof window.STLPc4hAdmin.focusReviews === "function") {
+            window.STLPc4hAdmin.focusReviews();
+          }
+        }
         if (target) go(target);
       });
     });
@@ -457,6 +476,22 @@
     }).catch(function () { return []; });
   }
 
+  function loadPc4hPendingReviews() {
+    if (!window.STLLocalApi || typeof window.STLLocalApi.get !== "function") {
+      return Promise.resolve(0);
+    }
+    return window.STLLocalApi.get("/api/pc4h-admin/snapshot").then(function (res) {
+      if (!res.ok) return 0;
+      var data = res.data || {};
+      if (typeof data.stats === "object" && data.stats && data.stats.pendingReviews != null) {
+        return Number(data.stats.pendingReviews) || 0;
+      }
+      return (Array.isArray(data.reviews) ? data.reviews : []).filter(function (row) {
+        return row && row.status === "pending";
+      }).length;
+    }).catch(function () { return 0; });
+  }
+
   function load() {
     showMsg("Loading overview…", true);
     Promise.all([
@@ -468,7 +503,8 @@
       safe("managed_apps"),
       safe("app_issues"),
       safe("studio_inbox", "id,status"),
-      safe("support_tickets", "id,status")
+      safe("support_tickets", "id,status"),
+      loadPc4hPendingReviews()
     ]).then(function (pair) {
       renewals = pair[0];
       documents = pair[1];
@@ -481,6 +517,7 @@
       supportOpen = (pair[8] || []).filter(function (row) {
         return row.status === "open" || row.status === "inProgress" || row.status === "waiting";
       }).length;
+      pc4hPendingReviews = Number(pair[9]) || 0;
       var paths = [];
       apps.forEach(function (app) {
         if (app.icon_path && paths.indexOf(app.icon_path) < 0) paths.push(app.icon_path);

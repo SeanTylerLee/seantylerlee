@@ -51,6 +51,7 @@
   var reviewFilter = "pending";
   var reviewsBanner = "";
   var reviewsBannerBad = false;
+  var openReviewsOnLoad = false;
   var stats = null;
   var loading = false;
   var saving = false;
@@ -1331,16 +1332,34 @@
       });
       var refresh = el("refresh");
       if (refresh) refresh.addEventListener("click", function () { loadSnapshot(false); });
-      view = "home";
+      view = openReviewsOnLoad ? "reviews" : "home";
+      if (openReviewsOnLoad) reviewFilter = "pending";
+      openReviewsOnLoad = false;
       setCreateFormMode();
       render();
       loadSnapshot(false);
     },
     shown: function () {
       hideSave();
+      if (openReviewsOnLoad) {
+        openReviewsOnLoad = false;
+        reviewFilter = "pending";
+        view = "reviews";
+        render();
+      }
       if (view === "home" || view === "pilots" || view === "reviews" || view === "listings" || view === "emails") {
         loadSnapshot(true);
       }
+    },
+    focusReviews: function () {
+      reviewFilter = "pending";
+      if (root) {
+        view = "reviews";
+        render();
+        loadSnapshot(true);
+        return;
+      }
+      openReviewsOnLoad = true;
     },
     unmount: function () {
       var panel = root && root.closest ? root.closest(".panel") : null;

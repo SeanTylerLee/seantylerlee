@@ -116,6 +116,7 @@
 .ov-chip.draw .k { color: #b87a38; }
 .ov-chip.inbox .k { color: #3d6b99; }
 .ov-chip.support .k { color: #bf5261; }
+.ov-chip.pc4h .k { color: #0f1a2e; }
 .ov-chip.has-alert {
   box-shadow: inset 0 0 0 1px rgba(230, 71, 71, 0.35);
 }
