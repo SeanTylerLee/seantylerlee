@@ -3,6 +3,20 @@
   min-height: 0;
 }
 
+.ia-apps {
+  flex-shrink: 0;
+}
+
+.ia-apps .ops-capsule {
+  cursor: pointer;
+}
+
+.ia-apps-empty {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 2px 4px;
+}
+
 .ia-tabs {
   padding: 0 16px 8px;
 }

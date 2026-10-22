@@ -672,8 +672,38 @@
     });
   }
 
+  function imageAssetAppId(row) {
+    return row && row.app_id ? row.app_id : "";
+  }
+
+  function imageAssetGroups(pack, notesRows, fileRows) {
+    var seen = {};
+    var groups = [];
+    (pack.tables.managed_apps || []).forEach(function (app) {
+      if (!app || !app.id || seen[app.id]) return;
+      seen[app.id] = true;
+      groups.push({ id: app.id, title: app.name || "App" });
+    });
+    var hasShared = notesRows.some(function (n) { return !imageAssetAppId(n); }) ||
+      fileRows.some(function (f) { return !imageAssetAppId(f); });
+    if (hasShared) groups.push({ id: "", title: "Unassigned" });
+    notesRows.forEach(function (n) {
+      var id = imageAssetAppId(n);
+      if (!id || seen[id]) return;
+      seen[id] = true;
+      groups.push({ id: id, title: appName(pack, id) || "App" });
+    });
+    fileRows.forEach(function (f) {
+      var id = imageAssetAppId(f);
+      if (!id || seen[id]) return;
+      seen[id] = true;
+      groups.push({ id: id, title: appName(pack, id) || "App" });
+    });
+    return groups;
+  }
+
   function imageAssets(pdf, pack) {
-    openMenu(pdf, "Image Assets", "Open Image Assets. Paste each tab’s notes, then re-upload files from Image-Assets/.");
+    openMenu(pdf, "Image Assets", "Open Image Assets. Pick the app, paste each tab’s notes, then re-upload files from Image-Assets/.");
     if (tableError(pack, "image_asset_notes") || tableError(pack, "image_asset_files")) {
       pdf.note("Could not read every Image Assets table. See the cover for which one failed.");
     }
@@ -683,37 +713,43 @@
       noRows(pdf, pack, "image_asset_files");
       return;
     }
-    ["ios", "android", "web"].forEach(function (plat) {
-      var title = plat === "ios" ? "iOS" : plat === "android" ? "Android" : "Web";
-      pdf.heading(title, 13);
-      var note = notesRows.filter(function (n) { return n.platform === plat; })[0];
-      var body = notePlain((note && note.body) || "");
-      if (String(body).trim()) {
-        pdf.heading("Notes to paste", 12);
-        longText(pdf, body);
-      } else empty(pdf, "No notes on this tab.");
-      var list = plat === "web"
-        ? fileRows.filter(function (f) { return f.platform === "web"; })
-        : fileRows.filter(function (f) { return f.platform === plat; });
-      if (!list.length) empty(pdf, "No files on this tab.");
-      else {
-        table(
-          pdf,
-          ["Section", "Original name", "File in this zip"],
-          list.map(function (f) {
-            var section = plat === "web"
-              ? "Images"
-              : (f.kind === "icon" ? "App icons" : f.kind === "header" ? "Header images" : "Screenshots");
-            return [
-              section,
-              f.file_name || "",
-              zipAt(pack, "image:" + f.storage_path) || (f.file_name || f.storage_path || "")
-            ];
-          }),
-          [90, 160, pdf.maxW - 250],
-          1
-        );
-      }
+    imageAssetGroups(pack, notesRows, fileRows).forEach(function (group) {
+      pdf.heading(group.title, 14);
+      ["ios", "android", "web"].forEach(function (plat) {
+        var title = plat === "ios" ? "iOS" : plat === "android" ? "Android" : "Web";
+        pdf.heading(title, 13);
+        var note = notesRows.filter(function (n) {
+          return n.platform === plat && imageAssetAppId(n) === group.id;
+        })[0];
+        var body = notePlain((note && note.body) || "");
+        if (String(body).trim()) {
+          pdf.heading("Notes to paste", 12);
+          longText(pdf, body);
+        } else empty(pdf, "No notes on this tab.");
+        var list = fileRows.filter(function (f) {
+          if (imageAssetAppId(f) !== group.id) return false;
+          return plat === "web" ? f.platform === "web" : f.platform === plat;
+        });
+        if (!list.length) empty(pdf, "No files on this tab.");
+        else {
+          table(
+            pdf,
+            ["Section", "Original name", "File in this zip"],
+            list.map(function (f) {
+              var section = plat === "web"
+                ? "Images"
+                : (f.kind === "icon" ? "App icons" : f.kind === "header" ? "Header images" : "Screenshots");
+              return [
+                section,
+                f.file_name || "",
+                zipAt(pack, "image:" + f.storage_path) || (f.file_name || f.storage_path || "")
+              ];
+            }),
+            [90, 160, pdf.maxW - 250],
+            1
+          );
+        }
+      });
     });
   }
 
@@ -1532,10 +1568,11 @@
     (pack.tables.image_asset_files || []).forEach(function (row) {
       if (!row.storage_path) return;
       jobs.push(storageBlob(db, "image-assets", row.storage_path).then(function (blob) {
+        var app = safeFile(appName(pack, row.app_id) || "Unassigned") || "Unassigned";
         var plat = row.platform || "other";
         var kind = row.kind || "file";
         var name = uniqueName(usedAssets, safeFile(row.file_name || row.storage_path.split("/").pop() || "image"));
-        push("Image-Assets/" + plat + "/" + kind, name, blob, "Image asset: " + plat + " " + kind, "image:" + row.storage_path);
+        push("Image-Assets/" + app + "/" + plat + "/" + kind, name, blob, "Image asset: " + app + " " + plat + " " + kind, "image:" + row.storage_path);
       }));
     });
 

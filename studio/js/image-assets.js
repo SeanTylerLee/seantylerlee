@@ -12,13 +12,16 @@
     web: "Favicon, Open Graph 1200×630, and any header or hero sizes you keep here."
   };
   var ICON_LABEL = { ios: "App icons", android: "App icons", web: "Logos" };
+  var SHARED = "shared";
 
   var root = null;
   var db = null;
   var userId = "";
+  var apps = [];
+  var selectedAppId = null;
   var platform = "ios";
-  var notes = { ios: { id: null, body: "" }, android: { id: null, body: "" }, web: { id: null, body: "" } };
-  var drafts = { ios: "", android: "", web: "" };
+  var notes = {};
+  var drafts = {};
   var files = [];
   var urls = {};
   var savingNotes = false;
@@ -34,6 +37,28 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function appKey(id) {
+    return id || SHARED;
+  }
+
+  function emptyNotes() {
+    return { ios: { id: null, body: "" }, android: { id: null, body: "" }, web: { id: null, body: "" } };
+  }
+
+  function emptyDrafts() {
+    return { ios: "", android: "", web: "" };
+  }
+
+  function ensureBucket(key) {
+    if (!notes[key]) notes[key] = emptyNotes();
+    if (!drafts[key]) drafts[key] = emptyDrafts();
+    return key;
+  }
+
+  function currentKey() {
+    return ensureBucket(appKey(selectedAppId));
   }
 
   function showMsg(msg, ok) {
@@ -54,6 +79,9 @@
 
   function sqlHint(err) {
     var msg = (err && err.message) || "";
+    if (/app_id|Could not find the 'app_id' column/i.test(msg)) {
+      return "Run sql/041_image_assets_app.sql in Supabase, then refresh.";
+    }
     if (/does not exist|schema cache|bucket|not found|row-level/i.test(msg)) {
       return "Run sql/037_image_assets.sql in Supabase, then refresh.";
     }
@@ -62,15 +90,37 @@
 
   function harvestNotes() {
     var box = el("notes");
-    if (box) drafts[platform] = box.value;
+    var key = currentKey();
+    if (box) drafts[key][platform] = box.value;
   }
 
   function notesDirty() {
-    return (drafts[platform] || "") !== (notes[platform].body || "");
+    var key = currentKey();
+    return (drafts[key][platform] || "") !== (notes[key][platform].body || "");
+  }
+
+  function matchesApp(row) {
+    var id = row && row.app_id ? row.app_id : null;
+    if (!selectedAppId) return !id;
+    return id === selectedAppId;
+  }
+
+  function hasUnassigned() {
+    var i;
+    for (i = 0; i < files.length; i++) {
+      if (!files[i].app_id) return true;
+    }
+    if (notes[SHARED]) {
+      if ((notes[SHARED].ios && notes[SHARED].ios.id) ||
+          (notes[SHARED].android && notes[SHARED].android.id) ||
+          (notes[SHARED].web && notes[SHARED].web.id)) return true;
+    }
+    return false;
   }
 
   function filesOf(kind) {
     return files.filter(function (f) {
+      if (!matchesApp(f)) return false;
       if (f.platform !== platform) return false;
       if (platform === "web") return true;
       return f.kind === kind;
@@ -132,13 +182,46 @@
       '<div class="ops-workspace ia-workspace">' +
         '<div class="ops-header">' +
           "<h1>Image Assets</h1>" +
-          '<p class="sub">Store icons, screenshots, and headers. Notes on each tab keep size requirements.</p>' +
+          '<p class="sub">Pick an app, then store icons, screenshots, and headers. Notes on each tab keep size requirements.</p>' +
         "</div>" +
+        '<div class="ops-top ia-apps" data-el="apps"></div>' +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-filters ia-tabs" data-el="tabs"></div>' +
         '<div class="ops-body ia-body" data-el="page"></div>' +
       "</div>"
     );
+  }
+
+  function renderApps() {
+    var box = el("apps");
+    if (!box) return;
+    var html = "";
+    if (!apps.length && !hasUnassigned()) {
+      html = '<span class="ia-apps-empty">Add an app on the Apps page first.</span>';
+    } else {
+      apps.forEach(function (app) {
+        html +=
+          '<button type="button" class="ops-capsule' + (app.id === selectedAppId ? " is-on" : "") + '" data-app="' + app.id + '">' +
+            esc(app.name || "App") +
+          "</button>";
+      });
+      if (hasUnassigned() || !apps.length) {
+        html +=
+          '<button type="button" class="ops-capsule' + (!selectedAppId ? " is-on" : "") + '" data-app="">' +
+            "Unassigned" +
+          "</button>";
+      }
+    }
+    box.innerHTML = html;
+    box.querySelectorAll("[data-app]").forEach(function (btn) {
+      btn.onclick = function () {
+        var next = btn.getAttribute("data-app") || "";
+        harvestNotes();
+        selectedAppId = next || null;
+        selectedId = null;
+        render();
+      };
+    });
   }
 
   function renderTabs() {
@@ -164,6 +247,7 @@
   function renderPage() {
     var box = el("page");
     if (!box) return;
+    var key = currentKey();
     var iconTitle = ICON_LABEL[platform] || "App icons";
     var sections = platform === "web"
       ? section("image", "Images")
@@ -173,9 +257,9 @@
     box.innerHTML =
       '<div class="ops-card ia-notes">' +
         "<h3>Notes</h3>" +
-        '<p class="sub">Screenshot sizes, icon rules, and anything else you want on this tab.</p>' +
+        '<p class="sub">Screenshot sizes, icon rules, and anything else you want on this tab for this app.</p>' +
         '<textarea data-el="notes" rows="6" placeholder="' + esc(NOTE_HINT[platform] || "") + '">' +
-          esc(drafts[platform] || "") +
+          esc(drafts[key][platform] || "") +
         "</textarea>" +
         '<div class="ia-notes-bar">' +
           '<button type="button" class="btn btn-primary" data-el="save-notes">Save notes</button>' +
@@ -187,7 +271,7 @@
     var saveBtn = el("save-notes");
     if (notesBox) {
       notesBox.addEventListener("input", function () {
-        drafts[platform] = notesBox.value;
+        drafts[currentKey()][platform] = notesBox.value;
         if (saveBtn) saveBtn.disabled = !notesDirty() || savingNotes;
       });
     }
@@ -241,6 +325,7 @@
 
   function render() {
     hideSave();
+    renderApps();
     renderTabs();
     renderPage();
   }
@@ -249,21 +334,25 @@
     harvestNotes();
     if (!notesDirty() || savingNotes) return;
     savingNotes = true;
-    var body = drafts[platform] || "";
-    var row = notes[platform];
+    var key = currentKey();
+    var body = drafts[key][platform] || "";
+    var row = notes[key][platform];
     var btn = el("save-notes");
     if (btn) btn.disabled = true;
+    var payload = { platform: platform, body: body, app_id: selectedAppId || null };
     var req = row.id
-      ? db.from("image_asset_notes").update({ body: body }).eq("id", row.id).select("id, platform, body").single()
-      : db.from("image_asset_notes").insert({ platform: platform, body: body }).select("id, platform, body").single();
+      ? db.from("image_asset_notes").update(payload).eq("id", row.id).select("id, platform, body, app_id").single()
+      : db.from("image_asset_notes").insert(payload).select("id, platform, body, app_id").single();
     req.then(function (res) {
       savingNotes = false;
       if (res.error) {
         if (btn) btn.disabled = !notesDirty();
         return showMsg(sqlHint(res.error), false);
       }
-      notes[platform] = { id: res.data.id, body: res.data.body || "" };
-      drafts[platform] = notes[platform].body;
+      var nextKey = appKey(res.data.app_id);
+      ensureBucket(nextKey);
+      notes[nextKey][platform] = { id: res.data.id, body: res.data.body || "" };
+      drafts[nextKey][platform] = notes[nextKey][platform].body;
       if (btn) btn.disabled = true;
       showMsg("Notes saved.", true);
     });
@@ -278,15 +367,18 @@
   function uploadOne(kind, file) {
     var ext = extOf(file);
     var id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
-    var path = userId + "/" + platform + "/" + kind + "/" + id + "." + ext;
+    var folder = selectedAppId || "shared";
+    var path = userId + "/" + folder + "/" + platform + "/" + kind + "/" + id + "." + ext;
+    var row = {
+      platform: platform,
+      kind: kind,
+      storage_path: path,
+      file_name: file.name || (kind + "." + ext),
+      app_id: selectedAppId || null
+    };
     return db.storage.from("image-assets").upload(path, file, { upsert: true, contentType: file.type || "image/png" }).then(function (up) {
       if (up.error) throw up.error;
-      return db.from("image_asset_files").insert({
-        platform: platform,
-        kind: kind,
-        storage_path: path,
-        file_name: file.name || (kind + "." + ext)
-      }).select("*").single();
+      return db.from("image_asset_files").insert(row).select("*").single();
     }).then(function (res) {
       if (res.error) throw res.error;
       files.unshift(res.data);
@@ -296,6 +388,9 @@
 
   function uploadFiles(kind, list) {
     if (!userId) return showMsg("Not signed in.", false);
+    if (!selectedAppId && apps.length && !hasUnassigned()) {
+      return showMsg("Pick an app first.", false);
+    }
     list = (list || []).filter(function (file) {
       return /^image\//i.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name || "");
     });
@@ -359,6 +454,7 @@
     showMsg("Removing…", true);
     removeRow(row).then(function () {
       selectedId = null;
+      if (!hasUnassigned() && !selectedAppId && apps[0]) selectedAppId = apps[0].id;
       showMsg("Removed.", true);
       render();
     }).catch(function (err) {
@@ -384,32 +480,47 @@
     });
   }
 
+  function pickDefaultApp() {
+    if (hasUnassigned() && !selectedAppId) return;
+    if (selectedAppId && apps.some(function (a) { return a.id === selectedAppId; })) return;
+    selectedAppId = apps[0] ? apps[0].id : null;
+  }
+
   function load() {
     showMsg("Loading…", true);
     return Promise.all([
-      db.from("image_asset_notes").select("id, platform, body"),
+      db.from("managed_apps").select("id,name").order("name"),
+      db.from("image_asset_notes").select("id, platform, body, app_id"),
       db.from("image_asset_files").select("*").order("created_at", { ascending: false })
-    ]).then(function (pair) {
-      if (pair[0].error) {
-        showMsg(sqlHint(pair[0].error), false);
+    ]).then(function (triple) {
+      if (triple[0].error) {
+        showMsg(sqlHint(triple[0].error), false);
         render();
         return;
       }
-      if (pair[1].error) {
-        showMsg(sqlHint(pair[1].error), false);
+      if (triple[1].error) {
+        showMsg(sqlHint(triple[1].error), false);
         render();
         return;
       }
-      ["ios", "android", "web"].forEach(function (id) {
-        notes[id] = { id: null, body: "" };
-        drafts[id] = "";
+      if (triple[2].error) {
+        showMsg(sqlHint(triple[2].error), false);
+        render();
+        return;
+      }
+      apps = triple[0].data || [];
+      notes = {};
+      drafts = {};
+      ensureBucket(SHARED);
+      apps.forEach(function (app) { ensureBucket(app.id); });
+      (triple[1].data || []).forEach(function (row) {
+        var key = ensureBucket(appKey(row.app_id));
+        if (!notes[key][row.platform]) return;
+        notes[key][row.platform] = { id: row.id, body: row.body || "" };
+        drafts[key][row.platform] = row.body || "";
       });
-      (pair[0].data || []).forEach(function (row) {
-        if (!notes[row.platform]) return;
-        notes[row.platform] = { id: row.id, body: row.body || "" };
-        drafts[row.platform] = row.body || "";
-      });
-      files = pair[1].data || [];
+      files = triple[2].data || [];
+      pickDefaultApp();
       return signAll().then(function () {
         showMsg("");
         render();
@@ -425,8 +536,12 @@
       db = client;
       root = panel;
       platform = "ios";
+      apps = [];
+      selectedAppId = null;
       files = [];
       urls = {};
+      notes = {};
+      drafts = {};
       selectedId = null;
       panel.classList.add("ops-wide");
       panel.innerHTML = shell();
