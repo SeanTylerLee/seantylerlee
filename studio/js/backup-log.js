@@ -5,7 +5,7 @@
     "business_profile", "business_documents", "vault_logins", "renewal_items",
     "calendar_day_notes", "calendar_hidden", "studio_settings", "business_expenses", "business_expense_skips",
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
-    "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos",
+    "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos", "studio_competitors",
     "sop_guides", "support_tickets", "studio_inbox", "email_lists", "email_contacts", "email_templates", "email_page_notes",
     "image_asset_notes", "image_asset_files",
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
@@ -336,6 +336,7 @@
         ["Inventory", String((t.inventory_items || []).length)],
         ["Mileage", String((t.mileage_trips || []).length)],
         ["Apps", String((t.managed_apps || []).length) + " · " + String((t.app_promos || []).length) + " promos"],
+        ["Competitors", String((t.studio_competitors || []).length)],
         ["TOS Accepted", String((pack.tosAcceptances || []).length) + " acceptances"],
         ["SOP", String((t.sop_guides || []).length)],
         ["Image Assets", String((t.image_asset_files || []).length) + " files"],
@@ -1209,6 +1210,49 @@
     ]);
   }
 
+  function eventList(raw) {
+    var list = raw;
+    if (typeof list === "string") {
+      try { list = JSON.parse(list); } catch (err) { list = []; }
+    }
+    if (!Array.isArray(list)) return [];
+    return list.map(function (ev) {
+      if (!ev) return "";
+      return [ev.label || "Other date", day(ev.on)].filter(Boolean).join(" · ");
+    }).filter(Boolean);
+  }
+
+  function competitors(pdf, pack) {
+    openMenu(pdf, "Competitors", "Open Competitors. Type your dates, then each competitor, their other dates, and notes.");
+    var rows = (pack.tables.studio_competitors || []).slice().sort(function (a, b) {
+      if (!!a.is_self !== !!b.is_self) return a.is_self ? -1 : 1;
+      return String(a.created_at || "").localeCompare(String(b.created_at || ""));
+    });
+    if (!rows.length) { noRows(pdf, pack, "studio_competitors"); return; }
+    rows.forEach(function (row, i) {
+      var title = row.is_self ? "You" : (row.company_name || row.app_name || "Competitor");
+      pdf.recordHead(title, i + 1, rows.length);
+      filled(pdf, [
+        ["Company", row.company_name],
+        ["App", row.app_name],
+        ["Domain", row.domain_name],
+        ["Domain registered", day(row.domain_registered_on)],
+        ["LLC registered", day(row.llc_registered_on)],
+        ["Apple", day(row.apple_launched_on)],
+        ["Android", day(row.android_launched_on)]
+      ]);
+      var extra = eventList(row.events);
+      if (extra.length) {
+        pdf.heading("Other dates", 12);
+        longText(pdf, extra.join("\n"));
+      }
+      if (row.notes) {
+        pdf.heading("Notes", 12);
+        longText(pdf, row.notes);
+      }
+    });
+  }
+
   function buildPdf(pdf, pack) {
     cover(pdf, pack);
     skipPage(pdf, "Overview", "Overview rebuilds itself from Income, Expenses, Mileage, and Renewals. Nothing to type.");
@@ -1251,6 +1295,7 @@
     inventory(pdf, pack);
     mileage(pdf, pack);
     apps(pdf, pack);
+    competitors(pdf, pack);
     promos(pdf, pack);
     sop(pdf, pack);
     imageAssets(pdf, pack);

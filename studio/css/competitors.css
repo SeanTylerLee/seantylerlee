@@ -1,0 +1,220 @@
+.comp-page {
+  max-width: 920px;
+}
+
+.comp-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.comp-card h2,
+.comp-section-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.comp-sub {
+  margin: 4px 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.comp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+
+.comp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0 10px;
+}
+
+.comp-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.comp-card-top h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.comp-remove {
+  border: 0;
+  background: transparent;
+  color: #9b1c1c;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 0 4px;
+}
+
+.comp-compare-block {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.comp-compare-block h3 {
+  margin: 0 0 2px;
+  font-size: 15px;
+}
+
+.comp-compare-domains {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.comp-line {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1fr) minmax(140px, 1.1fr);
+  gap: 8px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.comp-line strong {
+  font-weight: 650;
+}
+
+.comp-you {
+  color: #1a70eb;
+  font-weight: 700;
+}
+
+.comp-them {
+  font-weight: 700;
+}
+
+.comp-verdict.is-you {
+  color: #1f6b52;
+  font-weight: 700;
+}
+
+.comp-verdict.is-them {
+  color: #9b1c1c;
+  font-weight: 700;
+}
+
+.comp-verdict.is-same,
+.comp-verdict.is-open {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.comp-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.comp-wide {
+  grid-column: 1 / -1;
+}
+
+.comp-events-head h4 {
+  margin: 10px 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.comp-hint {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.comp-event {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 168px auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.comp-event input,
+.comp-notes {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--field-h);
+  padding: var(--field-pad-y) var(--field-pad-x);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: var(--r-field);
+  background: var(--card);
+  color: var(--ink);
+  font-size: var(--fs-body);
+}
+
+.comp-event input:focus,
+.comp-notes:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(26, 112, 235, 0.2);
+}
+
+.comp-notes {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.comp-add-date {
+  margin: 2px 0 12px;
+}
+
+.comp-time {
+  display: grid;
+  grid-template-columns: 124px minmax(100px, 190px) minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.comp-time-who.is-you {
+  color: #1a70eb;
+  font-weight: 700;
+}
+
+.comp-time-who.is-them {
+  font-weight: 700;
+}
+
+.comp-board {
+  margin-bottom: 14px;
+}
+
+html.is-phone .comp-grid,
+html.is-phone .comp-line,
+html.is-phone .comp-event,
+html.is-phone .comp-time {
+  grid-template-columns: 1fr;
+}
+
+html.is-phone .comp-remove,
+html.is-phone .comp-event .comp-remove,
+html.is-phone .comp-add-date {
+  min-height: 44px;
+}
+
+html.is-phone .comp-event input,
+html.is-phone .comp-notes {
+  font-size: 16px;
+}
