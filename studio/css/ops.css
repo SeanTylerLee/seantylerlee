@@ -1398,8 +1398,31 @@ html.is-phone .mail-queue-actions .btn {
 
 .pc4h-watch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
+}
+
+.pc4h-review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.pc4h-review-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pc4h-review-stars {
+  margin: 8px 0 4px;
+  color: #c79212;
+  letter-spacing: 0.08em;
+}
+
+.pc4h-review-comment {
+  margin: 0 0 10px;
+  white-space: pre-wrap;
 }
 
 .pc4h-watch-head {
@@ -1684,6 +1707,10 @@ html.is-phone .mail-queue-actions .btn {
 @media (max-width: 720px) {
   .pc4h-check-state {
     min-width: calc(50% - 6px);
+  }
+
+  .pc4h-watch {
+    grid-template-columns: 1fr;
   }
 
   .pc4h-handoff-card,

@@ -46,6 +46,11 @@
   var view = "home";
   var pilots = [];
   var handoffs = [];
+  var reviews = [];
+  var reviewsError = "";
+  var reviewFilter = "pending";
+  var reviewsBanner = "";
+  var reviewsBannerBad = false;
   var stats = null;
   var loading = false;
   var saving = false;
@@ -240,13 +245,36 @@
     if (days < 45) return days === 1 ? "1 day ago" : days + " days ago";
     return formatSignedUp(value);
   }
+  function clip(text, max) {
+    var value = trim(text);
+    if (value.length <= max) return value;
+    return value.slice(0, Math.max(0, max - 1)) + "…";
+  }
+  function starLabel(stars) {
+    var n = Number(stars) || 0;
+    return n + " star" + (n === 1 ? "" : "s");
+  }
+  function starGlyphs(stars) {
+    var n = Math.max(0, Math.min(5, Math.round(Number(stars) || 0)));
+    var html = "";
+    var i;
+    for (i = 1; i <= 5; i += 1) html += i <= n ? "★" : "☆";
+    return html;
+  }
+  function sourceLabel(source) {
+    if (source === "ios") return "Apple app";
+    if (source === "android") return "Android app";
+    return "Website";
+  }
   function boardCounts() {
     var live = (pilots || []).filter(function (pilot) { return !!pilot.listing; }).length;
+    var pendingReviews = (reviews || []).filter(function (row) { return row.status === "pending"; }).length;
     return {
       total: (pilots || []).length,
       live: live,
       incomplete: Math.max(0, (pilots || []).length - live),
-      waiting: (handoffs || []).length
+      waiting: (handoffs || []).length,
+      pendingReviews: pendingReviews
     };
   }
   function stateCoverage() {
@@ -325,6 +353,7 @@
         '<div class="ops-filters pc4h-tabs">' +
           '<button type="button" class="ops-pill" data-nav="home">Overview</button>' +
           '<button type="button" class="ops-pill" data-nav="pilots" data-pilot-mode="all">Pilots</button>' +
+          '<button type="button" class="ops-pill" data-nav="reviews">Reviews</button>' +
           '<button type="button" class="ops-pill" data-nav="listings">To email</button>' +
           '<button type="button" class="ops-pill" data-nav="emails">Emails</button>' +
           '<button type="button" class="btn btn-primary" data-nav="form">Add listing</button>' +
@@ -354,6 +383,7 @@
     html += '<button type="button" class="ops-chip ok" data-nav="pilots" data-pilot-mode="live"><span class="k">Live listings</span><span class="v">' + counts.live + "</span></button>";
     html += '<button type="button" class="ops-chip warn" data-nav="pilots" data-pilot-mode="incomplete"><span class="k">No listing yet</span><span class="v">' + counts.incomplete + "</span></button>";
     html += '<button type="button" class="ops-chip' + (counts.waiting ? " danger" : "") + '" data-nav="listings"><span class="k">To email</span><span class="v">' + counts.waiting + "</span></button>";
+    html += '<button type="button" class="ops-chip' + (counts.pendingReviews ? " danger" : "") + '" data-nav="reviews"><span class="k">Reviews waiting</span><span class="v">' + counts.pendingReviews + "</span></button>";
     html += "</div>";
 
     html += '<div class="ops-card"><h3>Needs a look</h3><div class="pc4h-watch">';
@@ -377,6 +407,21 @@
       html += '<div class="pc4h-person pc4h-person-static"><span>' + esc(handoff.contactName || handoff.loginEmail || "Pilot") +
         "</span><span class=\"muted\">" + esc(handoff.loginEmail || "") +
         (handoff.createdAt ? " · " + esc(formatAgo(handoff.createdAt)) : "") + "</span></div>";
+    });
+    html += "</section>";
+    var pendingReviewRows = (reviews || []).filter(function (row) { return row.status === "pending"; }).slice(0, 5);
+    html += '<section><div class="pc4h-watch-head"><h4>Reviews waiting</h4>';
+    if (counts.pendingReviews) {
+      html += '<button type="button" class="btn btn-ghost" data-nav="reviews">See all ' + counts.pendingReviews + "</button>";
+    }
+    html += "</div>";
+    if (!pendingReviewRows.length) html += '<p class="sub">No reviews waiting to be accepted.</p>';
+    pendingReviewRows.forEach(function (row) {
+      html += '<button type="button" class="pc4h-person" data-nav="reviews"><span>' +
+        esc(starLabel(row.stars) + " · " + (row.businessName || "Listing")) +
+        "</span><span class=\"muted\">" +
+        esc((row.comment ? clip(row.comment, 80) : "No comment") + (row.createdAt ? " · " + formatAgo(row.createdAt) : "")) +
+        "</span></button>";
     });
     html += "</section></div></div>";
 
@@ -677,9 +722,86 @@
     if (view === "form") return formHtml();
     if (view === "success") return successHtml();
     if (view === "pilots") return pilotsHtml();
+    if (view === "reviews") return reviewsHtml();
     if (view === "listings") return listingsHtml();
     if (view === "emails") return emailsHtml();
     return homeHtml();
+  }
+
+  function filteredReviews() {
+    return (reviews || []).filter(function (row) {
+      if (reviewFilter === "all") return true;
+      return row.status === reviewFilter;
+    });
+  }
+
+  function reviewsHtml() {
+    var list = filteredReviews();
+    var cards = list.map(function (row) {
+      var place = formatHomeLocation(row.homeCity, row.homeState);
+      var meta = [
+        sourceLabel(row.source),
+        formatAgo(row.createdAt) || formatSignedUp(row.createdAt),
+        place
+      ].filter(Boolean).join(" · ");
+      var actions = "";
+      if (row.status === "pending") {
+        actions =
+          '<button type="button" class="btn btn-primary" data-review-action="accept" data-review-id="' + esc(row.id) + '">Accept</button>' +
+          '<button type="button" class="btn btn-danger" data-review-action="reject" data-review-id="' + esc(row.id) + '">Reject</button>';
+      } else if (row.status === "published") {
+        actions =
+          '<button type="button" class="btn btn-danger" data-review-action="reject" data-review-id="' + esc(row.id) + '">Unpublish</button>';
+      } else {
+        actions =
+          '<button type="button" class="btn btn-primary" data-review-action="accept" data-review-id="' + esc(row.id) + '">Accept</button>';
+      }
+      return (
+        '<article class="ops-card pc4h-review-card">' +
+          '<div class="pc4h-review-head">' +
+            "<div>" +
+              "<h3>" + esc(row.businessName || "Listing") + "</h3>" +
+              '<p class="sub">' + esc(meta) + "</p>" +
+            "</div>" +
+            '<span class="pc4h-status ' +
+              (row.status === "published" ? "is-complete" : (row.status === "rejected" ? "is-incomplete" : "")) +
+            '">' + esc(row.status) + "</span>" +
+          "</div>" +
+          '<p class="pc4h-review-stars" aria-label="' + esc(starLabel(row.stars)) + '">' + starGlyphs(row.stars) + "</p>" +
+          (row.comment ? '<p class="pc4h-review-comment">' + esc(row.comment) + "</p>" : '<p class="sub">No comment.</p>') +
+          '<div class="pc4h-actions">' + actions + "</div>" +
+        "</article>"
+      );
+    }).join("");
+
+    return (
+      '<div class="pc4h-view">' +
+        '<div class="pc4h-view-top">' +
+          "<div><h2>Reviews</h2><p>Accept a review to publish it on the website. Rejected reviews stay hidden.</p></div>" +
+        "</div>" +
+        '<div class="ops-filters pc4h-sort">' +
+          '<button type="button" class="ops-pill' + (reviewFilter === "pending" ? " is-on" : "") + '" data-review-filter="pending">Waiting</button>' +
+          '<button type="button" class="ops-pill' + (reviewFilter === "published" ? " is-on" : "") + '" data-review-filter="published">Published</button>' +
+          '<button type="button" class="ops-pill' + (reviewFilter === "rejected" ? " is-on" : "") + '" data-review-filter="rejected">Rejected</button>' +
+          '<button type="button" class="ops-pill' + (reviewFilter === "all" ? " is-on" : "") + '" data-review-filter="all">All</button>' +
+        "</div>" +
+        (reviewsError
+          ? '<p class="status ops-banner is-on is-bad">' + esc(reviewsError) + "</p>"
+          : "") +
+        (reviewsBanner
+          ? '<p class="status ops-banner is-on ' + (reviewsBannerBad ? "is-bad" : "is-ok") + '">' + esc(reviewsBanner) + "</p>"
+          : "") +
+        (loading
+          ? '<p class="ops-empty">Loading…</p>'
+          : (list.length
+              ? '<div class="pc4h-review-list">' + cards + "</div>"
+              : '<p class="ops-empty">' +
+                (reviewFilter === "pending"
+                  ? "No reviews waiting."
+                  : "No reviews in this list.") +
+                "</p>")) +
+      "</div>"
+    );
   }
 
   function syncTabs() {
@@ -714,6 +836,12 @@
       setView("form");
       return;
     }
+    if (next === "reviews") {
+      reviewFilter = "pending";
+      setView("reviews");
+      loadSnapshot(true);
+      return;
+    }
     if (next === "pilots" || next === "listings" || next === "emails" || next === "home") {
       setView(next);
       if (next !== "home") loadSnapshot(true);
@@ -735,6 +863,7 @@
     formBanner = "";
     pilotsBanner = "";
     emailsBanner = "";
+    reviewsBanner = "";
     render();
   }
 
@@ -817,6 +946,8 @@
       .then(function (data) {
         pilots = Array.isArray(data.pilots) ? data.pilots : [];
         handoffs = Array.isArray(data.handoffs) ? data.handoffs : [];
+        reviews = Array.isArray(data.reviews) ? data.reviews : [];
+        reviewsError = data.reviewsError || "";
         stats = data.stats || null;
         loading = false;
         showMsg("", true);
@@ -924,6 +1055,40 @@
       btn.addEventListener("click", function () {
         pilotSort = btn.getAttribute("data-pilot-sort") || "new";
         render();
+      });
+    });
+    body.querySelectorAll("[data-review-filter]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        reviewFilter = btn.getAttribute("data-review-filter") || "pending";
+        render();
+      });
+    });
+    body.querySelectorAll("[data-review-action]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-review-id") || "";
+        var action = btn.getAttribute("data-review-action") || "";
+        if (!id || (action !== "accept" && action !== "reject")) return;
+        var row = (reviews || []).filter(function (item) { return item.id === id; })[0];
+        var label = row ? ((row.businessName || "this listing") + " · " + starLabel(row.stars)) : "this review";
+        var confirmCopy = action === "accept"
+          ? "Publish this review for " + label + "?"
+          : "Hide this review for " + label + "? It will not show on the website.";
+        if (!window.confirm(confirmCopy)) return;
+        btn.disabled = true;
+        apiPost("/api/pc4h-admin/review-action", { id: id, action: action })
+          .then(function () {
+            reviewsBanner = action === "accept"
+              ? "Published the review for " + label + "."
+              : "Hidden the review for " + label + ".";
+            reviewsBannerBad = false;
+            return loadSnapshot(true);
+          })
+          .catch(function (err) {
+            reviewsBanner = errorMessage(err);
+            reviewsBannerBad = true;
+            btn.disabled = false;
+            render();
+          });
       });
     });
 
@@ -1173,7 +1338,7 @@
     },
     shown: function () {
       hideSave();
-      if (view === "home" || view === "pilots" || view === "listings" || view === "emails") {
+      if (view === "home" || view === "pilots" || view === "reviews" || view === "listings" || view === "emails") {
         loadSnapshot(true);
       }
     },
