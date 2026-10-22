@@ -1079,7 +1079,7 @@
         apiPost("/api/pc4h-admin/review-action", { id: id, action: action })
           .then(function () {
             reviewsBanner = action === "accept"
-              ? "Published the review for " + label + "."
+              ? "Accepted the review for " + label + ". It is live on the listing."
               : "Hidden the review for " + label + ".";
             reviewsBannerBad = false;
             return loadSnapshot(true);

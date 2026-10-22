@@ -74,9 +74,10 @@
       if (nodes[i].classList.contains("is-bad")) {
         fail = true;
         failKey += text + "|";
+      } else if (nodes[i].classList.contains("is-ok")) {
+        good = true;
       } else if (BUSY.test(text)) busy = true;
       else if (SKIP.test(text)) continue;
-      else if (nodes[i].classList.contains("is-ok")) good = true;
     }
     var save = document.getElementById("global-save");
     if (save && !save.classList.contains("hidden") && BUSY.test(save.textContent || "")) busy = true;
