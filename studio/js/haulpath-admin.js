@@ -122,7 +122,7 @@
           "<h1>HaulPath Admin</h1>" +
           "<p>Edit state thresholds here later. The iOS and Android apps still keep their own tables.</p>" +
         "</div>" +
-        '<p class="status ops-banner is-on" data-el="banner">Studio shell only. Saving and app sync are not wired yet.</p>' +
+        '<p class="status ops-banner is-on" data-el="banner">Studio shell only. Nothing is stored yet, and the apps still use their own tables.</p>' +
         '<div class="hp-admin-layout">' +
           '<aside class="hp-admin-rail">' +
             '<input class="hp-admin-search" data-el="search" type="search" placeholder="Find a state" autocomplete="off" />' +
