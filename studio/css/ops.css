@@ -1462,6 +1462,39 @@ html.is-phone .mail-queue-actions .btn {
   max-width: 62ch;
 }
 
+.hp-admin-verify {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--line, #d8dee8);
+  border-radius: 12px;
+}
+
+.hp-admin-verify input {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+}
+
+.hp-admin-verify span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hp-admin-verify strong {
+  font-size: 14px;
+}
+
+.hp-admin-verify em {
+  font-style: normal;
+  color: var(--muted, #5a6578);
+  font-size: 13px;
+}
+
 .hp-admin-card {
   background: #fff;
   border: 1px solid var(--line, #d8dee8);

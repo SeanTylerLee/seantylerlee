@@ -130,7 +130,8 @@
       developerNoteId: null,
       interstatePilot: blankPilot(),
       nonInterstatePilot: blankPilot(),
-      highPole: ""
+      highPole: "",
+      officialVerified: false
     };
   }
 
@@ -173,7 +174,8 @@
       developerNoteId: null,
       interstatePilot: mergeObject(blankPilot, row.interstate_pilot),
       nonInterstatePilot: mergeObject(blankPilot, row.non_interstate_pilot),
-      highPole: row.high_pole || ""
+      highPole: row.high_pole || "",
+      officialVerified: row.official_documents_verified === true
     };
   }
 
@@ -188,6 +190,7 @@
     if (!draft) return false;
     if (textOf(draft.travelHours) || textOf(draft.travelRestrictions)) return true;
     if (textOf(draft.curfewRestrictions) || textOf(draft.curfewExceptions)) return true;
+    if (draft.officialVerified) return true;
     if (textOf(draft.note) || textOf(draft.developerNote) || textOf(draft.highPole)) return true;
     return LIMIT_FIELDS.some(function (field) {
       return textOf(draft.interstate[field.id]) || textOf(draft.nonInterstate[field.id]);
@@ -315,6 +318,11 @@
         "<h2>" + esc(st.name) + " <span>" + esc(st.abbr) + "</span></h2>" +
         "<p>Drivers will see this note on the state after the app update.</p>" +
       "</div>" +
+      '<label class="hp-admin-verify">' +
+        '<input type="checkbox" data-field="officialVerified"' + (draft.officialVerified ? " checked" : "") + " />" +
+        "<span><strong>Verified by official state documents</strong>" +
+        "<em>HaulPath will show this on the state after the app update.</em></span>" +
+      "</label>" +
       '<section class="hp-admin-card hp-admin-note">' +
         "<h3>Note</h3>" +
         '<label class="hp-admin-field is-wide">' +
@@ -385,6 +393,11 @@
     return node ? (node.value || "") : "";
   }
 
+  function fieldChecked(id) {
+    var node = root.querySelector('.hp-admin-body [data-field="' + id + '"]');
+    return !!(node && node.checked);
+  }
+
   function harvest() {
     if (!root || !root.querySelector(".hp-admin-body [data-field]")) return;
     var draft = draftFor(selectedAbbr);
@@ -399,6 +412,7 @@
     draft.curfewRestrictions = fieldValue("curfewRestrictions");
     draft.curfewExceptions = fieldValue("curfewExceptions");
     draft.developerNote = fieldValue("developerNote");
+    draft.officialVerified = fieldChecked("officialVerified");
   }
 
   function payload(draft) {
@@ -414,7 +428,8 @@
       note: draft.note || "",
       interstate_pilot: draft.interstatePilot || blankPilot(),
       non_interstate_pilot: draft.nonInterstatePilot || blankPilot(),
-      high_pole: draft.highPole || ""
+      high_pole: draft.highPole || "",
+      official_documents_verified: !!draft.officialVerified
     };
   }
 
@@ -573,7 +588,7 @@
     }
     var body = el("body");
     if (body) {
-      body.addEventListener("input", function () {
+      function onEdit() {
         harvest();
         var was = dirty;
         markDirty();
@@ -582,7 +597,9 @@
           var current = root.querySelector('.hp-admin-state.is-on');
           if (current) current.classList.toggle("is-filled", hasContent(draftFor(selectedAbbr)));
         }
-      });
+      }
+      body.addEventListener("input", onEdit);
+      body.addEventListener("change", onEdit);
     }
   }
 
