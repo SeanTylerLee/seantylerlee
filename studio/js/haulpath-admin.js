@@ -66,7 +66,9 @@
     { id: "widthOne", label: "Width — one escort", placeholder: "12'0\"" },
     { id: "widthTwo", label: "Width — two escorts", placeholder: "14'0\"" },
     { id: "lengthOne", label: "Length — one escort", placeholder: "90'0\"" },
-    { id: "lengthTwo", label: "Length — two escorts", placeholder: "110'0\"" }
+    { id: "lengthTwo", label: "Length — two escorts", placeholder: "110'0\"" },
+    { id: "weightOne", label: "Gross weight — one escort", placeholder: "100000" },
+    { id: "weightTwo", label: "Gross weight — two escorts", placeholder: "150000" }
   ];
 
   var root = null;
@@ -111,7 +113,7 @@
   }
 
   function blankPilot() {
-    return { widthOne: "", widthTwo: "", lengthOne: "", lengthTwo: "" };
+    return { widthOne: "", widthTwo: "", lengthOne: "", lengthTwo: "", weightOne: "", weightTwo: "" };
   }
 
   function blankDraft(st) {
@@ -367,7 +369,7 @@
     return (
       '<section class="hp-admin-card" data-group="' + esc(prefix) + '">' +
         "<h3>" + esc(title) + "</h3>" +
-        '<p class="hp-admin-private">First measurement that requires that escort. Over 12 feet is stored as 12\'1". 90 feet or more is 90\'0".</p>' +
+        '<p class="hp-admin-private">First measurement that requires that escort. Over 12 feet is stored as 12\'1". 90 feet or more is 90\'0". Over 100,000 pounds is stored as 100001. Weights are pounds of gross weight.</p>' +
         '<div class="hp-admin-fields">' +
           PILOT_FIELDS.map(function (field) {
             return inputHtml(field, pilot[field.id]);

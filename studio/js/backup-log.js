@@ -1356,7 +1356,9 @@
       [label + " width — one escort", src.widthOne],
       [label + " width — two escorts", src.widthTwo],
       [label + " length — one escort", src.lengthOne],
-      [label + " length — two escorts", src.lengthTwo]
+      [label + " length — two escorts", src.lengthTwo],
+      [label + " gross weight — one escort", src.weightOne],
+      [label + " gross weight — two escorts", src.weightTwo]
     ];
   }
 
