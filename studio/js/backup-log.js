@@ -298,7 +298,7 @@
       "When a line says “in zip”, upload that exact file from the matching folder.",
       "02-Studio-Data.json is the complete Studio copy (every row, including Notes formatting).",
       "03-TOS-Accepted.txt is the list of everyone who accepted, with time and IP, and the terms of use at the bottom. Keep that file. It is your proof.",
-      "Bank, Analytics, Subscribed, Permit Path Admin, and PC4H Admin are live screens. They come back when Secrets/ keys are in place."
+      "Bank, Analytics, Subscribed, Permit Path Admin, HaulPath Admin, and PC4H Admin are live screens. They come back when Secrets/ keys are in place."
     ]);
     pdf.heading("What is in this zip", 13);
     table(
@@ -1342,6 +1342,7 @@
     emails(pdf, pack);
     notifications(pdf, pack);
     skipPage(pdf, "Permit Path Admin", "Users, subscriptions, and deletions stay in the Permit Path database. This zip keeps the keys that reconnect that screen. It does not copy those accounts.");
+    skipPage(pdf, "HaulPath Admin", "State thresholds still live in the iOS and Android apps. This Studio page is a shell until a backend is wired.");
     skipPage(pdf, "PC4H Admin", "Pilots, listings, and handoffs stay in the Pilot Car 4 Hire database. This zip keeps the keys that reconnect that screen. It does not copy those accounts.");
     clients(pdf, pack);
     if ((pack.tables.studio_leads || []).length || tableError(pack, "studio_leads")) leads(pdf, pack);
@@ -1635,7 +1636,7 @@
       "Not copied (they stay in their own databases, and the keys are in Secrets/):",
       "- Bank activity (Mercury)",
       "- Analytics and Subscribed (App Store Connect and Google Play)",
-      "- Permit Path Admin and PC4H Admin (live app databases)",
+      "- Permit Path Admin, HaulPath Admin, and PC4H Admin (live app databases)",
       "",
       "TOS Accepted is copied. See 03-TOS-Accepted.txt (the list plus terms), 03-TOS-Accepted.json, and the TOS Accepted pages in the PDF.",
       "",

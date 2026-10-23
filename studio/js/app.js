@@ -5,7 +5,7 @@
     event.preventDefault();
   });
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 57.
+  // Same order and grouping as the Mac app sidebar. Cache bust 58.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Needs-you board and studio snapshot." },
@@ -35,6 +35,7 @@
     ],
     [
       { id: "permitPathAdmin", title: "Permit Path Admin", icon: "square-stack-3d-up-fill", tint: "#1A4F8B", body: "Live Permit Path signups, subscriptions, and deletions." },
+      { id: "haulPathAdmin", title: "HaulPath Admin", icon: "square-stack-3d-up-fill", tint: "#1574E6", body: "State legal, escort, and high-pole thresholds for HaulPath." },
       { id: "pc4hAdmin", title: "PC4H Admin", icon: "car-fill", tint: "#0F1A2E", body: "Pilot Car 4 Hire pilots, listings, handoffs, and emails." }
     ],
     [
@@ -106,6 +107,7 @@
     ownerDraws: "is-ownerDraws",
     taxes: "is-taxes",
     permitPathAdmin: "is-permitPathAdmin",
+    haulPathAdmin: "is-haulPathAdmin",
     pc4hAdmin: "is-pc4hAdmin",
     sop: "is-sop",
     imageAssets: "is-imageAssets",
@@ -135,6 +137,7 @@
     ownerDraws: "STLOwnerDraws",
     taxes: "STLTaxes",
     permitPathAdmin: "STLPermitPathAdmin",
+    haulPathAdmin: "STLHaulPathAdmin",
     pc4hAdmin: "STLPc4hAdmin",
     sop: "STLSOP",
     imageAssets: "STLImageAssets",

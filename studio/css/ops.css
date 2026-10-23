@@ -25,6 +25,7 @@
 .app.is-emails .main,
 .app.is-notifications .main,
 .app.is-permitPathAdmin .main,
+.app.is-haulPathAdmin .main,
 .app.is-pc4hAdmin .main,
 .app.is-settings .main,
 .app.is-inventory .main,
@@ -1358,6 +1359,141 @@ html.is-phone .mail-queue-actions .btn {
   padding: 0 16px 24px;
   min-height: 0;
   flex: 1;
+}
+
+/* HaulPath Admin */
+.app.is-haulPathAdmin .hp-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  padding: 0 16px 24px;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.hp-admin-rail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #fff;
+  border: 1px solid var(--line, #d8dee8);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.hp-admin-search {
+  margin: 10px 10px 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line, #d8dee8);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.hp-admin-states {
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 4px 8px 10px;
+}
+
+.hp-admin-state {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--ink);
+  font: inherit;
+}
+
+.hp-admin-state strong {
+  width: 28px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.hp-admin-state:hover,
+.hp-admin-state.is-on {
+  background: #e8f1fd;
+}
+
+.hp-admin-empty {
+  margin: 12px 10px;
+  color: var(--muted, #5a6578);
+  font-size: 13px;
+}
+
+.hp-admin-body {
+  overflow: auto;
+  min-height: 0;
+}
+
+.hp-admin-detail-head h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.hp-admin-detail-head h2 span {
+  color: var(--muted, #5a6578);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.hp-admin-detail-head p {
+  margin: 0 0 16px;
+  color: var(--muted, #5a6578);
+  max-width: 52ch;
+}
+
+.hp-admin-card {
+  background: #fff;
+  border: 1px solid var(--line, #d8dee8);
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+  margin-bottom: 12px;
+}
+
+.hp-admin-card h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.hp-admin-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.hp-admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted, #5a6578);
+}
+
+.hp-admin-field input {
+  padding: 8px 10px;
+  border: 1px solid var(--line, #d8dee8);
+  border-radius: 8px;
+  background: #f4f7fb;
+  color: var(--ink);
+  font: inherit;
+}
+
+html.is-phone .app.is-haulPathAdmin .hp-admin-layout {
+  grid-template-columns: 1fr;
+  overflow: auto;
+}
+
+html.is-phone .hp-admin-rail {
+  max-height: 38vh;
 }
 
 /* PC4H Admin */

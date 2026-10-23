@@ -43,6 +43,7 @@
     { id: "imageAssets", title: "Image Assets" },
     { id: "support", title: "Support" },
     { id: "permitPathAdmin", title: "Permit Path Admin" },
+    { id: "haulPathAdmin", title: "HaulPath Admin" },
     { id: "pc4hAdmin", title: "PC4H Admin" },
     { id: "inbox", title: "Messages" },
     { id: "emails", title: "Email Lists" },
