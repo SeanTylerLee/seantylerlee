@@ -222,7 +222,7 @@
       '<div class="ops-workspace hp-admin">' +
         '<div class="ops-header">' +
           "<h1>HaulPath Admin</h1>" +
-          "<p>Travel time, legal thresholds, and curfews for each state. Saved here only. The HaulPath app still uses its own tables.</p>" +
+          "<p>Travel time, legal thresholds, curfews, and the note drivers will see for each state. HaulPath still uses its own tables until the app is updated.</p>" +
         "</div>" +
         '<p class="status" data-el="banner"></p>' +
         '<div class="hp-admin-layout">' +
@@ -300,13 +300,13 @@
     box.innerHTML =
       '<div class="hp-admin-detail-head">' +
         "<h2>" + esc(st.name) + " <span>" + esc(st.abbr) + "</span></h2>" +
-        "<p>These values stay in Studio until the app is wired to them.</p>" +
+        "<p>Saved here until the app update. Drivers will see this note on the state.</p>" +
       "</div>" +
       '<section class="hp-admin-card hp-admin-note">' +
         "<h3>Note</h3>" +
         '<label class="hp-admin-field is-wide">' +
-          "<span>For this state</span>" +
-          '<textarea data-field="note" placeholder="Anything you want to remember about this state.">' + esc(draft.note) + "</textarea>" +
+          "<span>Shown on this state in HaulPath</span>" +
+          '<textarea data-field="note" placeholder="What drivers should know about this state.">' + esc(draft.note) + "</textarea>" +
         "</label>" +
       "</section>" +
       '<section class="hp-admin-card" data-group="travel">' +

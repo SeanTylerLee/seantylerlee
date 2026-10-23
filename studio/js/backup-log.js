@@ -1309,7 +1309,7 @@
   }
 
   function haulpathStates(pdf, pack) {
-    openMenu(pdf, "HaulPath Admin", "Open HaulPath Admin. Pick the state, then type the note, travel time, both legal tables, escorts, high pole, and curfews. The apps do not use these yet.");
+    openMenu(pdf, "HaulPath Admin", "Open HaulPath Admin. Pick the state, then type the note drivers will see, travel time, both legal tables, escorts, high pole, and curfews. The apps do not use these yet.");
     var rows = (pack.tables.haulpath_states || []).slice().sort(function (a, b) {
       return String(a.state_name || a.state_abbr || "").localeCompare(String(b.state_name || b.state_abbr || ""));
     });
