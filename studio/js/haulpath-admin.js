@@ -123,15 +123,15 @@
       name: st.name,
       travelHours: "",
       travelRestrictions: "",
-      interstate: blankLimits(),
-      nonInterstate: blankLimits(),
+      multiLane: blankLimits(),
+      twoLane: blankLimits(),
       curfewRestrictions: "",
       curfewExceptions: "",
       note: "",
       developerNote: "",
       developerNoteId: null,
-      interstatePilot: blankPilot(),
-      nonInterstatePilot: blankPilot(),
+      multiLanePilot: blankPilot(),
+      twoLanePilot: blankPilot(),
       highPole: "",
       officialVerified: false
     };
@@ -167,15 +167,15 @@
       name: row.state_name || st.name,
       travelHours: row.travel_hours || "",
       travelRestrictions: row.travel_restrictions || "",
-      interstate: mergeObject(blankLimits, row.interstate),
-      nonInterstate: mergeObject(blankLimits, row.non_interstate),
+      multiLane: mergeObject(blankLimits, row.multi_lane),
+      twoLane: mergeObject(blankLimits, row.two_lane),
       curfewRestrictions: row.curfew_restrictions || "",
       curfewExceptions: row.curfew_exceptions || "",
       note: row.note || "",
       developerNote: "",
       developerNoteId: null,
-      interstatePilot: mergeObject(blankPilot, row.interstate_pilot),
-      nonInterstatePilot: mergeObject(blankPilot, row.non_interstate_pilot),
+      multiLanePilot: mergeObject(blankPilot, row.multi_lane_pilot),
+      twoLanePilot: mergeObject(blankPilot, row.two_lane_pilot),
       highPole: row.high_pole || "",
       officialVerified: row.official_documents_verified === true
     };
@@ -195,9 +195,9 @@
     if (draft.officialVerified) return true;
     if (textOf(draft.note) || textOf(draft.developerNote) || textOf(draft.highPole)) return true;
     return LIMIT_FIELDS.some(function (field) {
-      return textOf(draft.interstate[field.id]) || textOf(draft.nonInterstate[field.id]);
+      return textOf(draft.multiLane[field.id]) || textOf(draft.twoLane[field.id]);
     }) || PILOT_FIELDS.some(function (field) {
-      return textOf(draft.interstatePilot[field.id]) || textOf(draft.nonInterstatePilot[field.id]);
+      return textOf(draft.multiLanePilot[field.id]) || textOf(draft.twoLanePilot[field.id]);
     });
   }
 
@@ -272,10 +272,11 @@
     );
   }
 
-  function limitsHtml(prefix, title, limits) {
+  function limitsHtml(prefix, title, detail, limits) {
     return (
       '<section class="hp-admin-card" data-group="' + esc(prefix) + '">' +
         "<h3>" + esc(title) + "</h3>" +
+        '<p class="hp-admin-private">' + esc(detail) + "</p>" +
         '<div class="hp-admin-fields">' +
           LIMIT_FIELDS.map(function (field) {
             return inputHtml(field, limits[field.id]);
@@ -339,10 +340,10 @@
           areaHtml("travelRestrictions", "Restrictions", draft.travelRestrictions, "Extra travel limits, if any") +
         "</div>" +
       "</section>" +
-      limitsHtml("interstate", "Interstate legal thresholds", draft.interstate) +
-      limitsHtml("nonInterstate", "Non-interstate legal thresholds", draft.nonInterstate) +
-      pilotHtml("interstatePilot", "Interstate pilot / escort", draft.interstatePilot) +
-      pilotHtml("nonInterstatePilot", "Non-interstate pilot / escort", draft.nonInterstatePilot) +
+      limitsHtml("multiLane", "Multi-lane highway legal thresholds", "4 lanes, traffic both ways.", draft.multiLane) +
+      limitsHtml("twoLane", "2-lane highway legal thresholds", "One lane each way.", draft.twoLane) +
+      pilotHtml("multiLanePilot", "Multi-lane highway pilot / escort", "4 lanes, traffic both ways.", draft.multiLanePilot) +
+      pilotHtml("twoLanePilot", "2-lane highway pilot / escort", "One lane each way.", draft.twoLanePilot) +
       '<section class="hp-admin-card" data-group="pole">' +
         "<h3>High pole</h3>" +
         '<div class="hp-admin-fields">' +
@@ -365,11 +366,11 @@
       "</section>";
   }
 
-  function pilotHtml(prefix, title, pilot) {
+  function pilotHtml(prefix, title, detail, pilot) {
     return (
       '<section class="hp-admin-card" data-group="' + esc(prefix) + '">' +
         "<h3>" + esc(title) + "</h3>" +
-        '<p class="hp-admin-private">First measurement that requires that escort. Over 12 feet is stored as 12\'1". 90 feet or more is 90\'0". Over 100,000 pounds is stored as 100001. Weights are pounds of gross weight.</p>' +
+        '<p class="hp-admin-private">' + esc(detail) + " First measurement that requires that escort. Over 12 feet is stored as 12'1\". 90 feet or more is 90'0\". Over 100,000 pounds is stored as 100001. Weights are pounds of gross weight.</p>" +
         '<div class="hp-admin-fields">' +
           PILOT_FIELDS.map(function (field) {
             return inputHtml(field, pilot[field.id]);
@@ -406,10 +407,10 @@
     draft.note = fieldValue("note");
     draft.travelHours = fieldValue("travelHours");
     draft.travelRestrictions = fieldValue("travelRestrictions");
-    draft.interstate = readGroup("interstate", blankLimits);
-    draft.nonInterstate = readGroup("nonInterstate", blankLimits);
-    draft.interstatePilot = readGroup("interstatePilot", blankPilot);
-    draft.nonInterstatePilot = readGroup("nonInterstatePilot", blankPilot);
+    draft.multiLane = readGroup("multiLane", blankLimits);
+    draft.twoLane = readGroup("twoLane", blankLimits);
+    draft.multiLanePilot = readGroup("multiLanePilot", blankPilot);
+    draft.twoLanePilot = readGroup("twoLanePilot", blankPilot);
     draft.highPole = fieldValue("highPole");
     draft.curfewRestrictions = fieldValue("curfewRestrictions");
     draft.curfewExceptions = fieldValue("curfewExceptions");
@@ -423,13 +424,13 @@
       state_name: draft.name,
       travel_hours: draft.travelHours || "",
       travel_restrictions: draft.travelRestrictions || "",
-      interstate: draft.interstate || blankLimits(),
-      non_interstate: draft.nonInterstate || blankLimits(),
+      multi_lane: draft.multiLane || blankLimits(),
+      two_lane: draft.twoLane || blankLimits(),
       curfew_restrictions: draft.curfewRestrictions || "",
       curfew_exceptions: draft.curfewExceptions || "",
       note: draft.note || "",
-      interstate_pilot: draft.interstatePilot || blankPilot(),
-      non_interstate_pilot: draft.nonInterstatePilot || blankPilot(),
+      multi_lane_pilot: draft.multiLanePilot || blankPilot(),
+      two_lane_pilot: draft.twoLanePilot || blankPilot(),
       high_pole: draft.highPole || "",
       official_documents_verified: !!draft.officialVerified
     };

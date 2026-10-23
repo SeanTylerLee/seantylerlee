@@ -302,7 +302,7 @@
       if (!src || typeof src !== "object") return false;
       return Object.keys(src).some(function (key) { return String(src[key] || "").trim(); });
     }
-    return anyValue(row.interstate) || anyValue(row.non_interstate) || anyValue(row.interstate_pilot) || anyValue(row.non_interstate_pilot);
+    return anyValue(row.multi_lane) || anyValue(row.two_lane) || anyValue(row.multi_lane_pilot) || anyValue(row.two_lane_pilot);
   }
 
   function loadTosAcceptances() {
@@ -1363,7 +1363,7 @@
   }
 
   function haulpathStates(pdf, pack) {
-    openMenu(pdf, "HaulPath Admin", "Open HaulPath Admin. Pick the state, then type the note drivers will see, travel time, both legal tables, interstate escorts, non-interstate escorts, high pole, curfews, and the developer notes at the bottom. Developer notes stay in Studio. Escort numbers are the first measurement that requires that escort.");
+    openMenu(pdf, "HaulPath Admin", "Open HaulPath Admin. Pick the state, then type the note drivers will see, travel time, multi-lane and 2-lane legal tables and escorts, high pole, curfews, and the developer notes at the bottom. Developer notes stay in Studio. Escort numbers are the first measurement that requires that escort. Multi-lane means 4 lanes with traffic both ways. 2-lane means one lane each way.");
     var devByAbbr = {};
     (pack.tables.haulpath_developer_notes || []).forEach(function (row) {
       if (!row || !row.state_abbr || !String(row.body || "").trim()) return;
@@ -1386,7 +1386,7 @@
         pdf.heading("Note", 12);
         longText(pdf, row.note);
       }
-      filled(pdf, [["Travel time", row.travel_hours]].concat(limitLines("Interstate", row.interstate)).concat(limitLines("Non-interstate", row.non_interstate)).concat(pilotLines("Interstate", row.interstate_pilot)).concat(pilotLines("Non-interstate", row.non_interstate_pilot)).concat([
+      filled(pdf, [["Travel time", row.travel_hours]].concat(limitLines("Multi-lane", row.multi_lane)).concat(limitLines("2-lane", row.two_lane)).concat(pilotLines("Multi-lane", row.multi_lane_pilot)).concat(pilotLines("2-lane", row.two_lane_pilot)).concat([
         ["High pole", row.high_pole],
         ["Verified by official state documents", row.official_documents_verified === true ? "Yes" : ""]
       ]));
@@ -1755,7 +1755,7 @@
       "5. 02-Studio-Data.json has every saved row, including Notes formatting.",
       "6. Re-upload Company-Documents, Receipts, App-Icons, Image-Assets, Notification-Images, and Message-Files. The PDF names the exact zip path for each file.",
       "",
-      "HaulPath Admin is copied: driver note, travel time, interstate and non-interstate thresholds, escorts, high pole, curfews, and developer notes. Retype each state from the HaulPath Admin pages in the PDF. The same rows are in 02-Studio-Data.json.",
+      "HaulPath Admin is copied: driver note, travel time, multi-lane and 2-lane thresholds and escorts, high pole, curfews, and developer notes. Retype each state from the HaulPath Admin pages in the PDF. The same rows are in 02-Studio-Data.json.",
       "",
       "Not copied (they stay in their own databases, and the keys are in Secrets/):",
       "- Bank activity (Mercury)",
