@@ -1423,6 +1423,10 @@ html.is-phone .mail-queue-actions .btn {
   background: #e8f1fd;
 }
 
+.hp-admin-state.is-filled strong {
+  color: #1a70eb;
+}
+
 .hp-admin-empty {
   margin: 12px 10px;
   color: var(--muted, #5a6578);
@@ -1478,13 +1482,29 @@ html.is-phone .mail-queue-actions .btn {
   color: var(--muted, #5a6578);
 }
 
-.hp-admin-field input {
+.hp-admin-field input,
+.hp-admin-field textarea {
   padding: 8px 10px;
   border: 1px solid var(--line, #d8dee8);
   border-radius: 8px;
-  background: #f4f7fb;
+  background: #fff;
   color: var(--ink);
   font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hp-admin-field textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.hp-admin-field.is-wide {
+  grid-column: 1 / -1;
+}
+
+.hp-admin-note textarea {
+  min-height: 96px;
 }
 
 html.is-phone .app.is-haulPathAdmin .hp-admin-layout {

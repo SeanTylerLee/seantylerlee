@@ -5,7 +5,7 @@
     "business_profile", "business_documents", "vault_logins", "renewal_items",
     "calendar_day_notes", "calendar_hidden", "studio_settings", "business_expenses", "business_expense_skips",
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
-    "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos", "studio_competitors",
+    "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos", "studio_competitors", "haulpath_states",
     "sop_guides", "support_tickets", "studio_inbox", "email_lists", "email_contacts", "email_templates", "email_page_notes",
     "image_asset_notes", "image_asset_files",
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
@@ -298,7 +298,8 @@
       "When a line says “in zip”, upload that exact file from the matching folder.",
       "02-Studio-Data.json is the complete Studio copy (every row, including Notes formatting).",
       "03-TOS-Accepted.txt is the list of everyone who accepted, with time and IP, and the terms of use at the bottom. Keep that file. It is your proof.",
-      "Bank, Analytics, Subscribed, Permit Path Admin, HaulPath Admin, and PC4H Admin are live screens. They come back when Secrets/ keys are in place."
+      "Bank, Analytics, Subscribed, Permit Path Admin, and PC4H Admin are live screens. They come back when Secrets/ keys are in place.",
+      "HaulPath Admin state sheets are in this zip. Type them back on HaulPath Admin. The iPhone and Android apps do not read them yet."
     ]);
     pdf.heading("What is in this zip", 13);
     table(
@@ -337,6 +338,7 @@
         ["Mileage", String((t.mileage_trips || []).length)],
         ["Apps", String((t.managed_apps || []).length) + " · " + String((t.app_promos || []).length) + " promos"],
         ["Competitors", String((t.studio_competitors || []).length)],
+        ["HaulPath Admin", String((t.haulpath_states || []).length) + " states"],
         ["TOS Accepted", String((pack.tosAcceptances || []).length) + " acceptances"],
         ["SOP", String((t.sop_guides || []).length)],
         ["Image Assets", String((t.image_asset_files || []).length) + " files"],
@@ -1289,6 +1291,62 @@
     });
   }
 
+  function limitLines(label, raw) {
+    var src = raw;
+    if (typeof src === "string") {
+      try { src = JSON.parse(src); } catch (err) { src = {}; }
+    }
+    if (!src || typeof src !== "object") src = {};
+    return [
+      [label + " width", src.width],
+      [label + " height", src.height],
+      [label + " length", src.length],
+      [label + " single axle", src.axleSingle],
+      [label + " tandem axle", src.axleTandem],
+      [label + " spread axle", src.axleSpread],
+      [label + " gross weight", src.grossWeight]
+    ];
+  }
+
+  function haulpathStates(pdf, pack) {
+    openMenu(pdf, "HaulPath Admin", "Open HaulPath Admin. Pick the state, then type the note, travel time, both legal tables, escorts, high pole, and curfews. The apps do not use these yet.");
+    var rows = (pack.tables.haulpath_states || []).slice().sort(function (a, b) {
+      return String(a.state_name || a.state_abbr || "").localeCompare(String(b.state_name || b.state_abbr || ""));
+    });
+    if (!rows.length) { noRows(pdf, pack, "haulpath_states"); return; }
+    rows.forEach(function (row, i) {
+      var pilot = row.pilot;
+      if (typeof pilot === "string") {
+        try { pilot = JSON.parse(pilot); } catch (err) { pilot = {}; }
+      }
+      if (!pilot || typeof pilot !== "object") pilot = {};
+      pdf.recordHead((row.state_name || row.state_abbr || "State"), i + 1, rows.length);
+      if (row.note) {
+        pdf.heading("Note", 12);
+        longText(pdf, row.note);
+      }
+      filled(pdf, [["Travel time", row.travel_hours]].concat(limitLines("Interstate", row.interstate)).concat(limitLines("Non-interstate", row.non_interstate)).concat([
+        ["Width — one escort", pilot.widthOne],
+        ["Width — two escorts", pilot.widthTwo],
+        ["Length — one escort", pilot.lengthOne],
+        ["Length — two escorts", pilot.lengthTwo],
+        ["High pole", row.high_pole]
+      ]));
+      if (row.travel_restrictions) {
+        pdf.heading("Travel restrictions", 12);
+        longText(pdf, row.travel_restrictions);
+      }
+      if (row.curfew_restrictions) {
+        pdf.heading("Curfew restrictions", 12);
+        longText(pdf, row.curfew_restrictions);
+      }
+      if (row.curfew_exceptions) {
+        pdf.heading("Curfew exceptions", 12);
+        longText(pdf, row.curfew_exceptions);
+      }
+    });
+  }
+
   function buildPdf(pdf, pack) {
     cover(pdf, pack);
     skipPage(pdf, "Overview", "Overview rebuilds itself from Income, Expenses, Mileage, and Renewals. Nothing to type.");
@@ -1332,6 +1390,7 @@
     mileage(pdf, pack);
     apps(pdf, pack);
     competitors(pdf, pack);
+    haulpathStates(pdf, pack);
     promos(pdf, pack);
     sop(pdf, pack);
     imageAssets(pdf, pack);
@@ -1342,7 +1401,6 @@
     emails(pdf, pack);
     notifications(pdf, pack);
     skipPage(pdf, "Permit Path Admin", "Users, subscriptions, and deletions stay in the Permit Path database. This zip keeps the keys that reconnect that screen. It does not copy those accounts.");
-    skipPage(pdf, "HaulPath Admin", "State thresholds still live in the iOS and Android apps. This Studio page is a shell until a backend is wired.");
     skipPage(pdf, "PC4H Admin", "Pilots, listings, and handoffs stay in the Pilot Car 4 Hire database. This zip keeps the keys that reconnect that screen. It does not copy those accounts.");
     clients(pdf, pack);
     if ((pack.tables.studio_leads || []).length || tableError(pack, "studio_leads")) leads(pdf, pack);
@@ -1636,7 +1694,8 @@
       "Not copied (they stay in their own databases, and the keys are in Secrets/):",
       "- Bank activity (Mercury)",
       "- Analytics and Subscribed (App Store Connect and Google Play)",
-      "- Permit Path Admin, HaulPath Admin, and PC4H Admin (live app databases)",
+      "- Permit Path Admin and PC4H Admin (live app databases)",
+      "- HaulPath Admin is copied. Retype each state from the HaulPath Admin pages in the PDF.",
       "",
       "TOS Accepted is copied. See 03-TOS-Accepted.txt (the list plus terms), 03-TOS-Accepted.json, and the TOS Accepted pages in the PDF.",
       "",
