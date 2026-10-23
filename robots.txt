@@ -4,5 +4,8 @@ Disallow: /pricing.html
 Disallow: /pricing
 Disallow: /stl-apps/
 Disallow: /studio/
+Disallow: /simulator.html
+Disallow: /simulator
+Disallow: /testpage.html
 
 Sitemap: https://seantylerlee.com/sitemap.xml
