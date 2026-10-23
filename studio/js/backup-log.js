@@ -291,7 +291,7 @@
 
   function haulpathFilled(row) {
     if (!row) return false;
-    if (row.official_documents_verified === true) return true;
+    if (row.verification_status === "official" || row.verification_status === "other" || row.official_documents_verified === true) return true;
     if (String(row.note || "").trim() || String(row.travel_hours || "").trim() || String(row.travel_restrictions || "").trim()) return true;
     if (String(row.curfew_restrictions || "").trim() || String(row.curfew_exceptions || "").trim() || String(row.high_pole || "").trim()) return true;
     function anyValue(raw) {
@@ -1388,7 +1388,7 @@
       }
       filled(pdf, [["Travel time", row.travel_hours]].concat(limitLines("Multi-lane", row.multi_lane)).concat(limitLines("2-lane", row.two_lane)).concat(pilotLines("Multi-lane", row.multi_lane_pilot)).concat(pilotLines("2-lane", row.two_lane_pilot)).concat([
         ["High pole", row.high_pole],
-        ["Verified by official state documents", row.official_documents_verified === true ? "Yes" : ""]
+        ["Verification", row.verification_status === "official" ? "Verified by official state documents" : (row.verification_status === "other" ? "Verified by other" : (row.verification_status === "not_verified" || row.official_documents_verified === false ? "Not verified" : ""))]
       ]));
       if (row.travel_restrictions) {
         pdf.heading("Travel restrictions", 12);

@@ -133,7 +133,7 @@
       multiLanePilot: blankPilot(),
       twoLanePilot: blankPilot(),
       highPole: "",
-      officialVerified: false
+      verification: "not_verified"
     };
   }
 
@@ -177,7 +177,9 @@
       multiLanePilot: mergeObject(blankPilot, row.multi_lane_pilot),
       twoLanePilot: mergeObject(blankPilot, row.two_lane_pilot),
       highPole: row.high_pole || "",
-      officialVerified: row.official_documents_verified === true
+      verification: row.verification_status === "official" || row.verification_status === "other" || row.verification_status === "not_verified"
+        ? row.verification_status
+        : (row.official_documents_verified === true ? "official" : "not_verified")
     };
   }
 
@@ -192,7 +194,7 @@
     if (!draft) return false;
     if (textOf(draft.travelHours) || textOf(draft.travelRestrictions)) return true;
     if (textOf(draft.curfewRestrictions) || textOf(draft.curfewExceptions)) return true;
-    if (draft.officialVerified) return true;
+    if (draft.verification === "official" || draft.verification === "other") return true;
     if (textOf(draft.note) || textOf(draft.developerNote) || textOf(draft.highPole)) return true;
     return LIMIT_FIELDS.some(function (field) {
       return textOf(draft.multiLane[field.id]) || textOf(draft.twoLane[field.id]);
@@ -321,11 +323,9 @@
         "<h2>" + esc(st.name) + " <span>" + esc(st.abbr) + "</span></h2>" +
         "<p>Drivers will see this note on the state after the app update.</p>" +
       "</div>" +
-      '<label class="hp-admin-verify">' +
-        '<input type="checkbox" data-field="officialVerified"' + (draft.officialVerified ? " checked" : "") + " />" +
-        "<span><strong>Verified by official state documents</strong>" +
-        "<em>HaulPath will show this on the state after the app update.</em></span>" +
-      "</label>" +
+      verifyChoice("official", "Verified by official state documents", draft.verification) +
+      verifyChoice("other", "Verified by other", draft.verification) +
+      verifyChoice("not_verified", "Not verified", draft.verification) +
       '<section class="hp-admin-card hp-admin-note">' +
         "<h3>Note</h3>" +
         '<label class="hp-admin-field is-wide">' +
@@ -396,6 +396,16 @@
     return node ? (node.value || "") : "";
   }
 
+  function verifyChoice(value, label, selected) {
+    return (
+      '<label class="hp-admin-verify">' +
+        '<input type="checkbox" data-verify="' + esc(value) + '"' + (selected === value ? " checked" : "") + " />" +
+        "<span><strong>" + esc(label) + "</strong>" +
+        "<em>HaulPath shows this on the state.</em></span>" +
+      "</label>"
+    );
+  }
+
   function fieldChecked(id) {
     var node = root.querySelector('.hp-admin-body [data-field="' + id + '"]');
     return !!(node && node.checked);
@@ -415,7 +425,25 @@
     draft.curfewRestrictions = fieldValue("curfewRestrictions");
     draft.curfewExceptions = fieldValue("curfewExceptions");
     draft.developerNote = fieldValue("developerNote");
-    draft.officialVerified = fieldChecked("officialVerified");
+    draft.verification = checkedVerification();
+  }
+
+  function checkedVerification() {
+    var picked = "";
+    root.querySelectorAll("[data-verify]").forEach(function (box) {
+      if (box.checked) picked = box.getAttribute("data-verify") || picked;
+    });
+    if (picked === "official" || picked === "other" || picked === "not_verified") return picked;
+    return "not_verified";
+  }
+
+  function enforceVerification(ev) {
+    var target = ev && ev.target;
+    if (!target || !target.getAttribute || !target.getAttribute("data-verify")) return;
+    var picked = target.checked ? target.getAttribute("data-verify") : "not_verified";
+    root.querySelectorAll("[data-verify]").forEach(function (box) {
+      box.checked = box.getAttribute("data-verify") === picked;
+    });
   }
 
   function payload(draft) {
@@ -432,7 +460,8 @@
       multi_lane_pilot: draft.multiLanePilot || blankPilot(),
       two_lane_pilot: draft.twoLanePilot || blankPilot(),
       high_pole: draft.highPole || "",
-      official_documents_verified: !!draft.officialVerified
+      verification_status: draft.verification || "not_verified",
+      official_documents_verified: draft.verification === "official"
     };
   }
 
@@ -591,7 +620,8 @@
     }
     var body = el("body");
     if (body) {
-      function onEdit() {
+      function onEdit(ev) {
+        enforceVerification(ev);
         harvest();
         var was = dirty;
         markDirty();
