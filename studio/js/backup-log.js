@@ -301,7 +301,7 @@
       if (!src || typeof src !== "object") return false;
       return Object.keys(src).some(function (key) { return String(src[key] || "").trim(); });
     }
-    return anyValue(row.interstate) || anyValue(row.non_interstate) || anyValue(row.pilot);
+    return anyValue(row.interstate) || anyValue(row.non_interstate) || anyValue(row.interstate_pilot) || anyValue(row.non_interstate_pilot);
   }
 
   function loadTosAcceptances() {
@@ -1345,8 +1345,22 @@
     ];
   }
 
+  function pilotLines(label, raw) {
+    var src = raw;
+    if (typeof src === "string") {
+      try { src = JSON.parse(src); } catch (err) { src = {}; }
+    }
+    if (!src || typeof src !== "object") src = {};
+    return [
+      [label + " width — one escort", src.widthOne],
+      [label + " width — two escorts", src.widthTwo],
+      [label + " length — one escort", src.lengthOne],
+      [label + " length — two escorts", src.lengthTwo]
+    ];
+  }
+
   function haulpathStates(pdf, pack) {
-    openMenu(pdf, "HaulPath Admin", "Open HaulPath Admin. Pick the state, then type the note drivers will see, travel time, both legal tables, escorts, high pole, curfews, and the developer notes at the bottom. Developer notes stay in Studio.");
+    openMenu(pdf, "HaulPath Admin", "Open HaulPath Admin. Pick the state, then type the note drivers will see, travel time, both legal tables, interstate escorts, non-interstate escorts, high pole, curfews, and the developer notes at the bottom. Developer notes stay in Studio. Escort numbers are the first measurement that requires that escort.");
     var devByAbbr = {};
     (pack.tables.haulpath_developer_notes || []).forEach(function (row) {
       if (!row || !row.state_abbr || !String(row.body || "").trim()) return;
@@ -1364,21 +1378,12 @@
     });
     if (!rows.length) { noRows(pdf, pack, "haulpath_states"); return; }
     rows.forEach(function (row, i) {
-      var pilot = row.pilot;
-      if (typeof pilot === "string") {
-        try { pilot = JSON.parse(pilot); } catch (err) { pilot = {}; }
-      }
-      if (!pilot || typeof pilot !== "object") pilot = {};
       pdf.recordHead((row.state_name || row.state_abbr || "State"), i + 1, rows.length);
       if (row.note) {
         pdf.heading("Note", 12);
         longText(pdf, row.note);
       }
-      filled(pdf, [["Travel time", row.travel_hours]].concat(limitLines("Interstate", row.interstate)).concat(limitLines("Non-interstate", row.non_interstate)).concat([
-        ["Width — one escort", pilot.widthOne],
-        ["Width — two escorts", pilot.widthTwo],
-        ["Length — one escort", pilot.lengthOne],
-        ["Length — two escorts", pilot.lengthTwo],
+      filled(pdf, [["Travel time", row.travel_hours]].concat(limitLines("Interstate", row.interstate)).concat(limitLines("Non-interstate", row.non_interstate)).concat(pilotLines("Interstate", row.interstate_pilot)).concat(pilotLines("Non-interstate", row.non_interstate_pilot)).concat([
         ["High pole", row.high_pole]
       ]));
       if (row.travel_restrictions) {

@@ -128,7 +128,8 @@
       note: "",
       developerNote: "",
       developerNoteId: null,
-      pilot: blankPilot(),
+      interstatePilot: blankPilot(),
+      nonInterstatePilot: blankPilot(),
       highPole: ""
     };
   }
@@ -170,7 +171,8 @@
       note: row.note || "",
       developerNote: "",
       developerNoteId: null,
-      pilot: mergeObject(blankPilot, row.pilot),
+      interstatePilot: mergeObject(blankPilot, row.interstate_pilot),
+      nonInterstatePilot: mergeObject(blankPilot, row.non_interstate_pilot),
       highPole: row.high_pole || ""
     };
   }
@@ -190,7 +192,7 @@
     return LIMIT_FIELDS.some(function (field) {
       return textOf(draft.interstate[field.id]) || textOf(draft.nonInterstate[field.id]);
     }) || PILOT_FIELDS.some(function (field) {
-      return textOf(draft.pilot[field.id]);
+      return textOf(draft.interstatePilot[field.id]) || textOf(draft.nonInterstatePilot[field.id]);
     });
   }
 
@@ -329,14 +331,8 @@
       "</section>" +
       limitsHtml("interstate", "Interstate legal thresholds", draft.interstate) +
       limitsHtml("nonInterstate", "Non-interstate legal thresholds", draft.nonInterstate) +
-      '<section class="hp-admin-card" data-group="pilot">' +
-        "<h3>Pilot / escort</h3>" +
-        '<div class="hp-admin-fields">' +
-          PILOT_FIELDS.map(function (field) {
-            return inputHtml(field, draft.pilot[field.id]);
-          }).join("") +
-        "</div>" +
-      "</section>" +
+      pilotHtml("interstatePilot", "Interstate pilot / escort", draft.interstatePilot) +
+      pilotHtml("nonInterstatePilot", "Non-interstate pilot / escort", draft.nonInterstatePilot) +
       '<section class="hp-admin-card" data-group="pole">' +
         "<h3>High pole</h3>" +
         '<div class="hp-admin-fields">' +
@@ -357,6 +353,20 @@
           '<textarea data-field="developerNote" placeholder="Notes for yourself about this state.">' + esc(draft.developerNote) + "</textarea>" +
         "</label>" +
       "</section>";
+  }
+
+  function pilotHtml(prefix, title, pilot) {
+    return (
+      '<section class="hp-admin-card" data-group="' + esc(prefix) + '">' +
+        "<h3>" + esc(title) + "</h3>" +
+        '<p class="hp-admin-private">First measurement that requires that escort. Over 12 feet is stored as 12\'1". 90 feet or more is 90\'0".</p>' +
+        '<div class="hp-admin-fields">' +
+          PILOT_FIELDS.map(function (field) {
+            return inputHtml(field, pilot[field.id]);
+          }).join("") +
+        "</div>" +
+      "</section>"
+    );
   }
 
   function readGroup(groupName, blank) {
@@ -383,7 +393,8 @@
     draft.travelRestrictions = fieldValue("travelRestrictions");
     draft.interstate = readGroup("interstate", blankLimits);
     draft.nonInterstate = readGroup("nonInterstate", blankLimits);
-    draft.pilot = readGroup("pilot", blankPilot);
+    draft.interstatePilot = readGroup("interstatePilot", blankPilot);
+    draft.nonInterstatePilot = readGroup("nonInterstatePilot", blankPilot);
     draft.highPole = fieldValue("highPole");
     draft.curfewRestrictions = fieldValue("curfewRestrictions");
     draft.curfewExceptions = fieldValue("curfewExceptions");
@@ -401,7 +412,8 @@
       curfew_restrictions: draft.curfewRestrictions || "",
       curfew_exceptions: draft.curfewExceptions || "",
       note: draft.note || "",
-      pilot: draft.pilot || blankPilot(),
+      interstate_pilot: draft.interstatePilot || blankPilot(),
+      non_interstate_pilot: draft.nonInterstatePilot || blankPilot(),
       high_pole: draft.highPole || ""
     };
   }

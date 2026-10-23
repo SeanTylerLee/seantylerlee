@@ -1455,6 +1455,13 @@ html.is-phone .mail-queue-actions .btn {
   max-width: 52ch;
 }
 
+.hp-admin-private {
+  margin: -2px 0 10px;
+  color: var(--muted, #5a6578);
+  font-size: 13px;
+  max-width: 62ch;
+}
+
 .hp-admin-card {
   background: #fff;
   border: 1px solid var(--line, #d8dee8);
