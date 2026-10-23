@@ -3,7 +3,8 @@
 
   var FALLBACK_APPS = [
     { id: "permit-path", name: "Permit Path" },
-    { id: "pilotcar4hire", name: "Pilot Car 4 Hire" }
+    { id: "pilotcar4hire", name: "Pilot Car 4 Hire" },
+    { id: "haulpath", name: "Haul Path" }
   ];
   var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   var SCHEMA_HINT = "Run sql/018_notifications.sql and sql/022_notification_style.sql in Supabase.";
@@ -13,6 +14,9 @@
     "Add Permit Path URL + service_role key to secrets/permitpath_*.txt on this Mac, run sql/019_permitpath_announce.sql, then open Studio once while signed in.";
   var PC4H_KEYS_HINT =
     "Add Pilot Car 4 Hire URL + service_role key to secrets/pilotcar4hire_*.txt on this Mac, run sql/024_pilotcar4hire_announce.sql, then open Studio once while signed in.";
+  var HP_SQL_HINT = "Run sql/049_haulpath_announcements.sql in the Haul Path SQL Editor.";
+  var HP_KEYS_HINT =
+    "Add secrets/haulpath_supabase_url.txt and secrets/haulpath_service_role_key.txt on this Mac, then open Studio once while signed in.";
   var STYLE_SQL_HINT = "Run sql/022_notification_style.sql (and sql/023_notification_blocks.sql if you already ran 022) in Studio Supabase, then refresh.";
   var FONTS = [
     { id: "system", label: "System" },
@@ -129,7 +133,7 @@
       '<div class="ops-workspace">' +
         '<div class="ops-header">' +
           "<h1>App Notices</h1>" +
-          "<p>Write a card and send it to Permit Path or Pilot Car 4 Hire. The phone preview is what users see.</p>" +
+          "<p>Write a card and send it to Permit Path, Haul Path, or Pilot Car 4 Hire. The phone preview is what users see.</p>" +
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-body" data-el="body"></div>' +
@@ -145,6 +149,12 @@
     if (app.id === "permit-path") return true;
     return /permit\s*path/i.test(app.name || "");
   }
+  function isHaulPathApp(app) {
+    if (!app) return false;
+    var id = String(app.id || "").toLowerCase();
+    if (id === "haulpath" || id === "haul-path") return true;
+    return /haul\s*path/i.test(app.name || "");
+  }
   function isPilotCarApp(app) {
     if (!app) return false;
     var id = String(app.id || "").toLowerCase();
@@ -152,25 +162,36 @@
     return /pilot\s*car|pc4h/i.test(app.name || "");
   }
   function isWiredApp(app) {
-    return isPermitPathApp(app) || isPilotCarApp(app);
+    return isPermitPathApp(app) || isPilotCarApp(app) || isHaulPathApp(app);
   }
   function targetForApp(app) {
+    if (isHaulPathApp(app)) return "haulpath";
     return isPilotCarApp(app) ? "pilotcar4hire" : "permit-path";
   }
   function targetForHistoryItem(item) {
     if (!item) return "permit-path";
-    return isPilotCarApp({ id: item.app_id, name: item.app_name }) ? "pilotcar4hire" : "permit-path";
+    return targetForApp({ id: item.app_id, name: item.app_name });
   }
   function appKicker() {
-    return isPilotCarApp(selectedApp()) ? "Message From Pilot Car 4 Hire" : "Message From Permit Path";
+    var app = selectedApp();
+    if (isHaulPathApp(app)) return "Message From Haul Path";
+    return isPilotCarApp(app) ? "Message From Pilot Car 4 Hire" : "Message From Permit Path";
   }
   function previewGradient() {
-    return isPilotCarApp(selectedApp())
+    var app = selectedApp();
+    if (isHaulPathApp(app)) return "linear-gradient(180deg,#1574E6,#0B5FD0)";
+    return isPilotCarApp(app)
       ? "linear-gradient(180deg,#1A2D4D,#0F1A2E)"
       : "linear-gradient(180deg,#1A2659,#0D1433)";
   }
   function previewAccent() {
-    return isPilotCarApp(selectedApp()) ? "#0F1A2E" : "#2966EB";
+    var app = selectedApp();
+    if (isHaulPathApp(app)) return "#1574E6";
+    return isPilotCarApp(app) ? "#0F1A2E" : "#2966EB";
+  }
+  function withHaulPath(list) {
+    if (list.some(isHaulPathApp)) return list;
+    return list.concat([{ id: "haulpath", name: "Haul Path" }]);
   }
 
   function harvestMeta() {
@@ -598,6 +619,10 @@
     var msg = (err && err.message) || String(err || "Publish failed.");
     var pc4h = target === "pilotcar4hire" || /pilot\s*car|pilotcar4hire/i.test(msg);
     if (/image_url|message_font|message_blocks|022_notification|023_notification/i.test(msg)) return STYLE_SQL_HINT;
+    if (target === "haulpath" || /haul\s*path|haulpath_supabase/i.test(msg)) {
+      if (/service_role|keys missing|haulpath_supabase/i.test(msg)) return HP_KEYS_HINT;
+      if (/app_announcements|table missing|schema cache/i.test(msg)) return HP_SQL_HINT;
+    }
     if (pc4h) {
       if (/service_role|keys missing|pilotcar4hire_supabase/i.test(msg)) return PC4H_KEYS_HINT;
       if (/app_announcements|table missing|schema cache/i.test(msg)) return PC4H_SQL_HINT;
@@ -630,7 +655,7 @@
   }
 
   function publishToApp(row, studioId, target) {
-    var keysHint = target === "pilotcar4hire" ? PC4H_KEYS_HINT : PP_KEYS_HINT;
+    var keysHint = target === "haulpath" ? HP_KEYS_HINT : (target === "pilotcar4hire" ? PC4H_KEYS_HINT : PP_KEYS_HINT);
     if (!window.STLLocalApi || typeof window.STLLocalApi.post !== "function") {
       return Promise.reject(new Error(keysHint));
     }
@@ -655,7 +680,7 @@
   }
 
   function deleteFromApp(studioId, target) {
-    var keysHint = target === "pilotcar4hire" ? PC4H_KEYS_HINT : PP_KEYS_HINT;
+    var keysHint = target === "haulpath" ? HP_KEYS_HINT : (target === "pilotcar4hire" ? PC4H_KEYS_HINT : PP_KEYS_HINT);
     if (!window.STLLocalApi || typeof window.STLLocalApi.post !== "function") {
       return Promise.reject(new Error(keysHint));
     }
@@ -797,9 +822,9 @@
       if (appsRes.error || !(appsRes.data || []).length) {
         apps = FALLBACK_APPS.slice();
       } else {
-        apps = (appsRes.data || []).map(function (a) {
+        apps = withHaulPath((appsRes.data || []).map(function (a) {
           return { id: a.id, name: a.name || "App" };
-        });
+        }));
       }
       preferPermitPath(apps);
       if (histRes.error) {
