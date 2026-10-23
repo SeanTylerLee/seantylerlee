@@ -253,10 +253,13 @@
       });
     })).then(function () {
       onStatus("Loading TOS Accepted…");
-      return Promise.all([loadSecretsRow(db), loadUserEmail(db), loadTosAcceptances()]);
+      return Promise.all([loadSecretsRow(db), loadUserEmail(db), loadTosAcceptances(), loadHaulpathStates()]);
     }).then(function (extra) {
       var tos = extra[2] || { rows: [], error: "" };
+      var haulpath = extra[3] || { rows: [], error: "" };
       if (tos.error) failed.push({ table: "tos_acceptances", error: tos.error });
+      if (haulpath.error) failed.push({ table: "haulpath_states", error: haulpath.error });
+      else tables.haulpath_states = haulpath.rows || [];
       return {
         tables: tables,
         secrets: extra[0] || {},
@@ -266,6 +269,39 @@
         missingFiles: []
       };
     });
+  }
+
+  function loadHaulpathStates() {
+    var api = window.STLLocalApi;
+    if (!api || typeof api.get !== "function") {
+      return Promise.resolve({ rows: [], error: "Could not reach Haul Path." });
+    }
+    return api.get("/api/haulpath/states").then(function (res) {
+      if (!res || !res.ok) {
+        return {
+          rows: [],
+          error: (res && res.data && res.data.error) || "Could not load Haul Path states."
+        };
+      }
+      return { rows: (res.data && res.data.states) || [], error: "" };
+    }).catch(function (err) {
+      return { rows: [], error: (err && err.message) || "Could not load Haul Path states." };
+    });
+  }
+
+  function haulpathFilled(row) {
+    if (!row) return false;
+    if (String(row.note || "").trim() || String(row.travel_hours || "").trim() || String(row.travel_restrictions || "").trim()) return true;
+    if (String(row.curfew_restrictions || "").trim() || String(row.curfew_exceptions || "").trim() || String(row.high_pole || "").trim()) return true;
+    function anyValue(raw) {
+      var src = raw;
+      if (typeof src === "string") {
+        try { src = JSON.parse(src); } catch (err) { src = {}; }
+      }
+      if (!src || typeof src !== "object") return false;
+      return Object.keys(src).some(function (key) { return String(src[key] || "").trim(); });
+    }
+    return anyValue(row.interstate) || anyValue(row.non_interstate) || anyValue(row.pilot);
   }
 
   function loadTosAcceptances() {
@@ -1244,7 +1280,8 @@
       ["ASC key ID", s.asc_key_id ? "In Secrets/asc_key_id.txt" : "Missing"],
       ["Play service account", s.play_service_account_json ? "In Secrets/play_service_account.json" : "Missing"],
       ["Permit Path announcements", s.permitpath_service_role_key ? "In Secrets/" : "Missing"],
-      ["Pilot Car 4 Hire announcements", s.pilotcar4hire_service_role_key ? "In Secrets/" : "Missing"]
+      ["Pilot Car 4 Hire announcements", s.pilotcar4hire_service_role_key ? "In Secrets/" : "Missing"],
+      ["Haul Path states", s.haulpath_service_role_key ? "In Secrets/" : "Missing"]
     ]);
   }
 
@@ -1310,7 +1347,7 @@
 
   function haulpathStates(pdf, pack) {
     openMenu(pdf, "HaulPath Admin", "Open HaulPath Admin. Pick the state, then type the note drivers will see, travel time, both legal tables, escorts, high pole, and curfews. The apps do not use these yet.");
-    var rows = (pack.tables.haulpath_states || []).slice().sort(function (a, b) {
+    var rows = (pack.tables.haulpath_states || []).filter(haulpathFilled).sort(function (a, b) {
       return String(a.state_name || a.state_abbr || "").localeCompare(String(b.state_name || b.state_abbr || ""));
     });
     if (!rows.length) { noRows(pdf, pack, "haulpath_states"); return; }
@@ -1548,7 +1585,9 @@
     permitpath_supabase_url: "permitpath_supabase_url.txt",
     permitpath_service_role_key: "permitpath_service_role_key.txt",
     pilotcar4hire_supabase_url: "pilotcar4hire_supabase_url.txt",
-    pilotcar4hire_service_role_key: "pilotcar4hire_service_role_key.txt"
+    pilotcar4hire_service_role_key: "pilotcar4hire_service_role_key.txt",
+    haulpath_supabase_url: "haulpath_supabase_url.txt",
+    haulpath_service_role_key: "haulpath_service_role_key.txt"
   };
 
   function writeSecrets(folder, secrets) {

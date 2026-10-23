@@ -182,7 +182,8 @@
       ["Google Play service account", !!connections.play],
       ["Play report bucket", !!connections.bucket],
       ["Permit Path announcements", !!connections.permitpath],
-      ["Pilot Car 4 Hire announcements", !!connections.pc4h]
+      ["Pilot Car 4 Hire announcements", !!connections.pc4h],
+      ["Haul Path states", !!connections.haulpath]
     ];
     return (
       '<ul class="settings-status">' +
@@ -455,24 +456,25 @@
           play: !!d.play_service_account_json,
           bucket: !!d.play_gcs_bucket,
           permitpath: !!(d.permitpath_service_role_key && d.permitpath_supabase_url),
-          pc4h: !!(d.pilotcar4hire_service_role_key && d.pilotcar4hire_supabase_url)
+          pc4h: !!(d.pilotcar4hire_service_role_key && d.pilotcar4hire_supabase_url),
+          haulpath: !!(d.haulpath_service_role_key && d.haulpath_supabase_url)
         };
       }).catch(function () {
         connections = {
           mercury: false, asc: false, vendor: false, play: false,
-          bucket: false, permitpath: false, pc4h: false
+          bucket: false, permitpath: false, pc4h: false, haulpath: false
         };
       });
     }
     if (!db) {
       connections = {
         mercury: false, asc: false, vendor: false, play: false,
-        bucket: false, permitpath: false, pc4h: false
+        bucket: false, permitpath: false, pc4h: false, haulpath: false
       };
       return Promise.resolve();
     }
     return db.from("studio_secrets").select(
-      "mercury_token,asc_issuer_id,asc_key_id,asc_private_key,asc_vendor_number,play_service_account_json,play_gcs_bucket,permitpath_service_role_key,permitpath_supabase_url,pilotcar4hire_service_role_key,pilotcar4hire_supabase_url"
+      "mercury_token,asc_issuer_id,asc_key_id,asc_private_key,asc_vendor_number,play_service_account_json,play_gcs_bucket,permitpath_service_role_key,permitpath_supabase_url,pilotcar4hire_service_role_key,pilotcar4hire_supabase_url,haulpath_service_role_key,haulpath_supabase_url"
     ).limit(1).maybeSingle().then(function (res) {
       var d = (res && res.data) || {};
       vendorDraft = vendorDraft || d.asc_vendor_number || "";
@@ -484,12 +486,13 @@
         play: !!d.play_service_account_json,
         bucket: !!d.play_gcs_bucket,
         permitpath: !!(d.permitpath_service_role_key && d.permitpath_supabase_url),
-        pc4h: !!(d.pilotcar4hire_service_role_key && d.pilotcar4hire_supabase_url)
+        pc4h: !!(d.pilotcar4hire_service_role_key && d.pilotcar4hire_supabase_url),
+        haulpath: !!(d.haulpath_service_role_key && d.haulpath_supabase_url)
       };
     }).catch(function () {
       connections = {
         mercury: false, asc: false, vendor: false, play: false,
-        bucket: false, permitpath: false, pc4h: false
+        bucket: false, permitpath: false, pc4h: false, haulpath: false
       };
     });
   }

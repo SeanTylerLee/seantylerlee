@@ -88,6 +88,7 @@
         !d.play_service_account_json &&
         !d.permitpath_service_role_key &&
         !d.pilotcar4hire_service_role_key &&
+        !d.haulpath_service_role_key &&
         !d.asc_vendor_number &&
         !d.play_gcs_bucket
       ) return;
@@ -104,7 +105,9 @@
           permitpath_supabase_url: d.permitpath_supabase_url || "",
           permitpath_service_role_key: d.permitpath_service_role_key || "",
           pilotcar4hire_supabase_url: d.pilotcar4hire_supabase_url || "",
-          pilotcar4hire_service_role_key: d.pilotcar4hire_service_role_key || ""
+          pilotcar4hire_service_role_key: d.pilotcar4hire_service_role_key || "",
+          haulpath_supabase_url: d.haulpath_supabase_url || "",
+          haulpath_service_role_key: d.haulpath_service_role_key || ""
         };
         if (d.asc_vendor_number) row.asc_vendor_number = d.asc_vendor_number;
         if (d.play_gcs_bucket) row.play_gcs_bucket = d.play_gcs_bucket;

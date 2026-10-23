@@ -156,7 +156,7 @@
   function fromDb(row) {
     var st = stateByAbbr(row.state_abbr);
     return {
-      id: row.id,
+      id: row.state_abbr || row.id,
       abbr: st.abbr,
       name: row.state_name || st.name,
       travelHours: row.travel_hours || "",
@@ -222,7 +222,7 @@
       '<div class="ops-workspace hp-admin">' +
         '<div class="ops-header">' +
           "<h1>HaulPath Admin</h1>" +
-          "<p>Travel time, legal thresholds, curfews, and the note drivers will see for each state. HaulPath still uses its own tables until the app is updated.</p>" +
+          "<p>Travel time, legal thresholds, curfews, and the note drivers will see for each state. Save writes to HaulPath. The phone apps will read it after the app update.</p>" +
         "</div>" +
         '<p class="status" data-el="banner"></p>' +
         '<div class="hp-admin-layout">' +
@@ -300,7 +300,7 @@
     box.innerHTML =
       '<div class="hp-admin-detail-head">' +
         "<h2>" + esc(st.name) + " <span>" + esc(st.abbr) + "</span></h2>" +
-        "<p>Saved here until the app update. Drivers will see this note on the state.</p>" +
+        "<p>Drivers will see this note on the state after the app update.</p>" +
       "</div>" +
       '<section class="hp-admin-card hp-admin-note">' +
         "<h3>Note</h3>" +
@@ -388,12 +388,11 @@
   }
 
   function saveAll() {
-    if (saving || !dirty || !db) return;
+    var remote = window.STLLocalApi;
+    if (saving || !dirty || !remote) return;
     harvest();
     var list = Object.keys(dirtyAbbrs).map(function (abbr) {
       return draftFor(abbr);
-    }).filter(function (draft) {
-      return draft.id || hasContent(draft);
     });
     if (!list.length) {
       clearDirty();
@@ -405,25 +404,17 @@
     saving = true;
     syncSaveButton();
     showMsg("Saving…", true);
-    Promise.all(list.map(function (draft) {
-      var body = payload(draft);
-      if (draft.id) {
-        return db.from("haulpath_states").update(body).eq("id", draft.id).select("*").single();
-      }
-      return db.from("haulpath_states").insert(body).select("*").single();
-    })).then(function (results) {
+    remote.post("/api/haulpath/states", { states: list.map(payload) }).then(function (res) {
       saving = false;
-      var failed = results.filter(function (res) { return res && res.error; })[0];
-      if (failed) {
-        showMsg(missingTable(failed.error)
-          ? "Run sql/042_haulpath_states.sql in Supabase, then refresh."
-          : failed.error.message, false);
+      if (!res || !res.ok) {
+        var message = (res && res.data && res.data.error) || "Save failed.";
+        showMsg(message, false);
         syncSaveButton();
         return;
       }
-      results.forEach(function (res) {
-        var next = fromDb(res.data);
-        drafts[next.abbr] = next;
+      ((res.data && res.data.states) || []).forEach(function (row) {
+        if (!row || !row.state_abbr) return;
+        drafts[row.state_abbr] = fromDb(row);
       });
       clearDirty();
       renderStates();
@@ -437,21 +428,22 @@
   }
 
   function load() {
-    if (!db) {
-      showMsg("Studio is not signed in.", false);
+    var remote = window.STLLocalApi;
+    if (!remote) {
+      showMsg("Studio cannot reach Haul Path yet.", false);
+      renderStates();
+      renderBody();
       return;
     }
-    db.from("haulpath_states").select("*").then(function (res) {
-      if (res.error) {
-        showMsg(missingTable(res.error)
-          ? "Run sql/042_haulpath_states.sql in Supabase, then refresh."
-          : res.error.message, false);
+    remote.get("/api/haulpath/states").then(function (res) {
+      if (!res || !res.ok) {
+        showMsg((res && res.data && res.data.error) || "Could not load states.", false);
         renderStates();
         renderBody();
         return;
       }
       drafts = {};
-      (res.data || []).forEach(function (row) {
+      ((res.data && res.data.states) || []).forEach(function (row) {
         if (!row || !row.state_abbr) return;
         var next = fromDb(row);
         drafts[next.abbr] = next;
