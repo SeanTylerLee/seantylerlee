@@ -35,18 +35,19 @@
       '<div class="ops-workspace">' +
         '<div class="ops-header">' +
           "<h1>Advertisement</h1>" +
-          "<p>The image saved here is the Haul Path ad. Every time someone opens the app, they see this image and tap Clear before they can use it. Remove the image and save to turn the ad off.</p>" +
+          "<p>Each app has its own ad. The image in a section is what that app shows every time it opens, until the person taps Clear. Remove the image and save to turn that ad off.</p>" +
         "</div>" +
         '<p class="status" data-el="banner"></p>' +
-        '<div class="ops-card" style="max-width:420px">' +
-          "<h3>Image</h3>" +
+        '<section class="ops-card" style="max-width:420px">' +
+          "<h2>Haul Path</h2>" +
+          "<h3>Current advertisement</h3>" +
           "<p class=\"sub\">Use a portrait photo, 1080 by 1920 pixels. Keep the words and logo in the middle. Leave the top 120 pixels and the bottom 240 pixels mostly empty so the phone notch and the Clear button do not cover them.</p>" +
           '<div data-el="preview" style="margin:12px 0;background:#0b1220;border-radius:16px;min-height:180px;display:flex;align-items:center;justify-content:center;overflow:hidden"></div>' +
           '<input data-el="file" type="file" accept="image/png,image/jpeg,image/webp" />' +
           '<div class="ops-actions" style="margin-top:12px">' +
             '<button class="btn" type="button" data-el="remove">Remove image</button>' +
           "</div>" +
-        "</div>" +
+        "</section>" +
       "</div>"
     );
   }

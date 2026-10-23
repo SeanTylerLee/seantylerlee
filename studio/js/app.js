@@ -36,7 +36,7 @@
     [
       { id: "permitPathAdmin", title: "Permit Path Admin", icon: "square-stack-3d-up-fill", tint: "#1A4F8B", body: "Live Permit Path signups, subscriptions, and deletions." },
       { id: "haulPathAdmin", title: "HaulPath Admin", icon: "square-stack-3d-up-fill", tint: "#1574E6", body: "Travel time, legal thresholds, curfews, and a note for each state." },
-      { id: "haulPathAd", title: "Advertisement", icon: "square-stack-3d-up-fill", tint: "#1574E6", body: "The image Haul Path shows every time the app opens." },
+      { id: "haulPathAd", title: "Advertisement", icon: "square-stack-3d-up-fill", tint: "#1574E6", body: "Haul Path image shown every time that app opens." },
       { id: "pc4hAdmin", title: "PC4H Admin", icon: "car-fill", tint: "#0F1A2E", body: "Pilot Car 4 Hire pilots, listings, handoffs, and emails." }
     ],
     [
