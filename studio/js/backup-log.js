@@ -335,7 +335,7 @@
       "02-Studio-Data.json is the complete Studio copy (every row, including Notes formatting).",
       "03-TOS-Accepted.txt is the list of everyone who accepted, with time and IP, and the terms of use at the bottom. Keep that file. It is your proof.",
       "Bank, Analytics, Subscribed, Permit Path Admin, and PC4H Admin are live screens. They come back when Secrets/ keys are in place.",
-      "HaulPath Admin state sheets are in this zip. Type them back on HaulPath Admin. The iPhone and Android apps do not read them yet."
+      "HaulPath Admin is in this zip: the driver note, travel time, both legal tables, escorts, high pole, curfews, and the developer notes. Type them back on HaulPath Admin."
     ]);
     pdf.heading("What is in this zip", 13);
     table(
@@ -374,7 +374,7 @@
         ["Mileage", String((t.mileage_trips || []).length)],
         ["Apps", String((t.managed_apps || []).length) + " · " + String((t.app_promos || []).length) + " promos"],
         ["Competitors", String((t.studio_competitors || []).length)],
-        ["HaulPath Admin", String((t.haulpath_states || []).length) + " states"],
+        ["HaulPath Admin", String((t.haulpath_states || []).filter(haulpathFilled).length) + " states · " + String((t.haulpath_developer_notes || []).filter(function (row) { return row && String(row.body || "").trim(); }).length) + " developer notes"],
         ["TOS Accepted", String((pack.tosAcceptances || []).length) + " acceptances"],
         ["SOP", String((t.sop_guides || []).length)],
         ["Image Assets", String((t.image_asset_files || []).length) + " files"],
@@ -1746,11 +1746,12 @@
       "5. 02-Studio-Data.json has every saved row, including Notes formatting.",
       "6. Re-upload Company-Documents, Receipts, App-Icons, Image-Assets, Notification-Images, and Message-Files. The PDF names the exact zip path for each file.",
       "",
+      "HaulPath Admin is copied: driver note, travel time, interstate and non-interstate thresholds, escorts, high pole, curfews, and developer notes. Retype each state from the HaulPath Admin pages in the PDF. The same rows are in 02-Studio-Data.json.",
+      "",
       "Not copied (they stay in their own databases, and the keys are in Secrets/):",
       "- Bank activity (Mercury)",
       "- Analytics and Subscribed (App Store Connect and Google Play)",
       "- Permit Path Admin and PC4H Admin (live app databases)",
-      "- HaulPath Admin is copied. Retype each state from the HaulPath Admin pages in the PDF.",
       "",
       "TOS Accepted is copied. See 03-TOS-Accepted.txt (the list plus terms), 03-TOS-Accepted.json, and the TOS Accepted pages in the PDF.",
       "",
