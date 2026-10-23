@@ -126,6 +126,8 @@
       curfewRestrictions: "",
       curfewExceptions: "",
       note: "",
+      developerNote: "",
+      developerNoteId: null,
       pilot: blankPilot(),
       highPole: ""
     };
@@ -166,16 +168,25 @@
       curfewRestrictions: row.curfew_restrictions || "",
       curfewExceptions: row.curfew_exceptions || "",
       note: row.note || "",
+      developerNote: "",
+      developerNoteId: null,
       pilot: mergeObject(blankPilot, row.pilot),
       highPole: row.high_pole || ""
     };
+  }
+
+  function keepDeveloperNote(next, prev) {
+    if (!prev) return next;
+    next.developerNote = prev.developerNote || "";
+    next.developerNoteId = prev.developerNoteId || null;
+    return next;
   }
 
   function hasContent(draft) {
     if (!draft) return false;
     if (textOf(draft.travelHours) || textOf(draft.travelRestrictions)) return true;
     if (textOf(draft.curfewRestrictions) || textOf(draft.curfewExceptions)) return true;
-    if (textOf(draft.note) || textOf(draft.highPole)) return true;
+    if (textOf(draft.note) || textOf(draft.developerNote) || textOf(draft.highPole)) return true;
     return LIMIT_FIELDS.some(function (field) {
       return textOf(draft.interstate[field.id]) || textOf(draft.nonInterstate[field.id]);
     }) || PILOT_FIELDS.some(function (field) {
@@ -338,6 +349,13 @@
           areaHtml("curfewRestrictions", "Restrictions", draft.curfewRestrictions, "Cities, hours, weekends, holidays") +
           areaHtml("curfewExceptions", "Exceptions", draft.curfewExceptions, "When the curfew does not apply") +
         "</div>" +
+      "</section>" +
+      '<section class="hp-admin-card hp-admin-note">' +
+        "<h3>Developer notes</h3>" +
+        '<label class="hp-admin-field is-wide">' +
+          "<span>Only you. This stays in Studio and is not sent to the app.</span>" +
+          '<textarea data-field="developerNote" placeholder="Notes for yourself about this state.">' + esc(draft.developerNote) + "</textarea>" +
+        "</label>" +
       "</section>";
   }
 
@@ -369,6 +387,7 @@
     draft.highPole = fieldValue("highPole");
     draft.curfewRestrictions = fieldValue("curfewRestrictions");
     draft.curfewExceptions = fieldValue("curfewExceptions");
+    draft.developerNote = fieldValue("developerNote");
   }
 
   function payload(draft) {
@@ -385,6 +404,53 @@
       pilot: draft.pilot || blankPilot(),
       high_pole: draft.highPole || ""
     };
+  }
+
+  function missingDeveloperTable(err) {
+    return /does not exist|schema cache/i.test((err && err.message) || "");
+  }
+
+  function loadDeveloperNotes() {
+    if (!db) return Promise.resolve();
+    return db.from("haulpath_developer_notes").select("id,state_abbr,body").then(function (res) {
+      if (res.error) {
+        throw new Error(missingDeveloperTable(res.error)
+          ? "Run sql/045_haulpath_developer_notes.sql in the Studio project, then refresh."
+          : res.error.message);
+      }
+      (res.data || []).forEach(function (row) {
+        if (!row || !row.state_abbr) return;
+        var draft = draftFor(row.state_abbr);
+        draft.developerNote = row.body || "";
+        draft.developerNoteId = row.id || null;
+      });
+    });
+  }
+
+  function saveDeveloperNotes(list) {
+    if (!db) return Promise.resolve("Studio is not signed in.");
+    var jobs = list.map(function (draft) {
+      var body = draft.developerNote || "";
+      if (draft.developerNoteId) {
+        return db.from("haulpath_developer_notes").update({ body: body }).eq("id", draft.developerNoteId);
+      }
+      if (!textOf(body)) return Promise.resolve({ error: null });
+      return db.from("haulpath_developer_notes").insert({
+        state_abbr: draft.abbr,
+        body: body
+      }).select("id,state_abbr").single().then(function (res) {
+        if (!res.error && res.data && res.data.id) draft.developerNoteId = res.data.id;
+        return res;
+      });
+    });
+    return Promise.all(jobs).then(function (results) {
+      var failed = (results || []).filter(function (res) { return res && res.error; })[0];
+      if (!failed) return "";
+      if (missingDeveloperTable(failed.error)) {
+        return "Run sql/045_haulpath_developer_notes.sql in the Studio project, then refresh.";
+      }
+      return failed.error.message || "Could not save developer notes.";
+    });
   }
 
   function saveAll() {
@@ -404,17 +470,27 @@
     saving = true;
     syncSaveButton();
     showMsg("Saving…", true);
-    remote.post("/api/haulpath/states", { states: list.map(payload) }).then(function (res) {
+    Promise.all([
+      remote.post("/api/haulpath/states", { states: list.map(payload) }),
+      saveDeveloperNotes(list)
+    ]).then(function (results) {
       saving = false;
+      var res = results[0];
+      var noteError = results[1];
       if (!res || !res.ok) {
         var message = (res && res.data && res.data.error) || "Save failed.";
         showMsg(message, false);
         syncSaveButton();
         return;
       }
+      if (noteError) {
+        showMsg(noteError, false);
+        syncSaveButton();
+        return;
+      }
       ((res.data && res.data.states) || []).forEach(function (row) {
         if (!row || !row.state_abbr) return;
-        drafts[row.state_abbr] = fromDb(row);
+        drafts[row.state_abbr] = keepDeveloperNote(fromDb(row), drafts[row.state_abbr]);
       });
       clearDirty();
       renderStates();
@@ -440,7 +516,7 @@
         showMsg((res && res.data && res.data.error) || "Could not load states.", false);
         renderStates();
         renderBody();
-        return;
+        return true;
       }
       drafts = {};
       ((res.data && res.data.states) || []).forEach(function (row) {
@@ -448,6 +524,9 @@
         var next = fromDb(row);
         drafts[next.abbr] = next;
       });
+      return loadDeveloperNotes().then(function () { return false; });
+    }).then(function (failed) {
+      if (failed) return;
       clearDirty();
       renderStates();
       renderBody();

@@ -5,7 +5,7 @@
     "business_profile", "business_documents", "vault_logins", "renewal_items",
     "calendar_day_notes", "calendar_hidden", "studio_settings", "business_expenses", "business_expense_skips",
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
-    "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos", "studio_competitors", "haulpath_states",
+    "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos", "studio_competitors", "haulpath_states", "haulpath_developer_notes",
     "sop_guides", "support_tickets", "studio_inbox", "email_lists", "email_contacts", "email_templates", "email_page_notes",
     "image_asset_notes", "image_asset_files",
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
@@ -1346,8 +1346,20 @@
   }
 
   function haulpathStates(pdf, pack) {
-    openMenu(pdf, "HaulPath Admin", "Open HaulPath Admin. Pick the state, then type the note drivers will see, travel time, both legal tables, escorts, high pole, and curfews. The apps do not use these yet.");
-    var rows = (pack.tables.haulpath_states || []).filter(haulpathFilled).sort(function (a, b) {
+    openMenu(pdf, "HaulPath Admin", "Open HaulPath Admin. Pick the state, then type the note drivers will see, travel time, both legal tables, escorts, high pole, curfews, and the developer notes at the bottom. Developer notes stay in Studio.");
+    var devByAbbr = {};
+    (pack.tables.haulpath_developer_notes || []).forEach(function (row) {
+      if (!row || !row.state_abbr || !String(row.body || "").trim()) return;
+      devByAbbr[row.state_abbr] = row.body;
+    });
+    var rows = (pack.tables.haulpath_states || []).filter(function (row) {
+      return haulpathFilled(row) || devByAbbr[row.state_abbr];
+    });
+    Object.keys(devByAbbr).forEach(function (abbr) {
+      if (rows.some(function (row) { return row.state_abbr === abbr; })) return;
+      rows.push({ state_abbr: abbr, state_name: abbr });
+    });
+    rows.sort(function (a, b) {
       return String(a.state_name || a.state_abbr || "").localeCompare(String(b.state_name || b.state_abbr || ""));
     });
     if (!rows.length) { noRows(pdf, pack, "haulpath_states"); return; }
@@ -1380,6 +1392,10 @@
       if (row.curfew_exceptions) {
         pdf.heading("Curfew exceptions", 12);
         longText(pdf, row.curfew_exceptions);
+      }
+      if (devByAbbr[row.state_abbr]) {
+        pdf.heading("Developer notes", 12);
+        longText(pdf, devByAbbr[row.state_abbr]);
       }
     });
   }
