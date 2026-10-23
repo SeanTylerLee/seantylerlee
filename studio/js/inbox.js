@@ -5,7 +5,8 @@
     { id: "contact", title: "Contact" },
     { id: "release_notify", title: "Notify me" },
     { id: "quote", title: "Quote" },
-    { id: "permit_sample", title: "Permit sample" }
+    { id: "permit_sample", title: "Permit sample" },
+    { id: "haulpath_report", title: "Haul Path report" }
   ];
 
   var root = null;
@@ -52,6 +53,7 @@
     var s = String(site || "").toLowerCase();
     if (s.indexOf("pilotcar") !== -1) return "Pilot Car 4 Hire";
     if (s.indexOf("permitpath") !== -1) return "Permit Path";
+    if (s.indexOf("haulpath") !== -1) return "Haul Path";
     if (s.indexOf("seantylerlee") !== -1 || s.indexOf("stlapps") !== -1) return "STL Apps";
     return trim(site) || "Website";
   }
