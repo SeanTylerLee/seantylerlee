@@ -6,7 +6,7 @@
     "calendar_day_notes", "calendar_hidden", "studio_settings", "business_expenses", "business_expense_skips",
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
     "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos", "studio_competitors", "haulpath_states", "haulpath_developer_notes",
-    "sop_guides", "support_tickets", "studio_inbox", "email_lists", "email_contacts", "email_templates", "email_page_notes",
+    "sop_guides", "support_tickets", "studio_inbox", "studio_websites", "studio_website_clicks", "email_lists", "email_contacts", "email_templates", "email_page_notes",
     "image_asset_notes", "image_asset_files", "studio_advertisements",
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
     "project_logins", "project_costs", "project_hour_entries", "project_issues",
@@ -393,6 +393,7 @@
         ["Mileage", String((t.mileage_trips || []).length)],
         ["Apps", String((t.managed_apps || []).length) + " · " + String((t.app_promos || []).length) + " promos"],
         ["Competitors", String((t.studio_competitors || []).length)],
+        ["Websites", String((t.studio_websites || []).length) + " · " + String((t.studio_website_clicks || []).length) + " clicks"],
         ["HaulPath Admin", String((t.haulpath_states || []).filter(haulpathFilled).length) + " states · " + String((t.haulpath_developer_notes || []).filter(function (row) { return row && String(row.body || "").trim(); }).length) + " developer notes"],
         ["TOS Accepted", String((pack.tosAcceptances || []).length) + " acceptances"],
         ["SOP", String((t.sop_guides || []).length)],
@@ -1389,6 +1390,38 @@
     });
   }
 
+  function websites(pdf, pack) {
+    openMenu(pdf, "Websites", "Open Websites. Type each site name and domain. Clicks load from the live log.");
+    var rows = (pack.tables.studio_websites || []).slice().sort(function (a, b) {
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
+    if (!rows.length) { noRows(pdf, pack, "studio_websites"); return; }
+    var clicks = pack.tables.studio_website_clicks || [];
+    rows.forEach(function (row, i) {
+      var host = String(row.domain || "").replace(/^www\./, "");
+      var siteClicks = clicks.filter(function (c) { return String(c.host || "") === host; });
+      pdf.recordHead(row.name || row.domain || "Website", i + 1, rows.length);
+      filled(pdf, [
+        ["Name", row.name],
+        ["Domain", row.domain],
+        ["Clicks in zip", String(siteClicks.length)]
+      ]);
+      if (row.notes) {
+        pdf.heading("Notes", 12);
+        longText(pdf, row.notes);
+      }
+      pdf.bullets(siteClicks.slice(0, 25).map(function (click) {
+        return [
+          click.clicked_at || "",
+          click.kind || "",
+          click.path || "",
+          click.visit_id ? String(click.visit_id).slice(0, 8) : "",
+          click.ip_address || ""
+        ].filter(Boolean).join(" · ");
+      }));
+    });
+  }
+
   function limitLines(label, raw) {
     var src = raw;
     if (typeof src === "string") {
@@ -1512,6 +1545,7 @@
     mileage(pdf, pack);
     apps(pdf, pack);
     competitors(pdf, pack);
+    websites(pdf, pack);
     haulpathStates(pdf, pack);
     promos(pdf, pack);
     sop(pdf, pack);

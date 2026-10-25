@@ -5,7 +5,7 @@
     event.preventDefault();
   });
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 63.
+  // Same order and grouping as the Mac app sidebar. Cache bust 64.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Needs-you board and studio snapshot." },
@@ -26,6 +26,7 @@
     [
       { id: "apps", title: "Apps", icon: "square-stack-3d-up-fill", tint: "#2E9E7A", body: "Products, promos, analytics, and store logins." },
       { id: "competitors", title: "Competitors", icon: "chart-bar-xaxis", tint: "#C45C26", body: "Your dates against other apps." },
+      { id: "websites", title: "Websites", icon: "square-grid-2x2", tint: "#1A70EB", body: "Site list, clicks, date and time, and visit ids." },
       { id: "sop", title: "SOP", icon: "list-clipboard-fill", tint: "#336BB3", body: "How-to guides with checkable steps." },
       { id: "imageAssets", title: "Image Assets", icon: "square-stack-3d-up-fill", tint: "#7A5C99", body: "Screenshots, icons, and store art." },
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
@@ -112,6 +113,7 @@
     pc4hAdmin: "is-pc4hAdmin",
     sop: "is-sop",
     imageAssets: "is-imageAssets",
+    websites: "is-websites",
     apps: "is-apps",
     support: "is-support",
     inbox: "is-inbox",
@@ -145,6 +147,7 @@
     imageAssets: "STLImageAssets",
     apps: "STLApps",
     competitors: "STLCompetitors",
+    websites: "STLWebsites",
     support: "STLSupport",
     inbox: "STLInbox",
     emails: "STLEmails",

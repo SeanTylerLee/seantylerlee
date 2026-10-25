@@ -39,6 +39,7 @@
     { id: "mileage", title: "Mileage" },
     { id: "apps", title: "Apps" },
     { id: "competitors", title: "Competitors" },
+    { id: "websites", title: "Websites" },
     { id: "sop", title: "SOP" },
     { id: "imageAssets", title: "Image Assets" },
     { id: "support", title: "Support" },
