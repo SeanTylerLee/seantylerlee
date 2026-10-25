@@ -1,5 +1,18 @@
+.app.is-websites .main > .panel.ops-wide {
+  height: auto;
+  min-height: calc(100vh - 44px);
+  overflow: visible;
+}
+
 .web-shell {
-  min-height: 0;
+  min-height: calc(100vh - 44px);
+  height: auto;
+  overflow: visible;
+}
+
+.web-body {
+  flex: none;
+  overflow: visible;
 }
 
 .web-pills {
