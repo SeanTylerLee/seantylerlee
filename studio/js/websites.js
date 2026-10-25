@@ -16,6 +16,7 @@
   var clickCount = 0;
   var visitCount = 0;
   var lastClick = "";
+  var ignores = [];
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -54,7 +55,7 @@
   }
 
   function hint(err) {
-    if (missingTable(err)) return "Run sql/056_studio_websites.sql in Supabase, then refresh.";
+    if (missingTable(err)) return "Run sql/056_studio_websites.sql and sql/057_studio_website_ignores.sql in Supabase, then refresh.";
     return (err && err.message) || "Could not load websites.";
   }
 
@@ -68,6 +69,49 @@
 
   function selectedSite() {
     return sites.filter(function (s) { return s.id === selectedId; })[0] || null;
+  }
+
+  function kindOfValue(raw) {
+    var v = trim(raw);
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(v) || v.indexOf(":") >= 0) return "ip";
+    return "visit";
+  }
+
+  function isIgnored(row) {
+    if (!row) return false;
+    var visit = trim(row.visit_id);
+    var ip = trim(row.ip_address);
+    return ignores.some(function (item) {
+      var val = trim(item.value);
+      if (!val) return false;
+      if (item.kind === "ip") return ip === val;
+      return visit === val || (visit && visit.indexOf(val) === 0);
+    });
+  }
+
+  function visibleClicks() {
+    return clicks.filter(function (row) { return !isIgnored(row); });
+  }
+
+  function renderIgnores() {
+    var box = el("ignores");
+    if (!box) return;
+    if (!ignores.length) {
+      box.innerHTML = '<p class="web-empty">Nothing ignored yet.</p>';
+      return;
+    }
+    box.innerHTML = '<ul class="web-ignore-list">' + ignores.map(function (item) {
+      var label = item.kind === "ip" ? "IP" : "Visit";
+      return (
+        "<li>" +
+          "<span>" + esc(label) + " · " + esc(item.value) + "</span>" +
+          '<button class="btn btn-ghost" type="button" data-unignore="' + esc(item.id) + '">Remove</button>' +
+        "</li>"
+      );
+    }).join("") + "</ul>";
+    box.querySelectorAll("[data-unignore]").forEach(function (btn) {
+      btn.onclick = function () { removeIgnore(btn.getAttribute("data-unignore")); };
+    });
   }
 
   function formatWhen(iso) {
@@ -88,7 +132,18 @@
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="web-pills" data-el="pills"></div>' +
-        '<div class="ops-body web-body" data-el="detail"></div>' +
+        '<div class="ops-body web-body">' +
+          '<div class="ops-card web-ignore">' +
+            "<h3>Ignore list</h3>" +
+            '<p class="sub">Hide your own traffic on every site. Add a visit id or an IP, or use Ignore on a click row.</p>' +
+            '<div class="web-ignore-add">' +
+              '<input data-el="ignore-value" type="text" placeholder="Visit id or IP" />' +
+              '<button class="btn btn-primary" type="button" data-el="ignore-add">Add</button>' +
+            "</div>" +
+            '<div data-el="ignores"></div>' +
+          "</div>" +
+          '<div data-el="detail"></div>' +
+        "</div>" +
       "</div>"
     );
   }
@@ -123,6 +178,7 @@
       box.innerHTML = '<p class="web-empty">Select a website.</p>';
       return;
     }
+    var shown = visibleClicks();
     box.innerHTML =
       '<div class="ops-card web-info">' +
         '<div class="ops-field"><label>Name</label><input data-el="name" type="text" value="' + esc(site.name) + '" /></div>' +
@@ -141,9 +197,9 @@
       '<div class="ops-card">' +
         "<h3>Clicks</h3>" +
         '<p class="sub">Newest first. Page views and link taps. Kept 90 days.</p>' +
-        (clicks.length
-          ? '<div class="web-table-wrap"><table class="web-table"><thead><tr><th>When</th><th>Kind</th><th>Page</th><th>Label</th><th>Visit</th><th>IP</th></tr></thead><tbody>' +
-            clicks.map(function (row) {
+        (shown.length
+          ? '<div class="web-table-wrap"><table class="web-table"><thead><tr><th>When</th><th>Kind</th><th>Page</th><th>Label</th><th>Visit</th><th>IP</th><th></th></tr></thead><tbody>' +
+            shown.map(function (row) {
               return (
                 "<tr>" +
                   "<td>" + esc(formatWhen(row.clicked_at)) + "</td>" +
@@ -152,6 +208,10 @@
                   "<td>" + esc(row.label || "—") + "</td>" +
                   "<td>" + esc(row.visit_id ? row.visit_id.slice(0, 8) : "—") + "</td>" +
                   "<td>" + esc(row.ip_address || "—") + "</td>" +
+                  "<td class=\"web-row-actions\">" +
+                    (row.visit_id ? '<button class="btn btn-ghost" type="button" data-ignore-visit="' + esc(row.visit_id) + '">Ignore visit</button>' : "") +
+                    (row.ip_address ? '<button class="btn btn-ghost" type="button" data-ignore-ip="' + esc(row.ip_address) + '">Ignore IP</button>' : "") +
+                  "</td>" +
                 "</tr>"
               );
             }).join("") +
@@ -163,11 +223,55 @@
     if (saveBtn) saveBtn.onclick = saveInfo;
     var removeBtn = el("remove");
     if (removeBtn) removeBtn.onclick = removeSite;
+    box.querySelectorAll("[data-ignore-visit]").forEach(function (btn) {
+      btn.onclick = function () { addIgnore("visit", btn.getAttribute("data-ignore-visit")); };
+    });
+    box.querySelectorAll("[data-ignore-ip]").forEach(function (btn) {
+      btn.onclick = function () { addIgnore("ip", btn.getAttribute("data-ignore-ip")); };
+    });
   }
 
   function render() {
     renderPills();
+    renderIgnores();
     renderDetail();
+  }
+
+  function addIgnore(kind, value) {
+    var v = trim(value);
+    if (!v) return showMsg("Add a visit id or an IP.", false);
+    var k = kind || kindOfValue(v);
+    if (ignores.some(function (item) { return item.kind === k && trim(item.value) === v; })) {
+      return showMsg("Already on the ignore list.", true);
+    }
+    db.from("studio_website_ignores").insert({ kind: k, value: v }).select("*").single().then(function (res) {
+      if (res.error) return showMsg(hint(res.error), false);
+      ignores = [res.data].concat(ignores);
+      showMsg("Ignored.", true);
+      applyIgnoreCounts();
+      render();
+    });
+  }
+
+  function removeIgnore(id) {
+    db.from("studio_website_ignores").delete().eq("id", id).then(function (res) {
+      if (res.error) return showMsg(hint(res.error), false);
+      ignores = ignores.filter(function (item) { return item.id !== id; });
+      showMsg("Removed from ignore list.", true);
+      applyIgnoreCounts();
+      render();
+    });
+  }
+
+  function applyIgnoreCounts() {
+    var shown = visibleClicks();
+    clickCount = shown.length;
+    lastClick = shown[0] ? shown[0].clicked_at : "";
+    var visits = {};
+    shown.forEach(function (row) {
+      if (row.visit_id) visits[row.visit_id] = true;
+    });
+    visitCount = Object.keys(visits).length;
   }
 
   function saveInfo() {
@@ -236,10 +340,8 @@
     var site = selectedSite();
     if (!site) {
       clicks = [];
-      clickCount = 0;
-      visitCount = 0;
-      lastClick = "";
-      renderDetail();
+      applyIgnoreCounts();
+      render();
       return;
     }
     var host = normalizeDomain(site.domain);
@@ -250,20 +352,33 @@
     q.then(function (res) {
       if (res.error) return showMsg(hint(res.error), false);
       clicks = res.data || [];
-      clickCount = res.count || clicks.length;
-      lastClick = clicks[0] ? clicks[0].clicked_at : "";
-      var visits = {};
-      clicks.forEach(function (row) {
-        if (row.visit_id) visits[row.visit_id] = true;
-      });
-      visitCount = Object.keys(visits).length;
-      renderDetail();
+      applyIgnoreCounts();
+      render();
+    });
+  }
+
+  function loadIgnores() {
+    return db.from("studio_website_ignores").select("*").order("created_at", { ascending: false }).then(function (res) {
+      if (res.error) {
+        if (missingTable(res.error)) {
+          showMsg(hint(res.error), false);
+          ignores = [];
+          return;
+        }
+        showMsg(hint(res.error), false);
+        return;
+      }
+      ignores = res.data || [];
     });
   }
 
   function load() {
     hideSave();
-    return db.from("studio_websites").select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: true }).then(function (res) {
+    return Promise.all([
+      db.from("studio_websites").select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+      loadIgnores()
+    ]).then(function (parts) {
+      var res = parts[0];
       if (res.error) {
         showMsg(hint(res.error), false);
         return;
@@ -288,6 +403,24 @@
       root.innerHTML = shell();
       var addBtn = el("add");
       if (addBtn) addBtn.onclick = addSite;
+      var ignoreAdd = el("ignore-add");
+      if (ignoreAdd) {
+        ignoreAdd.onclick = function () {
+          var box = el("ignore-value");
+          addIgnore(null, box && box.value);
+          if (box) box.value = "";
+        };
+      }
+      var ignoreInput = el("ignore-value");
+      if (ignoreInput) {
+        ignoreInput.onkeydown = function (event) {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            addIgnore(null, ignoreInput.value);
+            ignoreInput.value = "";
+          }
+        };
+      }
       return load();
     },
     shown: function () {

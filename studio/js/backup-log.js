@@ -6,7 +6,7 @@
     "calendar_day_notes", "calendar_hidden", "studio_settings", "business_expenses", "business_expense_skips",
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
     "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos", "studio_competitors", "haulpath_states", "haulpath_developer_notes",
-    "sop_guides", "support_tickets", "studio_inbox", "studio_websites", "studio_website_clicks", "email_lists", "email_contacts", "email_templates", "email_page_notes",
+    "sop_guides", "support_tickets", "studio_inbox", "studio_websites", "studio_website_clicks", "studio_website_ignores", "email_lists", "email_contacts", "email_templates", "email_page_notes",
     "image_asset_notes", "image_asset_files", "studio_advertisements",
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
     "project_logins", "project_costs", "project_hour_entries", "project_issues",
@@ -1391,12 +1391,30 @@
   }
 
   function websites(pdf, pack) {
-    openMenu(pdf, "Websites", "Open Websites. Type each site name and domain. Clicks load from the live log.");
+    openMenu(pdf, "Websites", "Open Websites. Type each site name and domain. Clicks load from the live log. Re-add the ignore list so your own traffic stays hidden.");
     var rows = (pack.tables.studio_websites || []).slice().sort(function (a, b) {
       return (a.sort_order || 0) - (b.sort_order || 0);
     });
     if (!rows.length) { noRows(pdf, pack, "studio_websites"); return; }
-    var clicks = pack.tables.studio_website_clicks || [];
+    var ignores = pack.tables.studio_website_ignores || [];
+    if (ignores.length) {
+      pdf.heading("Ignore list", 12);
+      pdf.bullets(ignores.map(function (item) {
+        return (item.kind === "ip" ? "IP" : "Visit") + " · " + (item.value || "");
+      }));
+    }
+    var skipVisit = {};
+    var skipIp = {};
+    ignores.forEach(function (item) {
+      if (item.kind === "ip") skipIp[String(item.value || "")] = true;
+      else skipVisit[String(item.value || "")] = true;
+    });
+    var clicks = (pack.tables.studio_website_clicks || []).filter(function (c) {
+      if (skipIp[String(c.ip_address || "")]) return false;
+      var visit = String(c.visit_id || "");
+      if (skipVisit[visit]) return false;
+      return !Object.keys(skipVisit).some(function (v) { return v && visit.indexOf(v) === 0; });
+    });
     rows.forEach(function (row, i) {
       var host = String(row.domain || "").replace(/^www\./, "");
       var siteClicks = clicks.filter(function (c) { return String(c.host || "") === host; });

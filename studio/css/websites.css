@@ -67,3 +67,47 @@ html.is-phone .web-info {
 html.is-phone .web-pills {
   padding: 0 12px 8px;
 }
+
+.web-ignore h3 {
+  margin: 0 0 4px;
+}
+
+.web-ignore-add {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.web-ignore-add input {
+  flex: 1;
+  min-width: 0;
+}
+
+.web-ignore-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.web-ignore-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(18, 33, 61, 0.08);
+  font-size: 12px;
+}
+
+.web-row-actions {
+  white-space: nowrap;
+}
+
+.web-row-actions .btn {
+  margin-left: 4px;
+}
+
+html.is-phone .web-ignore-add,
+html.is-phone .web-row-actions {
+  flex-wrap: wrap;
+}
