@@ -17,6 +17,7 @@
   var visitCount = 0;
   var lastClick = "";
   var ignores = [];
+  var seoCache = {};
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -114,6 +115,156 @@
     });
   }
 
+  function startOfToday() {
+    var d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+
+  function sinceMs(days) {
+    return Date.now() - days * 86400000;
+  }
+
+  function clickTime(row) {
+    var t = new Date(row && row.clicked_at).getTime();
+    return isNaN(t) ? 0 : t;
+  }
+
+  function inWindow(row, since) {
+    return clickTime(row) >= since;
+  }
+
+  function rank(rows, keyFn, limit) {
+    var map = {};
+    rows.forEach(function (row) {
+      var key = keyFn(row) || "—";
+      map[key] = (map[key] || 0) + 1;
+    });
+    return Object.keys(map).map(function (key) {
+      return { label: key, n: map[key] };
+    }).sort(function (a, b) { return b.n - a.n; }).slice(0, limit || 8);
+  }
+
+  function pathKey(row) {
+    var p = trim(row && row.path) || "/";
+    var q = p.indexOf("?");
+    return q >= 0 ? p.slice(0, q) : p;
+  }
+
+  function referrerKey(row, host) {
+    var ref = trim(row && row.referrer);
+    if (!ref) return "Direct";
+    try {
+      var h = String(new URL(ref).hostname || "").toLowerCase().replace(/^www\./, "");
+      if (!h) return "Direct";
+      if (h === host) return "This site";
+      return h;
+    } catch (err) {
+      return "Direct";
+    }
+  }
+
+  function isPhoneUA(ua) {
+    return /iPhone|iPod|Windows Phone|IEMobile|BlackBerry|Opera Mini/i.test(ua || "") ||
+      (/Android/i.test(ua || "") && /Mobile/i.test(ua || ""));
+  }
+
+  function windowStats(rows, since) {
+    var slice = rows.filter(function (row) { return inWindow(row, since); });
+    var views = 0;
+    var taps = 0;
+    var visits = {};
+    slice.forEach(function (row) {
+      if (row.kind === "click") taps += 1;
+      else views += 1;
+      if (row.visit_id) visits[row.visit_id] = true;
+    });
+    return { views: views, taps: taps, visitors: Object.keys(visits).length };
+  }
+
+  function rankList(items) {
+    if (!items.length) return '<p class="web-empty">None yet.</p>';
+    return "<ol class=\"web-rank\">" + items.map(function (item) {
+      return "<li><span>" + esc(item.label) + "</span><strong>" + item.n + "</strong></li>";
+    }).join("") + "</ol>";
+  }
+
+  function trafficHtml(host) {
+    var rows = visibleClicks();
+    var today = windowStats(rows, startOfToday());
+    var week = windowStats(rows, sinceMs(7));
+    var month = windowStats(rows, sinceMs(30));
+    var pages = rank(rows, pathKey, 8);
+    var taps = rank(rows.filter(function (row) { return row.kind === "click" && trim(row.label); }), function (row) {
+      return trim(row.label);
+    }, 8);
+    var refs = rank(rows, function (row) { return referrerKey(row, host); }, 8);
+    var phone = 0;
+    var computer = 0;
+    rows.forEach(function (row) {
+      if (isPhoneUA(row.user_agent)) phone += 1;
+      else computer += 1;
+    });
+    return (
+      '<div class="ops-card web-traffic">' +
+        "<h3>Traffic</h3>" +
+        '<p class="sub">From the 90-day click log, ignoring your list. Views are page loads. Taps are buttons and links.</p>' +
+        '<div class="ops-chips">' +
+          '<div class="ops-chip"><span class="k">Today</span><span class="v">' + today.views + "</span><span class="web-chip-sub">views · " + today.taps + " taps · " + today.visitors + " visitors</span></div>" +
+          '<div class="ops-chip"><span class="k">7 days</span><span class="v">' + week.views + "</span><span class="web-chip-sub">views · " + week.taps + " taps · " + week.visitors + " visitors</span></div>" +
+          '<div class="ops-chip"><span class="k">30 days</span><span class="v">' + month.views + "</span><span class="web-chip-sub">views · " + month.taps + " taps · " + month.visitors + " visitors</span></div>" +
+        "</div>" +
+        '<div class="web-split">' +
+          '<div><h4>Top pages</h4>' + rankList(pages) + "</div>" +
+          "<div><h4>Hottest taps</h4>" + rankList(taps) + "</div>" +
+          "<div><h4>Referrers</h4>" + rankList(refs) + "</div>" +
+          "<div><h4>Phone vs computer</h4>" + rankList([
+            { label: "Phone", n: phone },
+            { label: "Computer", n: computer }
+          ].filter(function (item) { return item.n; })) + "</div>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function seoHtml(host) {
+    var pack = seoCache[host] || { status: "idle" };
+    var inner = "";
+    if (pack.status === "loading") inner = '<p class="web-empty">Reading the live homepage…</p>';
+    else if (pack.status === "err") inner = '<p class="web-empty">' + esc(pack.error || "Could not read the homepage.") + "</p>";
+    else if (pack.status === "ok" && pack.data) {
+      var d = pack.data;
+      var issues = d.issues || [];
+      inner =
+        '<div class="web-share">' +
+          (d.image ? '<img class="web-share-img" src="' + esc(d.image) + '" alt="" />' : '<div class="web-share-img is-empty">No image</div>') +
+          "<div>" +
+            "<p class=\"web-share-title\">" + esc(d.shareTitle || d.title || "No title") + "</p>" +
+            "<p class=\"web-share-desc\">" + esc(d.shareDescription || d.description || "No description") + "</p>" +
+            '<p class="web-share-url">' + esc(d.canonical || d.url || host) + "</p>" +
+          "</div>" +
+        "</div>" +
+        '<div class="web-seo-meta">' +
+          "<p><strong>Title</strong> " + esc(d.title || "—") + (d.title ? " · " + d.title.length + " characters" : "") + "</p>" +
+          "<p><strong>Description</strong> " + esc(d.description || "—") + (d.description ? " · " + d.description.length + " characters" : "") + "</p>" +
+        "</div>" +
+        (issues.length
+          ? "<h4>Needs a look</h4><ul class=\"web-issues\">" + issues.map(function (item) {
+            return "<li>" + esc(item) + "</li>";
+          }).join("") + "</ul>"
+          : '<p class="web-empty">Title, description, share image, and canonical look set.</p>');
+    } else {
+      inner = '<p class="web-empty">Open this site to read the live homepage.</p>';
+    }
+    return (
+      '<div class="ops-card web-seo" data-el="seo-card">' +
+        "<h3>SEO and sharing</h3>" +
+        '<p class="sub">What Google and social previews see on the live homepage.</p>' +
+        inner +
+      "</div>"
+    );
+  }
+
   function formatWhen(iso) {
     if (!iso) return "";
     var d = new Date(iso);
@@ -194,6 +345,8 @@
         '<div class="ops-chip"><span class="k">Visitors</span><span class="v">' + visitCount + "</span></div>" +
         '<div class="ops-chip"><span class="k">Last click</span><span class="v">' + esc(lastClick ? formatWhen(lastClick) : "—") + "</span></div>" +
       "</div>" +
+      trafficHtml(normalizeDomain(site.domain)) +
+      seoHtml(normalizeDomain(site.domain)) +
       '<div class="ops-card">' +
         "<h3>Clicks</h3>" +
         '<p class="sub">Newest first. Page views and link taps. Kept 90 days.</p>' +
@@ -348,11 +501,39 @@
     var q = db.from("studio_website_clicks").select("*", { count: "exact" })
       .eq("host", host)
       .order("clicked_at", { ascending: false })
-      .limit(400);
+      .limit(1500);
     q.then(function (res) {
       if (res.error) return showMsg(hint(res.error), false);
       clicks = res.data || [];
       applyIgnoreCounts();
+      render();
+      loadSeo();
+    });
+  }
+
+  function loadSeo() {
+    var site = selectedSite();
+    if (!site) return;
+    var host = normalizeDomain(site.domain);
+    var cached = seoCache[host];
+    if (cached && (cached.status === "ok" || cached.status === "loading")) return;
+    if (!window.STLLocalApi || typeof window.STLLocalApi.get !== "function" || !window.STLLocalApi.available()) {
+      seoCache[host] = { status: "err", error: "Sign in on the live Studio site to read SEO." };
+      render();
+      return;
+    }
+    seoCache[host] = { status: "loading" };
+    render();
+    window.STLLocalApi.get("/api/website-seo?host=" + encodeURIComponent(host)).then(function (res) {
+      if (selectedSite() && normalizeDomain(selectedSite().domain) !== host) return;
+      if (!res.ok) {
+        seoCache[host] = { status: "err", error: (res.data && res.data.error) || "Could not read the homepage." };
+      } else {
+        seoCache[host] = { status: "ok", data: res.data || {} };
+      }
+      render();
+    }).catch(function (err) {
+      seoCache[host] = { status: "err", error: (err && err.message) || "Could not read the homepage." };
       render();
     });
   }

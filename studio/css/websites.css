@@ -111,3 +111,87 @@ html.is-phone .web-ignore-add,
 html.is-phone .web-row-actions {
   flex-wrap: wrap;
 }
+
+.web-chip-sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.web-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.web-split h4,
+.web-seo h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.web-rank {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.web-rank li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(18, 33, 61, 0.08);
+  font-size: 12px;
+}
+
+.web-share {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  margin: 0 0 12px;
+  align-items: start;
+}
+
+.web-share-img {
+  width: 160px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #d9dee8;
+}
+
+.web-share-img.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.web-share-title {
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.web-share-desc,
+.web-share-url,
+.web-seo-meta p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.web-issues {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+html.is-phone .web-split,
+html.is-phone .web-share {
+  grid-template-columns: 1fr;
+}
