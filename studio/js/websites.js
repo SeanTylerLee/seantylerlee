@@ -210,10 +210,10 @@
         "<h3>Traffic</h3>" +
         '<p class="sub">From the 90-day click log, ignoring your list. Views are page loads. Taps are buttons and links.</p>' +
         '<div class="ops-chips">' +
-          '<div class="ops-chip"><span class="k">Today</span><span class="v">' + today.views + "</span><span class="web-chip-sub">views · " + today.taps + " taps · " + today.visitors + " visitors</span></div>" +
-          '<div class="ops-chip"><span class="k">7 days</span><span class="v">' + week.views + "</span><span class="web-chip-sub">views · " + week.taps + " taps · " + week.visitors + " visitors</span></div>" +
-          '<div class="ops-chip"><span class="k">30 days</span><span class="v">' + month.views + "</span><span class="web-chip-sub">views · " + month.taps + " taps · " + month.visitors + " visitors</span></div>" +
-        "</div>" +
+          '<div class="ops-chip"><span class="k">Today</span><span class="v">' + today.views + '</span><span class="web-chip-sub">views · ' + today.taps + ' taps · ' + today.visitors + ' visitors</span></div>' +
+          '<div class="ops-chip"><span class="k">7 days</span><span class="v">' + week.views + '</span><span class="web-chip-sub">views · ' + week.taps + ' taps · ' + week.visitors + ' visitors</span></div>' +
+          '<div class="ops-chip"><span class="k">30 days</span><span class="v">' + month.views + '</span><span class="web-chip-sub">views · ' + month.taps + ' taps · ' + month.visitors + ' visitors</span></div>' +
+        '</div>' +
         '<div class="web-split">' +
           '<div><h4>Top pages</h4>' + rankList(pages) + "</div>" +
           "<div><h4>Hottest taps</h4>" + rankList(taps) + "</div>" +
