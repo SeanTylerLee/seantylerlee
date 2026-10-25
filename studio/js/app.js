@@ -5,7 +5,7 @@
     event.preventDefault();
   });
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 64.
+  // Same order and grouping as the Mac app sidebar. Cache bust 65.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Needs-you board and studio snapshot." },
@@ -113,7 +113,6 @@
     pc4hAdmin: "is-pc4hAdmin",
     sop: "is-sop",
     imageAssets: "is-imageAssets",
-    websites: "is-websites",
     apps: "is-apps",
     support: "is-support",
     inbox: "is-inbox",

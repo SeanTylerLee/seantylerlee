@@ -385,9 +385,13 @@
   }
 
   function render() {
-    renderPills();
-    renderIgnores();
-    renderDetail();
+    try {
+      renderPills();
+      renderIgnores();
+      renderDetail();
+    } catch (err) {
+      showMsg(hint(err), false);
+    }
   }
 
   function addIgnore(kind, value) {
@@ -562,6 +566,8 @@
       var res = parts[0];
       if (res.error) {
         showMsg(hint(res.error), false);
+        sites = sites || [];
+        render();
         return;
       }
       sites = res.data || [];
@@ -573,6 +579,7 @@
       });
     }).catch(function (err) {
       showMsg(hint(err), false);
+      render();
     });
   }
 
@@ -580,8 +587,11 @@
     mount: function (panel, client) {
       root = panel;
       db = client;
-      root.classList.add("ops-wide");
+      root.classList.remove("ops-wide");
+      root.classList.add("web-page");
       root.innerHTML = shell();
+      renderPills();
+      renderIgnores();
       var addBtn = el("add");
       if (addBtn) addBtn.onclick = addSite;
       var ignoreAdd = el("ignore-add");

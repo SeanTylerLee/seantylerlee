@@ -1,18 +1,27 @@
-.app.is-websites .main > .panel.ops-wide {
-  height: auto;
-  min-height: calc(100vh - 44px);
-  overflow: visible;
+.panel.web-page {
+  display: block !important;
+  height: auto !important;
+  min-height: 100% !important;
+  overflow: visible !important;
+  padding: 16px 20px 40px !important;
+  background: #fff !important;
+  color: #12213d !important;
 }
 
 .web-shell {
-  min-height: calc(100vh - 44px);
+  display: block;
+  min-height: 0;
   height: auto;
   overflow: visible;
+  background: #fff;
+  color: #12213d;
 }
 
 .web-body {
+  display: block;
   flex: none;
   overflow: visible;
+  padding: 4px 0 0;
 }
 
 .web-pills {
