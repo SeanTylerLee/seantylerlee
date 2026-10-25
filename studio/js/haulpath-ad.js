@@ -51,70 +51,85 @@
 
   function shell() {
     return (
-      '<div class="ops-workspace">' +
+      '<div class="ops-workspace ad-workspace">' +
         '<div class="ops-header">' +
           "<h1>Advertisement</h1>" +
-          "<p>Upload an advertisement, or make a simple one below. Select it, then choose Haul Path or Pilot Car 4 Hire. That image shows every time that app opens, until the person taps Clear. Turn an app off to stop its ad.</p>" +
+          "<p>The image you run shows every time that app opens, until the person taps Clear.</p>" +
         "</div>" +
         '<p class="status" data-el="banner"></p>' +
-        "<h2>Running now</h2>" +
-        '<div class="ad-running">' + runningCard("haulpath") + runningCard("pc4h") + "</div>" +
-        "<h2>Library</h2>" +
-        '<p class="sub">Use a portrait photo, 1080 by 1920 pixels. Keep the words in the middle. Leave the top 120 pixels and the bottom 240 pixels mostly empty so the phone notch and the Clear button do not cover them.</p>' +
-        '<div class="ops-actions" style="margin-bottom:12px">' +
-          '<button class="btn btn-primary" type="button" data-el="upload-btn">Upload</button>' +
-          '<input data-el="upload" type="file" accept="image/png,image/jpeg,image/webp" hidden />' +
-        "</div>" +
-        '<div class="ad-library" data-el="library"></div>' +
-        '<div class="ops-actions" data-el="picked" hidden style="margin-top:12px">' +
-          '<span data-el="picked-name"></span>' +
-          '<button class="btn btn-primary" type="button" data-el="run-haulpath">Run in Haul Path</button>' +
-          '<button class="btn btn-primary" type="button" data-el="run-pc4h">Run in Pilot Car 4 Hire</button>' +
-          '<button class="btn" type="button" data-el="remove-lib">Delete</button>' +
-        "</div>" +
-        "<h2 style=\"margin-top:28px\">Make an advertisement</h2>" +
-        '<p class="sub">The shaded bands on the preview are the notch and the Clear button. They are not saved into the image.</p>' +
-        '<div class="ad-maker">' +
-          '<div class="ad-maker-form">' +
-            makerField("name", "Name", "text") +
-            makerField("kicker", "Small line", "text") +
-            makerField("headline", "Headline", "text") +
-            '<label for="ad-message">Message</label>' +
-            '<textarea id="ad-message" data-el="message" rows="3" maxlength="180"></textarea>' +
-            makerField("button", "Button label", "text") +
-            '<div class="ad-presets" data-el="presets"></div>' +
-            '<div class="ad-colors">' +
-              colorField("bg", "Background") +
-              colorField("ink", "Words") +
-              colorField("accent", "Button") +
+        '<div class="ad-page">' +
+          '<section class="ops-card ad-now">' +
+            runningSlot("haulpath") +
+            runningSlot("pc4h") +
+          "</section>" +
+          '<section class="ops-card">' +
+            '<div class="ad-section-head">' +
+              "<div>" +
+                "<h2>Library</h2>" +
+                "<p>Portrait, 1080 by 1920. Keep the words in the middle.</p>" +
+              "</div>" +
+              '<div class="ad-toolbar">' +
+                '<button class="btn btn-ghost" type="button" data-el="upload-btn">Upload</button>' +
+                '<input data-el="upload" type="file" accept="image/png,image/jpeg,image/webp" hidden />' +
+                '<button class="btn btn-primary" type="button" data-el="toggle-maker">Make one</button>' +
+              "</div>" +
             "</div>" +
-            '<div class="ops-actions" style="margin-top:16px">' +
-              '<button class="btn btn-primary" type="button" data-el="save-made">Save to library</button>' +
+            '<div class="ad-library" data-el="library"></div>' +
+            '<div class="ad-picked" data-el="picked" hidden>' +
+              '<span class="ad-picked-name" data-el="picked-name"></span>' +
+              '<button class="btn btn-primary" type="button" data-el="run-haulpath">Run in Haul Path</button>' +
+              '<button class="btn btn-primary" type="button" data-el="run-pc4h">Run in Pilot Car 4 Hire</button>' +
+              '<button class="btn btn-ghost" type="button" data-el="remove-lib">Delete</button>' +
             "</div>" +
-          "</div>" +
-          '<div>' +
-            '<div class="ad-stage">' +
-              '<canvas data-el="canvas" width="1080" height="1920"></canvas>' +
-              '<div class="ad-safe ad-safe-top"></div>' +
-              '<div class="ad-safe ad-safe-bottom"></div>' +
+          "</section>" +
+          '<section class="ops-card ad-maker-card" data-el="maker" hidden>' +
+            '<div class="ad-section-head">' +
+              "<div>" +
+                "<h2>Make an advertisement</h2>" +
+                "<p>The shaded bands are the notch and the Clear button. They are not saved.</p>" +
+              "</div>" +
             "</div>" +
-          "</div>" +
+            '<div class="ad-maker">' +
+              '<div class="ad-maker-form">' +
+                makerField("name", "Name", "text") +
+                makerField("kicker", "Small line", "text") +
+                makerField("headline", "Headline", "text") +
+                '<label for="ad-message">Message</label>' +
+                '<textarea id="ad-message" data-el="message" rows="3" maxlength="180"></textarea>' +
+                makerField("button", "Button label", "text") +
+                '<div class="ad-presets" data-el="presets"></div>' +
+                '<div class="ad-colors">' +
+                  colorField("bg", "Background") +
+                  colorField("ink", "Words") +
+                  colorField("accent", "Button") +
+                "</div>" +
+                '<div class="ad-toolbar ad-save">' +
+                  '<button class="btn btn-primary" type="button" data-el="save-made">Save to library</button>' +
+                "</div>" +
+              "</div>" +
+              '<div class="ad-stage">' +
+                '<canvas data-el="canvas" width="1080" height="1920"></canvas>' +
+                '<div class="ad-safe ad-safe-top"></div>' +
+                '<div class="ad-safe ad-safe-bottom"></div>' +
+              "</div>" +
+            "</div>" +
+          "</section>" +
         "</div>" +
       "</div>"
     );
   }
 
-  function runningCard(id) {
+  function runningSlot(id) {
     var app = apps[id];
     return (
-      '<section class="ops-card">' +
-        "<h2>" + esc(app.title) + "</h2>" +
-        "<h3>Current advertisement</h3>" +
-        '<div class="ad-shot" data-el="preview-' + id + '"></div>' +
-        '<div class="ops-actions">' +
-          '<button class="btn" type="button" data-el="off-' + id + '">Turn off</button>' +
+      '<div class="ad-slot">' +
+        '<div class="ad-phone" data-el="preview-' + id + '"></div>' +
+        '<div class="ad-slot-copy">' +
+          "<h2>" + esc(app.title) + "</h2>" +
+          '<p data-el="status-' + id + '">Off</p>' +
+          '<button class="btn btn-ghost" type="button" data-el="off-' + id + '" hidden>Turn off</button>' +
         "</div>" +
-      "</section>"
+      "</div>"
     );
   }
 
@@ -128,7 +143,7 @@
   function colorField(name, label) {
     return (
       "<label>" + esc(label) +
-        '<br><input data-el="color-' + name + '" type="color" value="#000000" />' +
+        '<input data-el="color-' + name + '" type="color" value="#000000" />' +
       "</label>"
     );
   }
@@ -150,10 +165,18 @@
     if (app.imageUrl) {
       box.innerHTML = '<img alt="" src="' + esc(app.imageUrl) + '" />';
     } else {
-      box.innerHTML = '<p class="sub">No advertisement.</p>';
+      box.innerHTML = '<span class="ad-off">Off</span>';
+    }
+    var status = el("status-" + id);
+    if (status) {
+      status.textContent = app.imageUrl ? "On" : "Off";
+      status.classList.toggle("is-on", !!app.imageUrl);
     }
     var off = el("off-" + id);
-    if (off) off.disabled = !app.imageUrl || busy;
+    if (off) {
+      off.hidden = !app.imageUrl;
+      off.disabled = !app.imageUrl || busy;
+    }
   }
 
   function runningLabels(url) {
@@ -168,16 +191,18 @@
     var box = el("library");
     if (!box) return;
     if (!library.length) {
-      box.innerHTML = '<p class="sub">No advertisements yet.</p>';
+      box.innerHTML = '<p class="ad-empty">No advertisements yet.</p>';
     } else {
       box.innerHTML = library.map(function (row) {
         var where = runningLabels(row.image_url);
+        if (where.indexOf("·") >= 0) where = "Both apps";
         return (
           '<button type="button" class="ad-lib-card' + (row.id === selectedId ? " is-on" : "") + '" data-id="' + esc(row.id) + '">' +
-            '<img alt="" src="' + esc(row.image_url) + '" />' +
+            '<span class="ad-thumb">' +
+              '<img alt="" src="' + esc(row.image_url) + '" />' +
+              (where ? '<span class="ad-pill">' + esc(where) + "</span>" : "") +
+            "</span>" +
             "<strong>" + esc(row.name || "Advertisement") + "</strong>" +
-            "<span>" + esc(row.source === "made" ? "Made in Studio" : "Uploaded") +
-              (where ? " · " + where : "") + "</span>" +
           "</button>"
         );
       }).join("");
@@ -529,6 +554,21 @@
     if (runHaul) runHaul.addEventListener("click", function () { runSelected("haulpath"); });
     if (runPc) runPc.addEventListener("click", function () { runSelected("pc4h"); });
     if (remove) remove.addEventListener("click", deleteSelected);
+    var maker = el("maker");
+    var toggle = el("toggle-maker");
+    if (maker && toggle) {
+      toggle.addEventListener("click", function () {
+        maker.hidden = !maker.hidden;
+        var open = !maker.hidden;
+        toggle.textContent = open ? "Close" : "Make one";
+        toggle.classList.toggle("btn-primary", !open);
+        toggle.classList.toggle("btn-ghost", open);
+        if (open) {
+          draw(true);
+          maker.scrollIntoView({ block: "nearest" });
+        }
+      });
+    }
     ["haulpath", "pc4h"].forEach(function (id) {
       var off = el("off-" + id);
       if (off) off.addEventListener("click", function () { turnOff(id); });
@@ -540,7 +580,7 @@
     var presetBox = el("presets");
     if (presetBox) {
       presetBox.innerHTML = presets.map(function (preset, index) {
-        return '<button class="btn" type="button" data-preset="' + index + '">' + esc(preset.name) + "</button>";
+        return '<button class="btn btn-ghost" type="button" data-preset="' + index + '">' + esc(preset.name) + "</button>";
       }).join("");
       presetBox.addEventListener("click", function (event) {
         var node = event.target;
