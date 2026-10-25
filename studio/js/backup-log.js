@@ -7,7 +7,7 @@
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
     "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos", "studio_competitors", "haulpath_states", "haulpath_developer_notes",
     "sop_guides", "support_tickets", "studio_inbox", "email_lists", "email_contacts", "email_templates", "email_page_notes",
-    "image_asset_notes", "image_asset_files",
+    "image_asset_notes", "image_asset_files", "studio_advertisements",
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
     "project_logins", "project_costs", "project_hour_entries", "project_issues",
     "project_handoff_items", "meeting_logs", "billing_documents", "studio_notes",
@@ -253,7 +253,7 @@
       });
     })).then(function () {
       onStatus("Loading TOS Accepted…");
-      return Promise.all([loadSecretsRow(db), loadUserEmail(db), loadTosAcceptances(), loadHaulpathStates()]);
+      return Promise.all([loadSecretsRow(db), loadUserEmail(db), loadTosAcceptances(), loadHaulpathStates(), loadRunningAds()]);
     }).then(function (extra) {
       var tos = extra[2] || { rows: [], error: "" };
       var haulpath = extra[3] || { rows: [], error: "" };
@@ -265,9 +265,26 @@
         secrets: extra[0] || {},
         email: extra[1] || "",
         tosAcceptances: tos.rows || [],
+        runningAds: extra[4] || { haulpath: "", pc4h: "" },
         failed: failed,
         missingFiles: []
       };
+    });
+  }
+
+  function loadRunningAds() {
+    var api = window.STLLocalApi;
+    if (!api || typeof api.get !== "function") {
+      return Promise.resolve({ haulpath: "", pc4h: "" });
+    }
+    function one(path) {
+      return api.get(path).then(function (res) {
+        if (!res || !res.ok) return "";
+        return (res.data && res.data.image_url) || "";
+      }).catch(function () { return ""; });
+    }
+    return Promise.all([one("/api/haulpath/ad"), one("/api/pc4h/ad")]).then(function (pair) {
+      return { haulpath: pair[0] || "", pc4h: pair[1] || "" };
     });
   }
 
@@ -353,6 +370,7 @@
         ["Receipts/Income/", "Income proofs"],
         ["App-Icons/", "App icons"],
         ["Image-Assets/", "Image Assets library"],
+        ["Advertisement-Images/", "Advertisement library"],
         ["Notification-Images/", "Notification photos"],
         ["Message-Files/", "Message attachments"]
       ],
@@ -379,6 +397,7 @@
         ["TOS Accepted", String((pack.tosAcceptances || []).length) + " acceptances"],
         ["SOP", String((t.sop_guides || []).length)],
         ["Image Assets", String((t.image_asset_files || []).length) + " files"],
+        ["Advertisement", String((t.studio_advertisements || []).length) + " in the library"],
         ["Support", String((t.support_tickets || []).length)],
         ["Messages", String((t.studio_inbox || []).length)],
         ["Email Lists", String((t.email_contacts || []).length) + " emails"],
@@ -790,6 +809,47 @@
         }
       });
     });
+  }
+
+  function advertisements(pdf, pack) {
+    openMenu(pdf, "Advertisement", "Open Advertisement. Re-upload each library image from Advertisement-Images/. Select one, then run it on Haul Path or Pilot Car 4 Hire.");
+    if (tableError(pack, "studio_advertisements")) {
+      pdf.note("Could not read the advertisement library. See the cover for the error.");
+    }
+    var rows = (pack.tables.studio_advertisements || []).slice().sort(function (a, b) {
+      return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+    });
+    var running = pack.runningAds || {};
+    function runningName(url) {
+      if (!url) return "Nothing";
+      var hit = rows.filter(function (row) { return row.image_url === url; })[0];
+      return hit ? (hit.name || "Advertisement") : url;
+    }
+    pdf.note("Haul Path was running: " + runningName(running.haulpath));
+    pdf.note("Pilot Car 4 Hire was running: " + runningName(running.pc4h));
+    if (!rows.length) {
+      noRows(pdf, pack, "studio_advertisements", "No advertisements in the library.");
+      return;
+    }
+    table(
+      pdf,
+      ["Name", "How it was made", "Added", "File in this zip"],
+      rows.map(function (row) {
+        var where = [];
+        if (running.haulpath && running.haulpath === row.image_url) where.push("Haul Path");
+        if (running.pc4h && running.pc4h === row.image_url) where.push("Pilot Car 4 Hire");
+        var made = row.source === "made" ? "Made in Studio" : "Uploaded";
+        if (where.length) made += " · running on " + where.join(" and ");
+        return [
+          row.name || "Advertisement",
+          made,
+          day(row.created_at),
+          zipAt(pack, "ad:" + (row.storage_path || row.image_url)) || (row.name || "")
+        ];
+      }),
+      [140, 160, 80, pdf.maxW - 380],
+      1
+    );
   }
 
   function support(pdf, pack) {
@@ -1456,6 +1516,7 @@
     promos(pdf, pack);
     sop(pdf, pack);
     imageAssets(pdf, pack);
+    advertisements(pdf, pack);
     skipPage(pdf, "Analytics", "Open Apps, then Analytics. Loads from App Store Connect and Google Play once the Secrets/ keys are in place. Subscribed is a tab on that same screen.");
     tosAccepted(pdf, pack);
     support(pdf, pack);
@@ -1699,6 +1760,25 @@
       }));
     });
 
+    var usedAds = {};
+    (pack.tables.studio_advertisements || []).forEach(function (row) {
+      var url = row.image_url || "";
+      var path = row.storage_path || "";
+      if (!url && !path) return;
+      var job = path
+        ? storageBlob(db, "announcement-images", path).then(function (blob) {
+            return blob || announcementBlob(db, url);
+          })
+        : announcementBlob(db, url);
+      jobs.push(job.then(function (blob) {
+        var ext = String(path || url).split(".").pop() || "png";
+        ext = ext.split("?")[0];
+        if (ext.length > 5 || ext.indexOf("/") !== -1) ext = "png";
+        var name = uniqueName(usedAds, safeFile(row.name || "advertisement") + "." + ext);
+        push("Advertisement-Images", name, blob, "Advertisement: " + (row.name || path || url), "ad:" + (path || url));
+      }));
+    });
+
     var usedNote = {};
     (pack.tables.app_notifications || []).forEach(function (n) {
       var url = n.image_url || "";
@@ -1753,9 +1833,11 @@
       "3. Open Studio signed in so the keys sync.",
       "4. Type every record from 01-Restore-Guide.pdf, menu by menu.",
       "5. 02-Studio-Data.json has every saved row, including Notes formatting.",
-      "6. Re-upload Company-Documents, Receipts, App-Icons, Image-Assets, Notification-Images, and Message-Files. The PDF names the exact zip path for each file.",
+      "6. Re-upload Company-Documents, Receipts, App-Icons, Image-Assets, Advertisement-Images, Notification-Images, and Message-Files. The PDF names the exact zip path for each file.",
       "",
       "HaulPath Admin is copied: driver note, travel time, multi-lane and 2-lane thresholds and escorts, high pole, curfews, and developer notes. Retype each state from the HaulPath Admin pages in the PDF. The same rows are in 02-Studio-Data.json.",
+      "",
+      "The Advertisement library is copied. Re-upload Advertisement-Images/, then select one and run it on Haul Path or Pilot Car 4 Hire. Which image was running is written on the Advertisement page of the PDF.",
       "",
       "Not copied (they stay in their own databases, and the keys are in Secrets/):",
       "- Bank activity (Mercury)",
