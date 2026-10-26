@@ -185,6 +185,31 @@
   margin: -4px 0 12px;
 }
 
+.direct-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.direct-stat {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.direct-stat span {
+  display: block;
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.direct-stat small {
+  color: #6b7388;
+  font-size: 12px;
+}
+
 .tos-copy h3 {
   margin: 8px 0 6px;
   font-size: 13px;
