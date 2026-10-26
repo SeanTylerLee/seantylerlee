@@ -96,23 +96,27 @@
     );
   }
 
+  function waitingOf(appKey, platform) {
+    return pushedOf(appKey, platform)[0] || null;
+  }
+
   function pushedBlock(appKey, platform) {
     var list = pushedOf(appKey, platform);
+    var draft = list[0] || { version: "", build: "" };
+    var extras = list.slice(1);
     var buildPh = platform === "ios" ? "Build" : "Version number";
     return (
       '<div class="rl-wait">' +
-        '<div class="rl-tags">' +
-          (list.length
-            ? list.map(function (item) {
-              var label = [item.version, item.build].filter(Boolean).join(" · ") || "Untitled";
-              return '<button class="rl-tag" type="button" data-del="' + esc(item.id) + '">' + esc(label) + '<span aria-hidden="true">x</span></button>';
-            }).join("")
-            : '<span class="rl-empty">None waiting</span>') +
-        '</div>' +
+        (extras.length
+          ? '<div class="rl-tags">' + extras.map(function (item) {
+            var label = [item.version, item.build].filter(Boolean).join(" · ") || "Untitled";
+            return '<button class="rl-tag" type="button" data-del="' + esc(item.id) + '">' + esc(label) + '<span aria-hidden="true">x</span></button>';
+          }).join("") + '</div>'
+          : '') +
         '<div class="rl-add-pushed">' +
-          '<input data-push-version="' + appKey + '" data-platform="' + platform + '" type="text" placeholder="Version" />' +
-          '<input data-push-build="' + appKey + '" data-platform="' + platform + '" type="text" placeholder="' + buildPh + '" />' +
-          '<button class="btn btn-ghost" type="button" data-push="' + appKey + '" data-platform="' + platform + '">Add</button>' +
+          '<input data-push-version="' + appKey + '" data-platform="' + platform + '" type="text" placeholder="Version" value="' + esc(draft.version) + '" />' +
+          '<input data-push-build="' + appKey + '" data-platform="' + platform + '" type="text" placeholder="' + buildPh + '" value="' + esc(draft.build) + '" />' +
+          '<button class="btn btn-ghost" type="button" data-push="' + appKey + '" data-platform="' + platform + '">Push</button>' +
         '</div>' +
       '</div>'
     );
@@ -191,9 +195,14 @@
         queueSaveLive(input.getAttribute("data-live-version") || input.getAttribute("data-live-build"), input.getAttribute("data-platform"));
       };
     });
+    root.querySelectorAll("[data-push-version], [data-push-build]").forEach(function (input) {
+      input.onchange = function () {
+        queueSaveWaiting(input.getAttribute("data-platform") ? appKeyFromWaiting(input) : "", input.getAttribute("data-platform"));
+      };
+    });
     root.querySelectorAll("[data-push]").forEach(function (btn) {
       btn.onclick = function () {
-        addPushed(btn.getAttribute("data-push"), btn.getAttribute("data-platform"));
+        pushToLive(btn.getAttribute("data-push"), btn.getAttribute("data-platform"));
       };
     });
     root.querySelectorAll("[data-del]").forEach(function (btn) {
@@ -201,9 +210,19 @@
     });
   }
 
+  function appKeyFromWaiting(input) {
+    return input.getAttribute("data-push-version") || input.getAttribute("data-push-build") || "";
+  }
+
   function rowInputs(appKey, platform) {
     var v = root.querySelector('[data-live-version="' + appKey + '"][data-platform="' + platform + '"]');
     var b = root.querySelector('[data-live-build="' + appKey + '"][data-platform="' + platform + '"]');
+    return { version: trim(v && v.value), build: trim(b && b.value) };
+  }
+
+  function waitingInputs(appKey, platform) {
+    var v = root.querySelector('[data-push-version="' + appKey + '"][data-platform="' + platform + '"]');
+    var b = root.querySelector('[data-push-build="' + appKey + '"][data-platform="' + platform + '"]');
     return { version: trim(v && v.value), build: trim(b && b.value) };
   }
 
@@ -221,7 +240,7 @@
   }
 
   function queueSaveLive(appKey, platform) {
-    var key = appKey + ":" + platform;
+    var key = "live:" + appKey + ":" + platform;
     if (saveTimers[key]) clearTimeout(saveTimers[key]);
     saveTimers[key] = setTimeout(function () {
       saveTimers[key] = null;
@@ -229,10 +248,50 @@
     }, 400);
   }
 
-  function saveLive(appKey, platform) {
-    var next = rowInputs(appKey, platform);
-    var cur = liveOf(appKey, platform);
+  function queueSaveWaiting(appKey, platform) {
+    var key = "wait:" + appKey + ":" + platform;
+    if (saveTimers[key]) clearTimeout(saveTimers[key]);
+    saveTimers[key] = setTimeout(function () {
+      saveTimers[key] = null;
+      saveWaiting(appKey, platform);
+    }, 400);
+  }
+
+  function saveWaiting(appKey, platform) {
+    var next = waitingInputs(appKey, platform);
+    var cur = waitingOf(appKey, platform);
     if (cur && trim(cur.version) === next.version && trim(cur.build) === next.build) return;
+    var job;
+    if (!next.version && !next.build) {
+      if (!cur) return;
+      job = db.from("app_releases").delete().eq("id", cur.id);
+    } else if (cur) {
+      job = db.from("app_releases").update({
+        version: next.version,
+        build: next.build
+      }).eq("id", cur.id);
+    } else {
+      job = db.from("app_releases").insert({
+        app_key: appKey,
+        platform: platform,
+        kind: "pushed",
+        version: next.version,
+        build: next.build
+      });
+    }
+    job.then(function (res) {
+      if (res.error) return showMsg(hint(res.error), false);
+      showMsg("Saved in waiting.", true);
+      load();
+    }).catch(function (err) {
+      showMsg(hint(err), false);
+    });
+  }
+
+  function saveLive(appKey, platform, explicitNext) {
+    var next = explicitNext || rowInputs(appKey, platform);
+    var cur = liveOf(appKey, platform);
+    if (cur && trim(cur.version) === next.version && trim(cur.build) === next.build) return Promise.resolve(true);
     var jobs = [];
     if (cur && (trim(cur.version) || trim(cur.build)) && !fillingIn(cur, next)) {
       jobs.push(db.from("app_releases").insert({
@@ -261,32 +320,28 @@
         build: next.build
       }));
     }
-    Promise.all(jobs).then(function (parts) {
+    return Promise.all(jobs).then(function (parts) {
       var err = parts.filter(function (p) { return p && p.error; })[0];
-      if (err) return showMsg(hint(err.error), false);
-      showMsg("Saved.", true);
-      load();
+      if (err) {
+        showMsg(hint(err.error), false);
+        return false;
+      }
+      showMsg(explicitNext ? "Pushed live." : "Saved.", true);
+      if (!explicitNext) load();
+      return true;
     }).catch(function (err) {
       showMsg(hint(err), false);
+      return false;
     });
   }
 
-  function addPushed(appKey, platform) {
-    var v = root.querySelector('[data-push-version="' + appKey + '"][data-platform="' + platform + '"]');
-    var b = root.querySelector('[data-push-build="' + appKey + '"][data-platform="' + platform + '"]');
-    var version = trim(v && v.value);
-    var build = trim(b && b.value);
-    if (!version && !build) return showMsg("Enter a version or build.", false);
-    db.from("app_releases").insert({
-      app_key: appKey,
-      platform: platform,
-      kind: "pushed",
-      version: version,
-      build: build
-    }).then(function (res) {
-      if (res.error) return showMsg(hint(res.error), false);
-      showMsg("Pushed version added.", true);
-      load();
+  function pushToLive(appKey, platform) {
+    var next = waitingInputs(appKey, platform);
+    var waiting = waitingOf(appKey, platform);
+    if (!next.version && !next.build) return showMsg("Enter a version or build.", false);
+    saveLive(appKey, platform, next).then(function (ok) {
+      if (!ok || !waiting) return;
+      db.from("app_releases").delete().eq("id", waiting.id).then(function () { load(); });
     });
   }
 
