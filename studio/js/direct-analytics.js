@@ -69,16 +69,32 @@
     if (!root.querySelector("[data-el='list']")) root.innerHTML = shell();
     var stats = el("stats");
     var subscribed = rows.filter(function (row) { return row.is_subscribed; }).length;
+    var signedIn = rows.filter(function (row) { return row.is_signed_in; }).length;
+    var miles = Math.round(sum(rows, "miles_driven"));
     if (stats) {
       stats.innerHTML =
         stat("Installs", rows.length) +
         stat("Subscribed", subscribed) +
         stat("Not subscribed", Math.max(0, rows.length - subscribed)) +
+        stat("Signed in", signedIn) +
+        stat("Guest", Math.max(0, rows.length - signedIn)) +
         stat("iPhone", rows.filter(function (row) { return row.platform === "ios"; }).length) +
         stat("Android", rows.filter(function (row) { return row.platform === "android"; }).length) +
-        stat("Routes built", sum(rows, "routes_built")) +
-        stat("Navigations", sum(rows, "navigations_started")) +
-        stat("Permits imported", sum(rows, "permits_imported")) +
+        stat("Go taps", sum(rows, "navigations_started")) +
+        stat("Arrived", sum(rows, "arrivals")) +
+        stat("Miles on finished trips", miles.toLocaleString("en-US")) +
+        stat("Off the line", sum(rows, "off_route_trips")) +
+        stat("Go on a Texas import", sum(rows, "navigations_official")) +
+        stat("Go on a built route", sum(rows, "navigations_built")) +
+        stat("Paywall shown", sum(rows, "paywall_shown")) +
+        stat("Subscribe tapped", sum(rows, "subscribe_tapped")) +
+        stat("Restore tapped", sum(rows, "restore_tapped")) +
+        stat("Hit 4-waypoint cap", sum(rows, "waypoint_cap")) +
+        stat("Import locked", sum(rows, "import_locked")) +
+        stat("Chose free", sum(rows, "free_tier_chosen")) +
+        stat("PDF imports", sum(rows, "imports_pdf")) +
+        stat("QR imports", sum(rows, "imports_qr")) +
+        stat("Saved routes opened", sum(rows, "saved_routes_opened")) +
         stat("Routes shared", sum(rows, "routes_shared"));
     }
     var filters = [
@@ -115,20 +131,27 @@
     var visible = visibleRows();
     if (note) {
       note.textContent = visible.length
-        ? "Each row is one install. Counts are what that phone has reported so far."
-        : "No installs have reported yet. Run sql/020_direct_app_analytics.sql in the Permit Path Supabase SQL editor, then open the app on a phone.";
+        ? "Each row is one install. Miles are along the route from where that trip started to arrival. Days open counts different days the app was opened."
+        : "No installs have reported yet. Run sql/020 and sql/021 in the Permit Path Supabase SQL editor, then open a new app build.";
     }
     if (!list) return;
     list.innerHTML = visible.map(function (row) {
       var phone = row.platform === "ios" ? "iPhone" : "Android";
+      var first = new Date(row.first_seen || "");
+      var age = isNaN(first.getTime()) ? "" : Math.max(0, Math.round((Date.now() - first.getTime()) / 86400000));
       return (
         '<div class="tos-row">' +
           "<span>" + esc(phone) + "</span>" +
           "<span>" + (row.is_subscribed ? "Subscribed" : "Not subscribed") + "</span>" +
-          '<span class="tos-meta">Built ' + num(row.routes_built) + "</span>" +
-          '<span class="tos-meta">Navigated ' + num(row.navigations_started) + "</span>" +
-          '<span class="tos-meta">Imported ' + num(row.permits_imported) + "</span>" +
-          '<span class="tos-meta">Shared ' + num(row.routes_shared) + "</span>" +
+          "<span>" + (row.is_signed_in ? "Signed in" : "Guest") + "</span>" +
+          '<span class="tos-meta">Go ' + num(row.navigations_started) + " · arrived " + num(row.arrivals) + "</span>" +
+          '<span class="tos-meta">Miles ' + Math.round(num(row.miles_driven)) + "</span>" +
+          '<span class="tos-meta">Off line ' + num(row.off_route_trips) + "</span>" +
+          '<span class="tos-meta">Texas ' + num(row.navigations_official) + " · built " + num(row.navigations_built) + "</span>" +
+          '<span class="tos-meta">Paywall ' + num(row.paywall_shown) + " · subscribe " + num(row.subscribe_tapped) + " · restore " + num(row.restore_tapped) + "</span>" +
+          '<span class="tos-meta">Cap ' + num(row.waypoint_cap) + " · import lock " + num(row.import_locked) + " · free " + num(row.free_tier_chosen) + "</span>" +
+          '<span class="tos-meta">PDF ' + num(row.imports_pdf) + " · QR " + num(row.imports_qr) + " · saved " + num(row.saved_routes_opened) + "</span>" +
+          '<span class="tos-meta">Days open ' + num(row.days_opened) + (age === "" ? "" : " · " + age + "d since first open") + "</span>" +
           '<span class="tos-meta">App ' + esc(row.app_version || "—") + "</span>" +
           '<span class="tos-meta">Last open ' + esc(when(row.last_seen)) + "</span>" +
           '<span class="tos-meta">Install ' + esc(shortId(row.install_id)) + "</span>" +
