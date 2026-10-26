@@ -17,6 +17,7 @@
   var inboxUnread = 0;
   var supportOpen = 0;
   var pc4hPendingReviews = 0;
+  var backupAt = "";
 
   function M() { return window.STLMoney; }
 
@@ -132,7 +133,32 @@
       + openProjectIssues().length
       + inboxUnread
       + supportOpen
-      + pc4hPendingReviews;
+      + pc4hPendingReviews
+      + (backupStale() ? 1 : 0);
+  }
+
+  function backupDays() {
+    if (!backupAt) return null;
+    var t = new Date(backupAt).getTime();
+    if (isNaN(t)) return null;
+    var start = new Date();
+    start = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    var then = new Date(t);
+    then = new Date(then.getFullYear(), then.getMonth(), then.getDate());
+    return Math.round((start - then) / 86400000);
+  }
+
+  function backupStale() {
+    var days = backupDays();
+    return days == null || days > 30;
+  }
+
+  function backupLabel() {
+    var days = backupDays();
+    if (days == null) return "Never";
+    if (days <= 0) return "Today";
+    if (days === 1) return "Yesterday";
+    return days + " days ago";
   }
 
   function unloggedRenewalsDueThisMonth() {
@@ -192,6 +218,7 @@
           '<button type="button" class="ov-chip inbox' + (inboxUnread ? " has-alert" : "") + '" data-go="inbox"><span class="k">Messages unread</span><span class="v">' + inboxUnread + "</span></button>" +
           '<button type="button" class="ov-chip support' + (supportOpen ? " has-alert" : "") + '" data-go="support"><span class="k">Support open</span><span class="v">' + supportOpen + "</span></button>" +
           '<button type="button" class="ov-chip pc4h' + (pc4hPendingReviews ? " has-alert" : "") + '" data-go="pc4hAdmin" data-pc4h-reviews="1"><span class="k">PC4H reviews waiting</span><span class="v">' + pc4hPendingReviews + "</span></button>" +
+          '<button type="button" class="ov-chip backup' + (backupStale() ? " has-alert" : "") + '" data-go="settings"><span class="k">Backup Log</span><span class="v">' + M().esc(backupLabel()) + "</span></button>" +
         "</div>" +
       "</div>";
 
@@ -245,6 +272,17 @@
           "Customer tickets waiting on you",
           "#BF5261",
           "support"
+        );
+        html += "</div>";
+      }
+
+      if (backupStale()) {
+        html += '<div class="ov-section"><h3>Backup</h3>';
+        html += row(
+          backupDays() == null ? "No Backup Log yet" : "Backup Log is " + backupDays() + " days old",
+          "Download a zip from Settings. Studio nags after 30 days.",
+          "#5A6578",
+          "settings"
         );
         html += "</div>";
       }
@@ -504,7 +542,10 @@
       safe("app_issues"),
       safe("studio_inbox", "id,status"),
       safe("support_tickets", "id,status"),
-      loadPc4hPendingReviews()
+      loadPc4hPendingReviews(),
+      db.from("studio_settings").select("value").eq("key", "backup_log_at").maybeSingle().then(function (res) {
+        return (res.data && res.data.value) || "";
+      }).catch(function () { return ""; })
     ]).then(function (pair) {
       renewals = pair[0];
       documents = pair[1];
@@ -518,6 +559,7 @@
         return row.status === "open" || row.status === "inProgress" || row.status === "waiting";
       }).length;
       pc4hPendingReviews = Number(pair[9]) || 0;
+      backupAt = pair[10] || "";
       var paths = [];
       apps.forEach(function (app) {
         if (app.icon_path && paths.indexOf(app.icon_path) < 0) paths.push(app.icon_path);

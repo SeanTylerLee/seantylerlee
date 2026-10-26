@@ -1967,8 +1967,22 @@
         });
       }).then(function (blob) {
         downloadBlob(blob, "STL-Apps-LLC_Backup-Log_" + stamp() + ".zip");
+        return markBackup(db);
       });
     });
+  }
+
+  function markBackup(db) {
+    var iso = new Date().toISOString();
+    return db.auth.getUser().then(function (auth) {
+      var user = auth.data && auth.data.user;
+      if (!user) return;
+      return db.from("studio_settings").upsert({
+        user_id: user.id,
+        key: "backup_log_at",
+        value: iso
+      }, { onConflict: "user_id,key" });
+    }).catch(function () {});
   }
 
   window.STLBackupLog = {
