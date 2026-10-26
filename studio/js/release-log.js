@@ -10,6 +10,7 @@
   var root = null;
   var db = null;
   var rows = [];
+  var saveTimers = {};
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -161,10 +162,10 @@
     }
     return (
       historyTable("iOS", ["When", "App", "Build", "Version"], ios, function (row) {
-        return [formatWhen(row.replaced_at || row.created_at), appName(row.app_key), row.build || "—", row.version || "—"];
+        return [formatWhen(row.replaced_at || row.created_at), appName(row.app_key), trim(row.build) || "—", trim(row.version) || "—"];
       }) +
       historyTable("Android", ["When", "App", "Version", "Version number"], android, function (row) {
-        return [formatWhen(row.replaced_at || row.created_at), appName(row.app_key), row.version || "—", row.build || "—"];
+        return [formatWhen(row.replaced_at || row.created_at), appName(row.app_key), trim(row.version) || "—", trim(row.build) || "—"];
       })
     );
   }
@@ -187,7 +188,7 @@
   function bind() {
     root.querySelectorAll("[data-live-version], [data-live-build]").forEach(function (input) {
       input.onchange = function () {
-        saveLive(input.getAttribute("data-live-version") || input.getAttribute("data-live-build"), input.getAttribute("data-platform"));
+        queueSaveLive(input.getAttribute("data-live-version") || input.getAttribute("data-live-build"), input.getAttribute("data-platform"));
       };
     });
     root.querySelectorAll("[data-push]").forEach(function (btn) {
@@ -206,12 +207,34 @@
     return { version: trim(v && v.value), build: trim(b && b.value) };
   }
 
+  function fillingIn(cur, next) {
+    if (!cur) return true;
+    var oldV = trim(cur.version);
+    var oldB = trim(cur.build);
+    var newV = trim(next.version);
+    var newB = trim(next.build);
+    if (!oldV && !oldB) return true;
+    if (oldV === newV && oldB === newB) return true;
+    if (!oldV && newV && oldB === newB) return true;
+    if (!oldB && newB && oldV === newV) return true;
+    return false;
+  }
+
+  function queueSaveLive(appKey, platform) {
+    var key = appKey + ":" + platform;
+    if (saveTimers[key]) clearTimeout(saveTimers[key]);
+    saveTimers[key] = setTimeout(function () {
+      saveTimers[key] = null;
+      saveLive(appKey, platform);
+    }, 400);
+  }
+
   function saveLive(appKey, platform) {
     var next = rowInputs(appKey, platform);
     var cur = liveOf(appKey, platform);
-    if (cur && cur.version === next.version && cur.build === next.build) return;
+    if (cur && trim(cur.version) === next.version && trim(cur.build) === next.build) return;
     var jobs = [];
-    if (cur && (trim(cur.version) || trim(cur.build))) {
+    if (cur && (trim(cur.version) || trim(cur.build)) && !fillingIn(cur, next)) {
       jobs.push(db.from("app_releases").insert({
         app_key: appKey,
         platform: platform,
