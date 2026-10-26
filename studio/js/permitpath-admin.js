@@ -33,6 +33,7 @@
   var loading = false;
   var deleting = false;
   var tab = "overview";
+  var fleetTrialRequests = [];
   var userFilter = null;
   var userSearch = "";
   var userSort = "seen";
@@ -661,6 +662,21 @@
       html += '<p class="sub pp-admin-updated">Updated ' + esc(updated) + ".</p>";
     }
 
+    html += '<div class="ops-card"><div class="pp-admin-watch-head"><h3>Free trial requests</h3>';
+    html += '<button type="button" class="btn btn-ghost" data-tab-jump="fleet">Fleet Management</button></div>';
+    if (!fleetTrialRequests.length) {
+      html += '<p class="sub">No fleets are waiting on trial codes.</p>';
+    } else {
+      fleetTrialRequests.forEach(function (fleet) {
+        var when = fleet.trial_requested_at ? formatRelativeTimeAgo(fleet.trial_requested_at) || formatShortDate(fleet.trial_requested_at) : "";
+        html += '<p><strong>' + esc(fleet.company_name) + "</strong> · " + esc(String(fleet.trial_request_seats)) + " drivers";
+        if (fleet.portal_email) html += " · " + esc(fleet.portal_email);
+        if (when) html += " · " + esc(when);
+        html += "</p>";
+      });
+    }
+    html += "</div>";
+
     html += '<div class="ops-chips pp-admin-chips">';
     html += chipCard("Users", metrics.total, "all", userFilter == null, "");
     html += chipCard("Subscribed", metrics.subscribed, "subscribed", userFilter === "subscribed", "ok");
@@ -1073,6 +1089,24 @@
     }
   }
 
+  function loadFleetTrialRequests() {
+    if (!window.STLLocalApi || typeof window.STLLocalApi.get !== "function") return;
+    window.STLLocalApi.get("/api/permitpath-fleets").then(function (res) {
+      var data = (res && res.data) || {};
+      var fleets = data.fleets || [];
+      var seats = data.seats || [];
+      fleetTrialRequests = fleets.filter(function (fleet) {
+        var asked = Number(fleet.trial_request_seats) || 0;
+        if (!asked) return false;
+        var have = seats.filter(function (seat) {
+          return seat.fleet_id === fleet.id && String(seat.billing || "paid") === "trial" && seat.active !== false;
+        }).length;
+        return asked > have;
+      });
+      if (tab === "overview") renderBodyOnly();
+    }).catch(function () {});
+  }
+
   function load(force) {
     if (loading && !force) return;
     if (!window.STLLocalApi || typeof window.STLLocalApi.get !== "function") {
@@ -1102,6 +1136,7 @@
         generatedAt = (data.stats && data.stats.generated_at) || new Date().toISOString();
         showMsg("");
         render();
+        loadFleetTrialRequests();
       })
       .catch(function (err) {
         loading = false;
