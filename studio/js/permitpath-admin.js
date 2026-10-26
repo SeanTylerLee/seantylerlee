@@ -385,6 +385,7 @@
           '<button type="button" class="ops-pill" data-tab="users">Users</button>' +
           '<button type="button" class="ops-pill" data-tab="deleted">Deleted</button>' +
           '<button type="button" class="ops-pill" data-tab="direct">Direct App Analytics</button>' +
+          '<button type="button" class="ops-pill" data-tab="fleet">Fleet Management</button>' +
           '<button type="button" class="btn btn-ghost" data-el="refresh" style="margin-left:auto">Refresh</button>' +
         "</div>" +
         '<div class="ops-body pp-admin-body" data-el="body"></div>' +
@@ -923,16 +924,23 @@
       body.innerHTML = '<div class="ops-empty">Loading Permit Path accounts…</div>';
       return;
     }
-    if (tab === "direct") {
-      if (body.getAttribute("data-direct") !== "1" && window.STLDirectAnalytics) {
-        body.setAttribute("data-direct", "1");
-        window.STLDirectAnalytics.mount(body);
+    if (tab === "direct" || tab === "fleet") {
+      var which = tab === "fleet" ? "fleet" : "direct";
+      var apiName = tab === "fleet" ? "STLFleetManagement" : "STLDirectAnalytics";
+      if (body.getAttribute("data-panel") !== which && window[apiName]) {
+        if (body.getAttribute("data-panel") === "direct" && window.STLDirectAnalytics) window.STLDirectAnalytics.unmount();
+        if (body.getAttribute("data-panel") === "fleet" && window.STLFleetManagement) window.STLFleetManagement.unmount();
+        body.setAttribute("data-panel", which);
+        body.removeAttribute("data-direct");
+        window[apiName].mount(body);
       }
       return;
     }
-    if (body.getAttribute("data-direct") === "1") {
-      body.removeAttribute("data-direct");
+    if (body.getAttribute("data-panel")) {
       if (window.STLDirectAnalytics && window.STLDirectAnalytics.unmount) window.STLDirectAnalytics.unmount();
+      if (window.STLFleetManagement && window.STLFleetManagement.unmount) window.STLFleetManagement.unmount();
+      body.removeAttribute("data-panel");
+      body.removeAttribute("data-direct");
     }
     if (tab === "users") body.innerHTML = usersHtml();
     else if (tab === "deleted") body.innerHTML = deletedHtml();
@@ -1042,6 +1050,10 @@
       refresh.addEventListener("click", function () {
         if (tab === "direct" && window.STLDirectAnalytics && window.STLDirectAnalytics.shown) {
           window.STLDirectAnalytics.shown();
+          return;
+        }
+        if (tab === "fleet" && window.STLFleetManagement && window.STLFleetManagement.shown) {
+          window.STLFleetManagement.shown();
           return;
         }
         load(true);
@@ -1169,6 +1181,7 @@
       closeDeleteModal();
       closeDrawer();
       if (window.STLDirectAnalytics && window.STLDirectAnalytics.unmount) window.STLDirectAnalytics.unmount();
+      if (window.STLFleetManagement && window.STLFleetManagement.unmount) window.STLFleetManagement.unmount();
       var panel = root && root.closest ? root.closest(".panel") : null;
       if (panel) panel.classList.remove("ops-wide");
       root = null;
