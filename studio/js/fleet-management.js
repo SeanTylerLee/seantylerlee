@@ -66,6 +66,10 @@
     return seatsFor(id).filter(function (seat) { return isTrial(seat) && seat.active !== false; });
   }
 
+  function money(n) {
+    return Number(n || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
+  }
+
   function rateFor(paidCount) {
     return paidCount >= 21 ? 3.39 : 3.99;
   }
