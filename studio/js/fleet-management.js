@@ -4,14 +4,12 @@
   var root = null;
   var fleets = [];
   var seats = [];
-  var invoices = [];
   var payments = [];
   var loading = false;
   var error = "";
   var notice = "";
   var openId = "";
   var draft = blankDraft();
-  var invoiceDraft = null;
   var formOpen = false;
 
   function blankDraft() {
@@ -170,197 +168,14 @@
     };
   }
 
-  function invoicesFor(id) {
-    return invoices.filter(function (row) { return row.fleet_id === id; });
-  }
-
-  function nextInvoiceNumber() {
-    var year = new Date().getFullYear();
-    var n = invoices.length + 1;
-    var number = "PP-" + year + "-" + String(n).padStart(3, "0");
-    var used = {};
-    invoices.forEach(function (row) { used[row.number] = true; });
-    while (used[number]) {
-      n += 1;
-      number = "PP-" + year + "-" + String(n).padStart(3, "0");
-    }
-    return number;
-  }
-
-  function blankInvoice(fleet) {
-    var issued = new Date().toISOString().slice(0, 10);
-    var due = new Date();
-    due.setDate(due.getDate() + 14);
-    return {
-      id: "",
-      fleet_id: fleet.id,
-      number: nextInvoiceNumber(),
-      status: "draft",
-      issued_on: issued,
-      due_on: due.toISOString().slice(0, 10),
-      service_start: issued,
-      seats: activeSeatCodes(fleet.id).length || Number(fleet.seats) || 1,
-      codes: activeSeatCodes(fleet.id),
-      rate: "",
-      months: 6,
-      note: ""
-    };
-  }
-
-  function addMonths(iso, months) {
-    if (!iso) return "";
-    var date = new Date(iso + "T00:00:00");
-    if (isNaN(date.getTime())) return "";
-    date.setMonth(date.getMonth() + Number(months || 0));
-    return date.toISOString().slice(0, 10);
-  }
-
-  function prettyDate(iso) {
-    if (!iso) return "";
-    var date = new Date(iso + "T00:00:00");
-    if (isNaN(date.getTime())) return iso;
-    return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-  }
-
-  function money(n) {
-    return Number(n || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
-  }
-
-  function invoicePreviewHtml(fleet, invoice) {
-    var total = amountOf(invoice);
-    var start = invoice.service_start || invoice.issued_on;
-    var end = addMonths(start, invoice.months);
-    var address = String(fleet.billing_address || "").split(/\n/).filter(Boolean).map(function (line) {
-      return "<div>" + esc(line) + "</div>";
-    }).join("");
-    var note = invoice.note || ("Payable to STL Apps LLC, owner of Permit Path. Access runs from " +
-      prettyDate(start) + " through " + prettyDate(end) + ".");
-    return (
-      '<article class="invoice-sheet">' +
-        '<header>' +
-          '<img src="images/permitpath-logo.png" alt="Permit Path">' +
-          '<div><strong>INVOICE</strong><span>' + esc(invoice.number || "") + "</span><em>" + esc(String(invoice.status || "draft").toUpperCase()) + "</em></div>" +
-        "</header>" +
-        '<p class="invoice-brand"><img src="images/stlapps-logo.jpg" alt="STL Apps LLC"><span>An STL Apps LLC company<br>Sean Lee<br>seantylerlee@icloud.com<br>seantylerlee.com</span></p>' +
-        '<div class="invoice-parties">' +
-          "<section><h4>Bill to</h4><strong>" + esc(fleet.company_name || "") + "</strong>" + address +
-            (fleet.contact_email ? "<div>" + esc(fleet.contact_email) + "</div>" : "") + "</section>" +
-          "<section><h4>Service</h4>" +
-            "<div><span>Issued</span>" + esc(prettyDate(invoice.issued_on)) + "</div>" +
-            "<div><span>Payment due</span>" + esc(prettyDate(invoice.due_on)) + "</div>" +
-            "<div><span>Starts</span>" + esc(prettyDate(start)) + "</div>" +
-            "<div><span>Expires</span>" + esc(prettyDate(end)) + "</div>" +
-          "</section>" +
-        "</div>" +
-        "<table><thead><tr><th>Description</th><th>Seats</th><th>Months</th><th>Per seat</th><th>Amount</th></tr></thead><tbody><tr>" +
-          "<td>Permit Path fleet seats" + (invoice.rate === 3.39 ? " · 21+ rate" : "") + "</td><td>" + esc(invoice.seats) + "</td><td>" + esc(invoice.months) +
-          "</td><td>" + esc(money(invoice.rate)) + "</td><td>" + esc(money(total)) + "</td>" +
-        "</tr></tbody></table>" +
-        '<p class="invoice-due"><span>Amount due</span><strong>' + esc(money(total)) + "</strong></p>" +
-        codeListHtml(invoice.codes) +
-        "<p>" + esc(note) + "</p>" +
-      "</article>"
-    );
-  }
-
-  function codeListHtml(codes) {
-    var list = codes || [];
-    if (!list.length) return "<p>No seat codes on this invoice.</p>";
-    return "<h4>Seat codes</h4><div class=\"invoice-codes\">" + list.map(function (code) {
-      return "<span>" + esc(code) + "</span>";
-    }).join("") + "</div>";
-  }
-
-  function activeSeatCodes(fleetId) {
-    return seatsFor(fleetId).filter(function (seat) {
-      return seat.code && seat.active !== false;
-    }).map(function (seat) { return seat.code; });
-  }
-
-  function readInvoiceForm(fleet) {
-    var box = root.querySelector("[data-invoice-form]");
-    return {
-      id: invoiceDraft && invoiceDraft.id || "",
-      fleet_id: fleet.id,
-      number: box.querySelector("[name=number]").value.trim(),
-      status: box.querySelector("[name=status]").value,
-      issued_on: box.querySelector("[name=issued_on]").value,
-      due_on: box.querySelector("[name=due_on]").value,
-      service_start: box.querySelector("[name=service_start]").value,
-      seats: checkedCodes().filter(function (code) {
-        var seat = seats.filter(function (row) { return row.code === code; })[0];
-        return seat && !isTrial(seat);
-      }).length,
-      rate: rateFor(paidSeats(fleet.id).length),
-      months: Number(box.querySelector("[name=months]").value || 1),
-      note: box.querySelector("[name=note]").value.trim(),
-      codes: checkedCodes()
-    };
-  }
-
-  function checkedCodes() {
-    if (!root) return [];
-    return Array.prototype.map.call(root.querySelectorAll("[data-code-pick]:checked"), function (box) {
-      return box.getAttribute("data-code-pick");
-    });
-  }
-
   function invoiceBlock(fleet, deviceRows) {
-    var list = invoicesFor(fleet.id).map(function (row) {
-      return "<tr><td>" + esc(row.number) + "</td><td>" + esc(row.status) + "</td><td>" +
-        esc(row.issued_on) + "</td><td>" + esc(Number(row.amount || 0).toLocaleString("en-US", { style: "currency", currency: "USD" })) +
-        '</td><td><button type="button" class="btn btn-ghost" data-invoice-edit="' + esc(row.id) + '">Open</button></td></tr>';
-    }).join("");
-    var editor = "";
-    if (invoiceDraft && invoiceDraft.fleet_id === fleet.id) {
-      editor =
-        '<div class="invoice-maker">' +
-          '<form class="fleet-form" data-invoice-form>' +
-            "<h2>" + (invoiceDraft.id ? "Edit invoice" : "New invoice") + "</h2>" +
-            '<div class="fleet-form-row">' +
-              '<label>Invoice number<input name="number" value="' + esc(invoiceDraft.number) + '" required></label>' +
-              '<label>Status<select name="status">' +
-                ["draft", "sent", "paid"].map(function (status) {
-                  var label = status.charAt(0).toUpperCase() + status.slice(1);
-                  return '<option value="' + status + '"' + (invoiceDraft.status === status ? " selected" : "") + ">" + label + "</option>";
-                }).join("") +
-              "</select></label>" +
-            "</div>" +
-            '<div class="fleet-form-row">' +
-              '<label>Issued<input name="issued_on" type="date" value="' + esc(invoiceDraft.issued_on) + '" required></label>' +
-              '<label>Payment due<input name="due_on" type="date" value="' + esc(invoiceDraft.due_on) + '"></label>' +
-            "</div>" +
-            '<p class="tos-note">Price follows the company. 1–20 paid devices are $3.99. 21 or more are $3.39. Trial codes on this invoice are free.</p>' +
-            '<div class="fleet-form-row">' +
-              '<label>Duration<select name="months">' +
-                [1, 3, 6, 12].map(function (months) {
-                  return '<option value="' + months + '"' + (Number(invoiceDraft.months) === months ? " selected" : "") + ">" + months + (months === 1 ? " month" : " months") + "</option>";
-                }).join("") +
-              "</select></label>" +
-              '<label>Service starts<input name="service_start" type="date" value="' + esc(invoiceDraft.service_start || invoiceDraft.issued_on) + '"></label>' +
-            "</div>" +
-            '<p class="tos-note">Check the codes to print on this invoice. The seat count follows those checks. Copy all codes copies every active code.</p>' +
-            '<label>Note on the invoice<textarea name="note" rows="2" placeholder="Optional. Leave blank for the standard payment note.">' + esc(invoiceDraft.note || "") + "</textarea></label>" +
-            '<div class="fleet-form-actions">' +
-              '<button type="submit" class="btn btn-primary">Save invoice</button>' +
-              '<button type="button" class="btn btn-ghost" data-invoice-pdf>Download PDF</button>' +
-              '<button type="button" class="btn btn-ghost" data-invoice-send>Send</button>' +
-              '<button type="button" class="btn btn-ghost" data-invoice-cancel>Close</button>' +
-            "</div>" +
-          "</form>" +
-          '<div class="invoice-preview" data-invoice-preview></div>' +
-        "</div>";
-    }
     return (
       '<div class="fleet-form-actions">' +
         '<button type="button" class="btn btn-ghost" data-copy-all="' + esc(fleet.id) + '">Copy all codes</button>' +
-        '<button type="button" class="btn btn-primary" data-invoice-new="' + esc(fleet.id) + '">New invoice</button>' +
       "</div>" +
-      '<table class="fleet-seats"><thead><tr><th></th><th>Code</th><th>Status</th><th></th></tr></thead><tbody>' +
-        (deviceRows || '<tr><td colspan="4">No codes yet. Save the company with a seat count.</td></tr>') +
-      "</tbody></table>" +
-      (list ? '<table class="fleet-seats"><thead><tr><th>Invoice</th><th>Status</th><th>Issued</th><th>Amount</th><th></th></tr></thead><tbody>' + list + "</tbody></table>" : "") +
-      editor
+      '<table class="fleet-seats"><thead><tr><th>Code</th><th>Status</th><th></th></tr></thead><tbody>' +
+        (deviceRows || '<tr><td colspan="3">No codes yet.</td></tr>') +
+      "</tbody></table>"
     );
   }
 
@@ -368,19 +183,14 @@
     var used = seatsFor(fleet.id);
     var open = openId === fleet.id;
     var claimed = used.filter(function (seat) { return seat.install_id; }).length;
-    var invoicing = invoiceDraft && invoiceDraft.fleet_id === fleet.id;
-    var chosen = invoicing && invoiceDraft.codes ? invoiceDraft.codes : [];
     var rows = used.map(function (seat) {
       var phone = seat.platform === "ios" ? "iPhone or iPad" : seat.platform === "android" ? "Android" : "Phone or tablet";
       var where = isTrial(seat) ? "Trial until " + (seat.trial_until || "—") : "Paid";
       if (seat.install_id) where += " · " + phone;
       else where += " · not used";
       if (seat.active === false) where = "Off";
-      var pick = invoicing && seat.code
-        ? '<input type="checkbox" data-code-pick="' + esc(seat.code) + '"' + (chosen.indexOf(seat.code) !== -1 ? " checked" : "") + (seat.active === false ? " disabled" : "") + ">"
-        : "";
       return (
-        "<tr><td>" + pick + "</td><td class=\"fleet-code\">" + esc(seat.code || "—") + "</td><td>" + esc(where) +
+        "<tr><td class=\"fleet-code\">" + esc(seat.code || "—") + "</td><td>" + esc(where) +
         '</td><td><button type="button" class="btn btn-ghost" data-copy="' + esc(seat.code || "") + '">Copy</button> ' +
         '<button type="button" class="btn btn-ghost" data-seat="' + esc(seat.id) + '" data-seat-active="' + (seat.active === false ? "1" : "0") + '">' +
         (seat.active === false ? "Turn on" : "Turn off") + "</button></td></tr>"
@@ -523,15 +333,6 @@
         render();
       };
     });
-    root.querySelectorAll("[data-code-pick]").forEach(function (box) {
-      box.onchange = function () {
-        var codes = checkedCodes();
-        if (invoiceDraft) invoiceDraft.codes = codes;
-        var preview = root.querySelector("[data-invoice-preview]");
-        var fleet = fleets.filter(function (row) { return invoiceDraft && row.id === invoiceDraft.fleet_id; })[0];
-        if (preview && fleet) preview.innerHTML = invoicePreviewHtml(fleet, readInvoiceForm(fleet));
-      };
-    });
     root.querySelectorAll("[data-seat]").forEach(function (btn) {
       btn.onclick = function () {
         api().post("/api/permitpath-fleets", {
@@ -603,77 +404,6 @@
         render();
       };
     });
-    root.querySelectorAll("[data-invoice-new]").forEach(function (btn) {
-      btn.onclick = function () {
-        var fleet = fleets.filter(function (row) { return row.id === btn.getAttribute("data-invoice-new"); })[0];
-        if (!fleet) return;
-        invoiceDraft = blankInvoice(fleet);
-        openId = fleet.id;
-        render();
-      };
-    });
-    root.querySelectorAll("[data-invoice-edit]").forEach(function (btn) {
-      btn.onclick = function () {
-        var row = invoices.filter(function (item) { return item.id === btn.getAttribute("data-invoice-edit"); })[0];
-        if (!row) return;
-        var payload = row.payload || {};
-        invoiceDraft = {
-          id: row.id,
-          fleet_id: row.fleet_id,
-          number: row.number,
-          status: row.status,
-          issued_on: row.issued_on,
-          due_on: row.due_on || "",
-          service_start: payload.service_start || row.issued_on,
-          codes: payload.codes || [],
-          seats: payload.seats || 1,
-          rate: payload.rate || "",
-          months: payload.months || 1,
-          note: payload.note || ""
-        };
-        openId = row.fleet_id;
-        render();
-      };
-    });
-    var invoiceForm = root.querySelector("[data-invoice-form]");
-    if (invoiceForm) {
-      invoiceForm.onsubmit = function (event) {
-        event.preventDefault();
-        var fleet = fleets.filter(function (row) { return row.id === invoiceDraft.fleet_id; })[0];
-        if (fleet) saveInvoice(fleet, readInvoiceForm(fleet), false);
-      };
-      var pdfBtn = invoiceForm.querySelector("[data-invoice-pdf]");
-      var sendBtn = invoiceForm.querySelector("[data-invoice-send]");
-      var cancelBtn = invoiceForm.querySelector("[data-invoice-cancel]");
-      if (pdfBtn) pdfBtn.onclick = function () {
-        var fleet = fleets.filter(function (row) { return row.id === invoiceDraft.fleet_id; })[0];
-        if (fleet) downloadInvoice(fleet, readInvoiceForm(fleet));
-      };
-      if (sendBtn) sendBtn.onclick = function () {
-        var fleet = fleets.filter(function (row) { return row.id === invoiceDraft.fleet_id; })[0];
-        if (!fleet) return;
-        var invoice = readInvoiceForm(fleet);
-        invoice.status = invoice.status === "paid" ? "paid" : "sent";
-        saveInvoice(fleet, invoice, true);
-      };
-      if (cancelBtn) cancelBtn.onclick = function () {
-        invoiceDraft = null;
-        render();
-      };
-      var preview = root.querySelector("[data-invoice-preview]");
-      var refreshMath = function () {
-        if (!preview || !invoiceDraft) return;
-        var fleet = fleets.filter(function (row) { return row.id === invoiceDraft.fleet_id; })[0];
-        if (!fleet) return;
-        preview.innerHTML = invoicePreviewHtml(fleet, readInvoiceForm(fleet));
-      };
-      invoiceForm.querySelectorAll("input, select, textarea").forEach(function (field) {
-        field.addEventListener("input", function () {
-            refreshMath();
-        });
-      });
-      refreshMath();
-    }
     root.querySelectorAll("[data-remove]").forEach(function (btn) {
       btn.onclick = function () {
         var id = btn.getAttribute("data-remove") || "";
@@ -712,12 +442,10 @@
       if (!res || !res.ok) {
         fleets = [];
         seats = [];
-        invoices = [];
-        error = data.error || "Could not load fleets.";
+          error = data.error || "Could not load fleets.";
       } else {
         fleets = data.fleets || [];
         seats = data.seats || [];
-        invoices = data.invoices || [];
         payments = data.payments || [];
         error = "";
       }
@@ -726,7 +454,6 @@
     }).catch(function (err) {
       fleets = [];
       seats = [];
-      invoices = [];
       loading = false;
       error = (err && err.message) || "Could not load fleets.";
       render();
@@ -759,248 +486,6 @@
     });
   }
 
-  function amountOf(invoice) {
-    return Math.round((Number(invoice.seats) || 0) * (Number(invoice.rate) || 0) * (Number(invoice.months) || 0) * 100) / 100;
-  }
-
-  function drawInvoiceCodes(doc, codes, y, pageW) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(0, 24, 72);
-    if (y > 700) {
-      doc.addPage();
-      y = 48;
-    }
-    doc.text("SEAT CODES", 48, y);
-    y += 16;
-    doc.setFont("courier", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(26, 35, 54);
-    if (!codes.length) {
-      doc.setFont("helvetica", "normal");
-      doc.text("No seat codes on this invoice.", 48, y);
-      return y + 18;
-    }
-    var columns = 3;
-    var colW = (pageW - 96) / columns;
-    codes.forEach(function (code, index) {
-      var col = index % columns;
-      if (col === 0 && index > 0) y += 14;
-      if (y > 740) {
-        doc.addPage();
-        y = 48;
-      }
-      doc.text(String(code), 48 + col * colW, y);
-    });
-    return y + 22;
-  }
-
-  function loadLogo(src) {
-    return fetch(src).then(function (res) { return res.blob(); }).then(function (blob) {
-      return new Promise(function (resolve) {
-        var reader = new FileReader();
-        reader.onload = function () { resolve(reader.result); };
-        reader.readAsDataURL(blob);
-      });
-    }).catch(function () { return null; });
-  }
-
-  function buildFleetInvoicePdf(fleet, invoice) {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-      return Promise.reject(new Error("PDF library failed to load."));
-    }
-    return Promise.all([
-      loadLogo("images/permitpath-logo.png"),
-      loadLogo("images/stlapps-logo.jpg")
-    ]).then(function (logos) {
-      var doc = new window.jspdf.jsPDF({ unit: "pt", format: "letter", compress: true });
-      var total = amountOf(invoice);
-      var start = invoice.service_start || invoice.issued_on;
-      var end = addMonths(start, invoice.months);
-      var pageW = doc.internal.pageSize.getWidth();
-      doc.setProperties({
-        title: "Invoice " + invoice.number,
-        author: "STL Apps LLC",
-        creator: "STL Apps LLC"
-      });
-      doc.setFillColor(0, 24, 72);
-      doc.rect(0, 0, pageW, 6, "F");
-      if (logos[0]) doc.addImage(logos[0], "PNG", 48, 28, 210, 88);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(22);
-      doc.setTextColor(0, 24, 72);
-      doc.text("INVOICE", pageW - 48, 52, { align: "right" });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.setTextColor(80, 92, 118);
-      doc.text(invoice.number || "", pageW - 48, 70, { align: "right" });
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(invoice.status === "paid" ? 27 : 138, invoice.status === "paid" ? 107 : 90, invoice.status === "paid" ? 50 : 0);
-      doc.text(String(invoice.status || "draft").toUpperCase(), pageW - 48, 88, { align: "right" });
-
-      var y = 132;
-      if (logos[1]) doc.addImage(logos[1], "JPEG", 48, y, 92, 21);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(80, 92, 118);
-      doc.text("An STL Apps LLC company", 148, y + 14);
-      y += 36;
-      doc.text("Sean Lee", 48, y);
-      doc.text("seantylerlee@icloud.com", 48, y + 12);
-      doc.text("seantylerlee.com", 48, y + 24);
-      y += 42;
-      doc.setDrawColor(213, 227, 251);
-      doc.line(48, y, pageW - 48, y);
-      y += 22;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(0, 24, 72);
-      doc.text("BILL TO", 48, y);
-      doc.text("SERVICE", 300, y);
-      y += 16;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.setTextColor(26, 35, 54);
-      doc.text(fleet.company_name || "", 48, y);
-      var address = String(fleet.billing_address || "").split(/\n/).slice(0, 4);
-      address.forEach(function (line, index) {
-        doc.setFontSize(10);
-        doc.text(line, 48, y + 14 + index * 12);
-      });
-      if (fleet.contact_email) doc.text(fleet.contact_email, 48, y + 14 + address.length * 12);
-      var facts = [
-        ["Issued", prettyDate(invoice.issued_on)],
-        ["Payment due", prettyDate(invoice.due_on)],
-        ["Service starts", prettyDate(start)],
-        ["Service expires", prettyDate(end)]
-      ];
-      facts.forEach(function (fact, index) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(80, 92, 118);
-        doc.text(fact[0], 300, y + index * 16);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(26, 35, 54);
-        doc.text(fact[1] || "—", 390, y + index * 16);
-      });
-      y += Math.max(78, 28 + address.length * 12);
-      doc.setFillColor(244, 248, 255);
-      doc.rect(48, y, pageW - 96, 22, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(0, 24, 72);
-      doc.text("DESCRIPTION", 56, y + 15);
-      doc.text("SEATS", 300, y + 15);
-      doc.text("MONTHS", 360, y + 15);
-      doc.text("PER SEAT / MO", 430, y + 15);
-      doc.text("AMOUNT", pageW - 56, y + 15, { align: "right" });
-      y += 40;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.setTextColor(26, 35, 54);
-      doc.text("Permit Path fleet seats", 56, y);
-      doc.setFontSize(9);
-      doc.setTextColor(80, 92, 118);
-      doc.text("Company phones and tablets. One seat is one device.", 56, y + 14);
-      doc.setFontSize(11);
-      doc.setTextColor(26, 35, 54);
-      doc.text(String(invoice.seats), 300, y);
-      doc.text(String(invoice.months), 360, y);
-      doc.text(money(invoice.rate), 430, y);
-      doc.text(money(total), pageW - 56, y, { align: "right" });
-      y += 36;
-      doc.line(48, y, pageW - 48, y);
-      y += 22;
-      doc.setFont("helvetica", "bold");
-      doc.text("AMOUNT DUE", 360, y);
-      doc.setFontSize(14);
-      doc.text(money(total), pageW - 56, y, { align: "right" });
-      y += 28;
-      y = drawInvoiceCodes(doc, invoice.codes || [], y, pageW);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(26, 35, 54);
-      var note = invoice.note || "Payable to STL Apps LLC, owner of Permit Path. Access runs from " +
-        prettyDate(start) + " through " + prettyDate(end) + ".";
-      doc.splitTextToSize(note, pageW - 96).forEach(function (line) {
-        doc.text(line, 48, y);
-        y += 13;
-      });
-      doc.setFontSize(8);
-      doc.setTextColor(80, 92, 118);
-      doc.text("STL Apps LLC  ·  Permit Path  ·  seantylerlee.com", 48, 760);
-      return {
-        blob: doc.output("blob"),
-        filename: "STL-Apps-LLC_Permit-Path_Invoice_" + String(invoice.number || "invoice").replace(/[^A-Za-z0-9-]+/g, "-") + ".pdf"
-      };
-    });
-  }
-
-  function downloadInvoice(fleet, invoice) {
-    return buildFleetInvoicePdf(fleet, invoice).then(function (file) {
-      var link = document.createElement("a");
-      link.href = URL.createObjectURL(file.blob);
-      link.download = file.filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(function () { URL.revokeObjectURL(link.href); }, 1500);
-    }).catch(function (err) {
-      error = (err && err.message) || "Could not build the PDF.";
-      render();
-    });
-  }
-
-  function saveInvoice(fleet, invoice, send) {
-    notice = "";
-    error = "";
-    var amount = amountOf(invoice);
-    var payload = {
-      seats: invoice.seats,
-      rate: invoice.rate,
-      months: invoice.months,
-      service_start: invoice.service_start,
-      service_end: addMonths(invoice.service_start, invoice.months),
-      codes: invoice.codes || [],
-      note: invoice.note || ""
-    };
-    api().post("/api/permitpath-fleets", {
-      action: "save-invoice",
-      invoice: {
-        id: invoice.id,
-        fleet_id: fleet.id,
-        number: invoice.number,
-        status: invoice.status,
-        issued_on: invoice.issued_on,
-        due_on: invoice.due_on,
-        amount: amount,
-        payload: payload
-      }
-    }).then(function (res) {
-      var data = (res && res.data) || {};
-      if (!res || !res.ok) {
-        error = data.error || "Could not save the invoice.";
-        render();
-        return;
-      }
-      notice = send ? "Invoice saved. Your mail app will open so you can attach the PDF." : "Invoice saved.";
-      if (send) {
-        downloadInvoice(fleet, invoice).catch(function () {});
-        var subject = encodeURIComponent("Permit Path invoice " + invoice.number + " from STL Apps LLC");
-        var body = encodeURIComponent(
-          "Attached is invoice " + invoice.number + " from STL Apps LLC for Permit Path fleet seats.\n\nPayable to STL Apps LLC."
-        );
-        if (fleet.contact_email) window.location.href = "mailto:" + fleet.contact_email + "?subject=" + subject + "&body=" + body;
-      }
-      invoiceDraft = null;
-      load();
-    }).catch(function (err) {
-      error = (err && err.message) || "Could not save the invoice.";
-      render();
-    });
-  }
-
   function remove(id) {
     api().post("/api/permitpath-fleets", { action: "delete", id: id }).then(function (res) {
       var data = (res && res.data) || {};
@@ -1023,8 +508,6 @@
       root = panel;
       fleets = [];
       seats = [];
-      invoices = [];
-      invoiceDraft = null;
       openId = "";
       draft = blankDraft();
       error = "";
