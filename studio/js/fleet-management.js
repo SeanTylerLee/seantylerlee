@@ -388,7 +388,7 @@
         "</div>" +
         (fleet.notes ? "<p>" + esc(fleet.notes) + "</p>" : "") +
         '<div class="fleet-form-actions">' +
-          '<button type="button" class="btn btn-ghost" data-copy-link="https://permitpathnav.com/fleet-login.html">Copy login link</button>' +
+          '<button type="button" class="btn btn-ghost" data-copy-link="https://permitpathnav.com/fleet-solutions.html#fleet-login">Copy login link</button>' +
           '<button type="button" class="btn btn-ghost" data-edit="' + esc(fleet.id) + '">Edit</button>' +
           '<button type="button" class="btn btn-ghost" data-toggle="' + esc(fleet.id) + '">' + (fleet.active ? "Turn company off" : "Turn company on") + "</button>" +
           '<button type="button" class="btn btn-danger" data-remove="' + esc(fleet.id) + '">Delete</button>' +
