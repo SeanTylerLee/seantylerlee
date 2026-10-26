@@ -109,13 +109,25 @@
   padding: 0 10px;
   border: 1px solid var(--line-strong, #c8d0dc);
   border-radius: 8px;
-  background: var(--window, #f4f6f9);
-  color: inherit;
+  color: #12213d;
   font: inherit;
   font-size: 13px;
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
+}
+
+.rl-live input {
+  background: #dceafc;
+  border-color: #b7d0f4;
+  color: #12213d;
+}
+
+.rl-add-pushed input,
+.rl-tag {
+  background: #d8f3e4;
+  border-color: #b5e0c8;
+  color: #12213d;
 }
 
 .rl-wait {
@@ -150,8 +162,6 @@
   border: 0;
   border-radius: 999px;
   padding: 5px 8px 5px 10px;
-  background: #eef1f6;
-  color: inherit;
   font: inherit;
   font-size: 12px;
   font-weight: 600;
