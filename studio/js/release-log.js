@@ -125,6 +125,36 @@
     );
   }
 
+  function historyTable(title, heads, list, cellsFn) {
+    if (!list.length) return "";
+    return (
+      '<h3 class="rl-sub">' + esc(title) + '</h3>' +
+      '<table class="rl-table"><thead><tr>' +
+        heads.map(function (h) { return "<th>" + esc(h) + "</th>"; }).join("") +
+      "</tr></thead><tbody>" +
+      list.map(function (row) {
+        return "<tr>" + cellsFn(row).map(function (c) { return "<td>" + esc(c) + "</td>"; }).join("") + "</tr>";
+      }).join("") +
+      "</tbody></table>"
+    );
+  }
+
+  function historyTables(hist) {
+    var ios = hist.filter(function (row) { return row.platform === "ios"; });
+    var android = hist.filter(function (row) { return row.platform === "android"; });
+    if (!ios.length && !android.length) {
+      return '<p class="rl-empty">When you change a live version, the old one lands here.</p>';
+    }
+    return (
+      historyTable("iOS", ["When", "App", "Build", "Version"], ios, function (row) {
+        return [formatWhen(row.replaced_at || row.created_at), appName(row.app_key), row.build || "—", row.version || "—"];
+      }) +
+      historyTable("Android", ["When", "App", "Version", "Version number"], android, function (row) {
+        return [formatWhen(row.replaced_at || row.created_at), appName(row.app_key), row.version || "—", row.build || "—"];
+      })
+    );
+  }
+
   function render() {
     var box = el("body");
     if (!box) return;
@@ -140,21 +170,7 @@
       '</section>' +
       '<section class="rl-block">' +
         '<h2>Replaced live versions</h2>' +
-        (hist.length
-          ? '<table class="rl-table"><thead><tr><th>When</th><th>Store</th><th>App</th><th>Version</th><th>Build / number</th></tr></thead><tbody>' +
-            hist.map(function (row) {
-              return (
-                '<tr>' +
-                  '<td>' + esc(formatWhen(row.replaced_at || row.created_at)) + '</td>' +
-                  '<td>' + esc(platformLabel(row.platform)) + '</td>' +
-                  '<td>' + esc(appName(row.app_key)) + '</td>' +
-                  '<td>' + esc(row.version || "—") + '</td>' +
-                  '<td>' + esc(row.build || "—") + '</td>' +
-                '</tr>'
-              );
-            }).join("") +
-            '</tbody></table>'
-          : '<p class="rl-empty">When you change a live version, the old one lands here.</p>') +
+        historyTables(hist) +
       '</section>';
     bind();
   }

@@ -596,10 +596,15 @@
       return String(b.replaced_at || b.created_at || "").localeCompare(String(a.replaced_at || a.created_at || ""));
     }).forEach(function (row, i) {
       pdf.recordHead((row.platform === "ios" ? "iOS" : "Android") + " · " + (names[row.app_key] || row.app_key), i + 1, list.length);
-      filled(pdf, [
+      filled(pdf, row.platform === "ios" ? [
+        ["Kind", row.kind],
+        ["Build", row.build],
+        ["Version", row.version],
+        ["Replaced", row.replaced_at || ""]
+      ] : [
         ["Kind", row.kind],
         ["Version", row.version],
-        ["Build / version number", row.build],
+        ["Version number", row.build],
         ["Replaced", row.replaced_at || ""]
       ]);
     });
