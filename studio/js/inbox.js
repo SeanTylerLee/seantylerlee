@@ -250,6 +250,7 @@
             '<span class="inbox-row-meta">' +
               '<span class="inbox-tag is-' + esc(item.source) + '">' + esc(typeTitle(item.source)) + "</span>" +
               (item.status === "archived" ? '<span class="inbox-tag is-archived">Archived</span>' : "") +
+              (item.replied ? '<span class="inbox-tag is-replied">Replied</span>' : "") +
               "<span>" + esc(siteTitle(item.site)) + (extra ? " · " + extra : "") + "</span>" +
             "</span>" +
             (snip ? '<span class="inbox-row-snip">' + esc(snip) + "</span>" : "") +
@@ -290,6 +291,7 @@
             "<h2>" + esc(trim(row.name) || trim(row.email) || "Message") + "</h2>" +
             (bits.length ? '<p class="inbox-letter-contact">' + bits.join(" · ") + "</p>" : "") +
             '<p class="inbox-letter-meta">' + esc(typeTitle(row.source)) + " · " + esc(siteTitle(row.site)) + " · " + esc(stamp(row.created_at)) + "</p>" +
+            '<label class="inbox-replied"><input type="checkbox" data-el="replied" ' + (row.replied ? "checked " : "") + "/> Replied</label>" +
           "</div>" +
           '<span class="inbox-tag is-' + esc(row.source) + '">' + esc(typeTitle(row.source)) + "</span>" +
         "</header>" +
@@ -820,6 +822,12 @@
         };
       });
     }
+    var repliedBox = el("replied");
+    if (repliedBox) {
+      repliedBox.onchange = function () {
+        setReplied(selected(), !!repliedBox.checked);
+      };
+    }
     var readBtn = root ? root.querySelector(".inbox-letter-foot [data-el='read']") : null;
     if (readBtn) readBtn.onclick = function () { setStatus(selected(), "read"); };
     var unreadBtn = el("unread");
@@ -847,6 +855,21 @@
         });
       };
     }
+  }
+
+  function setReplied(row, on) {
+    if (!row) return;
+    db.from("studio_inbox").update({ replied: on }).eq("id", row.id).then(function (res) {
+      if (res.error) {
+        showMsg(/does not exist|schema cache|column/i.test(res.error.message || "")
+          ? "Run sql/059_inbox_replied.sql in Supabase, then refresh."
+          : res.error.message, false);
+        render();
+        return;
+      }
+      row.replied = on;
+      render();
+    });
   }
 
   function setStatus(row, status) {

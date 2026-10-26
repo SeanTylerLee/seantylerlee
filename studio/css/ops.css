@@ -566,6 +566,24 @@ html.is-phone .app.is-notifications .ops-card {
 .inbox-tag.is-release_notify { background: rgba(56, 179, 117, 0.18); color: #1b6b32; }
 .inbox-tag.is-permit_sample { background: rgba(14, 165, 233, 0.16); color: #0369a1; }
 .inbox-tag.is-archived { background: rgba(0, 0, 0, 0.08); color: var(--muted); }
+.inbox-tag.is-replied { background: rgba(56, 179, 117, 0.18); color: #1b6b32; }
+
+.inbox-replied {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.inbox-replied input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
 
 .inbox-files {
   margin: 0 0 14px;

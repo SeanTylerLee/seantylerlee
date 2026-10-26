@@ -910,6 +910,7 @@
       pdf.recordHead((row.name || row.email || "Message") + "  " + (row.source || ""), i + 1, rows.length);
       filled(pdf, [
         ["Status", row.status],
+        ["Replied", row.replied ? "Yes" : ""],
         ["Source", row.source],
         ["Site", row.site],
         ["Name", row.name],
