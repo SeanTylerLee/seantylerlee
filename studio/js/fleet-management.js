@@ -315,7 +315,13 @@
           action: "toggle-seat",
           id: btn.getAttribute("data-seat"),
           active: btn.getAttribute("data-seat-active") === "1"
-        }).then(function () {
+        }).then(function (res) {
+          var data = (res && res.data) || {};
+          if (!res || !res.ok) {
+            error = data.error || "Could not update that seat.";
+            render();
+            return;
+          }
           notice = "Seat updated.";
           load();
         }).catch(function (err) {
@@ -455,11 +461,19 @@
       return;
     }
     client.get("/api/permitpath-fleets").then(function (res) {
-      fleets = (res && res.fleets) || [];
-      seats = (res && res.seats) || [];
-      invoices = (res && res.invoices) || [];
+      var data = (res && res.data) || {};
+      if (!res || !res.ok) {
+        fleets = [];
+        seats = [];
+        invoices = [];
+        error = data.error || "Could not load fleets.";
+      } else {
+        fleets = data.fleets || [];
+        seats = data.seats || [];
+        invoices = data.invoices || [];
+        error = "";
+      }
       loading = false;
-      if (!draft.code) draft.code = makeCode("");
       render();
     }).catch(function (err) {
       fleets = [];
@@ -475,9 +489,15 @@
     notice = "";
     error = "";
     api().post("/api/permitpath-fleets", body).then(function (res) {
+      var data = (res && res.data) || {};
+      if (!res || !res.ok) {
+        error = data.error || "Could not save.";
+        render();
+        return;
+      }
       draft = blankDraft();
-      if (res && res.warning) {
-        error = res.warning;
+      if (data.warning) {
+        error = data.warning;
         notice = "";
       } else {
         error = "";
@@ -531,7 +551,13 @@
         amount: amount,
         payload: payload
       }
-    }).then(function () {
+    }).then(function (res) {
+      var data = (res && res.data) || {};
+      if (!res || !res.ok) {
+        error = data.error || "Could not save the invoice.";
+        render();
+        return;
+      }
       notice = send ? "Invoice saved. Your mail app will open so you can attach the PDF." : "Invoice saved.";
       if (send) {
         downloadInvoice(fleet, invoice).catch(function () {});
@@ -550,7 +576,13 @@
   }
 
   function remove(id) {
-    api().post("/api/permitpath-fleets", { action: "delete", id: id }).then(function () {
+    api().post("/api/permitpath-fleets", { action: "delete", id: id }).then(function (res) {
+      var data = (res && res.data) || {};
+      if (!res || !res.ok) {
+        error = data.error || "Could not delete.";
+        render();
+        return;
+      }
       if (draft.id === id) draft = blankDraft();
       notice = "Company deleted.";
       load();
