@@ -171,6 +171,42 @@
     return Number(n || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
   }
 
+  function invoicePreviewHtml(fleet, invoice) {
+    var total = amountOf(invoice);
+    var start = invoice.service_start || invoice.issued_on;
+    var end = addMonths(start, invoice.months);
+    var address = String(fleet.billing_address || "").split(/\n/).filter(Boolean).map(function (line) {
+      return "<div>" + esc(line) + "</div>";
+    }).join("");
+    var note = invoice.note || ("Payable to STL Apps LLC, owner of Permit Path. Access runs from " +
+      prettyDate(start) + " through " + prettyDate(end) + ".");
+    return (
+      '<article class="invoice-sheet">' +
+        '<header>' +
+          '<img src="images/permitpath-logo.png" alt="Permit Path">' +
+          '<div><strong>INVOICE</strong><span>' + esc(invoice.number || "") + "</span><em>" + esc(String(invoice.status || "draft").toUpperCase()) + "</em></div>" +
+        "</header>" +
+        '<p class="invoice-brand"><img src="images/stlapps-logo.jpg" alt="STL Apps LLC"><span>An STL Apps LLC company<br>Sean Lee<br>seantylerlee@icloud.com<br>seantylerlee.com</span></p>' +
+        '<div class="invoice-parties">' +
+          "<section><h4>Bill to</h4><strong>" + esc(fleet.company_name || "") + "</strong>" + address +
+            (fleet.contact_email ? "<div>" + esc(fleet.contact_email) + "</div>" : "") + "</section>" +
+          "<section><h4>Service</h4>" +
+            "<div><span>Issued</span>" + esc(prettyDate(invoice.issued_on)) + "</div>" +
+            "<div><span>Payment due</span>" + esc(prettyDate(invoice.due_on)) + "</div>" +
+            "<div><span>Starts</span>" + esc(prettyDate(start)) + "</div>" +
+            "<div><span>Expires</span>" + esc(prettyDate(end)) + "</div>" +
+          "</section>" +
+        "</div>" +
+        "<table><thead><tr><th>Description</th><th>Seats</th><th>Months</th><th>Per seat</th><th>Amount</th></tr></thead><tbody><tr>" +
+          "<td>Permit Path fleet seats</td><td>" + esc(invoice.seats) + "</td><td>" + esc(invoice.months) +
+          "</td><td>" + esc(money(invoice.rate)) + "</td><td>" + esc(money(total)) + "</td>" +
+        "</tr></tbody></table>" +
+        '<p class="invoice-due"><span>Amount due</span><strong>' + esc(money(total)) + "</strong></p>" +
+        "<p>" + esc(note) + "</p>" +
+      "</article>"
+    );
+  }
+
   function readInvoiceForm(fleet) {
     var box = root.querySelector("[data-invoice-form]");
     return {
@@ -197,42 +233,44 @@
     var editor = "";
     if (invoiceDraft && invoiceDraft.fleet_id === fleet.id) {
       editor =
-        '<form class="fleet-form" data-invoice-form>' +
-          "<h2>" + (invoiceDraft.id ? "Edit invoice" : "New invoice") + "</h2>" +
-          '<div class="fleet-form-row">' +
-            '<label>Invoice number<input name="number" value="' + esc(invoiceDraft.number) + '" required></label>' +
-            '<label>Status<select name="status">' +
-              ["draft", "sent", "paid"].map(function (status) {
-                return '<option value="' + status + '"' + (invoiceDraft.status === status ? " selected" : "") + ">" + status + "</option>";
-              }).join("") +
-            "</select></label>" +
-          "</div>" +
-          '<div class="fleet-form-row">' +
-            '<label>Issued<input name="issued_on" type="date" value="' + esc(invoiceDraft.issued_on) + '" required></label>' +
-            '<label>Payment due<input name="due_on" type="date" value="' + esc(invoiceDraft.due_on) + '"></label>' +
-          "</div>" +
-          '<div class="fleet-form-row">' +
-            '<label>Seats<input name="seats" type="number" min="1" value="' + esc(invoiceDraft.seats) + '"></label>' +
-            '<label>Price per seat per month<input name="rate" type="number" min="0" step="0.01" value="' + esc(invoiceDraft.rate) + '"></label>' +
-          "</div>" +
-          '<div class="fleet-form-row">' +
-            '<label>Duration<select name="months">' +
-              [1, 3, 6, 12].map(function (months) {
-                return '<option value="' + months + '"' + (Number(invoiceDraft.months) === months ? " selected" : "") + ">" + months + (months === 1 ? " month" : " months") + "</option>";
-              }).join("") +
-            "</select></label>" +
-            '<label>Service starts<input name="service_start" type="date" value="' + esc(invoiceDraft.service_start || invoiceDraft.issued_on) + '"></label>' +
-          "</div>" +
-          '<p class="tos-note" data-invoice-math></p>' +
-          '<label>Note<textarea name="note" rows="2">' + esc(invoiceDraft.note || "") + "</textarea></label>" +
-          '<p class="tos-note">The PDF shows Permit Path first, with a smaller STL Apps LLC mark. Payable to STL Apps LLC.</p>' +
-          '<div class="fleet-form-actions">' +
-            '<button type="submit" class="btn btn-primary">Save invoice</button>' +
-            '<button type="button" class="btn btn-ghost" data-invoice-pdf>Download PDF</button>' +
-            '<button type="button" class="btn btn-ghost" data-invoice-send>Send</button>' +
-            '<button type="button" class="btn btn-ghost" data-invoice-cancel>Close</button>' +
-          "</div>" +
-        "</form>";
+        '<div class="invoice-maker">' +
+          '<form class="fleet-form" data-invoice-form>' +
+            "<h2>" + (invoiceDraft.id ? "Edit invoice" : "New invoice") + "</h2>" +
+            '<div class="fleet-form-row">' +
+              '<label>Invoice number<input name="number" value="' + esc(invoiceDraft.number) + '" required></label>' +
+              '<label>Status<select name="status">' +
+                ["draft", "sent", "paid"].map(function (status) {
+                  var label = status.charAt(0).toUpperCase() + status.slice(1);
+                  return '<option value="' + status + '"' + (invoiceDraft.status === status ? " selected" : "") + ">" + label + "</option>";
+                }).join("") +
+              "</select></label>" +
+            "</div>" +
+            '<div class="fleet-form-row">' +
+              '<label>Issued<input name="issued_on" type="date" value="' + esc(invoiceDraft.issued_on) + '" required></label>' +
+              '<label>Payment due<input name="due_on" type="date" value="' + esc(invoiceDraft.due_on) + '"></label>' +
+            "</div>" +
+            '<div class="fleet-form-row">' +
+              '<label>Seats<input name="seats" type="number" min="1" value="' + esc(invoiceDraft.seats) + '"></label>' +
+              '<label>Price per seat / month<input name="rate" type="number" min="0" step="0.01" value="' + esc(invoiceDraft.rate) + '"></label>' +
+            "</div>" +
+            '<div class="fleet-form-row">' +
+              '<label>Duration<select name="months">' +
+                [1, 3, 6, 12].map(function (months) {
+                  return '<option value="' + months + '"' + (Number(invoiceDraft.months) === months ? " selected" : "") + ">" + months + (months === 1 ? " month" : " months") + "</option>";
+                }).join("") +
+              "</select></label>" +
+              '<label>Service starts<input name="service_start" type="date" value="' + esc(invoiceDraft.service_start || invoiceDraft.issued_on) + '"></label>' +
+            "</div>" +
+            '<label>Note on the invoice<textarea name="note" rows="3" placeholder="Optional. Leave blank for the standard payment note.">' + esc(invoiceDraft.note || "") + "</textarea></label>" +
+            '<div class="fleet-form-actions">' +
+              '<button type="submit" class="btn btn-primary">Save invoice</button>' +
+              '<button type="button" class="btn btn-ghost" data-invoice-pdf>Download PDF</button>' +
+              '<button type="button" class="btn btn-ghost" data-invoice-send>Send</button>' +
+              '<button type="button" class="btn btn-ghost" data-invoice-cancel>Close</button>' +
+            "</div>" +
+          "</form>" +
+          '<div class="invoice-preview" data-invoice-preview></div>' +
+        "</div>";
     }
     return (
       '<table class="fleet-seats"><thead><tr><th>Code</th><th>Status</th><th>Last check</th><th></th></tr></thead><tbody>' +
@@ -434,14 +472,12 @@
         invoiceDraft = null;
         render();
       };
-      var math = invoiceForm.querySelector("[data-invoice-math]");
+      var preview = root.querySelector("[data-invoice-preview]");
       var refreshMath = function () {
-        if (!math) return;
-        var invoice = readInvoiceForm({ id: invoiceDraft.fleet_id });
-        var end = addMonths(invoice.service_start, invoice.months);
-        math.textContent = invoice.seats + " seats × " + money(invoice.rate) + " × " + invoice.months +
-          " months = " + money(amountOf(invoice)) + ". Service " + prettyDate(invoice.service_start) +
-          " through " + prettyDate(end) + ".";
+        if (!preview || !invoiceDraft) return;
+        var fleet = fleets.filter(function (row) { return row.id === invoiceDraft.fleet_id; })[0];
+        if (!fleet) return;
+        preview.innerHTML = invoicePreviewHtml(fleet, readInvoiceForm(fleet));
       };
       invoiceForm.querySelectorAll("input, select").forEach(function (field) {
         field.addEventListener("input", refreshMath);

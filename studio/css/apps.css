@@ -185,6 +185,135 @@
   margin: -4px 0 12px;
 }
 
+.invoice-maker {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(280px, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin-top: 14px;
+}
+
+.invoice-preview {
+  position: sticky;
+  top: 12px;
+}
+
+.invoice-sheet {
+  background: #fff;
+  border: 1px solid #d5e3fb;
+  border-radius: 12px;
+  padding: 18px 18px 14px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  color: #1a2336;
+}
+
+.invoice-sheet header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  border-top: 4px solid #001848;
+  padding-top: 12px;
+}
+
+.invoice-sheet header img {
+  width: 168px;
+  height: auto;
+}
+
+.invoice-sheet header div {
+  text-align: right;
+}
+
+.invoice-sheet header strong {
+  display: block;
+  color: #001848;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+}
+
+.invoice-sheet header span,
+.invoice-sheet header em {
+  display: block;
+  color: #505c76;
+  font-style: normal;
+  font-size: 12px;
+}
+
+.invoice-brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 14px 0;
+  color: #505c76;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.invoice-brand img {
+  width: 84px;
+  height: auto;
+}
+
+.invoice-parties {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 12px;
+  border-top: 1px solid #d5e3fb;
+  padding-top: 12px;
+  font-size: 13px;
+}
+
+.invoice-sheet h4 {
+  margin: 0 0 6px;
+  color: #001848;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.invoice-parties section div span {
+  display: inline-block;
+  width: 92px;
+  color: #505c76;
+}
+
+.invoice-sheet table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 14px;
+  font-size: 12px;
+}
+
+.invoice-sheet th {
+  text-align: left;
+  background: #f4f8ff;
+  color: #001848;
+  padding: 6px;
+}
+
+.invoice-sheet td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #d5e3fb;
+}
+
+.invoice-due {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  align-items: baseline;
+  margin: 12px 0;
+}
+
+.invoice-due strong {
+  font-size: 18px;
+  color: #001848;
+}
+
+@media (max-width: 860px) {
+  .invoice-maker { grid-template-columns: 1fr; }
+}
+
 .fleet-error:empty { display: none; }
 .fleet-error {
   color: #9b1c1c;
