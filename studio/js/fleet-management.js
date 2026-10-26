@@ -384,7 +384,7 @@
         '<span class="fleet-status fleet-status-' + statusOf(fleet).toLowerCase() + '">' + esc(statusOf(fleet)) + "</span></header>" +
         (renewSoon(fleet) ? '<p class="fleet-error">Renewal is inside 30 days. Email ' + esc(fleet.portal_email || fleet.contact_email || "the company") + " to request payment. Turn the company off if they do not pay.</p>" : "") +
         paymentLine(fleet.id) +
-        "<p>" + (fleet.portal_email ? "Login " + esc(fleet.portal_email) + " · " : "No fleet login yet · ") + paidSeats(fleet.id).length + " paid at " + money(rateFor(paidSeats(fleet.id).length)) + " / device / month · " +
+        "<p>" + (fleet.portal_email ? "Login " + esc(fleet.portal_email) + " · password " + esc(fleet.portal_password || "not saved yet") + " · " : "No fleet login yet · ") + paidSeats(fleet.id).length + " paid at " + money(rateFor(paidSeats(fleet.id).length)) + " / device / month · " +
           trialSeats(fleet.id).length + " trial · " + claimed + " in use · paid through " + esc(fleet.paid_through) + "</p>" +
         '<div class="fleet-form-actions">' +
           '<label>Add paid seats<input type="number" min="1" value="1" data-add-count="paid-' + esc(fleet.id) + '"></label>' +
