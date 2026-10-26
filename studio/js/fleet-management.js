@@ -145,7 +145,8 @@
       issued_on: issued,
       due_on: due.toISOString().slice(0, 10),
       service_start: issued,
-      seats: Number(fleet.seats) || 1,
+      seats: activeSeatCodes(fleet.id).length || Number(fleet.seats) || 1,
+      codes: activeSeatCodes(fleet.id),
       rate: "",
       months: 6,
       note: ""
@@ -202,9 +203,24 @@
           "</td><td>" + esc(money(invoice.rate)) + "</td><td>" + esc(money(total)) + "</td>" +
         "</tr></tbody></table>" +
         '<p class="invoice-due"><span>Amount due</span><strong>' + esc(money(total)) + "</strong></p>" +
+        codeListHtml(invoice.codes) +
         "<p>" + esc(note) + "</p>" +
       "</article>"
     );
+  }
+
+  function codeListHtml(codes) {
+    var list = codes || [];
+    if (!list.length) return "<p>No seat codes on this invoice.</p>";
+    return "<h4>Seat codes</h4><div class=\"invoice-codes\">" + list.map(function (code) {
+      return "<span>" + esc(code) + "</span>";
+    }).join("") + "</div>";
+  }
+
+  function activeSeatCodes(fleetId) {
+    return seatsFor(fleetId).filter(function (seat) {
+      return seat.code && seat.active !== false;
+    }).map(function (seat) { return seat.code; });
   }
 
   function readInvoiceForm(fleet) {
@@ -220,8 +236,16 @@
       seats: Number(box.querySelector("[name=seats]").value || 1),
       rate: Number(box.querySelector("[name=rate]").value || 0),
       months: Number(box.querySelector("[name=months]").value || 1),
-      note: box.querySelector("[name=note]").value.trim()
+      note: box.querySelector("[name=note]").value.trim(),
+      codes: checkedCodes()
     };
+  }
+
+  function checkedCodes() {
+    if (!root) return [];
+    return Array.prototype.map.call(root.querySelectorAll("[data-code-pick]:checked"), function (box) {
+      return box.getAttribute("data-code-pick");
+    });
   }
 
   function invoiceBlock(fleet, deviceRows) {
@@ -261,7 +285,8 @@
               "</select></label>" +
               '<label>Service starts<input name="service_start" type="date" value="' + esc(invoiceDraft.service_start || invoiceDraft.issued_on) + '"></label>' +
             "</div>" +
-            '<label>Note on the invoice<textarea name="note" rows="3" placeholder="Optional. Leave blank for the standard payment note.">' + esc(invoiceDraft.note || "") + "</textarea></label>" +
+            '<p class="tos-note">Check the codes to print on this invoice. The seat count follows those checks. Copy all codes copies every active code.</p>' +
+            '<label>Note on the invoice<textarea name="note" rows="2" placeholder="Optional. Leave blank for the standard payment note.">' + esc(invoiceDraft.note || "") + "</textarea></label>" +
             '<div class="fleet-form-actions">' +
               '<button type="submit" class="btn btn-primary">Save invoice</button>' +
               '<button type="button" class="btn btn-ghost" data-invoice-pdf>Download PDF</button>' +
@@ -273,14 +298,14 @@
         "</div>";
     }
     return (
-      '<table class="fleet-seats"><thead><tr><th>Code</th><th>Status</th><th>Last check</th><th></th></tr></thead><tbody>' +
+      '<div class="fleet-form-actions">' +
+        '<button type="button" class="btn btn-ghost" data-copy-all="' + esc(fleet.id) + '">Copy all codes</button>' +
+        '<button type="button" class="btn btn-primary" data-invoice-new="' + esc(fleet.id) + '">New invoice</button>' +
+      "</div>" +
+      '<table class="fleet-seats"><thead><tr><th></th><th>Code</th><th>Status</th><th></th></tr></thead><tbody>' +
         (deviceRows || '<tr><td colspan="4">No codes yet. Save the company with a seat count.</td></tr>') +
       "</tbody></table>" +
-      "<h3>Invoices</h3>" +
-      '<table class="fleet-seats"><thead><tr><th>Number</th><th>Status</th><th>Issued</th><th>Amount</th><th></th></tr></thead><tbody>' +
-        (list || '<tr><td colspan="5">No invoices saved for this company.</td></tr>') +
-      "</tbody></table>" +
-      '<div class="fleet-form-actions"><button type="button" class="btn btn-primary" data-invoice-new="' + esc(fleet.id) + '">New invoice</button></div>' +
+      (list ? '<table class="fleet-seats"><thead><tr><th>Invoice</th><th>Status</th><th>Issued</th><th>Amount</th><th></th></tr></thead><tbody>' + list + "</tbody></table>" : "") +
       editor
     );
   }
@@ -289,13 +314,17 @@
     var used = seatsFor(fleet.id);
     var open = openId === fleet.id;
     var claimed = used.filter(function (seat) { return seat.install_id; }).length;
+    var invoicing = invoiceDraft && invoiceDraft.fleet_id === fleet.id;
+    var chosen = invoicing && invoiceDraft.codes ? invoiceDraft.codes : [];
     var rows = used.map(function (seat) {
       var phone = seat.platform === "ios" ? "iPhone or iPad" : seat.platform === "android" ? "Android" : "Phone or tablet";
-      var where = seat.install_id ? phone + " · " + String(seat.install_id).slice(0, 8) : "Not used yet";
-      if (seat.active === false) where = "Turned off";
+      var where = seat.install_id ? phone : "Not used yet";
+      if (seat.active === false) where = "Off";
+      var pick = invoicing && seat.code
+        ? '<input type="checkbox" data-code-pick="' + esc(seat.code) + '"' + (chosen.indexOf(seat.code) !== -1 ? " checked" : "") + (seat.active === false ? " disabled" : "") + ">"
+        : "";
       return (
-        "<tr><td class=\"fleet-code\">" + esc(seat.code || "—") + "</td><td>" + esc(where) +
-        "</td><td>" + esc(seat.last_seen && seat.install_id ? new Date(seat.last_seen).toLocaleString() : "") +
+        "<tr><td>" + pick + "</td><td class=\"fleet-code\">" + esc(seat.code || "—") + "</td><td>" + esc(where) +
         '</td><td><button type="button" class="btn btn-ghost" data-copy="' + esc(seat.code || "") + '">Copy</button> ' +
         '<button type="button" class="btn btn-ghost" data-seat="' + esc(seat.id) + '" data-seat-active="' + (seat.active === false ? "1" : "0") + '">' +
         (seat.active === false ? "Turn on" : "Turn off") + "</button></td></tr>"
@@ -349,6 +378,27 @@
         notice = code ? "Copied " + code : "";
         error = "";
         render();
+      };
+    });
+    root.querySelectorAll("[data-copy-all]").forEach(function (btn) {
+      btn.onclick = function () {
+        var codes = activeSeatCodes(btn.getAttribute("data-copy-all"));
+        var text = codes.join("\n");
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
+        notice = codes.length ? "Copied " + codes.length + " codes." : "No active codes to copy.";
+        error = "";
+        render();
+      };
+    });
+    root.querySelectorAll("[data-code-pick]").forEach(function (box) {
+      box.onchange = function () {
+        var seatsInput = root.querySelector("[data-invoice-form] [name=seats]");
+        var codes = checkedCodes();
+        if (seatsInput) seatsInput.value = String(codes.length || 1);
+        if (invoiceDraft) invoiceDraft.codes = codes;
+        var preview = root.querySelector("[data-invoice-preview]");
+        var fleet = fleets.filter(function (row) { return invoiceDraft && row.id === invoiceDraft.fleet_id; })[0];
+        if (preview && fleet) preview.innerHTML = invoicePreviewHtml(fleet, readInvoiceForm(fleet));
       };
     });
     root.querySelectorAll("[data-seat]").forEach(function (btn) {
@@ -438,6 +488,7 @@
           issued_on: row.issued_on,
           due_on: row.due_on || "",
           service_start: payload.service_start || row.issued_on,
+          codes: payload.codes || [],
           seats: payload.seats || 1,
           rate: payload.rate || "",
           months: payload.months || 1,
@@ -479,9 +530,18 @@
         if (!fleet) return;
         preview.innerHTML = invoicePreviewHtml(fleet, readInvoiceForm(fleet));
       };
-      invoiceForm.querySelectorAll("input, select").forEach(function (field) {
-        field.addEventListener("input", refreshMath);
-        field.addEventListener("change", refreshMath);
+      invoiceForm.querySelectorAll("input, select, textarea").forEach(function (field) {
+        field.addEventListener("input", function () {
+          if (field.name === "seats" && invoiceDraft) {
+            var all = activeSeatCodes(invoiceDraft.fleet_id);
+            var count = Math.max(0, Number(field.value) || 0);
+            invoiceDraft.codes = all.slice(0, count);
+            root.querySelectorAll("[data-code-pick]").forEach(function (box) {
+              box.checked = invoiceDraft.codes.indexOf(box.getAttribute("data-code-pick")) !== -1;
+            });
+          }
+          refreshMath();
+        });
       });
       refreshMath();
     }
@@ -566,6 +626,38 @@
 
   function amountOf(invoice) {
     return Math.round((Number(invoice.seats) || 0) * (Number(invoice.rate) || 0) * (Number(invoice.months) || 0) * 100) / 100;
+  }
+
+  function drawInvoiceCodes(doc, codes, y, pageW) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(0, 24, 72);
+    if (y > 700) {
+      doc.addPage();
+      y = 48;
+    }
+    doc.text("SEAT CODES", 48, y);
+    y += 16;
+    doc.setFont("courier", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(26, 35, 54);
+    if (!codes.length) {
+      doc.setFont("helvetica", "normal");
+      doc.text("No seat codes on this invoice.", 48, y);
+      return y + 18;
+    }
+    var columns = 3;
+    var colW = (pageW - 96) / columns;
+    codes.forEach(function (code, index) {
+      var col = index % columns;
+      if (col === 0 && index > 0) y += 14;
+      if (y > 740) {
+        doc.addPage();
+        y = 48;
+      }
+      doc.text(String(code), 48 + col * colW, y);
+    });
+    return y + 22;
   }
 
   function loadLogo(src) {
@@ -690,6 +782,7 @@
       doc.setFontSize(14);
       doc.text(money(total), pageW - 56, y, { align: "right" });
       y += 28;
+      y = drawInvoiceCodes(doc, invoice.codes || [], y, pageW);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(26, 35, 54);
@@ -734,6 +827,7 @@
       months: invoice.months,
       service_start: invoice.service_start,
       service_end: addMonths(invoice.service_start, invoice.months),
+      codes: invoice.codes || [],
       note: invoice.note || ""
     };
     api().post("/api/permitpath-fleets", {

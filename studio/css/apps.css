@@ -297,6 +297,15 @@
   border-bottom: 1px solid #d5e3fb;
 }
 
+.invoice-codes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px 10px;
+  margin: 8px 0 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
 .invoice-due {
   display: flex;
   justify-content: flex-end;
