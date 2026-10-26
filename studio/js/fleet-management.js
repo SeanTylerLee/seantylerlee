@@ -80,6 +80,14 @@
     }).join(" · ") + "</p>";
   }
 
+  function fleetStillPaid(fleet) {
+    if (!fleet || !fleet.paid_through) return false;
+    var today = new Date().toISOString().slice(0, 10);
+    if (String(fleet.paid_through).slice(0, 10) < today) return false;
+    var paid = payments.some(function (row) { return row.fleet_id === fleet.id; });
+    return paid || paidSeats(fleet.id).length > 0;
+  }
+
   function renewSoon(fleet) {
     if (!fleet || !fleet.active || !fleet.paid_through) return false;
     var end = new Date(fleet.paid_through + "T00:00:00");
@@ -570,6 +578,10 @@
       btn.onclick = function () {
         var found = fleets.filter(function (row) { return row.id === btn.getAttribute("data-toggle"); })[0];
         if (!found) return;
+        if (found.active && fleetStillPaid(found)) {
+          window.alert(found.company_name + " is paid through " + found.paid_through + ". Studio will not turn off a fleet until that paid period has ended.");
+          return;
+        }
         save({
           id: found.id,
           company_name: found.company_name,
@@ -666,7 +678,11 @@
         var id = btn.getAttribute("data-remove") || "";
         var found = fleets.filter(function (row) { return row.id === id; })[0];
         if (!found) return;
-        if (!window.confirm("Delete " + found.company_name + "? Their code will stop working.")) return;
+        if (fleetStillPaid(found)) {
+          window.alert(found.company_name + " is paid through " + found.paid_through + ". Studio will not delete a fleet until that paid period has ended.");
+          return;
+        }
+        if (!window.confirm("Delete " + found.company_name + "? Their codes will stop working.")) return;
         remove(id);
       };
     });
