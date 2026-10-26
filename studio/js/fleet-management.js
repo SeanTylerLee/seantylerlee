@@ -5,6 +5,7 @@
   var fleets = [];
   var seats = [];
   var invoices = [];
+  var payments = [];
   var loading = false;
   var error = "";
   var notice = "";
@@ -70,6 +71,22 @@
     return paidCount >= 21 ? 3.39 : 3.99;
   }
 
+  function paymentLine(id) {
+    var rows = payments.filter(function (row) { return row.fleet_id === id; }).slice(0, 3);
+    if (!rows.length) return "";
+    return "<p>Payments: " + rows.map(function (row) {
+      return money(row.amount) + " on " + String(row.paid_at || "").slice(0, 10);
+    }).join(" · ") + "</p>";
+  }
+
+  function renewSoon(fleet) {
+    if (!fleet || !fleet.active || !fleet.paid_through) return false;
+    var end = new Date(fleet.paid_through + "T00:00:00");
+    if (isNaN(end.getTime())) return false;
+    var days = (end.getTime() - Date.now()) / 86400000;
+    return days <= 30;
+  }
+
   function statusOf(fleet) {
     if (!fleet.active) return "Off";
     var day = String(fleet.paid_through || "");
@@ -88,6 +105,8 @@
           "<h2>Add a company</h2>" +
           '<label>Company name<input name="company_name" required placeholder="Harper Trucking"></label>' +
           '<label>Contact email<input name="contact_email" type="email" placeholder="office@harper.example"></label>' +
+          '<label>Fleet login email<input name="portal_email" type="email" placeholder="office@harper.example"></label>' +
+          '<label>Fleet password<input name="portal_password" type="text" autocomplete="off" placeholder="At least 8 characters. Leave blank to keep the current password."></label>' +
           '<label>Billing address<textarea name="billing_address" rows="2" placeholder="Street, city, state, ZIP"></textarea></label>' +
           '<div class="fleet-form-row">' +
             '<label>Paid seats<input name="seats" type="number" min="1" max="5000" value="5" required></label>' +
@@ -109,6 +128,8 @@
     if (!form) return;
     form.company_name.value = draft.company_name || "";
     form.contact_email.value = draft.contact_email || "";
+    if (form.portal_email) form.portal_email.value = draft.portal_email || "";
+    if (form.portal_password) form.portal_password.value = "";
     form.seats.value = draft.seats || 5;
     form.paid_through.value = draft.paid_through || "";
     form.billing_address.value = draft.billing_address || "";
@@ -125,6 +146,8 @@
       id: draft.id || "",
       company_name: form.company_name.value.trim(),
       contact_email: form.contact_email.value.trim(),
+      portal_email: form.portal_email.value.trim(),
+      portal_password: form.portal_password.value,
       seats: Number(form.seats.value || 1),
       paid_through: form.paid_through.value,
       notes: form.notes.value.trim(),
@@ -353,7 +376,9 @@
       '<article class="fleet-card">' +
         '<header><div><h3>' + esc(fleet.company_name) + "</h3><p>" + esc(fleet.contact_email || "No email") + "</p></div>" +
         '<span class="fleet-status fleet-status-' + statusOf(fleet).toLowerCase() + '">' + esc(statusOf(fleet)) + "</span></header>" +
-        "<p>" + paidSeats(fleet.id).length + " paid at " + money(rateFor(paidSeats(fleet.id).length)) + " / device / month · " +
+        (renewSoon(fleet) ? '<p class="fleet-error">Renewal is inside 30 days. Email ' + esc(fleet.portal_email || fleet.contact_email || "the company") + " to request payment. Turn the company off if they do not pay.</p>" : "") +
+        paymentLine(fleet.id) +
+        "<p>" + (fleet.portal_email ? "Login " + esc(fleet.portal_email) + " · " : "No fleet login yet · ") + paidSeats(fleet.id).length + " paid at " + money(rateFor(paidSeats(fleet.id).length)) + " / device / month · " +
           trialSeats(fleet.id).length + " trial · " + claimed + " in use · paid through " + esc(fleet.paid_through) + "</p>" +
         '<div class="fleet-form-actions">' +
           '<label>Add paid seats<input type="number" min="1" value="1" data-add-count="paid-' + esc(fleet.id) + '"></label>' +
@@ -363,6 +388,7 @@
         "</div>" +
         (fleet.notes ? "<p>" + esc(fleet.notes) + "</p>" : "") +
         '<div class="fleet-form-actions">' +
+          '<button type="button" class="btn btn-ghost" data-copy-link="https://permitpathnav.com/fleet-login.html">Copy login link</button>' +
           '<button type="button" class="btn btn-ghost" data-edit="' + esc(fleet.id) + '">Edit</button>' +
           '<button type="button" class="btn btn-ghost" data-toggle="' + esc(fleet.id) + '">' + (fleet.active ? "Turn company off" : "Turn company on") + "</button>" +
           '<button type="button" class="btn btn-danger" data-remove="' + esc(fleet.id) + '">Delete</button>' +
@@ -450,6 +476,15 @@
         });
       };
     });
+    root.querySelectorAll("[data-copy-link]").forEach(function (btn) {
+      btn.onclick = function () {
+        var link = btn.getAttribute("data-copy-link") || "";
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link);
+        notice = "Copied the fleet login link.";
+        error = "";
+        render();
+      };
+    });
     root.querySelectorAll("[data-copy-all]").forEach(function (btn) {
       btn.onclick = function () {
         var codes = activeSeatCodes(btn.getAttribute("data-copy-all"));
@@ -503,7 +538,8 @@
           paid_through: found.paid_through,
           active: found.active,
           notes: found.notes || "",
-          billing_address: found.billing_address || ""
+          billing_address: found.billing_address || "",
+          portal_email: found.portal_email || ""
         };
         render();
         var formEl = el("form");
@@ -645,6 +681,7 @@
         fleets = data.fleets || [];
         seats = data.seats || [];
         invoices = data.invoices || [];
+        payments = data.payments || [];
         error = "";
       }
       loading = false;
