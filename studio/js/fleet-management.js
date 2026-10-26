@@ -144,36 +144,31 @@
       status: "draft",
       issued_on: issued,
       due_on: due.toISOString().slice(0, 10),
-      description: "Permit Path fleet seats for " + fleet.company_name + ". " + fleet.seats + " phones or tablets, paid through " + fleet.paid_through + ".",
-      qty: Number(fleet.seats) || 1,
+      service_start: issued,
+      seats: Number(fleet.seats) || 1,
       rate: "",
+      months: 6,
       note: ""
     };
   }
 
-  function invoiceDoc(fleet, invoice, amountPaid) {
-    return {
-      kind: "invoice",
-      number: invoice.number,
-      fromName: "STL Apps LLC",
-      fromContact: "Sean Tyler Lee",
-      fromEmail: "seantylerlee@icloud.com",
-      fromWebsite: "seantylerlee.com",
-      clientName: fleet.company_name,
-      clientEmail: fleet.contact_email || "",
-      clientAddress: fleet.billing_address || "",
-      projectName: "Permit Path",
-      documentDate: invoice.issued_on,
-      terms: "custom",
-      dueDate: invoice.due_on,
-      items: [{ desc: invoice.description, qty: Number(invoice.qty) || 0, rate: Number(invoice.rate) || 0 }],
-      discountType: "none",
-      discountValue: 0,
-      taxPercent: 0,
-      amountPaid: amountPaid || 0,
-      notes: invoice.note || "STL Apps LLC is the owner of Permit Path. This invoice is for fleet seats on company phones and tablets.",
-      paymentNotes: "Payable to STL Apps LLC. Include the invoice number with your payment."
-    };
+  function addMonths(iso, months) {
+    if (!iso) return "";
+    var date = new Date(iso + "T00:00:00");
+    if (isNaN(date.getTime())) return "";
+    date.setMonth(date.getMonth() + Number(months || 0));
+    return date.toISOString().slice(0, 10);
+  }
+
+  function prettyDate(iso) {
+    if (!iso) return "";
+    var date = new Date(iso + "T00:00:00");
+    if (isNaN(date.getTime())) return iso;
+    return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  }
+
+  function money(n) {
+    return Number(n || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
   }
 
   function readInvoiceForm(fleet) {
@@ -185,9 +180,10 @@
       status: box.querySelector("[name=status]").value,
       issued_on: box.querySelector("[name=issued_on]").value,
       due_on: box.querySelector("[name=due_on]").value,
-      description: box.querySelector("[name=description]").value.trim(),
-      qty: Number(box.querySelector("[name=qty]").value || 1),
+      service_start: box.querySelector("[name=service_start]").value,
+      seats: Number(box.querySelector("[name=seats]").value || 1),
       rate: Number(box.querySelector("[name=rate]").value || 0),
+      months: Number(box.querySelector("[name=months]").value || 1),
       note: box.querySelector("[name=note]").value.trim()
     };
   }
@@ -213,15 +209,23 @@
           "</div>" +
           '<div class="fleet-form-row">' +
             '<label>Issued<input name="issued_on" type="date" value="' + esc(invoiceDraft.issued_on) + '" required></label>' +
-            '<label>Due<input name="due_on" type="date" value="' + esc(invoiceDraft.due_on) + '"></label>' +
+            '<label>Payment due<input name="due_on" type="date" value="' + esc(invoiceDraft.due_on) + '"></label>' +
           "</div>" +
-          '<label>Line description<textarea name="description" rows="3">' + esc(invoiceDraft.description) + "</textarea></label>" +
           '<div class="fleet-form-row">' +
-            '<label>Quantity<input name="qty" type="number" min="1" value="' + esc(invoiceDraft.qty) + '"></label>' +
-            '<label>Rate, USD<input name="rate" type="number" min="0" step="0.01" value="' + esc(invoiceDraft.rate) + '"></label>' +
+            '<label>Seats<input name="seats" type="number" min="1" value="' + esc(invoiceDraft.seats) + '"></label>' +
+            '<label>Price per seat per month<input name="rate" type="number" min="0" step="0.01" value="' + esc(invoiceDraft.rate) + '"></label>' +
           "</div>" +
-          '<label>Invoice note<textarea name="note" rows="2">' + esc(invoiceDraft.note || "") + "</textarea></label>" +
-          '<p class="tos-note">The PDF is from STL Apps LLC for Permit Path. The bill-to name and address come from this company.</p>' +
+          '<div class="fleet-form-row">' +
+            '<label>Duration<select name="months">' +
+              [1, 3, 6, 12].map(function (months) {
+                return '<option value="' + months + '"' + (Number(invoiceDraft.months) === months ? " selected" : "") + ">" + months + (months === 1 ? " month" : " months") + "</option>";
+              }).join("") +
+            "</select></label>" +
+            '<label>Service starts<input name="service_start" type="date" value="' + esc(invoiceDraft.service_start || invoiceDraft.issued_on) + '"></label>' +
+          "</div>" +
+          '<p class="tos-note" data-invoice-math></p>' +
+          '<label>Note<textarea name="note" rows="2">' + esc(invoiceDraft.note || "") + "</textarea></label>" +
+          '<p class="tos-note">The PDF shows Permit Path first, with a smaller STL Apps LLC mark. Payable to STL Apps LLC.</p>' +
           '<div class="fleet-form-actions">' +
             '<button type="submit" class="btn btn-primary">Save invoice</button>' +
             '<button type="button" class="btn btn-ghost" data-invoice-pdf>Download PDF</button>' +
@@ -388,7 +392,6 @@
         var row = invoices.filter(function (item) { return item.id === btn.getAttribute("data-invoice-edit"); })[0];
         if (!row) return;
         var payload = row.payload || {};
-        var item = (payload.items && payload.items[0]) || {};
         invoiceDraft = {
           id: row.id,
           fleet_id: row.fleet_id,
@@ -396,9 +399,10 @@
           status: row.status,
           issued_on: row.issued_on,
           due_on: row.due_on || "",
-          description: item.desc || payload.projectName || "",
-          qty: item.qty || 1,
-          rate: item.rate || row.amount || "",
+          service_start: payload.service_start || row.issued_on,
+          seats: payload.seats || 1,
+          rate: payload.rate || "",
+          months: payload.months || 1,
           note: payload.note || ""
         };
         openId = row.fleet_id;
@@ -430,6 +434,20 @@
         invoiceDraft = null;
         render();
       };
+      var math = invoiceForm.querySelector("[data-invoice-math]");
+      var refreshMath = function () {
+        if (!math) return;
+        var invoice = readInvoiceForm({ id: invoiceDraft.fleet_id });
+        var end = addMonths(invoice.service_start, invoice.months);
+        math.textContent = invoice.seats + " seats × " + money(invoice.rate) + " × " + invoice.months +
+          " months = " + money(amountOf(invoice)) + ". Service " + prettyDate(invoice.service_start) +
+          " through " + prettyDate(end) + ".";
+      };
+      invoiceForm.querySelectorAll("input, select").forEach(function (field) {
+        field.addEventListener("input", refreshMath);
+        field.addEventListener("change", refreshMath);
+      });
+      refreshMath();
     }
     root.querySelectorAll("[data-remove]").forEach(function (btn) {
       btn.onclick = function () {
@@ -511,17 +529,152 @@
   }
 
   function amountOf(invoice) {
-    return Math.round((Number(invoice.qty) || 0) * (Number(invoice.rate) || 0) * 100) / 100;
+    return Math.round((Number(invoice.seats) || 0) * (Number(invoice.rate) || 0) * (Number(invoice.months) || 0) * 100) / 100;
+  }
+
+  function loadLogo(src) {
+    return fetch(src).then(function (res) { return res.blob(); }).then(function (blob) {
+      return new Promise(function (resolve) {
+        var reader = new FileReader();
+        reader.onload = function () { resolve(reader.result); };
+        reader.readAsDataURL(blob);
+      });
+    }).catch(function () { return null; });
+  }
+
+  function buildFleetInvoicePdf(fleet, invoice) {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      return Promise.reject(new Error("PDF library failed to load."));
+    }
+    return Promise.all([
+      loadLogo("images/permitpath-logo.png"),
+      loadLogo("images/stlapps-logo.jpg")
+    ]).then(function (logos) {
+      var doc = new window.jspdf.jsPDF({ unit: "pt", format: "letter", compress: true });
+      var total = amountOf(invoice);
+      var start = invoice.service_start || invoice.issued_on;
+      var end = addMonths(start, invoice.months);
+      var pageW = doc.internal.pageSize.getWidth();
+      doc.setProperties({
+        title: "Invoice " + invoice.number,
+        author: "STL Apps LLC",
+        creator: "STL Apps LLC"
+      });
+      doc.setFillColor(0, 24, 72);
+      doc.rect(0, 0, pageW, 6, "F");
+      if (logos[0]) doc.addImage(logos[0], "PNG", 48, 28, 210, 88);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(0, 24, 72);
+      doc.text("INVOICE", pageW - 48, 52, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(80, 92, 118);
+      doc.text(invoice.number || "", pageW - 48, 70, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(invoice.status === "paid" ? 27 : 138, invoice.status === "paid" ? 107 : 90, invoice.status === "paid" ? 50 : 0);
+      doc.text(String(invoice.status || "draft").toUpperCase(), pageW - 48, 88, { align: "right" });
+
+      var y = 132;
+      if (logos[1]) doc.addImage(logos[1], "JPEG", 48, y, 92, 21);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(80, 92, 118);
+      doc.text("An STL Apps LLC company", 148, y + 14);
+      y += 36;
+      doc.text("Sean Lee", 48, y);
+      doc.text("seantylerlee@icloud.com", 48, y + 12);
+      doc.text("seantylerlee.com", 48, y + 24);
+      y += 42;
+      doc.setDrawColor(213, 227, 251);
+      doc.line(48, y, pageW - 48, y);
+      y += 22;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(0, 24, 72);
+      doc.text("BILL TO", 48, y);
+      doc.text("SERVICE", 300, y);
+      y += 16;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(26, 35, 54);
+      doc.text(fleet.company_name || "", 48, y);
+      var address = String(fleet.billing_address || "").split(/\n/).slice(0, 4);
+      address.forEach(function (line, index) {
+        doc.setFontSize(10);
+        doc.text(line, 48, y + 14 + index * 12);
+      });
+      if (fleet.contact_email) doc.text(fleet.contact_email, 48, y + 14 + address.length * 12);
+      var facts = [
+        ["Issued", prettyDate(invoice.issued_on)],
+        ["Payment due", prettyDate(invoice.due_on)],
+        ["Service starts", prettyDate(start)],
+        ["Service expires", prettyDate(end)]
+      ];
+      facts.forEach(function (fact, index) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(80, 92, 118);
+        doc.text(fact[0], 300, y + index * 16);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(26, 35, 54);
+        doc.text(fact[1] || "—", 390, y + index * 16);
+      });
+      y += Math.max(78, 28 + address.length * 12);
+      doc.setFillColor(244, 248, 255);
+      doc.rect(48, y, pageW - 96, 22, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(0, 24, 72);
+      doc.text("DESCRIPTION", 56, y + 15);
+      doc.text("SEATS", 300, y + 15);
+      doc.text("MONTHS", 360, y + 15);
+      doc.text("PER SEAT / MO", 430, y + 15);
+      doc.text("AMOUNT", pageW - 56, y + 15, { align: "right" });
+      y += 40;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(26, 35, 54);
+      doc.text("Permit Path fleet seats", 56, y);
+      doc.setFontSize(9);
+      doc.setTextColor(80, 92, 118);
+      doc.text("Company phones and tablets. One seat is one device.", 56, y + 14);
+      doc.setFontSize(11);
+      doc.setTextColor(26, 35, 54);
+      doc.text(String(invoice.seats), 300, y);
+      doc.text(String(invoice.months), 360, y);
+      doc.text(money(invoice.rate), 430, y);
+      doc.text(money(total), pageW - 56, y, { align: "right" });
+      y += 36;
+      doc.line(48, y, pageW - 48, y);
+      y += 22;
+      doc.setFont("helvetica", "bold");
+      doc.text("AMOUNT DUE", 360, y);
+      doc.setFontSize(14);
+      doc.text(money(total), pageW - 56, y, { align: "right" });
+      y += 28;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(26, 35, 54);
+      var note = invoice.note || "Payable to STL Apps LLC, owner of Permit Path. Access runs from " +
+        prettyDate(start) + " through " + prettyDate(end) + ".";
+      doc.splitTextToSize(note, pageW - 96).forEach(function (line) {
+        doc.text(line, 48, y);
+        y += 13;
+      });
+      doc.setFontSize(8);
+      doc.setTextColor(80, 92, 118);
+      doc.text("STL Apps LLC  ·  Permit Path  ·  seantylerlee.com", 48, 760);
+      return {
+        blob: doc.output("blob"),
+        filename: "STL-Apps-LLC_Permit-Path_Invoice_" + String(invoice.number || "invoice").replace(/[^A-Za-z0-9-]+/g, "-") + ".pdf"
+      };
+    });
   }
 
   function downloadInvoice(fleet, invoice) {
-    if (!window.STLBillingDoc || !window.STLBillingDoc.buildPdf) {
-      error = "The invoice PDF library is not loaded. Refresh Studio.";
-      render();
-      return Promise.reject(new Error(error));
-    }
-    var paid = invoice.status === "paid" ? amountOf(invoice) : 0;
-    return window.STLBillingDoc.buildPdf(invoiceDoc(fleet, invoice, paid)).then(function (file) {
+    return buildFleetInvoicePdf(fleet, invoice).then(function (file) {
       var link = document.createElement("a");
       link.href = URL.createObjectURL(file.blob);
       link.download = file.filename;
@@ -529,6 +682,9 @@
       link.click();
       link.remove();
       setTimeout(function () { URL.revokeObjectURL(link.href); }, 1500);
+    }).catch(function (err) {
+      error = (err && err.message) || "Could not build the PDF.";
+      render();
     });
   }
 
@@ -536,9 +692,14 @@
     notice = "";
     error = "";
     var amount = amountOf(invoice);
-    var payload = invoiceDoc(fleet, invoice, invoice.status === "paid" ? amount : 0);
-    payload.note = invoice.note || "";
-    payload.items = [{ desc: invoice.description, qty: invoice.qty, rate: invoice.rate }];
+    var payload = {
+      seats: invoice.seats,
+      rate: invoice.rate,
+      months: invoice.months,
+      service_start: invoice.service_start,
+      service_end: addMonths(invoice.service_start, invoice.months),
+      note: invoice.note || ""
+    };
     api().post("/api/permitpath-fleets", {
       action: "save-invoice",
       invoice: {
