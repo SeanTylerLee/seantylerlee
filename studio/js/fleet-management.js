@@ -391,6 +391,7 @@
         '<header><div><h3>' + esc(fleet.company_name) + "</h3><p>" + esc(fleet.contact_email || "No email") + "</p></div>" +
         '<span class="fleet-status fleet-status-' + statusOf(fleet).toLowerCase() + '">' + esc(statusOf(fleet)) + "</span></header>" +
         (renewSoon(fleet) ? '<p class="fleet-error">Renewal is inside 30 days. Email ' + esc(fleet.portal_email || fleet.contact_email || "the company") + " to request payment. Turn the company off if they do not pay.</p>" : "") +
+        (Number(fleet.trial_request_seats) > trialSeats(fleet.id).length ? '<p class="fleet-error">Free trial requested for ' + Number(fleet.trial_request_seats) + ' drivers. Add a 1-month trial for the seats they asked for.</p>' : "") +
         paymentLine(fleet.id) +
         "<p>" + (fleet.portal_email ? "Login " + esc(fleet.portal_email) + " · password " + esc(fleet.portal_password || "not saved yet") + " · " : "No fleet login yet · ") +
           (paidSeats(fleet.id).length ? paidSeats(fleet.id).length + " paid codes" : "No codes yet. Waiting on payment") + " · " +
