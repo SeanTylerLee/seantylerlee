@@ -1,11 +1,14 @@
 .panel.web-page {
-  display: block !important;
-  height: auto !important;
-  min-height: 100% !important;
-  overflow: visible !important;
-  padding: 18px 22px 48px !important;
-  background: var(--window, #ececec) !important;
-  color: var(--ink, #12213d) !important;
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+  padding: 18px 22px 48px;
+  background: var(--window, #ececec);
+  color: var(--ink, #12213d);
+}
+
+.panel.web-page.hidden {
+  display: none !important;
 }
 
 .web-shell {
