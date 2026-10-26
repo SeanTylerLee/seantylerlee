@@ -1,59 +1,100 @@
+.apps-embed .rl-workspace {
+  min-height: 0;
+  height: 100%;
+}
+
 .rl-workspace {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 16px 18px 40px;
+  padding: 18px 22px 48px;
   background: var(--window);
   color: var(--ink);
 }
 
+.rl-workspace [data-el="body"] {
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.rl-lede {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .rl-block {
   background: #fff;
-  border-radius: 12px;
-  padding: 16px 18px 8px;
-  margin-bottom: 16px;
+  border-radius: 14px;
+  padding: 4px 4px 8px;
+  margin-bottom: 14px;
 }
 
-.rl-block h3.rl-sub {
-  margin: 4px 0 8px;
+.rl-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 4px;
+}
+
+.rl-head h2,
+.rl-block h2 {
+  margin: 0;
   font-size: 12px;
   font-weight: 700;
-}
-
-.rl-block h2 {
-  margin: 0 0 12px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
+.rl-legend {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1.15fr);
+  gap: 16px;
+  flex: 1;
+  max-width: calc(100% - 176px);
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rl-block h3.rl-sub {
+  margin: 8px 16px 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .rl-app {
   display: grid;
-  grid-template-columns: 160px minmax(220px, 1fr) minmax(220px, 1.2fr);
+  grid-template-columns: 160px minmax(220px, 1fr) minmax(220px, 1.15fr);
   gap: 12px 16px;
   align-items: start;
-  padding: 12px 0;
-  border-top: 1px solid rgba(18, 33, 61, 0.08);
+  margin: 0 8px;
+  padding: 14px 8px;
+  border-top: 1px solid rgba(18, 33, 61, 0.07);
 }
 
 .rl-app-name {
   font-weight: 700;
   font-size: 14px;
-  padding-top: 6px;
+  letter-spacing: -0.02em;
+  padding-top: 18px;
 }
 
 .rl-live {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
 .rl-live label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -63,39 +104,43 @@
 
 .rl-live input,
 .rl-add-pushed input {
-  min-height: 32px;
-  min-width: 88px;
-  padding: 0 8px;
+  min-height: 34px;
+  width: 100%;
+  padding: 0 10px;
   border: 1px solid var(--line-strong, #c8d0dc);
   border-radius: 8px;
-  background: #fff;
+  background: var(--window, #f4f6f9);
   color: inherit;
   font: inherit;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
 }
 
-.rl-pushed {
+.rl-wait {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rl-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-height: 22px;
   align-items: center;
 }
 
-.rl-pushed-k {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-right: 4px;
-}
-
 .rl-empty {
+  margin: 0 16px 12px;
   font-size: 12px;
   color: var(--muted);
+}
+
+.rl-tags .rl-empty {
+  margin: 0;
 }
 
 .rl-tag {
@@ -104,36 +149,43 @@
   gap: 6px;
   border: 0;
   border-radius: 999px;
-  padding: 4px 8px 4px 10px;
+  padding: 5px 8px 5px 10px;
   background: #eef1f6;
   color: inherit;
   font: inherit;
   font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .rl-tag span {
   color: var(--muted);
+  font-weight: 500;
 }
 
 .rl-add-pushed {
-  display: inline-flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
   gap: 6px;
   align-items: center;
 }
 
+.rl-add-pushed .btn {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
 .rl-table {
-  width: 100%;
+  width: calc(100% - 16px);
+  margin: 4px 8px 10px;
   border-collapse: collapse;
   font-size: 12px;
-  margin-bottom: 8px;
 }
 
 .rl-table th,
 .rl-table td {
   text-align: left;
-  padding: 8px 6px;
+  padding: 9px 10px;
   border-bottom: 1px solid rgba(18, 33, 61, 0.06);
 }
 
@@ -145,6 +197,20 @@
   color: var(--muted);
 }
 
-html.is-phone .rl-app {
+.rl-table tr:last-child td {
+  border-bottom: 0;
+}
+
+html.is-phone .rl-legend {
+  display: none;
+}
+
+html.is-phone .rl-app,
+html.is-phone .rl-live,
+html.is-phone .rl-add-pushed {
   grid-template-columns: 1fr;
+}
+
+html.is-phone .rl-app-name {
+  padding-top: 0;
 }

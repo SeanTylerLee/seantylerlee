@@ -85,32 +85,34 @@
     var live = liveOf(appKey, platform) || { version: "", build: "" };
     if (platform === "ios") {
       return (
-        '<label>Build <input data-live-build="' + appKey + '" data-platform="' + platform + '" type="text" value="' + esc(live.build) + '" /></label>' +
-        '<label>Version <input data-live-version="' + appKey + '" data-platform="' + platform + '" type="text" value="' + esc(live.version) + '" /></label>'
+        '<label><span>Build</span><input data-live-build="' + appKey + '" data-platform="' + platform + '" type="text" value="' + esc(live.build) + '" /></label>' +
+        '<label><span>Version</span><input data-live-version="' + appKey + '" data-platform="' + platform + '" type="text" value="' + esc(live.version) + '" /></label>'
       );
     }
     return (
-      '<label>Version <input data-live-version="' + appKey + '" data-platform="' + platform + '" type="text" value="' + esc(live.version) + '" /></label>' +
-      '<label>Version number <input data-live-build="' + appKey + '" data-platform="' + platform + '" type="text" value="' + esc(live.build) + '" /></label>'
+      '<label><span>Version</span><input data-live-version="' + appKey + '" data-platform="' + platform + '" type="text" value="' + esc(live.version) + '" /></label>' +
+      '<label><span>Version number</span><input data-live-build="' + appKey + '" data-platform="' + platform + '" type="text" value="' + esc(live.build) + '" /></label>'
     );
   }
 
   function pushedBlock(appKey, platform) {
     var list = pushedOf(appKey, platform);
+    var buildPh = platform === "ios" ? "Build" : "Version number";
     return (
-      '<div class="rl-pushed">' +
-        '<span class="rl-pushed-k">Pushed</span>' +
-        (list.length
-          ? list.map(function (item) {
-            var label = trim(item.version || item.build) ? (item.version || "") + (item.build ? " (" + item.build + ")" : "") : "Untitled";
-            return '<button class="rl-tag" type="button" data-del="' + esc(item.id) + '">' + esc(label) + '<span aria-hidden="true">x</span></button>';
-          }).join("")
-          : '<span class="rl-empty">None waiting</span>') +
-        '<span class="rl-add-pushed">' +
+      '<div class="rl-wait">' +
+        '<div class="rl-tags">' +
+          (list.length
+            ? list.map(function (item) {
+              var label = [item.version, item.build].filter(Boolean).join(" · ") || "Untitled";
+              return '<button class="rl-tag" type="button" data-del="' + esc(item.id) + '">' + esc(label) + '<span aria-hidden="true">x</span></button>';
+            }).join("")
+            : '<span class="rl-empty">None waiting</span>') +
+        '</div>' +
+        '<div class="rl-add-pushed">' +
           '<input data-push-version="' + appKey + '" data-platform="' + platform + '" type="text" placeholder="Version" />' +
-          '<input data-push-build="' + appKey + '" data-platform="' + platform + '" type="text" placeholder="' + (platform === "ios" ? "Build" : "Version number") + '" />' +
-          '<button class="btn btn-ghost btn-sm" type="button" data-push="' + appKey + '" data-platform="' + platform + '">Add</button>' +
-        '</span>' +
+          '<input data-push-build="' + appKey + '" data-platform="' + platform + '" type="text" placeholder="' + buildPh + '" />' +
+          '<button class="btn btn-ghost" type="button" data-push="' + appKey + '" data-platform="' + platform + '">Add</button>' +
+        '</div>' +
       '</div>'
     );
   }
@@ -122,6 +124,18 @@
         '<div class="rl-live">' + liveFields(app.key, platform) + '</div>' +
         pushedBlock(app.key, platform) +
       '</div>'
+    );
+  }
+
+  function platformBlock(title, platform) {
+    return (
+      '<section class="rl-block">' +
+        '<div class="rl-head">' +
+          '<h2>' + esc(title) + '</h2>' +
+          '<div class="rl-legend"><span>Live</span><span>Waiting</span></div>' +
+        '</div>' +
+        APPS.map(function (app) { return appRow(app, platform); }).join("") +
+      '</section>'
     );
   }
 
@@ -160,16 +174,11 @@
     if (!box) return;
     var hist = historyRows();
     box.innerHTML =
+      '<p class="rl-lede">Current live store versions, builds waiting in review, and versions you replaced.</p>' +
+      platformBlock("iOS", "ios") +
+      platformBlock("Android", "android") +
       '<section class="rl-block">' +
-        '<h2>iOS</h2>' +
-        APPS.map(function (app) { return appRow(app, "ios"); }).join("") +
-      '</section>' +
-      '<section class="rl-block">' +
-        '<h2>Android</h2>' +
-        APPS.map(function (app) { return appRow(app, "android"); }).join("") +
-      '</section>' +
-      '<section class="rl-block">' +
-        '<h2>Replaced live versions</h2>' +
+        '<div class="rl-head"><h2>Replaced</h2></div>' +
         historyTables(hist) +
       '</section>';
     bind();
