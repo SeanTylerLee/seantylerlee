@@ -1,0 +1,144 @@
+.rl-workspace {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 18px 40px;
+  background: var(--window);
+  color: var(--ink);
+}
+
+.rl-block {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 18px 8px;
+  margin-bottom: 16px;
+}
+
+.rl-block h2 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rl-app {
+  display: grid;
+  grid-template-columns: 160px minmax(220px, 1fr) minmax(220px, 1.2fr);
+  gap: 12px 16px;
+  align-items: start;
+  padding: 12px 0;
+  border-top: 1px solid rgba(18, 33, 61, 0.08);
+}
+
+.rl-app-name {
+  font-weight: 700;
+  font-size: 14px;
+  padding-top: 6px;
+}
+
+.rl-live {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.rl-live label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rl-live input,
+.rl-add-pushed input {
+  min-height: 32px;
+  min-width: 88px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong, #c8d0dc);
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.rl-pushed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.rl-pushed-k {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.rl-empty {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.rl-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 8px 4px 10px;
+  background: #eef1f6;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.rl-tag span {
+  color: var(--muted);
+}
+
+.rl-add-pushed {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.rl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.rl-table th,
+.rl-table td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(18, 33, 61, 0.06);
+}
+
+.rl-table th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+html.is-phone .rl-app {
+  grid-template-columns: 1fr;
+}

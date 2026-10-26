@@ -104,6 +104,7 @@
 .apps-embed.hidden,
 .apps-body.hidden,
 .apps-banner.hidden,
+.apps-capsules.hidden,
 .apps-top .btn-add.hidden {
   display: none !important;
 }

@@ -5,7 +5,7 @@
     "business_profile", "business_documents", "vault_logins", "renewal_items",
     "calendar_day_notes", "calendar_hidden", "studio_settings", "business_expenses", "business_expense_skips",
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
-    "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos", "studio_competitors", "haulpath_states", "haulpath_developer_notes",
+    "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos", "app_releases", "studio_competitors", "haulpath_states", "haulpath_developer_notes",
     "sop_guides", "support_tickets", "studio_inbox", "studio_websites", "studio_website_clicks", "studio_website_ignores", "email_lists", "email_contacts", "email_templates", "email_page_notes",
     "image_asset_notes", "image_asset_files", "studio_advertisements",
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
@@ -391,7 +391,7 @@
         ["Owner Draw", String((t.owner_draws || []).length)],
         ["Inventory", String((t.inventory_items || []).length)],
         ["Mileage", String((t.mileage_trips || []).length)],
-        ["Apps", String((t.managed_apps || []).length) + " · " + String((t.app_promos || []).length) + " promos"],
+        ["Apps", String((t.managed_apps || []).length) + " · " + String((t.app_promos || []).length) + " promos · " + String((t.app_releases || []).length) + " releases"],
         ["Competitors", String((t.studio_competitors || []).length)],
         ["Websites", String((t.studio_websites || []).length) + " · " + String((t.studio_website_clicks || []).length) + " clicks"],
         ["HaulPath Admin", String((t.haulpath_states || []).filter(haulpathFilled).length) + " states · " + String((t.haulpath_developer_notes || []).filter(function (row) { return row && String(row.body || "").trim(); }).length) + " developer notes"],
@@ -585,6 +585,24 @@
       [70, 100, 90, 90, 50, pdf.maxW - 400],
       4
     );
+  }
+
+  function releases(pdf, pack) {
+    openMenu(pdf, "Release log", "Open Apps, then Release log. Type live iOS build and version, Android version and version number, and waiting pushed builds. Replaced live versions stay in the log.");
+    var list = pack.tables.app_releases || [];
+    if (!list.length) { noRows(pdf, pack, "app_releases"); return; }
+    var names = { permitpath: "Permit Path", haulpath: "HaulPath", pc4h: "Pilot Car 4 Hire" };
+    list.slice().sort(function (a, b) {
+      return String(b.replaced_at || b.created_at || "").localeCompare(String(a.replaced_at || a.created_at || ""));
+    }).forEach(function (row, i) {
+      pdf.recordHead((row.platform === "ios" ? "iOS" : "Android") + " · " + (names[row.app_key] || row.app_key), i + 1, list.length);
+      filled(pdf, [
+        ["Kind", row.kind],
+        ["Version", row.version],
+        ["Build / version number", row.build],
+        ["Replaced", row.replaced_at || ""]
+      ]);
+    });
   }
 
   function apps(pdf, pack) {
@@ -1562,6 +1580,7 @@
     inventory(pdf, pack);
     mileage(pdf, pack);
     apps(pdf, pack);
+    releases(pdf, pack);
     competitors(pdf, pack);
     websites(pdf, pack);
     haulpathStates(pdf, pack);

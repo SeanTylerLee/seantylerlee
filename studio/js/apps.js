@@ -204,12 +204,14 @@
           '<button type="button" class="apps-tab is-on" data-page-tab="app">App</button>' +
           '<button type="button" class="apps-tab" data-page-tab="promos">Promos</button>' +
           '<button type="button" class="apps-tab" data-page-tab="analytics">Analytics</button>' +
+          '<button type="button" class="apps-tab" data-page-tab="release">Release log</button>' +
           '<button type="button" class="apps-tab" data-page-tab="tos">TOS Accepted</button>' +
         "</div>" +
         '<p class="status apps-banner" data-el="banner"></p>' +
         '<div class="apps-body" data-el="body"></div>' +
         '<div class="apps-embed hidden" data-el="promos-host"></div>' +
         '<div class="apps-embed hidden" data-el="analytics-host"></div>' +
+        '<div class="apps-embed hidden" data-el="release-host"></div>' +
         '<div class="apps-embed hidden" data-el="tos-host"></div>' +
       "</div>"
     );
@@ -247,6 +249,17 @@
     if (window.STLAnalytics.shown) window.STLAnalytics.shown();
   }
 
+  function ensureRelease() {
+    var host = el("release-host");
+    if (!host || !window.STLReleaseLog) return;
+    if (!host.getAttribute("data-mounted")) {
+      host.setAttribute("data-mounted", "1");
+      window.STLReleaseLog.mount(host, db);
+      return;
+    }
+    if (window.STLReleaseLog.shown) window.STLReleaseLog.shown();
+  }
+
   function ensureTos() {
     var host = el("tos-host");
     if (!host || !window.STLTos) return;
@@ -269,16 +282,23 @@
     var promosHost = el("promos-host");
     var analyticsHost = el("analytics-host");
     var tosHost = el("tos-host");
+    var releaseHost = el("release-host");
+    var capsules = el("capsules");
     if (body) body.classList.toggle("hidden", pageTab !== "app");
     if (banner) banner.classList.toggle("hidden", pageTab !== "app");
     if (addBtn) addBtn.classList.toggle("hidden", pageTab !== "app");
+    if (capsules) capsules.classList.toggle("hidden", pageTab === "release");
     if (promosHost) promosHost.classList.toggle("hidden", pageTab !== "promos");
     if (analyticsHost) analyticsHost.classList.toggle("hidden", pageTab !== "analytics");
+    if (releaseHost) releaseHost.classList.toggle("hidden", pageTab !== "release");
     if (tosHost) tosHost.classList.toggle("hidden", pageTab !== "tos");
     if (pageTab === "promos") ensurePromos();
     else if (pageTab === "analytics") {
       hideSave();
       ensureAnalytics();
+    } else if (pageTab === "release") {
+      hideSave();
+      ensureRelease();
     } else if (pageTab === "tos") {
       hideSave();
       ensureTos();
@@ -288,7 +308,7 @@
   }
 
   function setPageTab(tab) {
-    if (tab !== "app" && tab !== "promos" && tab !== "analytics" && tab !== "tos") return;
+    if (tab !== "app" && tab !== "promos" && tab !== "analytics" && tab !== "release" && tab !== "tos") return;
     if (tab === "tos" && !isPermitPathApp(selected())) return;
     if (!confirmLeaveTab(tab)) return;
     pageTab = tab;
@@ -1035,22 +1055,24 @@
       var tosHost = el("tos-host");
       if (window.STLPromos && window.STLPromos.unmount && promosHost) window.STLPromos.unmount(promosHost);
       if (window.STLAnalytics && window.STLAnalytics.unmount && analyticsHost) window.STLAnalytics.unmount(analyticsHost);
+      var releaseHost = el("release-host");
       if (window.STLTos && window.STLTos.unmount && tosHost) window.STLTos.unmount(tosHost);
+      if (window.STLReleaseLog && window.STLReleaseLog.unmount && releaseHost) window.STLReleaseLog.unmount(releaseHost);
       if (panel) panel.classList.remove("apps-wide");
       root = null;
     },
     saveAll: function () {
-      if (pageTab === "analytics" || pageTab === "tos") return;
+      if (pageTab === "analytics" || pageTab === "tos" || pageTab === "release") return;
       if (pageTab === "promos" && window.STLPromos && window.STLPromos.saveAll) return window.STLPromos.saveAll();
       return saveAll();
     },
     isDirty: function () {
-      if (pageTab === "analytics" || pageTab === "tos") return false;
+      if (pageTab === "analytics" || pageTab === "tos" || pageTab === "release") return false;
       if (pageTab === "promos" && window.STLPromos && window.STLPromos.isDirty) return window.STLPromos.isDirty();
       return dirty;
     },
     usesGlobalSave: function () {
-      return pageTab !== "analytics" && pageTab !== "tos";
+      return pageTab !== "analytics" && pageTab !== "tos" && pageTab !== "release";
     },
     setPageTab: setPageTab,
     shown: function () {
