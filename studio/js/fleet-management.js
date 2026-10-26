@@ -12,6 +12,7 @@
   var openId = "";
   var draft = blankDraft();
   var invoiceDraft = null;
+  var formOpen = false;
 
   function blankDraft() {
     var through = new Date();
@@ -101,7 +102,8 @@
         '<div class="direct-stats" data-el="summary"></div>' +
         '<p class="tos-note">1–20 paid devices are $3.99 each per month. 21 or more are $3.39 each per month. Trial codes are free for one month and are not in that price.</p>' +
         '<p class="fleet-error" data-el="notice"></p>' +
-        '<form class="fleet-form" data-el="form">' +
+        '<button type="button" class="btn btn-primary" data-el="add-toggle">Add a company</button>' +
+        '<form class="fleet-form hidden" data-el="form">' +
           "<h2>Add a company</h2>" +
           '<label>Company name<input name="company_name" required placeholder="Harper Trucking"></label>' +
           '<label>Contact email<input name="contact_email" type="email" placeholder="office@harper.example"></label>' +
@@ -116,6 +118,7 @@
           '<label>Company notes<textarea name="notes" rows="3" placeholder="Who to call, how they pay, anything you want to remember"></textarea></label>' +
           '<div class="fleet-form-actions">' +
             '<button type="submit" class="btn btn-primary">Save company</button>' +
+            '<button type="button" class="btn btn-ghost" data-el="add-close">Close</button>' +
           "</div>" +
         "</form>" +
         '<div data-el="list"></div>' +
@@ -138,6 +141,9 @@
     var submit = form.querySelector('button[type="submit"]');
     if (title) title.textContent = draft.id ? "Edit company" : "Add a company";
     if (submit) submit.textContent = draft.id ? "Save changes" : "Save company";
+    form.classList.toggle("hidden", !(formOpen || draft.id));
+    var toggle = el("add-toggle");
+    if (toggle) toggle.classList.toggle("hidden", !!(formOpen || draft.id));
   }
 
   function readForm() {
@@ -430,6 +436,18 @@
   }
 
   function bind() {
+    var opener = el("add-toggle");
+    if (opener) opener.onclick = function () {
+      formOpen = true;
+      draft = blankDraft();
+      render();
+    };
+    var closer = el("add-close");
+    if (closer) closer.onclick = function () {
+      formOpen = false;
+      draft = blankDraft();
+      render();
+    };
     var form = el("form");
     if (form && !form.getAttribute("data-bound")) {
       form.setAttribute("data-bound", "1");
@@ -529,6 +547,7 @@
       btn.onclick = function () {
         var found = fleets.filter(function (row) { return row.id === btn.getAttribute("data-edit"); })[0];
         if (!found) return;
+        formOpen = true;
         draft = {
           id: found.id,
           company_name: found.company_name,
@@ -707,6 +726,7 @@
         return;
       }
       draft = blankDraft();
+      formOpen = false;
       if (data.warning) {
         error = data.warning;
         notice = "";

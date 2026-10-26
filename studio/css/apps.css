@@ -329,6 +329,10 @@
   font-weight: 650;
 }
 
+.fleet-shell > .btn-primary {
+  margin: 0 0 14px;
+}
+
 .fleet-shell h2,
 .fleet-card h3 {
   margin: 0 0 8px;
