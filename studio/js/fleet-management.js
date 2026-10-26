@@ -54,6 +54,22 @@
     return seats.filter(function (row) { return row.fleet_id === id; });
   }
 
+  function isTrial(seat) {
+    return String(seat.billing || "paid") === "trial";
+  }
+
+  function paidSeats(id) {
+    return seatsFor(id).filter(function (seat) { return !isTrial(seat) && seat.active !== false; });
+  }
+
+  function trialSeats(id) {
+    return seatsFor(id).filter(function (seat) { return isTrial(seat) && seat.active !== false; });
+  }
+
+  function rateFor(paidCount) {
+    return paidCount >= 21 ? 3.39 : 3.99;
+  }
+
   function statusOf(fleet) {
     if (!fleet.active) return "Off";
     var day = String(fleet.paid_through || "");
@@ -65,7 +81,8 @@
   function shell() {
     return (
       '<div class="fleet-shell">' +
-        '<p class="tos-note">A company pays you by invoice. Each seat gets its own code, and that code works on one phone or tablet. The apps do not ask for a code until the next build that includes Company tablet.</p>' +
+        '<div class="direct-stats" data-el="summary"></div>' +
+        '<p class="tos-note">1–20 paid devices are $3.99 each per month. 21 or more are $3.39 each per month. Trial codes are free for one month and are not in that price.</p>' +
         '<p class="fleet-error" data-el="notice"></p>' +
         '<form class="fleet-form" data-el="form">' +
           "<h2>Add a company</h2>" +
@@ -73,10 +90,10 @@
           '<label>Contact email<input name="contact_email" type="email" placeholder="office@harper.example"></label>' +
           '<label>Billing address<textarea name="billing_address" rows="2" placeholder="Street, city, state, ZIP"></textarea></label>' +
           '<div class="fleet-form-row">' +
-            '<label>Seats<input name="seats" type="number" min="1" max="5000" value="5" required></label>' +
+            '<label>Paid seats<input name="seats" type="number" min="1" max="5000" value="5" required></label>' +
             '<label>Paid through<input name="paid_through" type="date" required></label>' +
           "</div>" +
-          '<p class="tos-note">Saving creates one code per seat. Harper with 10 seats gets 10 different codes.</p>' +
+          '<p class="tos-note">Paid seats are billed. Add trial codes from the company after it is saved. A trial lasts one month.</p>' +
           '<label>Company notes<textarea name="notes" rows="3" placeholder="Who to call, how they pay, anything you want to remember"></textarea></label>' +
           '<div class="fleet-form-actions">' +
             '<button type="submit" class="btn btn-primary">Save company</button>' +
@@ -199,7 +216,7 @@
           "</section>" +
         "</div>" +
         "<table><thead><tr><th>Description</th><th>Seats</th><th>Months</th><th>Per seat</th><th>Amount</th></tr></thead><tbody><tr>" +
-          "<td>Permit Path fleet seats</td><td>" + esc(invoice.seats) + "</td><td>" + esc(invoice.months) +
+          "<td>Permit Path fleet seats" + (invoice.rate === 3.39 ? " · 21+ rate" : "") + "</td><td>" + esc(invoice.seats) + "</td><td>" + esc(invoice.months) +
           "</td><td>" + esc(money(invoice.rate)) + "</td><td>" + esc(money(total)) + "</td>" +
         "</tr></tbody></table>" +
         '<p class="invoice-due"><span>Amount due</span><strong>' + esc(money(total)) + "</strong></p>" +
@@ -233,8 +250,11 @@
       issued_on: box.querySelector("[name=issued_on]").value,
       due_on: box.querySelector("[name=due_on]").value,
       service_start: box.querySelector("[name=service_start]").value,
-      seats: Number(box.querySelector("[name=seats]").value || 1),
-      rate: Number(box.querySelector("[name=rate]").value || 0),
+      seats: checkedCodes().filter(function (code) {
+        var seat = seats.filter(function (row) { return row.code === code; })[0];
+        return seat && !isTrial(seat);
+      }).length,
+      rate: rateFor(paidSeats(fleet.id).length),
       months: Number(box.querySelector("[name=months]").value || 1),
       note: box.querySelector("[name=note]").value.trim(),
       codes: checkedCodes()
@@ -273,10 +293,7 @@
               '<label>Issued<input name="issued_on" type="date" value="' + esc(invoiceDraft.issued_on) + '" required></label>' +
               '<label>Payment due<input name="due_on" type="date" value="' + esc(invoiceDraft.due_on) + '"></label>' +
             "</div>" +
-            '<div class="fleet-form-row">' +
-              '<label>Seats<input name="seats" type="number" min="1" value="' + esc(invoiceDraft.seats) + '"></label>' +
-              '<label>Price per seat / month<input name="rate" type="number" min="0" step="0.01" value="' + esc(invoiceDraft.rate) + '"></label>' +
-            "</div>" +
+            '<p class="tos-note">Price follows the company. 1–20 paid devices are $3.99. 21 or more are $3.39. Trial codes on this invoice are free.</p>' +
             '<div class="fleet-form-row">' +
               '<label>Duration<select name="months">' +
                 [1, 3, 6, 12].map(function (months) {
@@ -318,7 +335,9 @@
     var chosen = invoicing && invoiceDraft.codes ? invoiceDraft.codes : [];
     var rows = used.map(function (seat) {
       var phone = seat.platform === "ios" ? "iPhone or iPad" : seat.platform === "android" ? "Android" : "Phone or tablet";
-      var where = seat.install_id ? phone : "Not used yet";
+      var where = isTrial(seat) ? "Trial until " + (seat.trial_until || "—") : "Paid";
+      if (seat.install_id) where += " · " + phone;
+      else where += " · not used";
       if (seat.active === false) where = "Off";
       var pick = invoicing && seat.code
         ? '<input type="checkbox" data-code-pick="' + esc(seat.code) + '"' + (chosen.indexOf(seat.code) !== -1 ? " checked" : "") + (seat.active === false ? " disabled" : "") + ">"
@@ -334,7 +353,14 @@
       '<article class="fleet-card">' +
         '<header><div><h3>' + esc(fleet.company_name) + "</h3><p>" + esc(fleet.contact_email || "No email") + "</p></div>" +
         '<span class="fleet-status fleet-status-' + statusOf(fleet).toLowerCase() + '">' + esc(statusOf(fleet)) + "</span></header>" +
-        "<p>" + claimed + " of " + used.length + " codes in use · paid through " + esc(fleet.paid_through) + "</p>" +
+        "<p>" + paidSeats(fleet.id).length + " paid at " + money(rateFor(paidSeats(fleet.id).length)) + " / device / month · " +
+          trialSeats(fleet.id).length + " trial · " + claimed + " in use · paid through " + esc(fleet.paid_through) + "</p>" +
+        '<div class="fleet-form-actions">' +
+          '<label>Add paid seats<input type="number" min="1" value="1" data-add-count="paid-' + esc(fleet.id) + '"></label>' +
+          '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="paid">Add paid</button>' +
+          '<label>Add trial seats<input type="number" min="1" value="2" data-add-count="trial-' + esc(fleet.id) + '"></label>' +
+          '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="trial">Add 1-month trial</button>' +
+        "</div>" +
         (fleet.notes ? "<p>" + esc(fleet.notes) + "</p>" : "") +
         '<div class="fleet-form-actions">' +
           '<button type="button" class="btn btn-ghost" data-edit="' + esc(fleet.id) + '">Edit</button>' +
@@ -351,6 +377,23 @@
     if (!root.querySelector("[data-el='form']")) root.innerHTML = shell();
     var note = el("notice");
     if (note) note.textContent = loading ? "Loading fleets…" : error || notice;
+    var summary = el("summary");
+    if (summary) {
+      var paid = 0;
+      var trial = 0;
+      var monthly = 0;
+      fleets.forEach(function (fleet) {
+        var count = paidSeats(fleet.id).length;
+        paid += count;
+        trial += trialSeats(fleet.id).length;
+        monthly += count * rateFor(count);
+      });
+      summary.innerHTML =
+        '<div class="direct-stat"><span>' + fleets.length + '</span><small>Companies</small></div>' +
+        '<div class="direct-stat"><span>' + paid + '</span><small>Paid devices</small></div>' +
+        '<div class="direct-stat"><span>' + trial + '</span><small>Trial devices</small></div>' +
+        '<div class="direct-stat"><span>' + money(monthly) + '</span><small>Per month</small></div>';
+    }
     fillForm();
     var list = el("list");
     if (!list) return;
@@ -380,6 +423,33 @@
         render();
       };
     });
+    root.querySelectorAll("[data-add-seats]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-add-seats");
+        var kind = btn.getAttribute("data-add-kind") || "paid";
+        var input = root.querySelector('[data-add-count="' + kind + "-" + id + '"]');
+        var fleet = fleets.filter(function (row) { return row.id === id; })[0];
+        api().post("/api/permitpath-fleets", {
+          action: "add-seats",
+          id: id,
+          company_name: fleet ? fleet.company_name : "",
+          kind: kind,
+          count: Number(input && input.value) || 1
+        }).then(function (res) {
+          var data = (res && res.data) || {};
+          if (!res || !res.ok) {
+            error = data.error || "Could not add seats.";
+            render();
+            return;
+          }
+          notice = kind === "trial" ? "Trial codes added for one month." : "Paid codes added.";
+          load();
+        }).catch(function (err) {
+          error = (err && err.message) || "Could not add seats.";
+          render();
+        });
+      };
+    });
     root.querySelectorAll("[data-copy-all]").forEach(function (btn) {
       btn.onclick = function () {
         var codes = activeSeatCodes(btn.getAttribute("data-copy-all"));
@@ -392,9 +462,7 @@
     });
     root.querySelectorAll("[data-code-pick]").forEach(function (box) {
       box.onchange = function () {
-        var seatsInput = root.querySelector("[data-invoice-form] [name=seats]");
         var codes = checkedCodes();
-        if (seatsInput) seatsInput.value = String(codes.length || 1);
         if (invoiceDraft) invoiceDraft.codes = codes;
         var preview = root.querySelector("[data-invoice-preview]");
         var fleet = fleets.filter(function (row) { return invoiceDraft && row.id === invoiceDraft.fleet_id; })[0];
@@ -532,15 +600,7 @@
       };
       invoiceForm.querySelectorAll("input, select, textarea").forEach(function (field) {
         field.addEventListener("input", function () {
-          if (field.name === "seats" && invoiceDraft) {
-            var all = activeSeatCodes(invoiceDraft.fleet_id);
-            var count = Math.max(0, Number(field.value) || 0);
-            invoiceDraft.codes = all.slice(0, count);
-            root.querySelectorAll("[data-code-pick]").forEach(function (box) {
-              box.checked = invoiceDraft.codes.indexOf(box.getAttribute("data-code-pick")) !== -1;
-            });
-          }
-          refreshMath();
+            refreshMath();
         });
       });
       refreshMath();
