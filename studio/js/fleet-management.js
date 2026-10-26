@@ -65,8 +65,8 @@
   function shell() {
     return (
       '<div class="fleet-shell">' +
-        '<p class="tos-note">A company pays you by invoice. Studio keeps their code and how many phones or tablets can use it. The apps do not ask for a code until the next build that includes Company tablet.</p>' +
-        '<p class="tos-note" data-el="notice"></p>' +
+        '<p class="tos-note">A company pays you by invoice. Each seat gets its own code, and that code works on one phone or tablet. The apps do not ask for a code until the next build that includes Company tablet.</p>' +
+        '<p class="fleet-error" data-el="notice"></p>' +
         '<form class="fleet-form" data-el="form">' +
           "<h2>Add a company</h2>" +
           '<label>Company name<input name="company_name" required placeholder="Harper Trucking"></label>' +
@@ -76,11 +76,9 @@
             '<label>Seats<input name="seats" type="number" min="1" max="5000" value="5" required></label>' +
             '<label>Paid through<input name="paid_through" type="date" required></label>' +
           "</div>" +
-          '<label>Code<input name="code" required spellcheck="false"></label>' +
-          '<p class="tos-note">One code for the whole company. Every phone or tablet that enters it uses one seat.</p>' +
+          '<p class="tos-note">Saving creates one code per seat. Harper with 10 seats gets 10 different codes.</p>' +
           '<label>Company notes<textarea name="notes" rows="3" placeholder="Who to call, how they pay, anything you want to remember"></textarea></label>' +
           '<div class="fleet-form-actions">' +
-            '<button type="button" class="btn btn-ghost" data-el="new-code">New code</button>' +
             '<button type="submit" class="btn btn-primary">Save company</button>' +
           "</div>" +
         "</form>" +
@@ -96,7 +94,6 @@
     form.contact_email.value = draft.contact_email || "";
     form.seats.value = draft.seats || 5;
     form.paid_through.value = draft.paid_through || "";
-    form.code.value = draft.code || makeCode(draft.company_name);
     form.billing_address.value = draft.billing_address || "";
     form.notes.value = draft.notes || "";
     var title = form.querySelector("h2");
@@ -113,7 +110,6 @@
       contact_email: form.contact_email.value.trim(),
       seats: Number(form.seats.value || 1),
       paid_through: form.paid_through.value,
-      code: form.code.value.trim().toUpperCase(),
       notes: form.notes.value.trim(),
       billing_address: form.billing_address.value.trim(),
       active: draft.id ? draft.active !== false : true
@@ -235,8 +231,8 @@
         "</form>";
     }
     return (
-      '<table class="fleet-seats"><thead><tr><th>Device</th><th>Install</th><th>Last check</th></tr></thead><tbody>' +
-        (deviceRows || '<tr><td colspan="3">No phone or tablet has entered this code yet.</td></tr>') +
+      '<table class="fleet-seats"><thead><tr><th>Code</th><th>Status</th><th>Last check</th><th></th></tr></thead><tbody>' +
+        (deviceRows || '<tr><td colspan="4">No codes yet. Save the company with a seat count.</td></tr>') +
       "</tbody></table>" +
       "<h3>Invoices</h3>" +
       '<table class="fleet-seats"><thead><tr><th>Number</th><th>Status</th><th>Issued</th><th>Amount</th><th></th></tr></thead><tbody>' +
@@ -250,28 +246,31 @@
   function card(fleet) {
     var used = seatsFor(fleet.id);
     var open = openId === fleet.id;
+    var claimed = used.filter(function (seat) { return seat.install_id; }).length;
     var rows = used.map(function (seat) {
-      var phone = seat.platform === "ios" ? "iPhone or iPad" : seat.platform === "android" ? "Android" : "Tablet";
+      var phone = seat.platform === "ios" ? "iPhone or iPad" : seat.platform === "android" ? "Android" : "Phone or tablet";
+      var where = seat.install_id ? phone + " · " + String(seat.install_id).slice(0, 8) : "Not used yet";
+      if (seat.active === false) where = "Turned off";
       return (
-        "<tr><td>" + esc(phone) + "</td><td>" + esc(String(seat.install_id || "").slice(0, 8)) +
-        "</td><td>" + esc(seat.last_seen ? new Date(seat.last_seen).toLocaleString() : "") + "</td></tr>"
+        "<tr><td class=\"fleet-code\">" + esc(seat.code || "—") + "</td><td>" + esc(where) +
+        "</td><td>" + esc(seat.last_seen && seat.install_id ? new Date(seat.last_seen).toLocaleString() : "") +
+        '</td><td><button type="button" class="btn btn-ghost" data-copy="' + esc(seat.code || "") + '">Copy</button> ' +
+        '<button type="button" class="btn btn-ghost" data-seat="' + esc(seat.id) + '" data-seat-active="' + (seat.active === false ? "1" : "0") + '">' +
+        (seat.active === false ? "Turn on" : "Turn off") + "</button></td></tr>"
       );
     }).join("");
     return (
       '<article class="fleet-card">' +
         '<header><div><h3>' + esc(fleet.company_name) + "</h3><p>" + esc(fleet.contact_email || "No email") + "</p></div>" +
         '<span class="fleet-status fleet-status-' + statusOf(fleet).toLowerCase() + '">' + esc(statusOf(fleet)) + "</span></header>" +
-        '<p class="fleet-code">' + esc(fleet.code) + "</p>" +
-        "<p>" + used.length + " of " + Number(fleet.seats) + " seats in use · paid through " + esc(fleet.paid_through) + "</p>" +
+        "<p>" + claimed + " of " + used.length + " codes in use · paid through " + esc(fleet.paid_through) + "</p>" +
         (fleet.notes ? "<p>" + esc(fleet.notes) + "</p>" : "") +
         '<div class="fleet-form-actions">' +
-          '<button type="button" class="btn btn-ghost" data-copy="' + esc(fleet.code) + '">Copy code</button>' +
           '<button type="button" class="btn btn-ghost" data-edit="' + esc(fleet.id) + '">Edit</button>' +
-          '<button type="button" class="btn btn-ghost" data-toggle="' + esc(fleet.id) + '">' + (fleet.active ? "Turn off" : "Turn on") + "</button>" +
-          '<button type="button" class="btn btn-ghost" data-open="' + esc(fleet.id) + '">' + (open ? "Hide tablets" : "Tablets") + "</button>" +
+          '<button type="button" class="btn btn-ghost" data-toggle="' + esc(fleet.id) + '">' + (fleet.active ? "Turn company off" : "Turn company on") + "</button>" +
           '<button type="button" class="btn btn-danger" data-remove="' + esc(fleet.id) + '">Delete</button>' +
         "</div>" +
-        (open ? invoiceBlock(fleet, rows) : "") +
+        invoiceBlock(fleet, rows) +
       "</article>"
     );
   }
@@ -299,21 +298,30 @@
         save(readForm());
       });
       var newer = el("new-code");
-      if (newer) {
-        newer.onclick = function () {
-          var name = form.company_name.value;
-          form.code.value = makeCode(name);
-        };
-      }
     }
     if (!root) return;
     root.querySelectorAll("[data-copy]").forEach(function (btn) {
       btn.onclick = function () {
         var code = btn.getAttribute("data-copy") || "";
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code);
-        notice = "Copied " + code;
+        notice = code ? "Copied " + code : "";
         error = "";
         render();
+      };
+    });
+    root.querySelectorAll("[data-seat]").forEach(function (btn) {
+      btn.onclick = function () {
+        api().post("/api/permitpath-fleets", {
+          action: "toggle-seat",
+          id: btn.getAttribute("data-seat"),
+          active: btn.getAttribute("data-seat-active") === "1"
+        }).then(function () {
+          notice = "Seat updated.";
+          load();
+        }).catch(function (err) {
+          error = (err && err.message) || "Could not update that seat.";
+          render();
+        });
       };
     });
     root.querySelectorAll("[data-edit]").forEach(function (btn) {
@@ -466,10 +474,15 @@
   function save(body) {
     notice = "";
     error = "";
-    api().post("/api/permitpath-fleets", body).then(function () {
+    api().post("/api/permitpath-fleets", body).then(function (res) {
       draft = blankDraft();
-      draft.code = makeCode("");
-      notice = "Saved.";
+      if (res && res.warning) {
+        error = res.warning;
+        notice = "";
+      } else {
+        error = "";
+        notice = "Saved. Each seat below has its own code.";
+      }
       load();
     }).catch(function (err) {
       error = (err && err.message) || "Could not save.";

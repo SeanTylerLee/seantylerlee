@@ -185,6 +185,12 @@
   margin: -4px 0 12px;
 }
 
+.fleet-error:empty { display: none; }
+.fleet-error {
+  color: #9b1c1c;
+  font-weight: 650;
+}
+
 .fleet-shell h2,
 .fleet-card h3 {
   margin: 0 0 8px;
