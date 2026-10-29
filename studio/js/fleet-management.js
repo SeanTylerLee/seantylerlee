@@ -221,6 +221,7 @@
             '<button type="button" class="btn btn-ghost" data-copy="' + esc(seat.code || "") + '">Copy</button>' +
             '<button type="button" class="btn btn-ghost" data-seat="' + esc(seat.id) + '" data-seat-active="' + (seat.active === false ? "1" : "0") + '">' +
             (seat.active === false ? "Turn on" : "Turn off") + "</button>" +
+            '<button type="button" class="btn btn-danger" data-delete-seat="' + esc(seat.id) + '" data-delete-code="' + esc(seat.code || "") + '">Delete</button>' +
           "</td>" +
         "</tr>"
       );
@@ -501,6 +502,39 @@
           load();
         }).catch(function (err) {
           error = (err && err.message) || "Could not update that seat.";
+          render();
+        });
+      };
+    });
+    root.querySelectorAll("[data-delete-seat]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-delete-seat") || "";
+        var code = btn.getAttribute("data-delete-code") || "this code";
+        if (!id) return;
+        if (!window.confirm(
+          "Delete " + code + "?\n\nThis removes the code from Fleet Management. If a phone is using it, that phone loses company access on the next online check."
+        )) return;
+        if (!window.confirm(
+          "Confirm again: permanently delete " + code + "?\n\nPaid codes can be deleted too. This cannot be undone."
+        )) return;
+        api().post("/api/permitpath-fleets", {
+          action: "delete-seat",
+          id: id,
+          confirm_twice: true
+        }).then(function (res) {
+          var data = (res && res.data) || {};
+          if (!res || !res.ok) {
+            error = data.error || "Could not delete that code.";
+            notice = "";
+            render();
+            return;
+          }
+          notice = "Deleted " + (data.deleted_code || code) + ".";
+          error = "";
+          load();
+        }).catch(function (err) {
+          error = (err && err.message) || "Could not delete that code.";
+          notice = "";
           render();
         });
       };
