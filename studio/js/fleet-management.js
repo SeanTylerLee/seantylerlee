@@ -194,10 +194,19 @@
     var claimed = used.filter(function (seat) { return seat.install_id; }).length;
     var rows = used.map(function (seat) {
       var phone = seat.platform === "ios" ? "iPhone or iPad" : seat.platform === "android" ? "Android" : "Phone or tablet";
-      var where = isTrial(seat) ? "Trial until " + (seat.trial_until || "—") : "Paid";
+      var until = isTrial(seat)
+        ? String(seat.trial_until || "").slice(0, 10)
+        : String(seat.paid_through || fleet.paid_through || "").slice(0, 10);
+      var where = isTrial(seat) ? "Trial" : "Paid";
+      if (until) where += " · through " + until;
       if (seat.install_id) where += " · " + phone;
       else where += " · not used";
-      if (seat.active === false) where = "Off";
+      if (until) {
+        var today = new Date();
+        var stamp = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+        if (until < stamp) where = "Expired " + until + (seat.install_id ? " · " + phone : "");
+      }
+      if (seat.active === false) where = "Off" + (until ? " · was through " + until : "");
       return (
         "<tr>" +
           '<td class="fleet-code">' + esc(seat.code || "—") + "</td>" +
