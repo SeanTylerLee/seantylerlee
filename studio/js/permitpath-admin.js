@@ -33,6 +33,7 @@
   var loading = false;
   var deleting = false;
   var tab = "overview";
+  var lastAccountsTab = "overview";
   var fleetTrialRequests = [];
   var userFilter = null;
   var userSearch = "";
@@ -373,21 +374,28 @@
     return msg;
   }
 
+  function isAccountsTab(name) {
+    return name === "overview" || name === "users" || name === "deleted" || name === "accounts";
+  }
+
   function shell() {
     return (
       '<div class="ops-workspace pp-admin">' +
         '<div class="ops-header">' +
           "<h1>Permit Path Admin</h1>" +
-          "<p>Signed-in users, subscription status, and who needs a look.</p>" +
+          "<p>Account holders, phone analytics, and company fleets.</p>" +
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-filters pp-admin-tabs">' +
-          '<button type="button" class="ops-pill" data-tab="overview">Overview</button>' +
-          '<button type="button" class="ops-pill" data-tab="users">Users</button>' +
-          '<button type="button" class="ops-pill" data-tab="deleted">Deleted</button>' +
+          '<button type="button" class="ops-pill" data-tab="accounts">Account holders overview</button>' +
           '<button type="button" class="ops-pill" data-tab="direct">Direct App Analytics</button>' +
           '<button type="button" class="ops-pill" data-tab="fleet">Fleet Management</button>' +
           '<button type="button" class="btn btn-ghost" data-el="refresh" style="margin-left:auto">Refresh</button>' +
+        "</div>" +
+        '<div class="pp-admin-subtabs" data-el="account-subtabs" hidden>' +
+          '<button type="button" class="ops-pill" data-subtab="overview">Overview</button>' +
+          '<button type="button" class="ops-pill" data-subtab="users">Users</button>' +
+          '<button type="button" class="ops-pill" data-subtab="deleted">Deleted</button>' +
         "</div>" +
         '<div class="ops-body pp-admin-body" data-el="body"></div>' +
         '<div class="pp-admin-drawer-backdrop" data-el="drawer-backdrop" hidden></div>' +
@@ -418,15 +426,28 @@
 
   function syncTabPills() {
     if (!root) return;
-    root.querySelectorAll("[data-tab]").forEach(function (btn) {
-      btn.classList.toggle("is-on", btn.getAttribute("data-tab") === tab);
+    var onAccounts = isAccountsTab(tab) && tab !== "direct" && tab !== "fleet";
+    root.querySelectorAll(".pp-admin-tabs [data-tab]").forEach(function (btn) {
+      var name = btn.getAttribute("data-tab");
+      var active = name === tab || (name === "accounts" && onAccounts);
+      btn.classList.toggle("is-on", active);
     });
+    var sub = el("account-subtabs");
+    if (sub) {
+      sub.hidden = !onAccounts;
+      sub.querySelectorAll("[data-subtab]").forEach(function (btn) {
+        btn.classList.toggle("is-on", btn.getAttribute("data-subtab") === tab);
+      });
+    }
     var refresh = el("refresh");
     if (refresh) refresh.textContent = loading ? "Loading…" : "Refresh";
   }
 
   function setTab(next) {
-    tab = next || "overview";
+    var wanted = next || "overview";
+    if (wanted === "accounts") wanted = lastAccountsTab || "overview";
+    tab = wanted;
+    if (isAccountsTab(tab) && tab !== "accounts") lastAccountsTab = tab;
     if (tab !== "users") closeDrawer();
     render();
   }
@@ -436,6 +457,7 @@
     else if (userFilter === filterKey) userFilter = null;
     else userFilter = filterKey;
     tab = "users";
+    lastAccountsTab = "users";
     render();
   }
 
@@ -1056,11 +1078,19 @@
 
   function bindShell() {
     if (!root) return;
-    root.querySelectorAll("[data-tab]").forEach(function (btn) {
+    root.querySelectorAll(".pp-admin-tabs [data-tab]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         setTab(btn.getAttribute("data-tab"));
       });
     });
+    var sub = el("account-subtabs");
+    if (sub) {
+      sub.querySelectorAll("[data-subtab]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          setTab(btn.getAttribute("data-subtab") || "overview");
+        });
+      });
+    }
     var refresh = el("refresh");
     if (refresh) {
       refresh.addEventListener("click", function () {

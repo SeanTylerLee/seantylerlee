@@ -1372,6 +1372,21 @@ html.is-phone .mail-queue-actions .btn {
   padding: 0 16px 4px 22px;
 }
 
+.app.is-permitPathAdmin .pp-admin-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 10px 22px;
+}
+
+.app.is-permitPathAdmin .pp-admin-subtabs[hidden] {
+  display: none;
+}
+
+.app.is-permitPathAdmin .pp-admin-subtabs .ops-pill {
+  background: #f4f6f9;
+}
+
 .app.is-permitPathAdmin .pp-admin-body {
   overflow: auto;
   padding: 0 16px 24px;
