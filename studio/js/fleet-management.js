@@ -177,8 +177,8 @@
       '<div class="fleet-form-actions">' +
         '<button type="button" class="btn btn-ghost" data-copy-all="' + esc(fleet.id) + '">Copy all codes</button>' +
       "</div>" +
-      '<table class="fleet-seats"><thead><tr><th>Code</th><th>Status</th><th></th></tr></thead><tbody>' +
-        (deviceRows || '<tr><td colspan="3">No codes yet.</td></tr>') +
+      '<table class="fleet-seats"><thead><tr><th>Code</th><th>Note</th><th>Status</th><th></th></tr></thead><tbody>' +
+        (deviceRows || '<tr><td colspan="4">No codes yet.</td></tr>') +
       "</tbody></table>"
     );
   }
@@ -194,10 +194,19 @@
       else where += " · not used";
       if (seat.active === false) where = "Off";
       return (
-        "<tr><td class=\"fleet-code\">" + esc(seat.code || "—") + "</td><td>" + esc(where) +
-        '</td><td><button type="button" class="btn btn-ghost" data-copy="' + esc(seat.code || "") + '">Copy</button> ' +
-        '<button type="button" class="btn btn-ghost" data-seat="' + esc(seat.id) + '" data-seat-active="' + (seat.active === false ? "1" : "0") + '">' +
-        (seat.active === false ? "Turn on" : "Turn off") + "</button></td></tr>"
+        "<tr>" +
+          '<td class="fleet-code">' + esc(seat.code || "—") + "</td>" +
+          '<td class="fleet-note-cell">' +
+            '<input type="text" maxlength="240" value="' + esc(seat.label || "") + '" placeholder="Note for this code" data-note-input="' + esc(seat.id) + '">' +
+            '<button type="button" class="btn btn-ghost" data-save-note="' + esc(seat.id) + '">Save note</button>' +
+          "</td>" +
+          "<td>" + esc(where) + "</td>" +
+          "<td>" +
+            '<button type="button" class="btn btn-ghost" data-copy="' + esc(seat.code || "") + '">Copy</button> ' +
+            '<button type="button" class="btn btn-ghost" data-seat="' + esc(seat.id) + '" data-seat-active="' + (seat.active === false ? "1" : "0") + '">' +
+            (seat.active === false ? "Turn on" : "Turn off") + "</button>" +
+          "</td>" +
+        "</tr>"
       );
     }).join("");
     return (
@@ -215,6 +224,17 @@
           '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="paid">Add paid</button>' +
           '<label>Add trial seats<input type="number" min="1" value="2" data-add-count="trial-' + esc(fleet.id) + '"></label>' +
           '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="trial">Add 1-month trial</button>' +
+        "</div>" +
+        '<div class="fleet-custom-code">' +
+          "<p class=\"tos-note\">Make your own code for this company. Drivers type it in Company access. Turn it off anytime. One phone per code.</p>" +
+          '<div class="fleet-form-row">' +
+            '<label>Custom code<input type="text" maxlength="40" placeholder="PP-HARPER-VIP1" data-custom-code="' + esc(fleet.id) + '"></label>' +
+            '<label>Note for this code<input type="text" maxlength="240" placeholder="Dispatcher phone, truck 12, etc." data-custom-note="' + esc(fleet.id) + '"></label>' +
+            '<label>Type<select data-custom-kind="' + esc(fleet.id) + '"><option value="paid">Paid</option><option value="trial">1-month trial</option></select></label>' +
+          "</div>" +
+          '<div class="fleet-form-actions">' +
+            '<button type="button" class="btn btn-primary" data-add-custom="' + esc(fleet.id) + '">Add custom code</button>' +
+          "</div>" +
         "</div>" +
         (fleet.notes ? "<p>" + esc(fleet.notes) + "</p>" : "") +
         '<div class="fleet-form-actions">' +
@@ -314,6 +334,72 @@
           load();
         }).catch(function (err) {
           error = (err && err.message) || "Could not add seats.";
+          render();
+        });
+      };
+    });
+    root.querySelectorAll("[data-add-custom]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-add-custom") || "";
+        var codeInput = root.querySelector('[data-custom-code="' + id + '"]');
+        var noteInput = root.querySelector('[data-custom-note="' + id + '"]');
+        var kindInput = root.querySelector('[data-custom-kind="' + id + '"]');
+        var code = codeInput ? String(codeInput.value || "").trim() : "";
+        var note = noteInput ? String(noteInput.value || "").trim() : "";
+        var kind = kindInput ? String(kindInput.value || "paid") : "paid";
+        if (!code) {
+          error = "Enter a custom code first.";
+          notice = "";
+          render();
+          return;
+        }
+        api().post("/api/permitpath-fleets", {
+          action: "add-custom-code",
+          id: id,
+          code: code,
+          note: note,
+          kind: kind
+        }).then(function (res) {
+          var data = (res && res.data) || {};
+          if (!res || !res.ok) {
+            error = data.error || "Could not add that custom code.";
+            notice = "";
+            render();
+            return;
+          }
+          notice = "Custom code added" + (kind === "trial" ? " as a 1-month trial." : ".");
+          error = "";
+          load();
+        }).catch(function (err) {
+          error = (err && err.message) || "Could not add that custom code.";
+          notice = "";
+          render();
+        });
+      };
+    });
+    root.querySelectorAll("[data-save-note]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-save-note") || "";
+        var input = root.querySelector('[data-note-input="' + id + '"]');
+        var note = input ? String(input.value || "").trim() : "";
+        api().post("/api/permitpath-fleets", {
+          action: "update-seat-note",
+          id: id,
+          note: note
+        }).then(function (res) {
+          var data = (res && res.data) || {};
+          if (!res || !res.ok) {
+            error = data.error || "Could not save that note.";
+            notice = "";
+            render();
+            return;
+          }
+          notice = "Note saved.";
+          error = "";
+          load();
+        }).catch(function (err) {
+          error = (err && err.message) || "Could not save that note.";
+          notice = "";
           render();
         });
       };

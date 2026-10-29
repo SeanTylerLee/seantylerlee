@@ -416,6 +416,23 @@
 .fleet-status-unpaid { background: #fff4d6; color: #8a5a00; }
 .fleet-status-off { background: #f3f4f6; color: #5c657a; }
 
+.fleet-custom-code {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfe;
+}
+
+.fleet-note-cell {
+  min-width: 180px;
+}
+
+.fleet-note-cell input {
+  width: 100%;
+  margin-bottom: 6px;
+}
+
 .fleet-seats {
   width: 100%;
   border-collapse: collapse;
