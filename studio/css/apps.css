@@ -482,9 +482,163 @@
   padding: 6px 10px;
 }
 
+.direct-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px 16px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.direct-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eef1f6;
+}
+
+.direct-card-title {
+  min-width: 0;
+  flex: 1;
+}
+
+.direct-card-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.direct-platform {
+  display: inline-flex;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.direct-platform-ios::before,
+.direct-platform-android::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  display: inline-block;
+}
+
+.direct-platform-ios::before {
+  background: #3b82f6;
+}
+
+.direct-platform-android::before {
+  background: #22c55e;
+}
+
+.direct-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid transparent;
+}
+
+.direct-badge-paid {
+  color: #166534;
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+}
+
+.direct-badge-free {
+  color: #6b7388;
+  background: #f4f6f9;
+  border-color: #e5e9f0;
+}
+
+.direct-badge-account {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.direct-badge-guest {
+  color: #7c5e10;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.direct-card-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  color: #6b7388;
+  font-size: 12px;
+}
+
+.direct-card-actions {
+  flex-shrink: 0;
+}
+
+.direct-card-actions .btn {
+  font-size: 12px;
+  padding: 7px 12px;
+}
+
+.direct-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.direct-metric {
+  border: 1px solid #eef1f6;
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 10px 10px 9px;
+  min-width: 0;
+}
+
+.direct-metric strong {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+.direct-metric span {
+  display: block;
+  margin-top: 3px;
+  color: #6b7388;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 @media (max-width: 720px) {
   .direct-totals {
     grid-template-columns: 1fr;
+  }
+
+  .direct-card-head {
+    flex-direction: column;
+  }
+
+  .direct-card-actions {
+    width: 100%;
+  }
+
+  .direct-card-actions .btn {
+    width: 100%;
   }
 }
 

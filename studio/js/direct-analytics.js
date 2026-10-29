@@ -197,35 +197,68 @@
       }
     }
     if (!list) return;
+    function metric(label, value) {
+      return (
+        '<div class="direct-metric">' +
+          '<strong>' + esc(value) + "</strong>" +
+          "<span>" + esc(label) + "</span>" +
+        "</div>"
+      );
+    }
+    function badge(text, kind) {
+      return '<span class="direct-badge direct-badge-' + kind + '">' + esc(text) + "</span>";
+    }
     list.innerHTML = visible.map(function (row) {
       var phone = row.platform === "ios" ? "iPhone" : "Android";
+      var platformKind = row.platform === "ios" ? "ios" : "android";
       var first = new Date(row.first_seen || "");
       var age = isNaN(first.getTime()) ? "" : Math.max(0, Math.round((Date.now() - first.getTime()) / 86400000));
       var id = String(row.install_id || "");
       var busy = deletingId && deletingId === id;
+      var ageLabel = age === "" ? "—" : age + "d";
       return (
-        '<div class="tos-row direct-row">' +
-          "<span>" + esc(phone) + "</span>" +
-          "<span>" + (row.is_subscribed ? "Subscribed" : "Not subscribed") + "</span>" +
-          "<span>" + (row.is_signed_in ? "Signed in" : "Guest") + "</span>" +
-          '<span class="tos-meta">Go ' + num(row.navigations_started) + " · arrived " + num(row.arrivals) + "</span>" +
-          '<span class="tos-meta">Miles ' + Math.round(num(row.miles_driven)) + "</span>" +
-          '<span class="tos-meta">Off line ' + num(row.off_route_trips) + "</span>" +
-          '<span class="tos-meta">Texas ' + num(row.navigations_official) + " · built " + num(row.navigations_built) + "</span>" +
-          '<span class="tos-meta">Paywall ' + num(row.paywall_shown) + " · subscribe " + num(row.subscribe_tapped) + " · restore " + num(row.restore_tapped) + "</span>" +
-          '<span class="tos-meta">Cap ' + num(row.waypoint_cap) + " · import lock " + num(row.import_locked) + " · free " + num(row.free_tier_chosen) + "</span>" +
-          '<span class="tos-meta">PDF ' + num(row.imports_pdf) + " · QR " + num(row.imports_qr) + " · saved " + num(row.saved_routes_opened) + "</span>" +
-          '<span class="tos-meta">Days open ' + num(row.days_opened) + (age === "" ? "" : " · " + age + "d since first open") + "</span>" +
-          '<span class="tos-meta">App ' + esc(row.app_version || "—") + "</span>" +
-          '<span class="tos-meta">Last open ' + esc(when(row.last_seen)) + "</span>" +
-          '<span class="tos-meta">Install ' + esc(shortId(id)) + "</span>" +
-          '<span class="direct-row-actions">' +
-            '<button type="button" class="btn btn-danger" data-delete-install="' + esc(id) + '" data-delete-phone="' + esc(phone) + '"' +
-              (busy || deletingId ? " disabled" : "") + ">" +
-              (busy ? "Deleting…" : "Delete") +
-            "</button>" +
-          "</span>" +
-        "</div>"
+        '<article class="direct-card">' +
+          '<header class="direct-card-head">' +
+            '<div class="direct-card-title">' +
+              '<div class="direct-card-name">' +
+                '<span class="direct-platform direct-platform-' + platformKind + '">' + esc(phone) + "</span>" +
+                badge(row.is_subscribed ? "Subscribed" : "Not subscribed", row.is_subscribed ? "paid" : "free") +
+                badge(row.is_signed_in ? "Signed in" : "Guest", row.is_signed_in ? "account" : "guest") +
+              "</div>" +
+              '<div class="direct-card-sub">' +
+                "<span>App " + esc(row.app_version || "—") + "</span>" +
+                "<span>Last open " + esc(when(row.last_seen) || "—") + "</span>" +
+                "<span>Install " + esc(shortId(id)) + "</span>" +
+              "</div>" +
+            "</div>" +
+            '<div class="direct-card-actions">' +
+              '<button type="button" class="btn btn-danger" data-delete-install="' + esc(id) + '" data-delete-phone="' + esc(phone) + '"' +
+                (busy || deletingId ? " disabled" : "") + ">" +
+                (busy ? "Deleting…" : "Delete") +
+              "</button>" +
+            "</div>" +
+          "</header>" +
+          '<div class="direct-metrics">' +
+            metric("Go taps", num(row.navigations_started)) +
+            metric("Arrived", num(row.arrivals)) +
+            metric("Miles", Math.round(num(row.miles_driven))) +
+            metric("Off line", num(row.off_route_trips)) +
+            metric("Texas Go", num(row.navigations_official)) +
+            metric("Built Go", num(row.navigations_built)) +
+            metric("Paywall", num(row.paywall_shown)) +
+            metric("Subscribe", num(row.subscribe_tapped)) +
+            metric("Restore", num(row.restore_tapped)) +
+            metric("Waypoint cap", num(row.waypoint_cap)) +
+            metric("Import lock", num(row.import_locked)) +
+            metric("Chose free", num(row.free_tier_chosen)) +
+            metric("PDF import", num(row.imports_pdf)) +
+            metric("QR import", num(row.imports_qr)) +
+            metric("Saved opened", num(row.saved_routes_opened)) +
+            metric("Routes shared", num(row.routes_shared)) +
+            metric("Days open", num(row.days_opened)) +
+            metric("Since first", ageLabel) +
+          "</div>" +
+        "</article>"
       );
     }).join("");
     bindDeletes();
