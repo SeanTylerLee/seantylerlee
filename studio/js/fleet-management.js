@@ -209,41 +209,53 @@
         "</tr>"
       );
     }).join("");
+    var summaryLine =
+      (paidSeats(fleet.id).length ? paidSeats(fleet.id).length + " paid" : "No paid codes") +
+      " · " + trialSeats(fleet.id).length + " trial · " + claimed + " in use · paid through " + esc(fleet.paid_through);
     return (
-      '<article class="fleet-card">' +
-        '<header><div><h3>' + esc(fleet.company_name) + "</h3><p>" + esc(fleet.contact_email || "No email") + "</p></div>" +
-        '<span class="fleet-status fleet-status-' + statusOf(fleet).toLowerCase() + '">' + esc(statusOf(fleet)) + "</span></header>" +
-        (renewSoon(fleet) ? '<p class="fleet-error">Renewal is inside 30 days. Email ' + esc(fleet.portal_email || fleet.contact_email || "the company") + " to request payment. Turn the company off if they do not pay.</p>" : "") +
-        (Number(fleet.trial_request_seats) > trialSeats(fleet.id).length ? '<p class="fleet-error">Free trial requested for ' + Number(fleet.trial_request_seats) + ' drivers. Add a 1-month trial for the seats they asked for.</p>' : "") +
-        paymentLine(fleet.id) +
-        "<p>" + (fleet.portal_email ? "Login " + esc(fleet.portal_email) + " · password " + esc(fleet.portal_password || "not saved yet") + " · " : "No fleet login yet · ") +
-          (paidSeats(fleet.id).length ? paidSeats(fleet.id).length + " paid codes" : "No codes yet. Waiting on payment") + " · " +
-          trialSeats(fleet.id).length + " trial · " + claimed + " in use · paid through " + esc(fleet.paid_through) + "</p>" +
-        '<div class="fleet-form-actions">' +
-          '<label>Add paid seats<input type="number" min="1" value="1" data-add-count="paid-' + esc(fleet.id) + '"></label>' +
-          '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="paid">Add paid</button>' +
-          '<label>Add trial seats<input type="number" min="1" value="2" data-add-count="trial-' + esc(fleet.id) + '"></label>' +
-          '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="trial">Add 1-month trial</button>' +
-        "</div>" +
-        '<div class="fleet-custom-code">' +
-          "<p class=\"tos-note\">Make your own code for this company. Drivers type it in Company access. Turn it off anytime. One phone per code.</p>" +
-          '<div class="fleet-form-row">' +
-            '<label>Custom code<input type="text" maxlength="40" placeholder="PP-HARPER-VIP1" data-custom-code="' + esc(fleet.id) + '"></label>' +
-            '<label>Note for this code<input type="text" maxlength="240" placeholder="Dispatcher phone, truck 12, etc." data-custom-note="' + esc(fleet.id) + '"></label>' +
-            '<label>Type<select data-custom-kind="' + esc(fleet.id) + '"><option value="paid">Paid</option><option value="trial">1-month trial</option></select></label>' +
+      '<article class="fleet-card' + (open ? " is-open" : "") + '">' +
+        '<button type="button" class="fleet-card-toggle" data-open="' + esc(fleet.id) + '" aria-expanded="' + (open ? "true" : "false") + '">' +
+          '<div class="fleet-card-toggle-main">' +
+            '<span class="fleet-card-chevron" aria-hidden="true"></span>' +
+            '<div>' +
+              "<h3>" + esc(fleet.company_name) + "</h3>" +
+              "<p>" + esc(fleet.contact_email || "No email") + " · " + summaryLine + "</p>" +
+            "</div>" +
           "</div>" +
+          '<span class="fleet-status fleet-status-' + statusOf(fleet).toLowerCase() + '">' + esc(statusOf(fleet)) + "</span>" +
+        "</button>" +
+        '<div class="fleet-card-body">' +
+          (renewSoon(fleet) ? '<p class="fleet-error">Renewal is inside 30 days. Email ' + esc(fleet.portal_email || fleet.contact_email || "the company") + " to request payment. Turn the company off if they do not pay.</p>" : "") +
+          (Number(fleet.trial_request_seats) > trialSeats(fleet.id).length ? '<p class="fleet-error">Free trial requested for ' + Number(fleet.trial_request_seats) + ' drivers. Add a 1-month trial for the seats they asked for.</p>' : "") +
+          paymentLine(fleet.id) +
+          "<p>" + (fleet.portal_email ? "Login " + esc(fleet.portal_email) + " · password " + esc(fleet.portal_password || "not saved yet") + " · " : "No fleet login yet · ") +
+            summaryLine + "</p>" +
           '<div class="fleet-form-actions">' +
-            '<button type="button" class="btn btn-primary" data-add-custom="' + esc(fleet.id) + '">Add custom code</button>' +
+            '<label>Add paid seats<input type="number" min="1" value="1" data-add-count="paid-' + esc(fleet.id) + '"></label>' +
+            '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="paid">Add paid</button>' +
+            '<label>Add trial seats<input type="number" min="1" value="2" data-add-count="trial-' + esc(fleet.id) + '"></label>' +
+            '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="trial">Add 1-month trial</button>' +
           "</div>" +
+          '<div class="fleet-custom-code">' +
+            "<p class=\"tos-note\">Make your own code for this company. Drivers type it in Company access. Turn it off anytime. One phone per code.</p>" +
+            '<div class="fleet-form-row">' +
+              '<label>Custom code<input type="text" maxlength="40" placeholder="PP-HARPER-VIP1" data-custom-code="' + esc(fleet.id) + '"></label>' +
+              '<label>Note for this code<input type="text" maxlength="240" placeholder="Dispatcher phone, truck 12, etc." data-custom-note="' + esc(fleet.id) + '"></label>' +
+              '<label>Type<select data-custom-kind="' + esc(fleet.id) + '"><option value="paid">Paid</option><option value="trial">1-month trial</option></select></label>' +
+            "</div>" +
+            '<div class="fleet-form-actions">' +
+              '<button type="button" class="btn btn-primary" data-add-custom="' + esc(fleet.id) + '">Add custom code</button>' +
+            "</div>" +
+          "</div>" +
+          (fleet.notes ? "<p>" + esc(fleet.notes) + "</p>" : "") +
+          '<div class="fleet-form-actions">' +
+            '<button type="button" class="btn btn-ghost" data-copy-link="https://permitpathnav.com/fleet-solutions.html#fleet-login">Copy login link</button>' +
+            '<button type="button" class="btn btn-ghost" data-edit="' + esc(fleet.id) + '">Edit</button>' +
+            '<button type="button" class="btn btn-ghost" data-toggle="' + esc(fleet.id) + '">' + (fleet.active ? "Turn company off" : "Turn company on") + "</button>" +
+            '<button type="button" class="btn btn-danger" data-remove="' + esc(fleet.id) + '">Delete</button>' +
+          "</div>" +
+          invoiceBlock(fleet, rows) +
         "</div>" +
-        (fleet.notes ? "<p>" + esc(fleet.notes) + "</p>" : "") +
-        '<div class="fleet-form-actions">' +
-          '<button type="button" class="btn btn-ghost" data-copy-link="https://permitpathnav.com/fleet-solutions.html#fleet-login">Copy login link</button>' +
-          '<button type="button" class="btn btn-ghost" data-edit="' + esc(fleet.id) + '">Edit</button>' +
-          '<button type="button" class="btn btn-ghost" data-toggle="' + esc(fleet.id) + '">' + (fleet.active ? "Turn company off" : "Turn company on") + "</button>" +
-          '<button type="button" class="btn btn-danger" data-remove="' + esc(fleet.id) + '">Delete</button>' +
-        "</div>" +
-        invoiceBlock(fleet, rows) +
       "</article>"
     );
   }

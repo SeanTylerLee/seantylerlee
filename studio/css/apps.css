@@ -339,6 +339,57 @@
   font-size: 16px;
 }
 
+.fleet-card-toggle {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.fleet-card-toggle-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.fleet-card-chevron {
+  width: 10px;
+  height: 10px;
+  margin-top: 7px;
+  border-right: 2px solid #6b7388;
+  border-bottom: 2px solid #6b7388;
+  transform: rotate(-45deg);
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.fleet-card.is-open .fleet-card-chevron {
+  transform: rotate(45deg);
+  margin-top: 4px;
+}
+
+.fleet-card-body {
+  display: none;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.fleet-card.is-open .fleet-card-body {
+  display: block;
+}
+
 .fleet-form,
 .fleet-card {
   border: 1px solid var(--line);
