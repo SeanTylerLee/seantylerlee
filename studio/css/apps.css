@@ -467,6 +467,149 @@
 .fleet-status-unpaid { background: #fff4d6; color: #8a5a00; }
 .fleet-status-off { background: #f3f4f6; color: #5c657a; }
 
+.fleet-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 12px;
+  color: #6b7388;
+  font-size: 13px;
+}
+
+.fleet-company-notes {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f7f9fc;
+  border: 1px solid #e8edf5;
+  color: #445066;
+  font-size: 13px;
+}
+
+.fleet-tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.fleet-tool,
+.fleet-codes-panel {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.fleet-tool-head {
+  margin-bottom: 12px;
+}
+
+.fleet-tool-head h4,
+.fleet-codes-head h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.fleet-tool-head p,
+.fleet-codes-head p {
+  margin: 0;
+  color: #6b7388;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.fleet-tool-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.fleet-tool-grid-custom {
+  grid-template-columns: minmax(140px, 1.1fr) minmax(160px, 1.4fr) minmax(120px, 0.9fr) auto;
+  align-items: end;
+}
+
+.fleet-tool-field label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5b6578;
+}
+
+.fleet-tool-field input,
+.fleet-tool-field select {
+  margin-top: 0;
+}
+
+.fleet-tool-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.fleet-tool-inline input {
+  width: 88px;
+  flex: 0 0 88px;
+}
+
+.fleet-tool-inline .btn,
+.fleet-tool-field-action .btn {
+  white-space: nowrap;
+}
+
+.fleet-tool-field-action label {
+  visibility: hidden;
+}
+
+.fleet-card-actions {
+  margin: 0 0 14px;
+  padding-top: 2px;
+}
+
+.fleet-codes-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fleet-codes-table-wrap {
+  overflow-x: auto;
+}
+
+.fleet-note-cell {
+  min-width: 220px;
+}
+
+.fleet-note-edit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.fleet-note-edit input {
+  width: 100%;
+  margin: 0;
+}
+
+.fleet-seat-status {
+  display: inline-block;
+  color: #5b6578;
+  font-size: 12px;
+}
+
+.fleet-seat-actions {
+  white-space: nowrap;
+}
+
+.fleet-seat-actions .btn {
+  margin-left: 4px;
+}
+
 .fleet-custom-code {
   margin: 12px 0;
   padding: 12px;
@@ -475,13 +618,37 @@
   background: #fbfcfe;
 }
 
-.fleet-note-cell {
-  min-width: 180px;
+@media (max-width: 980px) {
+  .fleet-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-tool-grid-custom {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .fleet-tool-field-wide,
+  .fleet-tool-field-action {
+    grid-column: 1 / -1;
+  }
 }
 
-.fleet-note-cell input {
-  width: 100%;
-  margin-bottom: 6px;
+@media (max-width: 640px) {
+  .fleet-tool-grid-custom {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-tool-inline {
+    flex-wrap: wrap;
+  }
+
+  .fleet-tool-inline input {
+    flex: 1 1 88px;
+  }
+
+  .fleet-codes-head {
+    flex-direction: column;
+  }
 }
 
 .fleet-seats {

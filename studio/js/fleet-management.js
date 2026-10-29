@@ -174,12 +174,17 @@
 
   function invoiceBlock(fleet, deviceRows) {
     return (
-      '<div class="fleet-form-actions">' +
-        '<button type="button" class="btn btn-ghost" data-copy-all="' + esc(fleet.id) + '">Copy all codes</button>' +
-      "</div>" +
-      '<table class="fleet-seats"><thead><tr><th>Code</th><th>Note</th><th>Status</th><th></th></tr></thead><tbody>' +
-        (deviceRows || '<tr><td colspan="4">No codes yet.</td></tr>') +
-      "</tbody></table>"
+      '<section class="fleet-codes-panel">' +
+        '<div class="fleet-tool-head fleet-codes-head">' +
+          "<div><h4>Seat codes</h4><p>Copy, annotate, or turn a single phone code on or off.</p></div>" +
+          '<button type="button" class="btn btn-ghost" data-copy-all="' + esc(fleet.id) + '">Copy all codes</button>' +
+        "</div>" +
+        '<div class="fleet-codes-table-wrap">' +
+          '<table class="fleet-seats"><thead><tr><th>Code</th><th>Note</th><th>Status</th><th></th></tr></thead><tbody>' +
+            (deviceRows || '<tr><td colspan="4">No codes yet.</td></tr>') +
+          "</tbody></table>" +
+        "</div>" +
+      "</section>"
     );
   }
 
@@ -197,12 +202,14 @@
         "<tr>" +
           '<td class="fleet-code">' + esc(seat.code || "—") + "</td>" +
           '<td class="fleet-note-cell">' +
-            '<input type="text" maxlength="240" value="' + esc(seat.label || "") + '" placeholder="Note for this code" data-note-input="' + esc(seat.id) + '">' +
-            '<button type="button" class="btn btn-ghost" data-save-note="' + esc(seat.id) + '">Save note</button>' +
+            '<div class="fleet-note-edit">' +
+              '<input type="text" maxlength="240" value="' + esc(seat.label || "") + '" placeholder="Add a note" data-note-input="' + esc(seat.id) + '">' +
+              '<button type="button" class="btn btn-ghost" data-save-note="' + esc(seat.id) + '">Save</button>' +
+            "</div>" +
           "</td>" +
-          "<td>" + esc(where) + "</td>" +
-          "<td>" +
-            '<button type="button" class="btn btn-ghost" data-copy="' + esc(seat.code || "") + '">Copy</button> ' +
+          '<td><span class="fleet-seat-status">' + esc(where) + "</span></td>" +
+          '<td class="fleet-seat-actions">' +
+            '<button type="button" class="btn btn-ghost" data-copy="' + esc(seat.code || "") + '">Copy</button>' +
             '<button type="button" class="btn btn-ghost" data-seat="' + esc(seat.id) + '" data-seat-active="' + (seat.active === false ? "1" : "0") + '">' +
             (seat.active === false ? "Turn on" : "Turn off") + "</button>" +
           "</td>" +
@@ -228,29 +235,63 @@
           (renewSoon(fleet) ? '<p class="fleet-error">Renewal is inside 30 days. Email ' + esc(fleet.portal_email || fleet.contact_email || "the company") + " to request payment. Turn the company off if they do not pay.</p>" : "") +
           (Number(fleet.trial_request_seats) > trialSeats(fleet.id).length ? '<p class="fleet-error">Free trial requested for ' + Number(fleet.trial_request_seats) + ' drivers. Add a 1-month trial for the seats they asked for.</p>' : "") +
           paymentLine(fleet.id) +
-          "<p>" + (fleet.portal_email ? "Login " + esc(fleet.portal_email) + " · password " + esc(fleet.portal_password || "not saved yet") + " · " : "No fleet login yet · ") +
-            summaryLine + "</p>" +
-          '<div class="fleet-form-actions">' +
-            '<label>Add paid seats<input type="number" min="1" value="1" data-add-count="paid-' + esc(fleet.id) + '"></label>' +
-            '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="paid">Add paid</button>' +
-            '<label>Add trial seats<input type="number" min="1" value="2" data-add-count="trial-' + esc(fleet.id) + '"></label>' +
-            '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="trial">Add 1-month trial</button>' +
+          '<div class="fleet-meta-line">' +
+            "<span>" + (fleet.portal_email ? "Login " + esc(fleet.portal_email) : "No fleet login yet") + "</span>" +
+            (fleet.portal_email ? "<span>Password " + esc(fleet.portal_password || "not saved yet") + "</span>" : "") +
+            "<span>" + summaryLine + "</span>" +
           "</div>" +
-          '<div class="fleet-custom-code">' +
-            "<p class=\"tos-note\">Make your own code for this company. Drivers type it in Company access. Turn it off anytime. One phone per code.</p>" +
-            '<div class="fleet-form-row">' +
-              '<label>Custom code<input type="text" maxlength="40" placeholder="PP-HARPER-VIP1" data-custom-code="' + esc(fleet.id) + '"></label>' +
-              '<label>Note for this code<input type="text" maxlength="240" placeholder="Dispatcher phone, truck 12, etc." data-custom-note="' + esc(fleet.id) + '"></label>' +
-              '<label>Type<select data-custom-kind="' + esc(fleet.id) + '"><option value="paid">Paid</option><option value="trial">1-month trial</option></select></label>' +
-            "</div>" +
-            '<div class="fleet-form-actions">' +
-              '<button type="button" class="btn btn-primary" data-add-custom="' + esc(fleet.id) + '">Add custom code</button>' +
-            "</div>" +
+          (fleet.notes ? '<p class="fleet-company-notes">' + esc(fleet.notes) + "</p>" : "") +
+          '<div class="fleet-tools">' +
+            '<section class="fleet-tool">' +
+              '<div class="fleet-tool-head">' +
+                "<h4>Generate codes</h4>" +
+                "<p>Studio creates random phone-ready codes for this company.</p>" +
+              "</div>" +
+              '<div class="fleet-tool-grid">' +
+                '<div class="fleet-tool-field">' +
+                  "<label>Paid seats</label>" +
+                  '<div class="fleet-tool-inline">' +
+                    '<input type="number" min="1" max="500" value="1" data-add-count="paid-' + esc(fleet.id) + '">' +
+                    '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="paid">Add paid</button>' +
+                  "</div>" +
+                "</div>" +
+                '<div class="fleet-tool-field">' +
+                  "<label>Trial seats</label>" +
+                  '<div class="fleet-tool-inline">' +
+                    '<input type="number" min="1" max="500" value="2" data-add-count="trial-' + esc(fleet.id) + '">' +
+                    '<button type="button" class="btn btn-ghost" data-add-seats="' + esc(fleet.id) + '" data-add-kind="trial">Add 1-month trial</button>' +
+                  "</div>" +
+                "</div>" +
+              "</div>" +
+            "</section>" +
+            '<section class="fleet-tool">' +
+              '<div class="fleet-tool-head">' +
+                "<h4>Custom code</h4>" +
+                "<p>Type your own code. Drivers enter it in Company access. One phone per code.</p>" +
+              "</div>" +
+              '<div class="fleet-tool-grid fleet-tool-grid-custom">' +
+                '<div class="fleet-tool-field">' +
+                  "<label>Code</label>" +
+                  '<input type="text" maxlength="40" placeholder="PP-HARPER-VIP1" data-custom-code="' + esc(fleet.id) + '">' +
+                "</div>" +
+                '<div class="fleet-tool-field fleet-tool-field-wide">' +
+                  "<label>Note</label>" +
+                  '<input type="text" maxlength="240" placeholder="Dispatcher phone, truck 12, etc." data-custom-note="' + esc(fleet.id) + '">' +
+                "</div>" +
+                '<div class="fleet-tool-field">' +
+                  "<label>Type</label>" +
+                  '<select data-custom-kind="' + esc(fleet.id) + '"><option value="paid">Paid</option><option value="trial">1-month trial</option></select>' +
+                "</div>" +
+                '<div class="fleet-tool-field fleet-tool-field-action">' +
+                  "<label>&nbsp;</label>" +
+                  '<button type="button" class="btn btn-primary" data-add-custom="' + esc(fleet.id) + '">Add custom code</button>' +
+                "</div>" +
+              "</div>" +
+            "</section>" +
           "</div>" +
-          (fleet.notes ? "<p>" + esc(fleet.notes) + "</p>" : "") +
-          '<div class="fleet-form-actions">' +
+          '<div class="fleet-form-actions fleet-card-actions">' +
             '<button type="button" class="btn btn-ghost" data-copy-link="https://permitpathnav.com/fleet-solutions.html#fleet-login">Copy login link</button>' +
-            '<button type="button" class="btn btn-ghost" data-edit="' + esc(fleet.id) + '">Edit</button>' +
+            '<button type="button" class="btn btn-ghost" data-edit="' + esc(fleet.id) + '">Edit company</button>' +
             '<button type="button" class="btn btn-ghost" data-toggle="' + esc(fleet.id) + '">' + (fleet.active ? "Turn company off" : "Turn company on") + "</button>" +
             '<button type="button" class="btn btn-danger" data-remove="' + esc(fleet.id) + '">Delete</button>' +
           "</div>" +
