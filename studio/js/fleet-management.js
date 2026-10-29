@@ -274,18 +274,17 @@
                   "<label>Code</label>" +
                   '<input type="text" maxlength="40" placeholder="PP-HARPER-VIP1" data-custom-code="' + esc(fleet.id) + '">' +
                 "</div>" +
-                '<div class="fleet-tool-field fleet-tool-field-wide">' +
-                  "<label>Note</label>" +
-                  '<input type="text" maxlength="240" placeholder="Dispatcher phone, truck 12, etc." data-custom-note="' + esc(fleet.id) + '">' +
-                "</div>" +
                 '<div class="fleet-tool-field">' +
                   "<label>Type</label>" +
                   '<select data-custom-kind="' + esc(fleet.id) + '"><option value="paid">Paid</option><option value="trial">1-month trial</option></select>' +
                 "</div>" +
-                '<div class="fleet-tool-field fleet-tool-field-action">' +
-                  "<label>&nbsp;</label>" +
-                  '<button type="button" class="btn btn-primary" data-add-custom="' + esc(fleet.id) + '">Add custom code</button>' +
+                '<div class="fleet-tool-field fleet-tool-field-wide">' +
+                  "<label>Note</label>" +
+                  '<input type="text" maxlength="240" placeholder="Dispatcher phone, truck 12, etc." data-custom-note="' + esc(fleet.id) + '">' +
                 "</div>" +
+              "</div>" +
+              '<div class="fleet-tool-footer">' +
+                '<button type="button" class="btn btn-primary" data-add-custom="' + esc(fleet.id) + '">Add custom code</button>' +
               "</div>" +
             "</section>" +
           "</div>" +

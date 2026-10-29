@@ -528,8 +528,12 @@
 }
 
 .fleet-tool-grid-custom {
-  grid-template-columns: minmax(140px, 1.1fr) minmax(160px, 1.4fr) minmax(120px, 0.9fr) auto;
+  grid-template-columns: minmax(160px, 1.2fr) minmax(140px, 0.8fr);
   align-items: end;
+}
+
+.fleet-tool-field-wide {
+  grid-column: 1 / -1;
 }
 
 .fleet-tool-field label {
@@ -556,13 +560,20 @@
   flex: 0 0 88px;
 }
 
-.fleet-tool-inline .btn,
-.fleet-tool-field-action .btn {
+.fleet-tool-inline .btn {
   white-space: nowrap;
 }
 
-.fleet-tool-field-action label {
-  visibility: hidden;
+.fleet-tool-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e8edf5;
+}
+
+.fleet-tool-footer .btn {
+  min-width: 160px;
 }
 
 .fleet-card-actions {
@@ -622,15 +633,6 @@
   .fleet-tools {
     grid-template-columns: 1fr;
   }
-
-  .fleet-tool-grid-custom {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .fleet-tool-field-wide,
-  .fleet-tool-field-action {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (max-width: 640px) {
@@ -644,6 +646,14 @@
 
   .fleet-tool-inline input {
     flex: 1 1 88px;
+  }
+
+  .fleet-tool-footer {
+    justify-content: stretch;
+  }
+
+  .fleet-tool-footer .btn {
+    width: 100%;
   }
 
   .fleet-codes-head {
