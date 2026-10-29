@@ -172,8 +172,14 @@
     render();
     window.STLLocalApi.get("/api/direct-app-analytics")
       .then(function (res) {
-        rows = (res && res.rows) || [];
         loading = false;
+        if (!res.ok) {
+          rows = [];
+          error = (res.data && res.data.error) || "Could not load direct app analytics.";
+        } else {
+          rows = (res.data && res.data.rows) || [];
+          error = "";
+        }
         render();
       })
       .catch(function (err) {
