@@ -430,6 +430,13 @@
   border-bottom: 1px solid var(--line);
 }
 
+.direct-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .direct-stats {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -444,15 +451,41 @@
   padding: 10px 12px;
 }
 
+.direct-stat-lead {
+  background: #f7f9fc;
+  border-color: #d7deea;
+}
+
 .direct-stat span {
   display: block;
   font-size: 20px;
   font-weight: 650;
 }
 
+.direct-stat-lead span {
+  font-size: 28px;
+}
+
 .direct-stat small {
   color: #6b7388;
   font-size: 12px;
+}
+
+.direct-row-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.direct-row .btn {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+@media (max-width: 720px) {
+  .direct-totals {
+    grid-template-columns: 1fr;
+  }
 }
 
 .tos-copy h3 {

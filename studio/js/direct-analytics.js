@@ -6,6 +6,8 @@
   var filter = "all";
   var loading = false;
   var error = "";
+  var notice = "";
+  var deletingId = "";
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -52,6 +54,7 @@
     return (
       '<div class="tos-panel direct-panel">' +
         '<p class="tos-note">Counts come from the app on each phone. A person shows up after they open a build that sends this report. The Apple and Google reports stay on Apps → Analytics. This list has no email.</p>' +
+        '<div class="direct-totals" data-el="totals"></div>' +
         '<div class="direct-stats" data-el="stats"></div>' +
         '<div class="tos-subtabs" data-el="filters"></div>' +
         '<p class="tos-note" data-el="note"></p>' +
@@ -60,26 +63,81 @@
     );
   }
 
-  function stat(label, value) {
-    return '<div class="direct-stat"><span>' + esc(value) + '</span><small>' + esc(label) + "</small></div>";
+  function stat(label, value, extraClass) {
+    return (
+      '<div class="direct-stat' + (extraClass ? " " + extraClass : "") + '">' +
+        "<span>" + esc(value) + "</span>" +
+        "<small>" + esc(label) + "</small>" +
+      "</div>"
+    );
+  }
+
+  function bindDeletes() {
+    if (!root) return;
+    root.querySelectorAll("[data-delete-install]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-delete-install") || "";
+        if (!id || deletingId) return;
+        var phone = btn.getAttribute("data-delete-phone") || "this install";
+        if (!window.confirm(
+          "Remove " + phone + " (" + shortId(id) + ") from Direct App Analytics?\n\n" +
+          "This only clears the Studio counters for that phone. If they open the app again, a new row can appear."
+        )) return;
+        deleteInstall(id);
+      };
+    });
+  }
+
+  function deleteInstall(installId) {
+    if (!window.STLLocalApi || !window.STLLocalApi.available || !window.STLLocalApi.available()) {
+      notice = "Sign in, then open Studio again so deletes can run.";
+      render();
+      return;
+    }
+    deletingId = installId;
+    notice = "";
+    render();
+    window.STLLocalApi.post("/api/direct-app-analytics/delete", { install_id: installId })
+      .then(function (res) {
+        deletingId = "";
+        if (!res.ok) {
+          notice = (res.data && res.data.error) || "Could not delete that install.";
+          render();
+          return;
+        }
+        rows = rows.filter(function (row) { return String(row.install_id || "") !== installId; });
+        notice = "Install removed.";
+        render();
+      })
+      .catch(function (err) {
+        deletingId = "";
+        notice = (err && err.message) || "Could not delete that install.";
+        render();
+      });
   }
 
   function render() {
     if (!root) return;
     if (!root.querySelector("[data-el='list']")) root.innerHTML = shell();
+    var iosCount = rows.filter(function (row) { return row.platform === "ios"; }).length;
+    var androidCount = rows.filter(function (row) { return row.platform === "android"; }).length;
+    var totals = el("totals");
+    if (totals) {
+      totals.innerHTML =
+        stat("Total installs", rows.length, "direct-stat-lead") +
+        stat("iPhone users", iosCount, "direct-stat-lead") +
+        stat("Android users", androidCount, "direct-stat-lead");
+    }
     var stats = el("stats");
     var subscribed = rows.filter(function (row) { return row.is_subscribed; }).length;
     var signedIn = rows.filter(function (row) { return row.is_signed_in; }).length;
     var miles = Math.round(sum(rows, "miles_driven"));
     if (stats) {
       stats.innerHTML =
-        stat("Installs", rows.length) +
         stat("Subscribed", subscribed) +
         stat("Not subscribed", Math.max(0, rows.length - subscribed)) +
         stat("Signed in", signedIn) +
         stat("Guest", Math.max(0, rows.length - signedIn)) +
-        stat("iPhone", rows.filter(function (row) { return row.platform === "ios"; }).length) +
-        stat("Android", rows.filter(function (row) { return row.platform === "android"; }).length) +
         stat("Go taps", sum(rows, "navigations_started")) +
         stat("Arrived", sum(rows, "arrivals")) +
         stat("Miles on finished trips", miles.toLocaleString("en-US")) +
@@ -130,17 +188,23 @@
     }
     var visible = visibleRows();
     if (note) {
-      note.textContent = visible.length
-        ? "Each row is one install. Miles are along the route from where that trip started to arrival. Days open counts different days the app was opened."
-        : "No installs have reported yet. Run sql/020 and sql/021 in the Permit Path Supabase SQL editor, then open a new app build.";
+      if (notice) {
+        note.textContent = notice;
+      } else {
+        note.textContent = visible.length
+          ? "Each row is one install. Miles are along the route from where that trip started to arrival. Days open counts different days the app was opened. Delete removes that phone from this list only."
+          : "No installs have reported yet. Run sql/020 and sql/021 in the Permit Path Supabase SQL editor, then open a new app build.";
+      }
     }
     if (!list) return;
     list.innerHTML = visible.map(function (row) {
       var phone = row.platform === "ios" ? "iPhone" : "Android";
       var first = new Date(row.first_seen || "");
       var age = isNaN(first.getTime()) ? "" : Math.max(0, Math.round((Date.now() - first.getTime()) / 86400000));
+      var id = String(row.install_id || "");
+      var busy = deletingId && deletingId === id;
       return (
-        '<div class="tos-row">' +
+        '<div class="tos-row direct-row">' +
           "<span>" + esc(phone) + "</span>" +
           "<span>" + (row.is_subscribed ? "Subscribed" : "Not subscribed") + "</span>" +
           "<span>" + (row.is_signed_in ? "Signed in" : "Guest") + "</span>" +
@@ -154,10 +218,17 @@
           '<span class="tos-meta">Days open ' + num(row.days_opened) + (age === "" ? "" : " · " + age + "d since first open") + "</span>" +
           '<span class="tos-meta">App ' + esc(row.app_version || "—") + "</span>" +
           '<span class="tos-meta">Last open ' + esc(when(row.last_seen)) + "</span>" +
-          '<span class="tos-meta">Install ' + esc(shortId(row.install_id)) + "</span>" +
+          '<span class="tos-meta">Install ' + esc(shortId(id)) + "</span>" +
+          '<span class="direct-row-actions">' +
+            '<button type="button" class="btn btn-danger" data-delete-install="' + esc(id) + '" data-delete-phone="' + esc(phone) + '"' +
+              (busy || deletingId ? " disabled" : "") + ">" +
+              (busy ? "Deleting…" : "Delete") +
+            "</button>" +
+          "</span>" +
         "</div>"
       );
     }).join("");
+    bindDeletes();
   }
 
   function load() {
@@ -169,6 +240,7 @@
     }
     loading = true;
     error = "";
+    notice = "";
     render();
     window.STLLocalApi.get("/api/direct-app-analytics")
       .then(function (res) {
@@ -196,6 +268,8 @@
       rows = [];
       filter = "all";
       error = "";
+      notice = "";
+      deletingId = "";
       if (root) root.innerHTML = shell();
       load();
     },
