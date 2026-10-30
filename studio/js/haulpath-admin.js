@@ -217,6 +217,10 @@
   }
 
   function syncSaveButton() {
+    if (pane !== "states" && window.STLAppPanels) {
+      window.STLAppPanels.syncSave();
+      return;
+    }
     var btn = document.getElementById("global-save");
     if (!btn) return;
     btn.classList.remove("hidden");
@@ -237,6 +241,8 @@
     syncSaveButton();
   }
 
+  var pane = "states";
+
   function shell() {
     return (
       '<div class="ops-workspace hp-admin">' +
@@ -245,15 +251,51 @@
           "<p>Travel time, legal thresholds, curfews, and the note drivers will see for each state. Save writes to HaulPath. The phone apps will read it after the app update.</p>" +
         "</div>" +
         '<p class="status" data-el="banner"></p>' +
-        '<div class="hp-admin-layout">' +
+        '<div class="ops-filters hp-admin-tabs">' +
+          '<button type="button" class="ops-pill is-on" data-pane="states">States</button>' +
+          (window.STLAppPanels ? window.STLAppPanels.pills("haulpath", "data-pane") : "") +
+        "</div>" +
+        '<div class="hp-admin-layout" data-el="states-layout">' +
           '<aside class="hp-admin-rail">' +
             '<input class="hp-admin-search" data-el="search" type="search" placeholder="Find a state" autocomplete="off" value="' + esc(search) + '" />' +
             '<div class="hp-admin-states" data-el="states"></div>' +
           "</aside>" +
           '<div class="hp-admin-body" data-el="body"></div>' +
         "</div>" +
+        '<div class="hp-studio-host" data-el="studio" hidden></div>' +
       "</div>"
     );
+  }
+
+  function setPane(next) {
+    if (!next || next === pane) return;
+    if (next !== "states" && (!window.STLAppPanels || !window.STLAppPanels.hasPane("haulpath", next))) return;
+    if (pane === "states" && dirty && !window.confirm("You have unsaved state changes. Leave without saving?")) return;
+    if (pane !== "states" && window.STLAppPanels && !window.STLAppPanels.confirmLeave()) return;
+    pane = next;
+    applyPane();
+  }
+
+  function applyPane() {
+    if (!root) return;
+    var layout = el("states-layout");
+    var host = el("studio");
+    var onStates = pane === "states";
+    root.querySelectorAll(".hp-admin-tabs [data-pane]").forEach(function (btn) {
+      btn.classList.toggle("is-on", btn.getAttribute("data-pane") === pane);
+    });
+    if (layout) layout.hidden = !onStates;
+    if (host) host.hidden = onStates;
+    if (onStates) {
+      if (window.STLAppPanels) window.STLAppPanels.unmount(host);
+      if (host) host.classList.remove("is-studio");
+      syncSaveButton();
+      return;
+    }
+    if (host && window.STLAppPanels) {
+      host.classList.add("is-studio");
+      window.STLAppPanels.mount(host, db, "haulpath", pane);
+    }
   }
 
   function inputHtml(field, value) {
@@ -598,6 +640,11 @@
   }
 
   function bindShell() {
+    root.querySelectorAll(".hp-admin-tabs [data-pane]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        setPane(btn.getAttribute("data-pane"));
+      });
+    });
     var searchEl = el("search");
     if (searchEl) {
       searchEl.addEventListener("input", function () {
@@ -650,12 +697,31 @@
       load();
     },
     shown: function () {
+      if (pane !== "states") {
+        var host = el("studio");
+        if (host && window.STLAppPanels) window.STLAppPanels.mount(host, db, "haulpath", pane);
+        return;
+      }
       syncSaveButton();
     },
-    saveAll: saveAll,
-    isDirty: function () { return dirty; },
-    usesGlobalSave: function () { return true; },
+    openPane: function (name) {
+      if (!root) return;
+      setPane(name);
+    },
+    saveAll: function () {
+      if (pane !== "states" && window.STLAppPanels) return window.STLAppPanels.saveAll();
+      return saveAll();
+    },
+    isDirty: function () {
+      if (pane !== "states" && window.STLAppPanels) return window.STLAppPanels.isDirty();
+      return dirty;
+    },
+    usesGlobalSave: function () {
+      if (pane !== "states" && window.STLAppPanels) return window.STLAppPanels.usesGlobalSave();
+      return true;
+    },
     unmount: function () {
+      if (window.STLAppPanels) window.STLAppPanels.unmount(el("studio"));
       var panel = root && root.closest ? root.closest(".panel") : null;
       if (panel) panel.classList.remove("ops-wide");
       root = null;

@@ -5,7 +5,7 @@
     event.preventDefault();
   });
 
-  // Same order and grouping as the Mac app sidebar. Cache bust 65.
+  // Same order and grouping as the Mac app sidebar. Cache bust 66.
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Needs-you board and studio snapshot." },
@@ -24,7 +24,6 @@
       { id: "mileage", title: "Mileage", icon: "car-fill", tint: "#3D6B99", body: "Business trips, miles, and standard mileage deduction." }
     ],
     [
-      { id: "apps", title: "Apps", icon: "square-stack-3d-up-fill", tint: "#2E9E7A", body: "Products, promos, analytics, and store logins." },
       { id: "competitors", title: "Competitors", icon: "chart-bar-xaxis", tint: "#C45C26", body: "Your dates against other apps." },
       { id: "websites", title: "Websites", icon: "square-grid-2x2", tint: "#1A70EB", body: "Site list, clicks, date and time, and visit ids." },
       { id: "sop", title: "SOP", icon: "list-clipboard-fill", tint: "#336BB3", body: "How-to guides with checkable steps." },
@@ -51,9 +50,10 @@
   ];
 
   var SECTION_ALIASES = {
-    promos: { id: "apps", tab: "promos" },
-    appleAnalytics: { id: "apps", tab: "analytics" },
-    subscribed: { id: "apps", tab: "analytics" },
+    apps: { id: "overview" },
+    promos: { id: "overview" },
+    appleAnalytics: { id: "overview" },
+    subscribed: { id: "overview" },
     leads: { id: "clients" }
   };
 
@@ -175,9 +175,10 @@
       ownerDraws: window.STLOwnerDraws,
       taxes: window.STLTaxes,
       sop: window.STLSOP,
-      apps: window.STLApps,
       competitors: window.STLCompetitors,
+      permitPathAdmin: window.STLPermitPathAdmin,
       haulPathAdmin: window.STLHaulPathAdmin,
+      pc4hAdmin: window.STLPc4hAdmin,
       haulPathAd: window.STLHaulPathAd,
       support: window.STLSupport,
       emails: window.STLEmails,
@@ -552,8 +553,9 @@
       if (app.classList.contains("hidden")) return;
       renderNav();
       renderPanel();
-      if (sectionId === "apps" && tab && window.STLApps && typeof window.STLApps.setPageTab === "function") {
-        window.STLApps.setPageTab(tab);
+      if (tab) {
+        var mod = moduleFor(sectionId);
+        if (mod && typeof mod.openPane === "function") mod.openPane(tab);
       }
     },
     setInboxUnread: setInboxUnread

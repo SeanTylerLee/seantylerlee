@@ -31,6 +31,7 @@
   var iconUrls = {};
   var notesOpen = {};
   var pageTab = "app";
+  var embedKey = "";
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -58,6 +59,7 @@
   }
 
   function syncSave() {
+    if (!root) return;
     var btn = document.getElementById("global-save");
     if (!btn) return;
     btn.classList.remove("hidden");
@@ -103,6 +105,22 @@
 
   function selected() {
     return apps.filter(function (a) { return a.id === selectedId; })[0] || null;
+  }
+
+  function embedName() {
+    if (window.STLAppPanels && window.STLAppPanels.nameFor) {
+      return window.STLAppPanels.nameFor(embedKey) || "this app";
+    }
+    return "this app";
+  }
+
+  function selectEmbedded() {
+    if (!window.STLAppPanels || !window.STLAppPanels.pick) {
+      selectedId = null;
+      return;
+    }
+    var hit = window.STLAppPanels.pick(apps, embedKey);
+    selectedId = hit ? hit.id : null;
   }
 
   function isPermitPathApp(app) {
@@ -194,6 +212,14 @@
   }
 
   function shell() {
+    if (embedKey) {
+      return (
+        '<div class="apps-workspace is-embed">' +
+          '<p class="status apps-banner" data-el="banner"></p>' +
+          '<div class="apps-body" data-el="body"></div>' +
+        "</div>"
+      );
+    }
     return (
       '<div class="apps-workspace">' +
         '<div class="apps-top">' +
@@ -317,6 +343,7 @@
 
   function renderCapsules() {
     var wrap = el("capsules");
+    if (!wrap) return;
     if (!apps.length) {
       wrap.innerHTML = '<span style="font-size:13px;color:#6b7388;padding:0 4px">No apps yet</span>';
       return;
@@ -355,16 +382,30 @@
   }
 
   function render() {
-    syncTosTab();
-    renderCapsules();
+    if (!embedKey) {
+      syncTosTab();
+      renderCapsules();
+    }
     var body = el("body");
+    if (!body) return;
     var app = selected();
     if (!app) {
-      body.innerHTML =
-        '<div class="apps-empty"><div><h2>No Apps Yet</h2><p>Add an app to track products in STL Apps.</p>' +
-        '<button class="btn btn-primary" type="button" data-el="empty-add" style="min-height:32px;font-size:12px;margin-top:10px">New App</button></div></div>';
-      var empty = el("empty-add");
-      if (empty) empty.onclick = addApp;
+      if (embedKey) {
+        var label = embedName();
+        body.innerHTML =
+          '<div class="apps-empty"><div><h2>No ' + esc(label) + ' record</h2>' +
+          '<p>Add the Studio record for this app. Status, logins, issues, notes, and the website live here.</p>' +
+          '<button class="btn btn-primary" type="button" data-el="empty-add" style="min-height:32px;font-size:12px;margin-top:10px">Add ' +
+          esc(label) + "</button></div></div>";
+        var embedAdd = el("empty-add");
+        if (embedAdd) embedAdd.onclick = addEmbeddedApp;
+      } else {
+        body.innerHTML =
+          '<div class="apps-empty"><div><h2>No Apps Yet</h2><p>Add an app to track products in STL Apps.</p>' +
+          '<button class="btn btn-primary" type="button" data-el="empty-add" style="min-height:32px;font-size:12px;margin-top:10px">New App</button></div></div>';
+        var empty = el("empty-add");
+        if (empty) empty.onclick = addApp;
+      }
       if (pageTab === "app") syncSave();
       return;
     }
@@ -541,7 +582,7 @@
             (app.icon_path
               ? '<button class="btn btn-ghost" type="button" data-el="icon-clear">Remove icon</button>'
               : "") +
-            '<p class="sub" style="margin-top:6px">PNG or JPEG. Shows on the Apps page and Overview.</p>' +
+            '<p class="sub" style="margin-top:6px">PNG or JPEG. Shows here and on Overview.</p>' +
           "</div>" +
         "</div>" +
         field("Name", "name", app.name) +
@@ -785,6 +826,31 @@
     harvestChildren();
   }
 
+  function addEmbeddedApp() {
+    var name = embedName();
+    if (!name || name === "this app") name = "New app";
+    db.from("managed_apps").insert({
+      name: name,
+      summary: "",
+      status: "Live",
+      platforms: ["iOS", "Android"],
+      accent_hex: "1A70EB"
+    }).select("*").single().then(function (res) {
+      if (res.error) {
+        showMsg(/does not exist|schema cache/i.test(res.error.message || "")
+          ? "Run sql/011_apps.sql in Supabase, then refresh."
+          : res.error.message, false);
+        return;
+      }
+      apps.push(res.data);
+      selectedId = res.data.id;
+      editing = true;
+      clearDirty();
+      render();
+      showMsg("App added. Fill details, then Save.", true);
+    });
+  }
+
   function addApp() {
     var name = window.prompt("App name", "New app");
     if (name == null) return;
@@ -818,7 +884,8 @@
       apps = apps.filter(function (a) { return a.id !== app.id; });
       logins = logins.filter(function (l) { return l.app_id !== app.id; });
       issues = issues.filter(function (i) { return i.app_id !== app.id; });
-      selectedId = apps[0] ? apps[0].id : null;
+      if (embedKey) selectEmbedded();
+      else selectedId = apps[0] ? apps[0].id : null;
       editing = false;
       clearDirty();
       render();
@@ -941,8 +1008,11 @@
       apps = pair[0].data || [];
       logins = (pair[1] && pair[1].data) || [];
       issues = (pair[2] && pair[2].data) || [];
-      if (selectedId && !apps.some(function (a) { return a.id === selectedId; })) selectedId = null;
-      if (!selectedId && apps[0]) selectedId = apps[0].id;
+      if (embedKey) selectEmbedded();
+      else {
+        if (selectedId && !apps.some(function (a) { return a.id === selectedId; })) selectedId = null;
+        if (!selectedId && apps[0]) selectedId = apps[0].id;
+      }
       return resolveIcons().then(function () {
         clearDirty();
         showMsg("");
@@ -1027,9 +1097,10 @@
   }
 
   window.STLApps = {
-    mount: function (panel, client) {
+    mount: function (panel, client, opts) {
       db = client;
       root = panel;
+      embedKey = (opts && opts.appKey) || "";
       selectedId = null;
       editing = false;
       dirty = false;
@@ -1038,10 +1109,12 @@
       expandedLogin = null;
       revealPass = {};
       pageTab = "app";
-      panel.classList.add("apps-wide");
+      if (!embedKey) panel.classList.add("apps-wide");
       panel.innerHTML = shell();
-      bindChrome();
-      applyPageTab();
+      if (!embedKey) {
+        bindChrome();
+        applyPageTab();
+      }
       syncSave();
       db.auth.getUser().then(function (authRes) {
         userId = authRes.data && authRes.data.user && authRes.data.user.id;
@@ -1075,7 +1148,14 @@
       return pageTab !== "analytics" && pageTab !== "tos" && pageTab !== "release";
     },
     setPageTab: setPageTab,
+    reload: function () {
+      if (root && db) load();
+    },
     shown: function () {
+      if (embedKey) {
+        syncSave();
+        return;
+      }
       applyPageTab();
     }
   };

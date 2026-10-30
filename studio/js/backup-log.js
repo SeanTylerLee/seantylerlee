@@ -588,7 +588,7 @@
   }
 
   function releases(pdf, pack) {
-    openMenu(pdf, "Release log", "Open Apps, then Release log. Type live iOS build and version, Android version and version number, and waiting pushed builds. Replaced live versions stay in the log.");
+    openMenu(pdf, "Release log", "Open that app's admin page, then Release log. Type live iOS build and version, Android version and version number, and waiting pushed builds. Replaced live versions stay in the log.");
     var list = pack.tables.app_releases || [];
     if (!list.length) { noRows(pdf, pack, "app_releases"); return; }
     var names = { permitpath: "Permit Path", haulpath: "HaulPath", pc4h: "Pilot Car 4 Hire" };
@@ -611,7 +611,7 @@
   }
 
   function apps(pdf, pack) {
-    openMenu(pdf, "Apps", "Open Apps. Add each app, then its logins and issues. Re-upload the icon from App-Icons/.");
+    openMenu(pdf, "Apps", "Open Permit Path Admin, HaulPath Admin, or PC4H Admin, then App. Add the record, then its logins and issues. Re-upload the icon from App-Icons/.");
     var list = pack.tables.managed_apps || [];
     var logins = groupBy(pack.tables.app_logins, "app_id");
     var issues = groupBy(pack.tables.app_issues, "app_id");
@@ -662,7 +662,7 @@
   }
 
   function promos(pdf, pack) {
-    openMenu(pdf, "Promos", "Open Apps, then Promos. Add each offer.");
+    openMenu(pdf, "Promos", "Open that app's admin page, then Promos. Add each offer.");
     var rows = pack.tables.app_promos || [];
     if (!rows.length) { noRows(pdf, pack, "app_promos"); return; }
     rows.forEach(function (r, i) {
@@ -713,7 +713,7 @@
     openMenu(
       pdf,
       "TOS Accepted",
-      "This is the proof copy. Keep 03-TOS-Accepted.txt. It lists every person who accepted, with time and IP, then the terms of use they agreed to."
+      "Open Permit Path Admin, then TOS Accepted, for the live list. This is the proof copy. Keep 03-TOS-Accepted.txt. It lists every person who accepted, with time and IP, then the terms of use they agreed to."
     );
     var err = tableError(pack, "tos_acceptances");
     if (err) {
@@ -1594,7 +1594,7 @@
     sop(pdf, pack);
     imageAssets(pdf, pack);
     advertisements(pdf, pack);
-    skipPage(pdf, "Analytics", "Open Apps, then Analytics. Loads from App Store Connect and Google Play once the Secrets/ keys are in place. Subscribed is a tab on that same screen.");
+    skipPage(pdf, "Analytics", "Open that app's admin page, then Analytics. Loads from App Store Connect and Google Play once the Secrets/ keys are in place. Subscribed is a tab on that same screen.");
     tosAccepted(pdf, pack);
     support(pdf, pack);
     inbox(pdf, pack);

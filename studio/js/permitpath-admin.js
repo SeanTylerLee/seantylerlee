@@ -25,6 +25,7 @@
     "Add Permit Path URL + service_role key to secrets/permitpath_*.txt on this Mac, run sql/019_permitpath_announce.sql, then open Studio once while signed in.";
 
   var root = null;
+  var db = null;
   var profiles = [];
   var deletedAccounts = [];
   var usageEvents = [];
@@ -378,6 +379,21 @@
     return name === "overview" || name === "users" || name === "deleted" || name === "accounts";
   }
 
+  function isStudioTab(name) {
+    return !!(window.STLAppPanels && window.STLAppPanels.hasPane && window.STLAppPanels.hasPane("permitpath", name));
+  }
+
+  function releaseBody(body) {
+    if (!body) return;
+    var panel = body.getAttribute("data-panel");
+    if (panel === "direct" && window.STLDirectAnalytics && window.STLDirectAnalytics.unmount) window.STLDirectAnalytics.unmount();
+    if (panel === "fleet" && window.STLFleetManagement && window.STLFleetManagement.unmount) window.STLFleetManagement.unmount();
+    if (panel && window.STLAppPanels && window.STLAppPanels.isPane(panel)) window.STLAppPanels.unmount(body);
+    body.removeAttribute("data-panel");
+    body.removeAttribute("data-direct");
+    body.classList.remove("is-studio");
+  }
+
   function shell() {
     return (
       '<div class="ops-workspace pp-admin">' +
@@ -390,6 +406,7 @@
           '<button type="button" class="ops-pill" data-tab="accounts">Account holders overview</button>' +
           '<button type="button" class="ops-pill" data-tab="direct">Direct App Analytics</button>' +
           '<button type="button" class="ops-pill" data-tab="fleet">Fleet Management</button>' +
+          (window.STLAppPanels ? window.STLAppPanels.pills("permitpath") : "") +
           '<button type="button" class="btn btn-ghost" data-el="refresh" style="margin-left:auto">Refresh</button>' +
         "</div>" +
         '<div class="pp-admin-subtabs" data-el="account-subtabs" hidden>' +
@@ -446,6 +463,8 @@
   function setTab(next) {
     var wanted = next || "overview";
     if (wanted === "accounts") wanted = lastAccountsTab || "overview";
+    if (wanted === tab) return;
+    if ((isStudioTab(tab) || isStudioTab(wanted)) && window.STLAppPanels && !window.STLAppPanels.confirmLeave()) return;
     tab = wanted;
     if (isAccountsTab(tab) && tab !== "accounts") lastAccountsTab = tab;
     if (tab !== "users") closeDrawer();
@@ -958,28 +977,31 @@
   function renderBodyOnly() {
     var body = el("body");
     if (!body) return;
-    if (loading && !profiles.length && !deletedAccounts.length) {
+    if (loading && !profiles.length && !deletedAccounts.length && !isStudioTab(tab) && tab !== "direct" && tab !== "fleet") {
       body.innerHTML = '<div class="ops-empty">Loading Permit Path accounts…</div>';
+      return;
+    }
+    if (isStudioTab(tab) && window.STLAppPanels) {
+      if (body.getAttribute("data-panel") !== tab) {
+        releaseBody(body);
+        body.innerHTML = "";
+        body.setAttribute("data-panel", tab);
+        body.classList.add("is-studio");
+        window.STLAppPanels.mount(body, db, "permitpath", tab);
+      }
       return;
     }
     if (tab === "direct" || tab === "fleet") {
       var which = tab === "fleet" ? "fleet" : "direct";
       var apiName = tab === "fleet" ? "STLFleetManagement" : "STLDirectAnalytics";
       if (body.getAttribute("data-panel") !== which && window[apiName]) {
-        if (body.getAttribute("data-panel") === "direct" && window.STLDirectAnalytics) window.STLDirectAnalytics.unmount();
-        if (body.getAttribute("data-panel") === "fleet" && window.STLFleetManagement) window.STLFleetManagement.unmount();
+        releaseBody(body);
         body.setAttribute("data-panel", which);
-        body.removeAttribute("data-direct");
         window[apiName].mount(body);
       }
       return;
     }
-    if (body.getAttribute("data-panel")) {
-      if (window.STLDirectAnalytics && window.STLDirectAnalytics.unmount) window.STLDirectAnalytics.unmount();
-      if (window.STLFleetManagement && window.STLFleetManagement.unmount) window.STLFleetManagement.unmount();
-      body.removeAttribute("data-panel");
-      body.removeAttribute("data-direct");
-    }
+    if (body.getAttribute("data-panel")) releaseBody(body);
     if (tab === "users") body.innerHTML = usersHtml();
     else if (tab === "deleted") body.innerHTML = deletedHtml();
     else body.innerHTML = overviewHtml();
@@ -1100,6 +1122,10 @@
         }
         if (tab === "fleet" && window.STLFleetManagement && window.STLFleetManagement.shown) {
           window.STLFleetManagement.shown();
+          return;
+        }
+        if (isStudioTab(tab) && window.STLAppPanels) {
+          window.STLAppPanels.shown();
           return;
         }
         load(true);
@@ -1232,8 +1258,9 @@
   }
 
   window.STLPermitPathAdmin = {
-    mount: function (host) {
+    mount: function (host, client) {
       root = host;
+      db = client || null;
       var panel = host && host.closest ? host.closest(".panel") : null;
       if (panel) panel.classList.add("ops-wide");
       root.innerHTML = shell();
@@ -1242,14 +1269,39 @@
       render();
       load(false);
     },
+    shown: function () {
+      if (isStudioTab(tab)) {
+        var body = el("body");
+        if (body && window.STLAppPanels) window.STLAppPanels.mount(body, db, "permitpath", tab);
+        return;
+      }
+      hideSave();
+    },
+    openPane: function (name) {
+      if (!root || !isStudioTab(name)) return;
+      setTab(name);
+    },
+    saveAll: function () {
+      if (isStudioTab(tab) && window.STLAppPanels) return window.STLAppPanels.saveAll();
+    },
+    isDirty: function () {
+      if (isStudioTab(tab) && window.STLAppPanels) return window.STLAppPanels.isDirty();
+      return false;
+    },
+    usesGlobalSave: function () {
+      if (isStudioTab(tab) && window.STLAppPanels) return window.STLAppPanels.usesGlobalSave();
+      return false;
+    },
     unmount: function () {
       closeDeleteModal();
       closeDrawer();
+      if (window.STLAppPanels) window.STLAppPanels.unmount(el("body"));
       if (window.STLDirectAnalytics && window.STLDirectAnalytics.unmount) window.STLDirectAnalytics.unmount();
       if (window.STLFleetManagement && window.STLFleetManagement.unmount) window.STLFleetManagement.unmount();
       var panel = root && root.closest ? root.closest(".panel") : null;
       if (panel) panel.classList.remove("ops-wide");
       root = null;
+      db = null;
     }
   };
 })();

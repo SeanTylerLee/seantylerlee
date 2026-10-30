@@ -197,7 +197,7 @@
     if (!box) return;
     var html = "";
     if (!apps.length && !hasUnassigned()) {
-      html = '<span class="ia-apps-empty">Add an app on the Apps page first.</span>';
+      html = '<span class="ia-apps-empty">Add the app on its admin page, under App.</span>';
     } else {
       apps.forEach(function (app) {
         html +=

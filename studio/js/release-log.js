@@ -11,6 +11,7 @@
   var db = null;
   var rows = [];
   var saveTimers = {};
+  var onlyKey = "";
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -60,8 +61,17 @@
     });
   }
 
+  function visibleApps() {
+    if (!onlyKey) return APPS;
+    return APPS.filter(function (app) { return app.key === onlyKey; });
+  }
+
   function historyRows() {
-    return rows.filter(function (r) { return r.kind === "history"; }).sort(function (a, b) {
+    return rows.filter(function (r) {
+      if (r.kind !== "history") return false;
+      if (onlyKey && r.app_key !== onlyKey) return false;
+      return true;
+    }).sort(function (a, b) {
       return String(b.replaced_at || b.created_at || "").localeCompare(String(a.replaced_at || a.created_at || ""));
     });
   }
@@ -139,7 +149,7 @@
           '<h2>' + esc(title) + '</h2>' +
           '<div class="rl-legend"><span>Live</span><span>Waiting</span></div>' +
         '</div>' +
-        APPS.map(function (app) { return appRow(app, platform); }).join("") +
+        visibleApps().map(function (app) { return appRow(app, platform); }).join("") +
       '</section>'
     );
   }
@@ -164,12 +174,18 @@
     if (!ios.length && !android.length) {
       return '<p class="rl-empty">When you change a live version, the old one lands here.</p>';
     }
+    var iosHeads = onlyKey ? ["When", "Build", "Version"] : ["When", "App", "Build", "Version"];
+    var androidHeads = onlyKey ? ["When", "Version", "Version number"] : ["When", "App", "Version", "Version number"];
     return (
-      historyTable("iOS", ["When", "App", "Build", "Version"], ios, function (row) {
-        return [formatWhen(row.replaced_at || row.created_at), appName(row.app_key), trim(row.build) || "—", trim(row.version) || "—"];
+      historyTable("iOS", iosHeads, ios, function (row) {
+        var cells = [formatWhen(row.replaced_at || row.created_at), trim(row.build) || "—", trim(row.version) || "—"];
+        if (!onlyKey) cells.splice(1, 0, appName(row.app_key));
+        return cells;
       }) +
-      historyTable("Android", ["When", "App", "Version", "Version number"], android, function (row) {
-        return [formatWhen(row.replaced_at || row.created_at), appName(row.app_key), trim(row.version) || "—", trim(row.build) || "—"];
+      historyTable("Android", androidHeads, android, function (row) {
+        var cells = [formatWhen(row.replaced_at || row.created_at), trim(row.version) || "—", trim(row.build) || "—"];
+        if (!onlyKey) cells.splice(1, 0, appName(row.app_key));
+        return cells;
       })
     );
   }
@@ -371,9 +387,10 @@
   }
 
   window.STLReleaseLog = {
-    mount: function (panel, client) {
+    mount: function (panel, client, opts) {
       root = panel;
       db = client;
+      onlyKey = (opts && opts.appKey) || "";
       root.innerHTML =
         '<div class="rl-workspace">' +
           '<p class="status ops-banner" data-el="banner"></p>' +
@@ -387,6 +404,7 @@
     unmount: function () {
       root = null;
       db = null;
+      onlyKey = "";
     }
   };
 })();

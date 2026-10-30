@@ -120,12 +120,14 @@
     var html = "";
 
     if (!apps.length) {
-      html += '<div class="ops-empty">Add an app in Apps first, then come back and tap it here.</div>';
+      html += '<div class="ops-empty">' +
+        (embedded ? "Open the App tab and add this app first." : "Add an app in Apps first, then come back and tap it here.") +
+        "</div>";
       body.innerHTML = html;
       return;
     }
     if (embedded && !app) {
-      html += '<div class="ops-empty">Pick an app above to see subscriber counts.</div>';
+      html += '<div class="ops-empty">Open the App tab and add this app first.</div>';
       body.innerHTML = html;
       bind();
       return;

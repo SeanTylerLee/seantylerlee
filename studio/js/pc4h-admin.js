@@ -43,6 +43,7 @@
   };
 
   var root = null;
+  var db = null;
   var view = "home";
   var pilots = [];
   var handoffs = [];
@@ -357,6 +358,7 @@
           '<button type="button" class="ops-pill" data-nav="reviews">Reviews</button>' +
           '<button type="button" class="ops-pill" data-nav="listings">To email</button>' +
           '<button type="button" class="ops-pill" data-nav="emails">Emails</button>' +
+          (window.STLAppPanels ? window.STLAppPanels.pills("pc4h", "data-nav") : "") +
           '<button type="button" class="btn btn-primary" data-nav="form">Add listing</button>' +
           '<button type="button" class="btn btn-ghost" data-el="refresh" style="margin-left:auto">Refresh</button>' +
         "</div>" +
@@ -854,12 +856,29 @@
   function render() {
     var body = el("body");
     if (!body) return;
+    if (window.STLAppPanels && window.STLAppPanels.isPane(view)) {
+      if (body.getAttribute("data-studio") !== view) {
+        window.STLAppPanels.unmount(body);
+        body.innerHTML = "";
+        body.setAttribute("data-studio", view);
+        body.classList.add("is-studio");
+        window.STLAppPanels.mount(body, db, "pc4h", view);
+      }
+      syncTabs();
+      return;
+    }
+    if (body.getAttribute("data-studio")) {
+      window.STLAppPanels.unmount(body);
+      body.removeAttribute("data-studio");
+      body.classList.remove("is-studio");
+    }
     body.innerHTML = bodyHtml();
     syncTabs();
     bindBody();
   }
 
   function setView(next) {
+    if (next !== view && window.STLAppPanels && window.STLAppPanels.isPane(view) && !window.STLAppPanels.confirmLeave()) return;
     view = next;
     formBanner = "";
     pilotsBanner = "";
@@ -1321,8 +1340,9 @@
   }
 
   window.STLPc4hAdmin = {
-    mount: function (host) {
+    mount: function (host, client) {
       root = host;
+      db = client || null;
       var panel = host && host.closest ? host.closest(".panel") : null;
       if (panel) panel.classList.add("ops-wide");
       root.innerHTML = shell();
@@ -1331,7 +1351,13 @@
         btn.addEventListener("click", function () { goNav(btn); });
       });
       var refresh = el("refresh");
-      if (refresh) refresh.addEventListener("click", function () { loadSnapshot(false); });
+      if (refresh) refresh.addEventListener("click", function () {
+        if (window.STLAppPanels && window.STLAppPanels.isPane(view)) {
+          window.STLAppPanels.shown();
+          return;
+        }
+        loadSnapshot(false);
+      });
       view = openReviewsOnLoad ? "reviews" : "home";
       if (openReviewsOnLoad) reviewFilter = "pending";
       openReviewsOnLoad = false;
@@ -1340,6 +1366,11 @@
       loadSnapshot(false);
     },
     shown: function () {
+      if (window.STLAppPanels && window.STLAppPanels.isPane(view)) {
+        var body = el("body");
+        if (body) window.STLAppPanels.mount(body, db, "pc4h", view);
+        return;
+      }
       hideSave();
       if (openReviewsOnLoad) {
         openReviewsOnLoad = false;
@@ -1354,6 +1385,7 @@
     focusReviews: function () {
       reviewFilter = "pending";
       if (root) {
+        if (window.STLAppPanels && window.STLAppPanels.isPane(view) && !window.STLAppPanels.confirmLeave()) return;
         view = "reviews";
         render();
         loadSnapshot(true);
@@ -1361,10 +1393,27 @@
       }
       openReviewsOnLoad = true;
     },
+    openPane: function (name) {
+      if (!root || !window.STLAppPanels || !window.STLAppPanels.hasPane("pc4h", name)) return;
+      setView(name);
+    },
+    saveAll: function () {
+      if (window.STLAppPanels && window.STLAppPanels.isPane(view)) return window.STLAppPanels.saveAll();
+    },
+    isDirty: function () {
+      if (window.STLAppPanels && window.STLAppPanels.isPane(view)) return window.STLAppPanels.isDirty();
+      return false;
+    },
+    usesGlobalSave: function () {
+      if (window.STLAppPanels && window.STLAppPanels.isPane(view)) return window.STLAppPanels.usesGlobalSave();
+      return false;
+    },
     unmount: function () {
+      if (window.STLAppPanels) window.STLAppPanels.unmount(el("body"));
       var panel = root && root.closest ? root.closest(".panel") : null;
       if (panel) panel.classList.remove("ops-wide");
       root = null;
+      db = null;
     }
   };
 })();

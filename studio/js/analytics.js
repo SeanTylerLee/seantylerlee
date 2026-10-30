@@ -102,7 +102,7 @@
     var studio = selectedStudio();
     if (!preferredAppId || !studio) {
       return '<div class="analytics-card"><h3>' + (kind === "play" ? "Google Play" : "App Store Connect") + "</h3>" +
-        '<p class="sub">Pick an app above.</p></div>';
+        '<p class="sub">' + (embedded ? "Open the App tab and add this app first." : "Pick an app above.") + "</p></div>";
     }
     if (kind === "play") {
       if (!trimPkg(studio.google_package_name)) {
@@ -198,6 +198,7 @@
   }
 
   function render() {
+    if (!root) return;
     renderMeta();
     root.querySelectorAll("[data-tab]").forEach(function (btn) {
       btn.classList.toggle("is-on", btn.getAttribute("data-tab") === tab);
@@ -430,7 +431,7 @@
         '<p class="sub">' +
           (embedded
             ? "No Play listing matched this app. Check the Google package name on the App tab."
-            : "No Android package names yet. Add a Google package name on the Apps page (e.g. com.stlapps.yourapp), or put one package per line in secrets/play_packages.txt.") +
+            : "No Android package names yet. Add a Google package name on the App tab (e.g. com.stlapps.yourapp), or put one package per line in secrets/play_packages.txt.") +
         "</p>";
     } else {
       apps.forEach(function (app) {

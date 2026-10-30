@@ -37,7 +37,6 @@
     { id: "ownerDraws", title: "Owner Draw" },
     { id: "inventory", title: "Inventory" },
     { id: "mileage", title: "Mileage" },
-    { id: "apps", title: "Apps" },
     { id: "competitors", title: "Competitors" },
     { id: "websites", title: "Websites" },
     { id: "sop", title: "SOP" },
@@ -56,9 +55,10 @@
   ];
 
   var SECTION_ALIASES = {
-    promos: "apps",
-    appleAnalytics: "apps",
-    subscribed: "apps",
+    apps: "overview",
+    promos: "overview",
+    appleAnalytics: "overview",
+    subscribed: "overview",
     leads: "clients"
   };
 

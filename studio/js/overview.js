@@ -410,8 +410,13 @@
           : '<span class="ov-app-mark" style="background:#' + M().esc(hex) + '">' +
             M().esc((app.name || "?").charAt(0).toUpperCase()) +
             "</span>";
+        var adminSection = window.STLAppPanels && window.STLAppPanels.sectionFor
+          ? window.STLAppPanels.sectionFor(app)
+          : "";
         html +=
-          '<button type="button" class="ov-app" data-go="apps">' +
+          '<button type="button" class="ov-app"' +
+            (adminSection ? ' data-go="' + adminSection + '" data-studio-pane="app"' : "") +
+          ">" +
             '<div class="ov-app-head">' +
               mark +
               "<div>" +
@@ -470,6 +475,11 @@
       node.addEventListener("click", function (event) {
         if (event.target.closest("[data-secondary]")) return;
         var target = node.getAttribute("data-go");
+        var studioPane = node.getAttribute("data-studio-pane");
+        if (studioPane && target && window.STLApp && window.STLApp.navigate) {
+          window.STLApp.navigate(target, { tab: studioPane });
+          return;
+        }
         if (target === "pc4hAdmin" || node.getAttribute("data-pc4h-reviews")) {
           if (window.STLPc4hAdmin && typeof window.STLPc4hAdmin.focusReviews === "function") {
             window.STLPc4hAdmin.focusReviews();

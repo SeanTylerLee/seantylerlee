@@ -28,6 +28,11 @@
   color: var(--ink);
 }
 
+.apps-workspace.is-embed {
+  min-height: 0;
+  background: transparent;
+}
+
 .apps-top {
   display: flex;
   align-items: center;

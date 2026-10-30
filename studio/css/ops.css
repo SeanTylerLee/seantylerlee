@@ -1580,6 +1580,51 @@ html.is-phone .mail-queue-actions .btn {
   min-height: 96px;
 }
 
+.hp-admin-tabs {
+  padding: 0 16px 12px;
+}
+
+.app.is-haulPathAdmin .hp-admin-layout[hidden],
+.hp-studio-host[hidden] {
+  display: none !important;
+}
+
+.hp-studio-host,
+.pp-admin-body.is-studio,
+.pc4h-admin-body.is-studio,
+.hp-studio-host.is-studio {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pp-admin-body.is-studio,
+.pc4h-admin-body.is-studio {
+  padding: 0;
+}
+
+.pp-admin-body.is-studio > .apps-workspace,
+.pp-admin-body.is-studio > .analytics-workspace,
+.pp-admin-body.is-studio > .ops-workspace,
+.pp-admin-body.is-studio > .rl-workspace,
+.pp-admin-body.is-studio > .tos-panel,
+.pc4h-admin-body.is-studio > .apps-workspace,
+.pc4h-admin-body.is-studio > .analytics-workspace,
+.pc4h-admin-body.is-studio > .ops-workspace,
+.pc4h-admin-body.is-studio > .rl-workspace,
+.pc4h-admin-body.is-studio > .tos-panel,
+.hp-studio-host.is-studio > .apps-workspace,
+.hp-studio-host.is-studio > .analytics-workspace,
+.hp-studio-host.is-studio > .ops-workspace,
+.hp-studio-host.is-studio > .rl-workspace,
+.hp-studio-host.is-studio > .tos-panel {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
 html.is-phone .app.is-haulPathAdmin .hp-admin-layout {
   grid-template-columns: 1fr;
   overflow: auto;
@@ -2830,4 +2875,12 @@ html.is-phone .pp-admin-watch,
   .ad-maker {
     flex-direction: column;
   }
+}
+
+.app.is-permitPathAdmin .pp-admin-body.is-studio,
+.app.is-pc4hAdmin .pc4h-admin-body.is-studio {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
 }

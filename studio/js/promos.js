@@ -58,6 +58,7 @@
     return /does not exist|schema cache|Could not find the table/i.test((err && err.message) || "");
   }
   function syncSave() {
+    if (!root) return;
     var btn = document.getElementById("global-save");
     if (!btn) return;
     btn.classList.remove("hidden");
@@ -177,9 +178,13 @@
       "</div>";
 
     if (embedded && !selectedAppId) {
-      html += '<div class="ops-empty">Pick an app above to see its promos.</div>';
+      html += '<div class="ops-empty">Open the App tab and add this app first.</div>';
     } else if (!apps.length) {
-      html += '<div class="ops-empty">Add an app in Apps first, then come back and log a promo.</div>';
+      html += '<div class="ops-empty">' +
+        (embedded
+          ? "Open the App tab and add this app first, then come back and log a promo."
+          : "Add an app in Apps first, then come back and log a promo.") +
+        "</div>";
     } else if (!rows.length) {
       html += '<div class="ops-empty">No promos for this app yet. Add the free month or intro offer you turned on in the store.</div>';
     } else {
@@ -294,7 +299,7 @@
   function addPromo() {
     if (!db || !db.from) return showMsg("Not signed in.", false);
     var app = selectedApp() || apps[0];
-    if (!app) return showMsg("Add an app in Apps first.", false);
+    if (!app) return showMsg(embedded ? "Open the App tab and add this app first." : "Add an app in Apps first.", false);
     db.from("app_promos").insert({
       app_id: app.id,
       app_name: app.name || "",
