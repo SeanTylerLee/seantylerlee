@@ -74,12 +74,66 @@
     return paidCount >= 21 ? 3.39 : 3.99;
   }
 
-  function paymentLine(id) {
-    var rows = payments.filter(function (row) { return row.fleet_id === id; }).slice(0, 3);
-    if (!rows.length) return "";
-    return "<p>Payments: " + rows.map(function (row) {
-      return money(row.amount) + " on " + String(row.paid_at || "").slice(0, 10);
-    }).join(" · ") + "</p>";
+  function paymentsFor(id) {
+    return payments.filter(function (row) { return row.fleet_id === id; });
+  }
+
+  function receiptText(fleet, row) {
+    var when = String(row.paid_at || "").slice(0, 10);
+    var through = String(row.paid_through || "").slice(0, 10);
+    var lines = [
+      "Permit Path fleet receipt",
+      "Company: " + (fleet.company_name || ""),
+      "Paid: " + money(row.amount) + " on " + when,
+      "Seats: " + (row.seats || "—") + " for " + (row.months || "—") + " month(s)",
+      through ? "Those codes stay on through " + through : "",
+      row.payer_email ? "Receipt email: " + row.payer_email : "",
+      row.receipt_number ? "Stripe receipt number: " + row.receipt_number : "",
+      row.stripe_session_id ? "Payment id: " + row.stripe_session_id : "",
+      row.receipt_url ? "Stripe receipt: " + row.receipt_url : "Stripe receipt link was not stored. Run sql/064_fleet_payment_receipts.sql, then the next payment will keep a link."
+    ];
+    return lines.filter(Boolean).join("\n");
+  }
+
+  function paymentBlock(fleet) {
+    var rows = paymentsFor(fleet.id);
+    var today = new Date().toISOString().slice(0, 10);
+    var keep = seatsFor(fleet.id).filter(function (seat) {
+      if (seat.active === false || isTrial(seat)) return false;
+      var until = String(seat.paid_through || fleet.paid_through || "").slice(0, 10);
+      return until && until >= today;
+    });
+    var drop = seatsFor(fleet.id).filter(function (seat) {
+      if (seat.active === false || isTrial(seat)) return false;
+      var until = String(seat.paid_through || fleet.paid_through || "").slice(0, 10);
+      return !until || until < today;
+    });
+    var decision = "<p><strong>Keep on:</strong> " + (keep.length ? keep.length + " paid code" + (keep.length === 1 ? "" : "s") + " still inside a paid date." : "none.") +
+      " <strong>Turn off:</strong> " + (drop.length ? drop.length + " paid code" + (drop.length === 1 ? "" : "s") + " past the paid date." : "none.") + "</p>";
+    if (!rows.length) {
+      return decision + "<p>No card payment is on file. A company you added by hand stays on until you turn it off. A card purchase will leave a receipt here.</p>";
+    }
+    return decision + rows.map(function (row) {
+      var when = String(row.paid_at || "").slice(0, 10);
+      var through = String(row.paid_through || "").slice(0, 10);
+      var linked = seatsFor(fleet.id).filter(function (seat) { return seat.label && row.stripe_session_id && seat.label === row.stripe_session_id; });
+      var open = row.receipt_url
+        ? '<a href="' + esc(row.receipt_url) + '" target="_blank" rel="noopener">Open Stripe receipt</a>'
+        : "Stripe receipt link not stored yet";
+      return (
+        '<div class="fleet-company-notes">' +
+          "<p>" + money(row.amount) + " on " + esc(when) +
+            " · " + esc(row.seats || "—") + " seats · " + esc(row.months || "—") + " month(s)" +
+            (through ? " · codes through " + esc(through) : "") +
+            (row.receipt_number ? " · #" + esc(row.receipt_number) : "") +
+          "</p>" +
+          "<p>" + open +
+            (linked.length ? " · " + linked.length + " code" + (linked.length === 1 ? "" : "s") + " from this payment" : "") +
+          "</p>" +
+          '<button type="button" class="btn btn-ghost" data-copy-receipt="' + esc(row.id) + '">Copy receipt</button>' +
+        "</div>"
+      );
+    }).join("");
   }
 
   function fleetStillPaid(fleet) {
@@ -244,7 +298,7 @@
         '<div class="fleet-card-body">' +
           (renewSoon(fleet) ? '<p class="fleet-error">Renewal is inside 30 days. Email ' + esc(fleet.portal_email || fleet.contact_email || "the company") + " to request payment. Turn the company off if they do not pay.</p>" : "") +
           (Number(fleet.trial_request_seats) > trialSeats(fleet.id).length ? '<p class="fleet-error">Free trial requested for ' + Number(fleet.trial_request_seats) + ' drivers. Add a 1-month trial for the seats they asked for.</p>' : "") +
-          paymentLine(fleet.id) +
+          paymentBlock(fleet) +
           '<div class="fleet-meta-line">' +
             "<span>" + (fleet.portal_email ? "Login " + esc(fleet.portal_email) : "No fleet login yet") + "</span>" +
             (fleet.portal_email ? "<span>Password " + esc(fleet.portal_password || "not saved yet") + "</span>" : "") +
@@ -471,6 +525,19 @@
         var link = btn.getAttribute("data-copy-link") || "";
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link);
         notice = "Copied the fleet login link.";
+        error = "";
+        render();
+      };
+    });
+    root.querySelectorAll("[data-copy-receipt]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-copy-receipt") || "";
+        var fleet = fleets.filter(function (row) { return paymentsFor(row.id).some(function (pay) { return pay.id === id; }); })[0];
+        var row = payments.filter(function (pay) { return pay.id === id; })[0];
+        if (!fleet || !row) return;
+        var text = receiptText(fleet, row);
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
+        notice = "Copied the receipt for " + fleet.company_name + ".";
         error = "";
         render();
       };
