@@ -501,6 +501,7 @@
 .fleet-status-paid { background: #e7f6ec; color: #1b6b32; }
 .fleet-status-unpaid { background: #fff4d6; color: #8a5a00; }
 .fleet-status-off { background: #f3f4f6; color: #5c657a; }
+.fleet-status-test { background: #ece8ff; color: #4c3d8f; }
 
 .fleet-meta-line {
   display: flex;

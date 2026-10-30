@@ -152,7 +152,12 @@
     return days <= 30;
   }
 
+  function isTest(fleet) {
+    return fleet && fleet.is_test === true;
+  }
+
   function statusOf(fleet) {
+    if (isTest(fleet)) return "Test";
     if (!fleet.active) return "Off";
     var day = String(fleet.paid_through || "");
     var today = new Date().toISOString().slice(0, 10);
@@ -367,6 +372,7 @@
             '<button type="button" class="btn btn-ghost" data-copy-link="https://permitpathnav.com/fleet-solutions.html#fleet-login">Copy login link</button>' +
             '<button type="button" class="btn btn-ghost" data-edit="' + esc(fleet.id) + '">Edit company</button>' +
             '<button type="button" class="btn btn-ghost" data-toggle="' + esc(fleet.id) + '">' + (fleet.active ? "Turn company off" : "Turn company on") + "</button>" +
+            '<button type="button" class="btn btn-ghost" data-test="' + esc(fleet.id) + '" data-test-on="' + (isTest(fleet) ? "1" : "0") + '">' + (isTest(fleet) ? "Count as income" : "Test") + "</button>" +
             '<button type="button" class="btn btn-danger" data-remove="' + esc(fleet.id) + '">Delete</button>' +
           "</div>" +
           invoiceBlock(fleet, rows) +
@@ -386,6 +392,7 @@
       var trial = 0;
       var monthly = 0;
       fleets.forEach(function (fleet) {
+        if (isTest(fleet)) return;
         var count = paidSeats(fleet.id).length;
         paid += count;
         trial += trialSeats(fleet.id).length;
@@ -637,6 +644,36 @@
         render();
         var formEl = el("form");
         if (formEl) formEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+    });
+    root.querySelectorAll("[data-test]").forEach(function (btn) {
+      btn.onclick = function () {
+        var found = fleets.filter(function (row) { return row.id === btn.getAttribute("data-test"); })[0];
+        if (!found) return;
+        var next = btn.getAttribute("data-test-on") !== "1";
+        api().post("/api/permitpath-fleets", {
+          action: "mark-test",
+          id: found.id,
+          is_test: next
+        }).then(function (res) {
+          var data = (res && res.data) || {};
+          if (!res || !res.ok) {
+            error = data.error || "Could not update that company.";
+            notice = "";
+            render();
+            return;
+          }
+          found.is_test = next;
+          notice = next
+            ? found.company_name + " is a test. It is left out of the money totals."
+            : found.company_name + " counts in the money totals again.";
+          error = "";
+          render();
+        }).catch(function (err) {
+          error = (err && err.message) || "Could not update that company.";
+          notice = "";
+          render();
+        });
       };
     });
     root.querySelectorAll("[data-toggle]").forEach(function (btn) {
