@@ -227,10 +227,12 @@
   }
 
   function invoiceBlock(fleet, deviceRows) {
+    var all = seatsFor(fleet.id);
+    var inUse = all.filter(function (seat) { return seat.install_id; }).length;
     return (
       '<section class="fleet-codes-panel">' +
         '<div class="fleet-tool-head fleet-codes-head">' +
-          "<div><h4>Seat codes</h4><p>Copy, annotate, or turn a single phone code on or off.</p></div>" +
+          "<div><h4>Seat codes</h4><p>" + inUse + " in use · " + (all.length - inUse) + " not used. In-use codes are listed first.</p></div>" +
           '<button type="button" class="btn btn-ghost" data-copy-all="' + esc(fleet.id) + '">Copy all codes</button>' +
         "</div>" +
         '<div class="fleet-codes-table-wrap">' +
@@ -243,7 +245,12 @@
   }
 
   function card(fleet) {
-    var used = seatsFor(fleet.id);
+    var used = seatsFor(fleet.id).slice().sort(function (a, b) {
+      var aOn = a.install_id ? 0 : 1;
+      var bOn = b.install_id ? 0 : 1;
+      if (aOn !== bOn) return aOn - bOn;
+      return String(a.code || "").localeCompare(String(b.code || ""));
+    });
     var open = openId === fleet.id;
     var claimed = used.filter(function (seat) { return seat.install_id; }).length;
     var rows = used.map(function (seat) {
@@ -261,9 +268,13 @@
         if (until < stamp) where = "Expired " + until + (seat.install_id ? " · " + phone : "");
       }
       if (seat.active === false) where = "Off" + (until ? " · was through " + until : "");
+      var inUse = !!seat.install_id && seat.active !== false;
+      var useBadge = inUse
+        ? '<span class="fleet-use fleet-use-on">In use</span>'
+        : '<span class="fleet-use fleet-use-off">Not used</span>';
       return (
-        "<tr>" +
-          '<td class="fleet-code">' + esc(seat.code || "—") + "</td>" +
+        '<tr class="' + (inUse ? "fleet-row-used" : "fleet-row-open") + '">' +
+          '<td class="fleet-code">' + useBadge + esc(seat.code || "—") + "</td>" +
           '<td class="fleet-note-cell">' +
             '<div class="fleet-note-edit">' +
               '<input type="text" maxlength="240" value="' + esc(seat.label || "") + '" placeholder="Add a note" data-note-input="' + esc(seat.id) + '">' +

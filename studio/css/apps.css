@@ -456,6 +456,41 @@
   letter-spacing: 0.04em;
 }
 
+.fleet-row-used {
+  background: #e7f6ec;
+}
+
+.fleet-row-used .fleet-code {
+  color: #146c36;
+}
+
+.fleet-row-open .fleet-code {
+  color: #8b93a7;
+  font-weight: 600;
+}
+
+.fleet-use {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.fleet-use-on {
+  background: #146c36;
+  color: #fff;
+}
+
+.fleet-use-off {
+  background: #e8ebf2;
+  color: #6d768b;
+}
+
 .fleet-status {
   border-radius: 999px;
   padding: 4px 10px;
