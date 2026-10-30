@@ -682,6 +682,15 @@
   margin-bottom: 12px;
 }
 
+.direct-section-title {
+  margin: 16px 0 8px;
+  font-size: 15px;
+}
+
+.direct-day {
+  margin-bottom: 10px;
+}
+
 .direct-stats {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

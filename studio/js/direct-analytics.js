@@ -3,6 +3,7 @@
 
   var root = null;
   var rows = [];
+  var days = [];
   var filter = "all";
   var loading = false;
   var error = "";
@@ -54,8 +55,11 @@
     return (
       '<div class="tos-panel direct-panel">' +
         '<p class="tos-note">Counts come from the app on each phone. A person shows up after they open a build that sends this report. The Apple and Google reports stay on Apps → Analytics. This list has no email.</p>' +
+        '<h3 class="direct-section-title">Total</h3>' +
         '<div class="direct-totals" data-el="totals"></div>' +
         '<div class="direct-stats" data-el="stats"></div>' +
+        '<h3 class="direct-section-title">By day</h3>' +
+        '<div data-el="days"></div>' +
         '<div class="tos-subtabs" data-el="filters"></div>' +
         '<p class="tos-note" data-el="note"></p>' +
         '<div data-el="list"></div>' +
@@ -174,6 +178,45 @@
         };
       });
     }
+    var dayBox = el("days");
+    if (dayBox) {
+      var shownDays = days.filter(function (day) {
+        if (filter === "ios" || filter === "android") return day.platform === filter;
+        return true;
+      });
+      var byDay = {};
+      shownDays.forEach(function (day) {
+        var key = String(day.day || "").slice(0, 10);
+        if (!key) return;
+        if (!byDay[key]) byDay[key] = { day: key };
+        ["opens", "navigations_started", "arrivals", "miles_driven", "off_route_trips", "navigations_official", "navigations_built", "paywall_shown", "imports_pdf", "imports_qr"].forEach(function (field) {
+          byDay[key][field] = num(byDay[key][field]) + num(day[field]);
+        });
+      });
+      var dayKeys = Object.keys(byDay).sort().reverse();
+      dayBox.innerHTML = dayKeys.length
+        ? dayKeys.map(function (key) {
+          var day = byDay[key];
+          return (
+            '<article class="direct-card direct-day">' +
+              '<header class="direct-card-head"><div class="direct-card-name"><span class="direct-platform">' + esc(key) + "</span></div></header>" +
+              '<div class="direct-metrics">' +
+                '<div class="direct-metric"><strong>' + num(day.opens) + "</strong><span>Opens</span></div>" +
+                '<div class="direct-metric"><strong>' + num(day.navigations_started) + "</strong><span>Go taps</span></div>" +
+                '<div class="direct-metric"><strong>' + num(day.arrivals) + "</strong><span>Arrived</span></div>" +
+                '<div class="direct-metric"><strong>' + Math.round(num(day.miles_driven)).toLocaleString("en-US") + "</strong><span>Miles</span></div>" +
+                '<div class="direct-metric"><strong>' + num(day.off_route_trips) + "</strong><span>Off the line</span></div>" +
+                '<div class="direct-metric"><strong>' + num(day.navigations_official) + "</strong><span>Texas Go</span></div>" +
+                '<div class="direct-metric"><strong>' + num(day.navigations_built) + "</strong><span>Built Go</span></div>" +
+                '<div class="direct-metric"><strong>' + num(day.paywall_shown) + "</strong><span>Paywall</span></div>" +
+                '<div class="direct-metric"><strong>' + num(day.imports_pdf) + "</strong><span>PDF imports</span></div>" +
+                '<div class="direct-metric"><strong>' + num(day.imports_qr) + "</strong><span>QR imports</span></div>" +
+              "</div>" +
+            "</article>"
+          );
+        }).join("")
+        : '<p class="tos-note">No daily counts yet. Run sql/065_direct_app_days.sql in the Permit Path SQL editor. Counts start the next time a phone opens the app. The total above is still the all-time number.</p>';
+    }
     var note = el("note");
     var list = el("list");
     if (loading) {
@@ -280,15 +323,18 @@
         loading = false;
         if (!res.ok) {
           rows = [];
+          days = [];
           error = (res.data && res.data.error) || "Could not load direct app analytics.";
         } else {
           rows = (res.data && res.data.rows) || [];
+          days = (res.data && res.data.days) || [];
           error = "";
         }
         render();
       })
       .catch(function (err) {
         rows = [];
+        days = [];
         loading = false;
         error = (err && err.message) || "Could not load direct app analytics.";
         render();
