@@ -4,6 +4,7 @@
   var root = null;
   var rows = [];
   var days = [];
+  var live = null;
   var filter = "all";
   var loading = false;
   var error = "";
@@ -55,6 +56,7 @@
     return (
       '<div class="tos-panel direct-panel">' +
         '<p class="tos-note">Counts come from the app on each phone. A person shows up after they open a build that sends this report. The Apple and Google reports stay on Apps → Analytics. This list has no email.</p>' +
+        '<div data-el="live"></div>' +
         '<h3 class="direct-section-title">Total</h3>' +
         '<div class="direct-totals" data-el="totals"></div>' +
         '<div class="direct-stats" data-el="stats"></div>' +
@@ -177,6 +179,17 @@
           render();
         };
       });
+    }
+    var liveBox = el("live");
+    if (liveBox) {
+      var site = live || { miles: 0, permits_imported: 0, reset_note: "Miles driven with Permit Path since October 30, 2026." };
+      liveBox.innerHTML =
+        '<div class="fleet-company-notes">' +
+          "<p><strong>Website live stats.</strong> permitpathnav.com reads these numbers.</p>" +
+          "<p>" + Math.round(num(site.miles)).toLocaleString("en-US") + " miles since October 30, 2026. " +
+            Math.round(num(site.permits_imported)).toLocaleString("en-US") + " permits imported (PDF + QR).</p>" +
+          "<p>" + esc(site.reset_note || "Miles driven with Permit Path since October 30, 2026.") + "</p>" +
+        "</div>";
     }
     var dayBox = el("days");
     if (dayBox) {
@@ -328,6 +341,7 @@
         } else {
           rows = (res.data && res.data.rows) || [];
           days = (res.data && res.data.days) || [];
+          live = (res.data && res.data.live) || null;
           error = "";
         }
         render();
