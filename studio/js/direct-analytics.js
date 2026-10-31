@@ -182,13 +182,13 @@
     }
     var liveBox = el("live");
     if (liveBox) {
-      var site = live || { miles: 0, permits_imported: 0, reset_note: "Miles driven with Permit Path since October 30, 2026." };
+      var site = live || { miles: 0, permits_imported: 0, reset_note: "Statistics were reset on Oct. 30, 2026" };
       liveBox.innerHTML =
         '<div class="fleet-company-notes">' +
-          "<p><strong>Website live stats.</strong> permitpathnav.com reads these numbers.</p>" +
-          "<p>" + Math.round(num(site.miles)).toLocaleString("en-US") + " miles since October 30, 2026. " +
+          "<p><strong>Website live stats.</strong> permitpathnav.com reads these lifetime totals. The site still says they were reset on Oct. 30, 2026.</p>" +
+          "<p>" + Math.round(num(site.miles)).toLocaleString("en-US") + " miles. " +
             Math.round(num(site.permits_imported)).toLocaleString("en-US") + " permits imported (PDF + QR).</p>" +
-          "<p>" + esc(site.reset_note || "Miles driven with Permit Path since October 30, 2026.") + "</p>" +
+          "<p>" + esc(site.reset_note || "Statistics were reset on Oct. 30, 2026") + "</p>" +
         "</div>";
     }
     var dayBox = el("days");
