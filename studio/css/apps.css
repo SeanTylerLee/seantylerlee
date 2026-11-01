@@ -489,6 +489,11 @@
   font-weight: 600;
 }
 
+.fleet-row-replace {
+  outline: 2px solid #1a70eb;
+  background: #e8f1fd;
+}
+
 .fleet-use {
   display: inline-block;
   margin-right: 8px;

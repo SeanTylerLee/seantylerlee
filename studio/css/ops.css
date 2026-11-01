@@ -565,6 +565,7 @@ html.is-phone .app.is-notifications .ops-card {
 .inbox-tag.is-quote { background: rgba(242, 158, 46, 0.2); color: #9a5d0c; }
 .inbox-tag.is-release_notify { background: rgba(56, 179, 117, 0.18); color: #1b6b32; }
 .inbox-tag.is-permit_sample { background: rgba(14, 165, 233, 0.16); color: #0369a1; }
+.inbox-tag.is-fleet_replace { background: rgba(26, 112, 235, 0.18); color: #1558c0; }
 .inbox-tag.is-archived { background: rgba(0, 0, 0, 0.08); color: var(--muted); }
 .inbox-tag.is-replied { background: rgba(56, 179, 117, 0.18); color: #1b6b32; }
 

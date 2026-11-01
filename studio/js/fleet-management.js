@@ -9,6 +9,7 @@
   var error = "";
   var notice = "";
   var openId = "";
+  var focusSeatId = "";
   var folds = {};
   var draft = blankDraft();
   var formOpen = false;
@@ -240,7 +241,26 @@
     if (last && !last.payer_email) {
       lines.push("The latest payment has no receipt email stored. Fleet login is " + (fleet.portal_email || fleet.contact_email || "missing") + ".");
     }
+    var waiting = seatsFor(fleet.id).filter(pendingReplacement);
+    if (waiting.length) {
+      lines.push(waiting.map(function (seat) {
+        return "Replacement requested for " + (seat.code || "a code") + ". Use Replace code on that row.";
+      }).join(" "));
+    }
     return lines;
+  }
+
+  function replacedBy(code) {
+    var want = String(code || "").toUpperCase();
+    if (!want) return null;
+    return seats.filter(function (row) {
+      return String(row.replaces_code || "").toUpperCase() === want;
+    })[0] || null;
+  }
+
+  function pendingReplacement(seat) {
+    if (!seat || !seat.replacement_requested_at) return false;
+    return !replacedBy(seat.code);
   }
 
   function isTest(fleet) {
@@ -364,12 +384,20 @@
         if (until < stamp) where = "Expired " + until + (seat.install_id ? " · " + phone : "");
       }
       if (seat.active === false) where = "Off" + (until ? " · was through " + until : "");
+      var successor = replacedBy(seat.code);
+      if (successor) where += " · replaced by " + (successor.code || "a new code");
+      if (seat.replaces_code) where += " · new code replaces " + seat.replaces_code;
       var inUse = !!seat.install_id && seat.active !== false;
       var useBadge = inUse
         ? '<span class="fleet-use fleet-use-on">In use</span>'
         : '<span class="fleet-use fleet-use-off">Not used</span>';
+      var replaceBtn = pendingReplacement(seat)
+        ? '<button type="button" class="btn btn-primary" data-replace-seat="' + esc(seat.id) + '" data-replace-code="' + esc(seat.code || "") + '">Replace code</button>'
+        : "";
+      var rowClass = inUse ? "fleet-row-used" : "fleet-row-open";
+      if (pendingReplacement(seat) || seat.id === focusSeatId) rowClass += " fleet-row-replace";
       return (
-        '<tr class="' + (inUse ? "fleet-row-used" : "fleet-row-open") + '">' +
+        '<tr class="' + rowClass + '" data-seat-row="' + esc(seat.id) + '">' +
           '<td class="fleet-code">' + useBadge + esc(seat.code || "—") + "</td>" +
           '<td class="fleet-note-cell">' +
             '<div class="fleet-note-edit">' +
@@ -379,6 +407,7 @@
           "</td>" +
           '<td><span class="fleet-seat-status">' + esc(where) + "</span></td>" +
           '<td class="fleet-seat-actions">' +
+            replaceBtn +
             '<button type="button" class="btn btn-ghost" data-copy="' + esc(seat.code || "") + '">Copy</button>' +
             '<button type="button" class="btn btn-ghost" data-seat="' + esc(seat.id) + '" data-seat-active="' + (seat.active === false ? "1" : "0") + '">' +
             (seat.active === false ? "Turn on" : "Turn off") + "</button>" +
@@ -666,6 +695,35 @@
         render();
       };
     });
+    root.querySelectorAll("[data-replace-seat]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-replace-seat") || "";
+        var code = btn.getAttribute("data-replace-code") || "this code";
+        if (!id) return;
+        if (!window.confirm("Replace " + code + "?\n\nThis turns that code off and creates a new code with the same paid-through date.")) return;
+        api().post("/api/permitpath-fleets", {
+          action: "replace-seat",
+          id: id
+        }).then(function (res) {
+          var data = (res && res.data) || {};
+          if (!res || !res.ok) {
+            error = data.error || "Could not replace that code.";
+            notice = "";
+            render();
+            return;
+          }
+          notice = (data.code || "New code") + " replaces " + (data.replaced || code) +
+            (data.paid_through ? ". Covered through " + data.paid_through + "." : ".") +
+            " The old code is off. The company sees the new code on their fleet page.";
+          error = "";
+          load();
+        }).catch(function (err) {
+          error = (err && err.message) || "Could not replace that code.";
+          notice = "";
+          render();
+        });
+      };
+    });
     root.querySelectorAll("[data-seat]").forEach(function (btn) {
       btn.onclick = function () {
         api().post("/api/permitpath-fleets", {
@@ -847,6 +905,7 @@
       }
       loading = false;
       render();
+      scrollToFocus();
     }).catch(function (err) {
       fleets = [];
       seats = [];
@@ -899,12 +958,24 @@
     });
   }
 
+  function scrollToFocus() {
+    if (!root || !focusSeatId) return;
+    var row = root.querySelector('[data-seat-row="' + focusSeatId + '"]');
+    if (row && row.scrollIntoView) row.scrollIntoView({ block: "center" });
+  }
+
   window.STLFleetManagement = {
+    focus: function (fleetId, seatId) {
+      if (fleetId) openId = fleetId;
+      focusSeatId = seatId || "";
+      if (!root) return;
+      render();
+      scrollToFocus();
+    },
     mount: function (panel) {
       root = panel;
       fleets = [];
       seats = [];
-      openId = "";
       draft = blankDraft();
       error = "";
       notice = "";

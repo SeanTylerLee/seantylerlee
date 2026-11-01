@@ -1281,6 +1281,13 @@
       if (!root || !isStudioTab(name)) return;
       setTab(name);
     },
+    openFleet: function (fleetId, seatId) {
+      tab = "fleet";
+      if (root) render();
+      if (window.STLFleetManagement && window.STLFleetManagement.focus) {
+        window.STLFleetManagement.focus(fleetId, seatId);
+      }
+    },
     saveAll: function () {
       if (isStudioTab(tab) && window.STLAppPanels) return window.STLAppPanels.saveAll();
     },

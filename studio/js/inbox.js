@@ -6,7 +6,8 @@
     { id: "release_notify", title: "Notify me" },
     { id: "quote", title: "Quote" },
     { id: "permit_sample", title: "Permit sample" },
-    { id: "haulpath_report", title: "Haul Path report" }
+    { id: "haulpath_report", title: "Haul Path report" },
+    { id: "fleet_replace", title: "Code replacement" }
   ];
 
   var root = null;
@@ -68,6 +69,9 @@
     }
     if (row && row.source === "permit_sample") {
       return siteTitle(row.site) + " — your permit sample";
+    }
+    if (row && row.source === "fleet_replace") {
+      return "Permit Path code replacement";
     }
     return siteTitle(row && row.site) + " — your message";
   }
@@ -335,7 +339,27 @@
     };
   }
 
+  function isFleetReplace(row) {
+    if (!row) return false;
+    if (row.source === "fleet_replace") return true;
+    return asObject(row.payload).kind === "fleet_replace";
+  }
+
+  function openFleetMessage(row) {
+    var payload = asObject(row && row.payload);
+    if (window.STLApp && window.STLApp.navigate) window.STLApp.navigate("permitPathAdmin");
+    if (window.STLPermitPathAdmin && window.STLPermitPathAdmin.openFleet) {
+      window.STLPermitPathAdmin.openFleet(String(payload.fleet_id || ""), String(payload.seat_id || ""));
+    }
+  }
+
   function contactActionHtml(row) {
+    if (isFleetReplace(row)) {
+      var reply = trim(row.email)
+        ? '<a class="btn btn-ghost" data-el="reply" href="' + esc(replyMailto(row)) + '">Reply</a>'
+        : "";
+      return '<button class="btn btn-primary" type="button" data-el="open-fleet">Open in Fleet Management</button>' + reply;
+    }
     var info = row && row.source === "quote" ? quoteContact(row) : { phone: "", method: "email" };
     var html = "";
     var emailLink = trim(row.email)
@@ -797,6 +821,8 @@
       var row = selected();
       if (row && row.billing_id) openInBilling(row.billing_id);
     };
+    var openFleet = el("open-fleet");
+    if (openFleet) openFleet.onclick = function () { openFleetMessage(selected()); };
     var saveAllBtn = el("save-all");
     if (saveAllBtn) saveAllBtn.onclick = function () { saveAll(selected()); };
     var readPane = el("read");
@@ -895,7 +921,10 @@
         showMsg(/does not exist|schema cache/i.test(res.error.message || "") ? "Run sql/028_studio_inbox.sql in Supabase." : res.error.message, false);
         items = [];
       } else {
-        items = res.data || [];
+        items = (res.data || []).map(function (row) {
+          if (asObject(row.payload).kind === "fleet_replace") row.source = "fleet_replace";
+          return row;
+        });
         showMsg("");
       }
       if (selectedId && !items.some(function (row) { return row.id === selectedId; })) selectedId = null;
