@@ -9,6 +9,7 @@
   var error = "";
   var notice = "";
   var openId = "";
+  var folds = {};
   var draft = blankDraft();
   var formOpen = false;
 
@@ -158,23 +159,10 @@
 
   function paymentBlock(fleet) {
     var rows = paymentsFor(fleet.id);
-    var today = new Date().toISOString().slice(0, 10);
-    var keep = seatsFor(fleet.id).filter(function (seat) {
-      if (seat.active === false || isTrial(seat)) return false;
-      var until = String(seat.paid_through || fleet.paid_through || "").slice(0, 10);
-      return until && until >= today;
-    });
-    var drop = seatsFor(fleet.id).filter(function (seat) {
-      if (seat.active === false || isTrial(seat)) return false;
-      var until = String(seat.paid_through || fleet.paid_through || "").slice(0, 10);
-      return !until || until < today;
-    });
-    var decision = "<p><strong>Still paid:</strong> " + (keep.length ? keep.length + " code" + (keep.length === 1 ? "" : "s") + " inside a paid date. Leave those on." : "none.") +
-      " <strong>Expired:</strong> " + (drop.length ? drop.length + " code" + (drop.length === 1 ? "" : "s") + " past the paid date. The app stops accepting them on the next online check. The company renews them on the fleet page." : "none.") + "</p>";
     if (!rows.length) {
-      return decision + "<p>No card payment is on file. A company you added by hand stays on until you turn it off. A card purchase will leave a receipt here.</p>";
+      return '<p class="fleet-fold-empty">No card payment yet. A purchase or renewal on the fleet page will show up here.</p>';
     }
-    return decision + rows.map(function (row) {
+    return rows.map(function (row) {
       var when = String(row.paid_at || "").slice(0, 10);
       var through = String(row.paid_through || "").slice(0, 10);
       var linked = seatsForPayment(fleet, row);
@@ -203,6 +191,21 @@
     }).join("");
   }
 
+  function paymentsFold(fleet) {
+    var rows = paymentsFor(fleet.id);
+    var latest = rows[0];
+    var when = latest ? String(latest.paid_at || "").slice(0, 10) : "";
+    var hint = rows.length
+      ? rows.length + " on file" + (when ? " · latest " + money(latest.amount) + " on " + when : "")
+      : "None yet";
+    return (
+      '<details class="fleet-fold"' + (folds["pay-" + fleet.id] ? " open" : "") + ' data-fold="pay-' + esc(fleet.id) + '">' +
+        "<summary><span>Payments</span><em>" + esc(hint) + "</em></summary>" +
+        '<div class="fleet-fold-body">' + paymentBlock(fleet) + "</div>" +
+      "</details>"
+    );
+  }
+
   function fleetStillPaid(fleet) {
     if (!fleet || !fleet.paid_through) return false;
     var today = new Date().toISOString().slice(0, 10);
@@ -229,10 +232,10 @@
     var last = pays[0];
     var lines = [];
     if (expired) {
-      lines.push(expired + " paid code" + (expired === 1 ? " is" : "s are") + " past " + (expired === 1 ? "its" : "their") + " date. The app stops accepting " + (expired === 1 ? "it" : "them") + " on the next online check. The company renews those codes on the fleet page. Do not turn off a code that is still inside a paid date.");
+      lines.push(expired + " paid code" + (expired === 1 ? " is" : "s are") + " expired. Access stops on the next online check until the company renews " + (expired === 1 ? "it" : "them") + ".");
     }
     if (soon) {
-      lines.push(soon + " paid code" + (soon === 1 ? "" : "s") + " expire within 30 days.");
+      lines.push(soon + " paid code" + (soon === 1 ? " expires" : "s expire") + " within 30 days.");
     }
     if (last && !last.payer_email) {
       lines.push("The latest payment has no receipt email stored. Fleet login is " + (fleet.portal_email || fleet.contact_email || "missing") + ".");
@@ -403,20 +406,18 @@
         "</button>" +
         '<div class="fleet-card-body">' +
           seatAttention(fleet).map(function (line) { return '<p class="fleet-error">' + esc(line) + "</p>"; }).join("") +
-          (Number(fleet.trial_request_seats) > trialSeats(fleet.id).length ? '<p class="fleet-error">Free trial requested for ' + Number(fleet.trial_request_seats) + ' drivers. Add a 1-month trial for the seats they asked for.</p>' : "") +
-          paymentBlock(fleet) +
+          (Number(fleet.trial_request_seats) > trialSeats(fleet.id).length ? '<p class="fleet-error">Free trial requested for ' + Number(fleet.trial_request_seats) + " drivers. Add the trial codes they asked for.</p>" : "") +
           '<div class="fleet-meta-line">' +
             "<span>" + (fleet.portal_email ? "Login " + esc(fleet.portal_email) : "No fleet login yet") + "</span>" +
             (fleet.portal_email ? "<span>Password " + esc(fleet.portal_password || "not saved yet") + "</span>" : "") +
-            "<span>" + summaryLine + "</span>" +
           "</div>" +
           (fleet.notes ? '<p class="fleet-company-notes">' + esc(fleet.notes) + "</p>" : "") +
-          '<div class="fleet-tools">' +
-            '<section class="fleet-tool">' +
-              '<div class="fleet-tool-head">' +
-                "<h4>Generate codes</h4>" +
-                "<p>Studio creates random phone-ready codes for this company.</p>" +
-              "</div>" +
+          invoiceBlock(fleet, rows) +
+          paymentsFold(fleet) +
+          '<details class="fleet-fold"' + (folds["gen-" + fleet.id] ? " open" : "") + ' data-fold="gen-' + esc(fleet.id) + '">' +
+            "<summary><span>Generate codes</span></summary>" +
+            '<div class="fleet-fold-body">' +
+              '<p class="fleet-fold-empty">Random codes for this company. One phone per code.</p>' +
               '<div class="fleet-tool-grid">' +
                 '<div class="fleet-tool-field">' +
                   "<label>Paid seats</label>" +
@@ -433,12 +434,12 @@
                   "</div>" +
                 "</div>" +
               "</div>" +
-            "</section>" +
-            '<section class="fleet-tool">' +
-              '<div class="fleet-tool-head">' +
-                "<h4>Custom code</h4>" +
-                "<p>Type your own code. Drivers enter it in Company access. One phone per code.</p>" +
-              "</div>" +
+            "</div>" +
+          "</details>" +
+          '<details class="fleet-fold"' + (folds["custom-" + fleet.id] ? " open" : "") + ' data-fold="custom-' + esc(fleet.id) + '">' +
+            "<summary><span>Custom code</span></summary>" +
+            '<div class="fleet-fold-body">' +
+              '<p class="fleet-fold-empty">Type a code the driver enters in Company access. One phone per code.</p>' +
               '<div class="fleet-tool-grid fleet-tool-grid-custom">' +
                 '<div class="fleet-tool-field">' +
                   "<label>Code</label>" +
@@ -450,14 +451,14 @@
                 "</div>" +
                 '<div class="fleet-tool-field fleet-tool-field-wide">' +
                   "<label>Note</label>" +
-                  '<input type="text" maxlength="240" placeholder="Dispatcher phone, truck 12, etc." data-custom-note="' + esc(fleet.id) + '">' +
+                  '<input type="text" maxlength="240" placeholder="Dispatcher phone, truck 12" data-custom-note="' + esc(fleet.id) + '">' +
                 "</div>" +
               "</div>" +
               '<div class="fleet-tool-footer">' +
                 '<button type="button" class="btn btn-primary" data-add-custom="' + esc(fleet.id) + '">Add custom code</button>' +
               "</div>" +
-            "</section>" +
-          "</div>" +
+            "</div>" +
+          "</details>" +
           '<div class="fleet-form-actions fleet-card-actions">' +
             '<button type="button" class="btn btn-ghost" data-copy-link="https://permitpathnav.com/fleet-solutions.html#fleet-login">Copy login link</button>' +
             '<button type="button" class="btn btn-ghost" data-edit="' + esc(fleet.id) + '">Edit company</button>' +
@@ -465,7 +466,6 @@
             '<button type="button" class="btn btn-ghost" data-test="' + esc(fleet.id) + '" data-test-on="' + (isTest(fleet) ? "1" : "0") + '">' + (isTest(fleet) ? "Count as income" : "Test") + "</button>" +
             '<button type="button" class="btn btn-danger" data-remove="' + esc(fleet.id) + '">Delete</button>' +
           "</div>" +
-          invoiceBlock(fleet, rows) +
         "</div>" +
       "</article>"
     );
@@ -526,6 +526,12 @@
       var newer = el("new-code");
     }
     if (!root) return;
+    root.querySelectorAll("details.fleet-fold").forEach(function (node) {
+      node.addEventListener("toggle", function () {
+        var key = node.getAttribute("data-fold") || "";
+        if (key) folds[key] = node.open;
+      });
+    });
     root.querySelectorAll("[data-copy]").forEach(function (btn) {
       btn.onclick = function () {
         var code = btn.getAttribute("data-copy") || "";
