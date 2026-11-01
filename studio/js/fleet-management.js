@@ -78,16 +78,77 @@
     return payments.filter(function (row) { return row.fleet_id === id; });
   }
 
+  function todayStamp() {
+    var today = new Date();
+    return today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+  }
+
+  function seatUntil(seat, fleet) {
+    if (isTrial(seat)) return String(seat.trial_until || "").slice(0, 10);
+    return String(seat.paid_through || (fleet && fleet.paid_through) || "").slice(0, 10);
+  }
+
+  function seatNote(seat) {
+    var label = String(seat.label || "");
+    if (/^cs_/.test(label)) return "";
+    return label;
+  }
+
+  function purposeLabel(row) {
+    return String(row.purpose || "") === "renewal" ? "Renewal" : "New codes";
+  }
+
+  function seatsForPayment(fleet, row) {
+    var id = String(row.stripe_session_id || "");
+    var linked = seatsFor(fleet.id).filter(function (seat) {
+      return id && (seat.source_session === id || seat.label === id);
+    });
+    if (linked.length) return linked;
+    var list = String(row.code_list || "");
+    if (!list) return [];
+    return seatsFor(fleet.id).filter(function (seat) {
+      return seat.code && list.indexOf(seat.code) !== -1;
+    });
+  }
+
+  function codeLines(fleet, row) {
+    if (row.code_list) return String(row.code_list);
+    return seatsForPayment(fleet, row).map(function (seat) {
+      var until = seatUntil(seat, fleet);
+      return (seat.code || "Code") + (until ? " through " + until : "");
+    }).join(", ");
+  }
+
+  function expiryHeadline(fleet) {
+    var groups = {};
+    var expired = 0;
+    var today = todayStamp();
+    seatsFor(fleet.id).forEach(function (seat) {
+      if (seat.active === false || isTrial(seat)) return;
+      var until = seatUntil(seat, fleet);
+      if (!until) return;
+      if (until < today) expired += 1;
+      else groups[until] = (groups[until] || 0) + 1;
+    });
+    var bits = Object.keys(groups).sort().map(function (day) {
+      return groups[day] + " through " + day;
+    });
+    if (expired) bits.push(expired + " expired");
+    return bits.join(" · ");
+  }
+
   function receiptText(fleet, row) {
     var when = String(row.paid_at || "").slice(0, 10);
     var through = String(row.paid_through || "").slice(0, 10);
     var lines = [
       "Permit Path fleet receipt",
+      purposeLabel(row),
       "Company: " + (fleet.company_name || ""),
       "Paid: " + money(row.amount) + " on " + when,
-      "Seats: " + (row.seats || "—") + " for " + (row.months || "—") + " month(s)",
-      through ? "Those codes stay on through " + through : "",
-      row.payer_email ? "Receipt email: " + row.payer_email : "",
+      (row.seats || "—") + " code(s) for " + (row.months || "—") + " month(s)",
+      through ? "Latest date on this payment: " + through : "",
+      row.payer_email ? "Receipt email: " + row.payer_email : "Receipt email was not stored. Fleet login: " + (fleet.portal_email || fleet.contact_email || "none"),
+      codeLines(fleet, row) ? "Codes: " + codeLines(fleet, row) : "",
       row.receipt_number ? "Stripe receipt number: " + row.receipt_number : "",
       row.stripe_session_id ? "Payment id: " + row.stripe_session_id : "",
       row.receipt_url ? "Stripe receipt: " + row.receipt_url : "Stripe receipt link was not stored. Run sql/064_fleet_payment_receipts.sql, then the next payment will keep a link."
@@ -108,28 +169,34 @@
       var until = String(seat.paid_through || fleet.paid_through || "").slice(0, 10);
       return !until || until < today;
     });
-    var decision = "<p><strong>Keep on:</strong> " + (keep.length ? keep.length + " paid code" + (keep.length === 1 ? "" : "s") + " still inside a paid date." : "none.") +
-      " <strong>Turn off:</strong> " + (drop.length ? drop.length + " paid code" + (drop.length === 1 ? "" : "s") + " past the paid date." : "none.") + "</p>";
+    var decision = "<p><strong>Still paid:</strong> " + (keep.length ? keep.length + " code" + (keep.length === 1 ? "" : "s") + " inside a paid date. Leave those on." : "none.") +
+      " <strong>Expired:</strong> " + (drop.length ? drop.length + " code" + (drop.length === 1 ? "" : "s") + " past the paid date. The app stops accepting them on the next online check. The company renews them on the fleet page." : "none.") + "</p>";
     if (!rows.length) {
       return decision + "<p>No card payment is on file. A company you added by hand stays on until you turn it off. A card purchase will leave a receipt here.</p>";
     }
     return decision + rows.map(function (row) {
       var when = String(row.paid_at || "").slice(0, 10);
       var through = String(row.paid_through || "").slice(0, 10);
-      var linked = seatsFor(fleet.id).filter(function (seat) { return seat.label && row.stripe_session_id && seat.label === row.stripe_session_id; });
+      var linked = seatsForPayment(fleet, row);
+      var codes = codeLines(fleet, row);
       var open = row.receipt_url
         ? '<a href="' + esc(row.receipt_url) + '" target="_blank" rel="noopener">Open Stripe receipt</a>'
         : "Stripe receipt link not stored yet";
+      var who = row.payer_email
+        ? "Receipt email " + esc(row.payer_email)
+        : "Receipt email was not stored. Fleet login " + esc(fleet.portal_email || fleet.contact_email || "is missing");
       return (
         '<div class="fleet-company-notes">' +
-          "<p>" + money(row.amount) + " on " + esc(when) +
-            " · " + esc(row.seats || "—") + " seats · " + esc(row.months || "—") + " month(s)" +
-            (through ? " · codes through " + esc(through) : "") +
+          "<p><strong>" + esc(purposeLabel(row)) + "</strong> · " + money(row.amount) + " on " + esc(when) +
+            " · " + esc(row.seats || "—") + " code" + (Number(row.seats) === 1 ? "" : "s") +
+            " · " + esc(row.months || "—") + " month" + (Number(row.months) === 1 ? "" : "s") +
+            (through ? " · latest date " + esc(through) : "") +
             (row.receipt_number ? " · #" + esc(row.receipt_number) : "") +
           "</p>" +
-          "<p>" + open +
-            (linked.length ? " · " + linked.length + " code" + (linked.length === 1 ? "" : "s") + " from this payment" : "") +
+          "<p>" + who + " · " + open +
+            (linked.length ? " · " + linked.length + " code" + (linked.length === 1 ? "" : "s") + " on this payment" : "") +
           "</p>" +
+          (codes ? "<p>" + esc(codes) + "</p>" : "") +
           '<button type="button" class="btn btn-ghost" data-copy-receipt="' + esc(row.id) + '">Copy receipt</button>' +
         "</div>"
       );
@@ -144,12 +211,33 @@
     return paid || paidSeats(fleet.id).length > 0;
   }
 
-  function renewSoon(fleet) {
-    if (!fleet || !fleet.active || !fleet.paid_through) return false;
-    var end = new Date(fleet.paid_through + "T00:00:00");
-    if (isNaN(end.getTime())) return false;
-    var days = (end.getTime() - Date.now()) / 86400000;
-    return days <= 30;
+  function seatAttention(fleet) {
+    var today = todayStamp();
+    var soonEnd = new Date();
+    soonEnd.setDate(soonEnd.getDate() + 30);
+    var soonStamp = soonEnd.getFullYear() + "-" + String(soonEnd.getMonth() + 1).padStart(2, "0") + "-" + String(soonEnd.getDate()).padStart(2, "0");
+    var expired = 0;
+    var soon = 0;
+    seatsFor(fleet.id).forEach(function (seat) {
+      if (seat.active === false || isTrial(seat)) return;
+      var until = seatUntil(seat, fleet);
+      if (!until) return;
+      if (until < today) expired += 1;
+      else if (until <= soonStamp) soon += 1;
+    });
+    var pays = paymentsFor(fleet.id);
+    var last = pays[0];
+    var lines = [];
+    if (expired) {
+      lines.push(expired + " paid code" + (expired === 1 ? " is" : "s are") + " past " + (expired === 1 ? "its" : "their") + " date. The app stops accepting " + (expired === 1 ? "it" : "them") + " on the next online check. The company renews those codes on the fleet page. Do not turn off a code that is still inside a paid date.");
+    }
+    if (soon) {
+      lines.push(soon + " paid code" + (soon === 1 ? "" : "s") + " expire within 30 days.");
+    }
+    if (last && !last.payer_email) {
+      lines.push("The latest payment has no receipt email stored. Fleet login is " + (fleet.portal_email || fleet.contact_email || "missing") + ".");
+    }
+    return lines;
   }
 
   function isTest(fleet) {
@@ -282,7 +370,7 @@
           '<td class="fleet-code">' + useBadge + esc(seat.code || "—") + "</td>" +
           '<td class="fleet-note-cell">' +
             '<div class="fleet-note-edit">' +
-              '<input type="text" maxlength="240" value="' + esc(seat.label || "") + '" placeholder="Add a note" data-note-input="' + esc(seat.id) + '">' +
+              '<input type="text" maxlength="240" value="' + esc(seatNote(seat)) + '" placeholder="Add a note" data-note-input="' + esc(seat.id) + '">' +
               '<button type="button" class="btn btn-ghost" data-save-note="' + esc(seat.id) + '">Save</button>' +
             "</div>" +
           "</td>" +
@@ -296,9 +384,11 @@
         "</tr>"
       );
     }).join("");
+    var batches = expiryHeadline(fleet);
     var summaryLine =
       (paidSeats(fleet.id).length ? paidSeats(fleet.id).length + " paid" : "No paid codes") +
-      " · " + trialSeats(fleet.id).length + " trial · " + claimed + " in use · paid through " + esc(fleet.paid_through);
+      " · " + trialSeats(fleet.id).length + " trial · " + claimed + " in use" +
+      (batches ? " · " + batches : " · paid through " + esc(fleet.paid_through));
     return (
       '<article class="fleet-card' + (open ? " is-open" : "") + '">' +
         '<button type="button" class="fleet-card-toggle" data-open="' + esc(fleet.id) + '" aria-expanded="' + (open ? "true" : "false") + '">' +
@@ -312,7 +402,7 @@
           '<span class="fleet-status fleet-status-' + statusOf(fleet).toLowerCase() + '">' + esc(statusOf(fleet)) + "</span>" +
         "</button>" +
         '<div class="fleet-card-body">' +
-          (renewSoon(fleet) ? '<p class="fleet-error">Renewal is inside 30 days. Email ' + esc(fleet.portal_email || fleet.contact_email || "the company") + " to request payment. Turn the company off if they do not pay.</p>" : "") +
+          seatAttention(fleet).map(function (line) { return '<p class="fleet-error">' + esc(line) + "</p>"; }).join("") +
           (Number(fleet.trial_request_seats) > trialSeats(fleet.id).length ? '<p class="fleet-error">Free trial requested for ' + Number(fleet.trial_request_seats) + ' drivers. Add a 1-month trial for the seats they asked for.</p>' : "") +
           paymentBlock(fleet) +
           '<div class="fleet-meta-line">' +
