@@ -6,6 +6,7 @@
   var days = [];
   var live = null;
   var filter = "all";
+  var daysOpen = false;
   var loading = false;
   var error = "";
   var notice = "";
@@ -252,30 +253,44 @@
         });
       });
       var dayKeys = Object.keys(byDay).sort().reverse();
+      var cards = dayKeys.map(function (key) {
+        var day = byDay[key];
+        return (
+          '<article class="direct-card direct-day">' +
+            '<header class="direct-card-head"><div class="direct-card-name"><span class="direct-platform">' + esc(openedDay(key) || key) + "</span></div></header>" +
+            '<div class="direct-metrics">' +
+              '<div class="direct-metric"><strong>' + num(day.opens) + "</strong><span>Opens</span></div>" +
+              '<div class="direct-metric"><strong>' + num(day.navigations_started) + "</strong><span>Go taps</span></div>" +
+              '<div class="direct-metric"><strong>' + num(day.arrivals) + "</strong><span>Arrived</span></div>" +
+              '<div class="direct-metric"><strong>' + Math.round(num(day.miles_driven)).toLocaleString("en-US") + "</strong><span>Miles</span></div>" +
+              '<div class="direct-metric"><strong>' + num(day.off_route_trips) + "</strong><span>Off the line</span></div>" +
+              '<div class="direct-metric"><strong>' + num(day.navigations_official) + "</strong><span>Texas Go</span></div>" +
+              '<div class="direct-metric"><strong>' + num(day.navigations_built) + "</strong><span>Built Go</span></div>" +
+              '<div class="direct-metric"><strong>' + num(day.paywall_shown) + "</strong><span>Paywall</span></div>" +
+              '<div class="direct-metric"><strong>' + num(day.subscribe_tapped) + "</strong><span>Subscribe</span></div>" +
+              '<div class="direct-metric"><strong>' + num(day.free_tier_chosen) + "</strong><span>Chose free</span></div>" +
+              '<div class="direct-metric"><strong>' + num(day.imports_pdf) + "</strong><span>PDF imports</span></div>" +
+              '<div class="direct-metric"><strong>' + num(day.imports_qr) + "</strong><span>QR imports</span></div>" +
+            "</div>" +
+          "</article>"
+        );
+      }).join("");
+      var dayLabel = dayKeys.length === 1 ? "1 day" : dayKeys.length + " days";
       dayBox.innerHTML = dayKeys.length
-        ? dayKeys.map(function (key) {
-          var day = byDay[key];
-          return (
-            '<article class="direct-card direct-day">' +
-              '<header class="direct-card-head"><div class="direct-card-name"><span class="direct-platform">' + esc(key) + "</span></div></header>" +
-              '<div class="direct-metrics">' +
-                '<div class="direct-metric"><strong>' + num(day.opens) + "</strong><span>Opens</span></div>" +
-                '<div class="direct-metric"><strong>' + num(day.navigations_started) + "</strong><span>Go taps</span></div>" +
-                '<div class="direct-metric"><strong>' + num(day.arrivals) + "</strong><span>Arrived</span></div>" +
-                '<div class="direct-metric"><strong>' + Math.round(num(day.miles_driven)).toLocaleString("en-US") + "</strong><span>Miles</span></div>" +
-                '<div class="direct-metric"><strong>' + num(day.off_route_trips) + "</strong><span>Off the line</span></div>" +
-                '<div class="direct-metric"><strong>' + num(day.navigations_official) + "</strong><span>Texas Go</span></div>" +
-                '<div class="direct-metric"><strong>' + num(day.navigations_built) + "</strong><span>Built Go</span></div>" +
-                '<div class="direct-metric"><strong>' + num(day.paywall_shown) + "</strong><span>Paywall</span></div>" +
-                '<div class="direct-metric"><strong>' + num(day.subscribe_tapped) + "</strong><span>Subscribe</span></div>" +
-                '<div class="direct-metric"><strong>' + num(day.free_tier_chosen) + "</strong><span>Chose free</span></div>" +
-                '<div class="direct-metric"><strong>' + num(day.imports_pdf) + "</strong><span>PDF imports</span></div>" +
-                '<div class="direct-metric"><strong>' + num(day.imports_qr) + "</strong><span>QR imports</span></div>" +
-              "</div>" +
-            "</article>"
-          );
-        }).join("")
+        ? '<button type="button" class="btn direct-days-toggle" data-el="days-toggle">' +
+            (daysOpen ? "Hide days" : "Show " + dayLabel) +
+          "</button>" +
+          (daysOpen
+            ? '<p class="tos-note">Each day runs midnight to midnight, US Central time. Days already saved were counted in UTC.</p>' + cards
+            : "")
         : '<p class="tos-note">No daily counts yet. Run sql/065_direct_app_days.sql in the Permit Path SQL editor. Counts start the next time a phone opens the app. The total above is still the all-time number.</p>';
+      var toggle = el("days-toggle");
+      if (toggle) {
+        toggle.onclick = function () {
+          daysOpen = !daysOpen;
+          render();
+        };
+      }
     }
     var note = el("note");
     var list = el("list");
