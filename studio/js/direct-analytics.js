@@ -284,6 +284,9 @@
               '<div class="direct-card-sub">' +
                 "<span>App " + esc(row.app_version || "—") + "</span>" +
                 "<span>Last open " + esc(when(row.last_seen) || "—") + "</span>" +
+                (row.subscribe_tapped_at
+                  ? "<span>Last subscribe " + esc(when(row.subscribe_tapped_at)) + "</span>"
+                  : "") +
                 "<span>Install " + esc(shortId(id)) + "</span>" +
               "</div>" +
             "</div>" +
