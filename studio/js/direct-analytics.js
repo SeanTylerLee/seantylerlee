@@ -233,7 +233,8 @@
         '<div class="fleet-company-notes">' +
           "<p><strong>Website live stats.</strong> permitpathnav.com reads these lifetime totals. The site still says they were reset on Oct. 30, 2026.</p>" +
           "<p>" + Math.round(num(site.miles)).toLocaleString("en-US") + " miles. " +
-            Math.round(num(site.permits_imported)).toLocaleString("en-US") + " permits imported (PDF + QR).</p>" +
+            Math.round(num(site.permits_imported)).toLocaleString("en-US") + " permits imported (PDF + QR). " +
+            Math.round(num(site.routes_built)).toLocaleString("en-US") + " manual routes built.</p>" +
           "<p>" + esc(site.reset_note || "Statistics were reset on Oct. 30, 2026") + "</p>" +
         "</div>";
     }
