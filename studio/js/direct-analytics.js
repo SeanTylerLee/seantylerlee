@@ -34,6 +34,34 @@
     return date.toLocaleString();
   }
 
+  function openedDay(value) {
+    var match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
+    if (!match) return "";
+    var date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    if (isNaN(date.getTime())) return "";
+    return date.toLocaleDateString();
+  }
+
+  function seenAt(row) {
+    var time = new Date(row.last_seen || "").getTime();
+    return isNaN(time) ? 0 : time;
+  }
+
+  function versionCounts() {
+    var counts = {};
+    rows.forEach(function (row) {
+      var phone = row.platform === "ios" ? "iPhone" : row.platform === "android" ? "Android" : "Other";
+      var version = String(row.app_version || "").trim() || "Unknown";
+      var label = phone + " " + version;
+      counts[label] = (counts[label] || 0) + 1;
+    });
+    return Object.keys(counts).map(function (label) {
+      return { label: label, count: counts[label] };
+    }).sort(function (a, b) {
+      return b.count - a.count || a.label.localeCompare(b.label);
+    });
+  }
+
   function shortId(value) {
     var text = String(value || "");
     return text.length > 8 ? text.slice(0, 8) : text;
@@ -60,6 +88,8 @@
         '<h3 class="direct-section-title">Total</h3>' +
         '<div class="direct-totals" data-el="totals"></div>' +
         '<div class="direct-stats" data-el="stats"></div>' +
+        '<h3 class="direct-section-title">App versions</h3>' +
+        '<div class="direct-stats" data-el="versions"></div>' +
         '<h3 class="direct-section-title">By day</h3>' +
         '<div data-el="days"></div>' +
         '<div class="tos-subtabs" data-el="filters"></div>' +
@@ -127,12 +157,19 @@
     if (!root.querySelector("[data-el='list']")) root.innerHTML = shell();
     var iosCount = rows.filter(function (row) { return row.platform === "ios"; }).length;
     var androidCount = rows.filter(function (row) { return row.platform === "android"; }).length;
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    var activeToday = rows.filter(function (row) { return seenAt(row) >= today.getTime(); }).length;
+    var activeWeek = rows.filter(function (row) { return seenAt(row) >= weekAgo; }).length;
     var totals = el("totals");
     if (totals) {
       totals.innerHTML =
         stat("Total installs", rows.length, "direct-stat-lead") +
         stat("iPhone users", iosCount, "direct-stat-lead") +
-        stat("Android users", androidCount, "direct-stat-lead");
+        stat("Android users", androidCount, "direct-stat-lead") +
+        stat("Active today", activeToday, "direct-stat-lead") +
+        stat("Active in 7 days", activeWeek, "direct-stat-lead");
     }
     var stats = el("stats");
     var subscribed = rows.filter(function (row) { return row.is_subscribed; }).length;
@@ -150,6 +187,7 @@
         stat("Off the line", sum(rows, "off_route_trips")) +
         stat("Go on a Texas import", sum(rows, "navigations_official")) +
         stat("Go on a built route", sum(rows, "navigations_built")) +
+        stat("Routes built", sum(rows, "routes_built")) +
         stat("Paywall shown", sum(rows, "paywall_shown")) +
         stat("Subscribe tapped", sum(rows, "subscribe_tapped")) +
         stat("Restore tapped", sum(rows, "restore_tapped")) +
@@ -160,6 +198,13 @@
         stat("QR imports", sum(rows, "imports_qr")) +
         stat("Saved routes opened", sum(rows, "saved_routes_opened")) +
         stat("Routes shared", sum(rows, "routes_shared"));
+    }
+    var versions = el("versions");
+    if (versions) {
+      var versionList = versionCounts();
+      versions.innerHTML = versionList.length
+        ? versionList.map(function (item) { return stat(item.label, item.count); }).join("")
+        : '<p class="tos-note">No app versions yet.</p>';
     }
     var filters = [
       ["all", "All"],
@@ -202,7 +247,7 @@
         var key = String(day.day || "").slice(0, 10);
         if (!key) return;
         if (!byDay[key]) byDay[key] = { day: key };
-        ["opens", "navigations_started", "arrivals", "miles_driven", "off_route_trips", "navigations_official", "navigations_built", "paywall_shown", "imports_pdf", "imports_qr"].forEach(function (field) {
+        ["opens", "navigations_started", "arrivals", "miles_driven", "off_route_trips", "navigations_official", "navigations_built", "paywall_shown", "subscribe_tapped", "free_tier_chosen", "imports_pdf", "imports_qr"].forEach(function (field) {
           byDay[key][field] = num(byDay[key][field]) + num(day[field]);
         });
       });
@@ -222,6 +267,8 @@
                 '<div class="direct-metric"><strong>' + num(day.navigations_official) + "</strong><span>Texas Go</span></div>" +
                 '<div class="direct-metric"><strong>' + num(day.navigations_built) + "</strong><span>Built Go</span></div>" +
                 '<div class="direct-metric"><strong>' + num(day.paywall_shown) + "</strong><span>Paywall</span></div>" +
+                '<div class="direct-metric"><strong>' + num(day.subscribe_tapped) + "</strong><span>Subscribe</span></div>" +
+                '<div class="direct-metric"><strong>' + num(day.free_tier_chosen) + "</strong><span>Chose free</span></div>" +
                 '<div class="direct-metric"><strong>' + num(day.imports_pdf) + "</strong><span>PDF imports</span></div>" +
                 '<div class="direct-metric"><strong>' + num(day.imports_qr) + "</strong><span>QR imports</span></div>" +
               "</div>" +
@@ -248,7 +295,7 @@
         note.textContent = notice;
       } else {
         note.textContent = visible.length
-          ? "Each row is one install. Miles are along the route from where that trip started to arrival. Days open counts different days the app was opened. Delete removes that phone from this list only."
+          ? "Each row is one install. Last opened is the last day the app was opened. Last activity is the last report of any kind. Miles are along the route from where that trip started to arrival. Days open counts different days the app was opened. Delete removes that phone from this list only."
           : "No installs have reported yet. Run sql/020 and sql/021 in the Permit Path Supabase SQL editor, then open a new app build.";
       }
     }
@@ -283,7 +330,8 @@
               "</div>" +
               '<div class="direct-card-sub">' +
                 "<span>App " + esc(row.app_version || "—") + "</span>" +
-                "<span>Last open " + esc(when(row.last_seen) || "—") + "</span>" +
+                "<span>Last opened " + esc(openedDay(row.last_open_date) || "—") + "</span>" +
+                "<span>Last activity " + esc(when(row.last_seen) || "—") + "</span>" +
                 (row.subscribe_tapped_at
                   ? "<span>Last subscribe " + esc(when(row.subscribe_tapped_at)) + "</span>"
                   : "") +
@@ -298,6 +346,7 @@
             "</div>" +
           "</header>" +
           '<div class="direct-metrics">' +
+            metric("Routes built", num(row.routes_built)) +
             metric("Go taps", num(row.navigations_started)) +
             metric("Arrived", num(row.arrivals)) +
             metric("Miles", Math.round(num(row.miles_driven))) +
