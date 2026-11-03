@@ -78,6 +78,10 @@
       if (filter === "subscribed") return !!row.is_subscribed;
       if (filter === "free") return !row.is_subscribed;
       return true;
+    }).sort(function (a, b) {
+      var subscribed = (b.is_subscribed ? 1 : 0) - (a.is_subscribed ? 1 : 0);
+      if (subscribed) return subscribed;
+      return seenAt(b) - seenAt(a);
     });
   }
 
@@ -88,6 +92,7 @@
         '<div data-el="live"></div>' +
         '<h3 class="direct-section-title">Total</h3>' +
         '<div class="direct-totals" data-el="totals"></div>' +
+        '<div class="direct-sub-pair" data-el="sub-pair"></div>' +
         '<div class="direct-stats" data-el="stats"></div>' +
         '<h3 class="direct-section-title">App versions</h3>' +
         '<div class="direct-stats" data-el="versions"></div>' +
@@ -176,10 +181,14 @@
     var subscribed = rows.filter(function (row) { return row.is_subscribed; }).length;
     var signedIn = rows.filter(function (row) { return row.is_signed_in; }).length;
     var miles = Math.round(sum(rows, "miles_driven"));
+    var subPair = el("sub-pair");
+    if (subPair) {
+      subPair.innerHTML =
+        stat("Subscribed", subscribed, "direct-stat-paid") +
+        stat("Not subscribed", Math.max(0, rows.length - subscribed), "direct-stat-free");
+    }
     if (stats) {
       stats.innerHTML =
-        stat("Subscribed", subscribed) +
-        stat("Not subscribed", Math.max(0, rows.length - subscribed)) +
         stat("Signed in", signedIn) +
         stat("Guest", Math.max(0, rows.length - signedIn)) +
         stat("Go taps", sum(rows, "navigations_started")) +
@@ -327,6 +336,7 @@
     function badge(text, kind) {
       return '<span class="direct-badge direct-badge-' + kind + '">' + esc(text) + "</span>";
     }
+    var lastGroup = "";
     list.innerHTML = visible.map(function (row) {
       var phone = row.platform === "ios" ? "iPhone" : "Android";
       var platformKind = row.platform === "ios" ? "ios" : "android";
@@ -335,8 +345,15 @@
       var id = String(row.install_id || "");
       var busy = deletingId && deletingId === id;
       var ageLabel = age === "" ? "—" : age + "d";
+      var group = row.is_subscribed ? "Subscribed" : "Not subscribed";
+      var heading = "";
+      if (group !== lastGroup) {
+        lastGroup = group;
+        heading = '<h3 class="direct-group-title">' + group + "</h3>";
+      }
       return (
-        '<article class="direct-card">' +
+        heading +
+        '<article class="direct-card' + (row.is_subscribed ? " is-subscribed" : " is-free") + '">' +
           '<header class="direct-card-head">' +
             '<div class="direct-card-title">' +
               '<div class="direct-card-name">' +

@@ -826,6 +826,35 @@
   margin-bottom: 10px;
 }
 
+.direct-sub-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.direct-stat-paid {
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+}
+
+.direct-stat-free {
+  background: #f8fafc;
+}
+
+.direct-group-title {
+  margin: 18px 0 8px;
+  font-size: 15px;
+}
+
+.direct-card.is-subscribed {
+  border-left: 4px solid #16a34a;
+}
+
+.direct-card.is-free {
+  border-left: 4px solid #d6dbe6;
+}
+
 .direct-stats {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

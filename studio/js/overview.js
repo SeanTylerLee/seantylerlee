@@ -18,6 +18,8 @@
   var supportOpen = 0;
   var pc4hPendingReviews = 0;
   var backupAt = "";
+  var fleetSignups = [];
+  var FLEET_SEEN_KEY = "stl-fleet-signup-seen-at";
 
   function M() { return window.STLMoney; }
 
@@ -122,6 +124,47 @@
     });
   }
 
+  function fleetTime(value) {
+    var time = new Date(value || "").getTime();
+    return isNaN(time) ? 0 : time;
+  }
+
+  function fleetSeenMs() {
+    try {
+      var saved = localStorage.getItem(FLEET_SEEN_KEY) || "";
+      if (saved) return fleetTime(saved);
+    } catch (err) {}
+    var start = new Date();
+    start.setDate(start.getDate() - 7);
+    return start.getTime();
+  }
+
+  function newFleetSignups() {
+    var seen = fleetSeenMs();
+    return fleetSignups.filter(function (fleet) {
+      if (!fleet || fleet.is_test) return false;
+      if (!String(fleet.portal_email || "").trim()) return false;
+      return fleetTime(fleet.created_at) > seen;
+    }).sort(function (a, b) {
+      return fleetTime(b.created_at) - fleetTime(a.created_at);
+    });
+  }
+
+  function markFleetsSeen() {
+    var newest = "";
+    var newestMs = fleetSeenMs();
+    fleetSignups.forEach(function (fleet) {
+      var created = String(fleet.created_at || "");
+      var time = fleetTime(created);
+      if (time > newestMs) {
+        newestMs = time;
+        newest = created;
+      }
+    });
+    if (!newest) newest = new Date().toISOString();
+    try { localStorage.setItem(FLEET_SEEN_KEY, newest); } catch (err) {}
+  }
+
   function needsYouCount() {
     var renewalIds = {};
     attentionRenewals().forEach(function (item) { if (item.id) renewalIds[item.id] = true; });
@@ -134,6 +177,7 @@
       + inboxUnread
       + supportOpen
       + pc4hPendingReviews
+      + newFleetSignups().length
       + (backupStale() ? 1 : 0);
   }
 
@@ -218,6 +262,7 @@
           '<button type="button" class="ov-chip inbox' + (inboxUnread ? " has-alert" : "") + '" data-go="inbox"><span class="k">Messages unread</span><span class="v">' + inboxUnread + "</span></button>" +
           '<button type="button" class="ov-chip support' + (supportOpen ? " has-alert" : "") + '" data-go="support"><span class="k">Support open</span><span class="v">' + supportOpen + "</span></button>" +
           '<button type="button" class="ov-chip pc4h' + (pc4hPendingReviews ? " has-alert" : "") + '" data-go="pc4hAdmin" data-pc4h-reviews="1"><span class="k">PC4H reviews waiting</span><span class="v">' + pc4hPendingReviews + "</span></button>" +
+          '<button type="button" class="ov-chip fleet' + (newFleetSignups().length ? " has-alert" : "") + '" data-go="permitPathAdmin" data-fleet-signups="1"><span class="k">New fleet signups</span><span class="v">' + newFleetSignups().length + "</span></button>" +
           '<button type="button" class="ov-chip backup' + (backupStale() ? " has-alert" : "") + '" data-go="settings"><span class="k">Backup Log</span><span class="v">' + M().esc(backupLabel()) + "</span></button>" +
         "</div>" +
       "</div>";
@@ -284,6 +329,21 @@
           "#5A6578",
           "settings"
         );
+        html += "</div>";
+      }
+
+      var freshFleets = newFleetSignups();
+      if (freshFleets.length) {
+        html += '<div class="ov-section"><h3>Fleet signups</h3>';
+        freshFleets.forEach(function (fleet) {
+          var when = fleet.created_at ? new Date(fleet.created_at).toLocaleString() : "";
+          var detail = (fleet.portal_email || fleet.contact_email || "Fleet login") + (when ? " · " + when : "");
+          html +=
+            '<div class="ov-row" data-go="permitPathAdmin" data-fleet-signups="1">' +
+              '<span class="dot" style="background:#1A4F8B"></span>' +
+              '<div><strong>' + M().esc(fleet.company_name || "New fleet") + '</strong><span class="detail">' + M().esc(detail) + "</span></div>" +
+            "</div>";
+        });
         html += "</div>";
       }
 
@@ -480,6 +540,12 @@
           window.STLApp.navigate(target, { tab: studioPane });
           return;
         }
+        if (node.getAttribute("data-fleet-signups")) {
+          markFleetsSeen();
+          if (window.STLPermitPathAdmin && typeof window.STLPermitPathAdmin.openFleet === "function") {
+            window.STLPermitPathAdmin.openFleet();
+          }
+        }
         if (target === "pc4hAdmin" || node.getAttribute("data-pc4h-reviews")) {
           if (window.STLPc4hAdmin && typeof window.STLPc4hAdmin.focusReviews === "function") {
             window.STLPc4hAdmin.focusReviews();
@@ -524,6 +590,17 @@
     }).catch(function () { return []; });
   }
 
+  function loadFleetSignups() {
+    if (!window.STLLocalApi || typeof window.STLLocalApi.get !== "function") {
+      return Promise.resolve([]);
+    }
+    return window.STLLocalApi.get("/api/permitpath-fleets").then(function (res) {
+      if (!res.ok) return [];
+      var data = res.data || {};
+      return Array.isArray(data.fleets) ? data.fleets : [];
+    }).catch(function () { return []; });
+  }
+
   function loadPc4hPendingReviews() {
     if (!window.STLLocalApi || typeof window.STLLocalApi.get !== "function") {
       return Promise.resolve(0);
@@ -553,6 +630,7 @@
       safe("studio_inbox", "id,status"),
       safe("support_tickets", "id,status"),
       loadPc4hPendingReviews(),
+      loadFleetSignups(),
       db.from("studio_settings").select("value").eq("key", "backup_log_at").maybeSingle().then(function (res) {
         return (res.data && res.data.value) || "";
       }).catch(function () { return ""; })
@@ -569,7 +647,8 @@
         return row.status === "open" || row.status === "inProgress" || row.status === "waiting";
       }).length;
       pc4hPendingReviews = Number(pair[9]) || 0;
-      backupAt = pair[10] || "";
+      fleetSignups = pair[10] || [];
+      backupAt = pair[11] || "";
       var paths = [];
       apps.forEach(function (app) {
         if (app.icon_path && paths.indexOf(app.icon_path) < 0) paths.push(app.icon_path);
