@@ -331,9 +331,15 @@
         currentSection = cachedStart;
       }
     }
+    var openSection = "";
+    try { openSection = new URLSearchParams(window.location.search).get("open") || ""; } catch (err) {}
+    if (openSection && SECTIONS.some(function (s) { return s.id === openSection; })) {
+      currentSection = openSection;
+    }
     renderNav();
     renderPanel();
     startInboxPoll();
+    if (window.STLPhoneAlerts && window.STLPhoneAlerts.start) window.STLPhoneAlerts.start();
     if (window.STLSettings && typeof window.STLSettings.hydrate === "function") {
       window.STLSettings.hydrate(client).then(function (preferred) {
         if (!appReady) return;

@@ -276,6 +276,16 @@
       "</div>" +
 
       '<div class="ops-card">' +
+        "<h3>Phone alerts</h3>" +
+        '<p class="sub" data-el="alerts-note"></p>' +
+        '<div class="ops-actions">' +
+          '<button class="btn btn-primary" type="button" data-el="alerts-on">Turn on</button>' +
+          '<button class="btn btn-ghost hidden" type="button" data-el="alerts-test">Send a test</button>' +
+          '<button class="btn btn-ghost hidden" type="button" data-el="alerts-off">Turn off</button>' +
+        "</div>" +
+      "</div>" +
+
+      '<div class="ops-card">' +
         "<h3>Backup Log</h3>" +
         '<p class="sub">Download a zip: a restore guide PDF (one menu per page), receipts, company documents, app icons, notification photos, and the Secrets folder. Keep it private — it has passwords and API keys.</p>' +
         '<div class="ops-actions">' +
@@ -291,6 +301,7 @@
       "</div>";
 
     bind();
+    if (window.STLPhoneAlerts && window.STLPhoneAlerts.fill) window.STLPhoneAlerts.fill(body);
     syncSave();
   }
 
@@ -309,6 +320,38 @@
     }
     var backup = el("backup-log");
     if (backup) backup.onclick = runBackup;
+    var alertsOn = el("alerts-on");
+    if (alertsOn) alertsOn.onclick = function () {
+      if (!window.STLPhoneAlerts) return;
+      showMsg("Turning on phone alerts…", true);
+      window.STLPhoneAlerts.turnOn().then(function () {
+        if (root) render();
+        showMsg("Phone alerts are on.", true);
+      }).catch(function (err) {
+        if (root) render();
+        showMsg((err && err.message) || "Could not turn on phone alerts.", false);
+      });
+    };
+    var alertsOff = el("alerts-off");
+    if (alertsOff) alertsOff.onclick = function () {
+      if (!window.STLPhoneAlerts) return;
+      window.STLPhoneAlerts.turnOff().then(function () {
+        if (root) render();
+        showMsg("Phone alerts are off.", true);
+      }).catch(function (err) {
+        showMsg((err && err.message) || "Could not turn off phone alerts.", false);
+      });
+    };
+    var alertsTest = el("alerts-test");
+    if (alertsTest) alertsTest.onclick = function () {
+      if (!window.STLPhoneAlerts) return;
+      showMsg("Sending a test…", true);
+      window.STLPhoneAlerts.test().then(function () {
+        showMsg("Test sent. Check this phone.", true);
+      }).catch(function (err) {
+        showMsg((err && err.message) || "Could not send a test.", false);
+      });
+    };
   }
 
   function runBackup() {
