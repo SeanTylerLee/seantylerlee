@@ -3,6 +3,9 @@
 
   var FLAG = "stl-phone-alerts";
   var poll = 0;
+  var registration = null;
+  var publicKey = "";
+  var preparing = null;
 
   function api() {
     if (!window.STLLocalApi || !window.STLLocalApi.available || !window.STLLocalApi.available()) {
@@ -47,7 +50,7 @@
       return "This phone cannot show website alerts.";
     }
     if (!state.standalone) {
-      return "On your iPhone, open the Studio icon on the home screen, then turn alerts on there. A browser tab cannot send them.";
+      return homeScreenMessage();
     }
     if (state.permission === "denied") {
       return "Alerts are blocked. In iPhone Settings, open Notifications, find Studio, and allow them. Then come back and tap Turn on.";
@@ -60,6 +63,7 @@
 
   function fill(root) {
     if (!root) return;
+    prepare();
     var state = status();
     var note = root.querySelector('[data-el="alerts-note"]');
     var on = root.querySelector('[data-el="alerts-on"]');
@@ -71,34 +75,58 @@
     if (test) test.classList.toggle("hidden", !state.enabled);
   }
 
-  function turnOn() {
-    var state = status();
-    if (!state.standalone) return Promise.reject(new Error(explain(state)));
-    if (!("Notification" in window) || !("PushManager" in window)) {
-      return Promise.reject(new Error("This phone cannot show website alerts."));
-    }
-    return Notification.requestPermission().then(function (permission) {
-      if (permission !== "granted") throw new Error(explain(status()));
-      return register();
-    }).then(function () {
+  function prepare() {
+    if (preparing) return preparing;
+    preparing = register().then(function () {
+      if (!navigator.serviceWorker) return null;
       return navigator.serviceWorker.ready;
     }).then(function (reg) {
-      return api().get("/api/phone-alerts/public-key").then(function (res) {
-        if (!res.ok || !res.data || !res.data.publicKey) {
-          throw new Error((res.data && res.data.error) || "Phone alerts are not ready on the server yet.");
-        }
-        return reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(res.data.publicKey)
-        });
-      });
-    }).then(function (sub) {
-      return api().post("/api/phone-alerts/subscribe", { subscription: sub.toJSON() });
+      registration = reg || registration;
+      if (!window.STLLocalApi || !window.STLLocalApi.available || !window.STLLocalApi.available()) return null;
+      return window.STLLocalApi.get("/api/phone-alerts/public-key");
     }).then(function (res) {
-      if (!res.ok) throw new Error((res.data && res.data.error) || "Could not save this phone.");
-      localStorage.setItem(FLAG, "on");
-      start();
-      return true;
+      if (res && res.ok && res.data && res.data.publicKey) publicKey = String(res.data.publicKey);
+    }).catch(function () {});
+    return preparing;
+  }
+
+  function homeScreenMessage() {
+    return "Safari will not ask. Delete the Studio icon, open seantylerlee.com/studio in Safari, tap Share, then Add to Home Screen. Open that new icon and tap Turn on.";
+  }
+
+  function turnOn() {
+    // iPhone only shows Allow when subscribe() runs in this tap, with nothing awaited first.
+    if (!registration || !registration.pushManager || !publicKey) {
+      prepare();
+      if (!standalone()) return Promise.reject(new Error(homeScreenMessage()));
+      return Promise.reject(new Error("Studio is still getting ready. Wait a second, then tap Turn on again."));
+    }
+    var pending;
+    try {
+      pending = registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+      });
+    } catch (err) {
+      if (!standalone()) return Promise.reject(new Error(homeScreenMessage()));
+      return Promise.reject(err);
+    }
+    return pending.then(function (sub) {
+      return api().post("/api/phone-alerts/subscribe", { subscription: sub.toJSON() }).then(function (res) {
+        if (!res.ok) throw new Error((res.data && res.data.error) || "Could not save this phone.");
+        localStorage.setItem(FLAG, "on");
+        start();
+        return true;
+      });
+    }).catch(function (err) {
+      var name = err && err.name;
+      if (!standalone() || name === "NotAllowedError") {
+        if (("Notification" in window) && Notification.permission === "denied") {
+          throw new Error("Alerts are blocked. In iPhone Settings, open Notifications, find Studio, and allow them. Then tap Turn on again.");
+        }
+        if (!standalone()) throw new Error(homeScreenMessage());
+      }
+      throw err;
     });
   }
 
@@ -133,7 +161,7 @@
   }
 
   function start() {
-    register();
+    prepare();
     if (poll) clearInterval(poll);
     poll = 0;
     if (!enabled()) return;
