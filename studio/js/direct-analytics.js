@@ -5,6 +5,9 @@
   var rows = [];
   var days = [];
   var live = null;
+  var fleets = [];
+  var seats = [];
+  var fleetError = "";
   var filter = "all";
   var daysOpen = false;
   var loading = false;
@@ -72,13 +75,45 @@
     return list.reduce(function (total, row) { return total + num(row[key]); }, 0);
   }
 
+  function fleetForInstall(installId) {
+    var id = String(installId || "").trim().toLowerCase();
+    if (id.length < 8) return null;
+    var companies = {};
+    fleets.forEach(function (fleet) {
+      companies[String(fleet.id)] = fleet;
+    });
+    var match = null;
+    seats.forEach(function (seat) {
+      if (match) return;
+      if (String(seat.install_id || "").trim().toLowerCase() !== id) return;
+      if (!String(seat.code || "").trim()) return;
+      var fleet = companies[String(seat.fleet_id)] || {};
+      var note = String(seat.label || "");
+      if (/^cs_/.test(note)) note = "";
+      match = {
+        company: String(fleet.company_name || "Fleet").trim() || "Fleet",
+        code: String(seat.code || "").trim(),
+        note: note.trim()
+      };
+    });
+    return match;
+  }
+
   function visibleRows() {
     return rows.filter(function (row) {
+      if (filter === "fleet") return !!fleetForInstall(row.install_id);
       if (filter === "ios" || filter === "android") return row.platform === filter;
       if (filter === "subscribed") return !!row.is_subscribed;
       if (filter === "free") return !row.is_subscribed;
       return true;
     }).sort(function (a, b) {
+      if (filter === "fleet") {
+        var left = fleetForInstall(a.install_id) || {};
+        var right = fleetForInstall(b.install_id) || {};
+        var company = String(left.company || "").localeCompare(String(right.company || ""));
+        if (company) return company;
+        return String(left.code || "").localeCompare(String(right.code || ""));
+      }
       var subscribed = (b.is_subscribed ? 1 : 0) - (a.is_subscribed ? 1 : 0);
       if (subscribed) return subscribed;
       return seenAt(b) - seenAt(a);
@@ -221,7 +256,8 @@
       ["ios", "iPhone"],
       ["android", "Android"],
       ["subscribed", "Subscribed"],
-      ["free", "Not subscribed"]
+      ["free", "Not subscribed"],
+      ["fleet", "Fleet codes"]
     ];
     var bar = el("filters");
     if (bar) {
@@ -318,6 +354,12 @@
     if (note) {
       if (notice) {
         note.textContent = notice;
+      } else if (filter === "fleet" && fleetError) {
+        note.textContent = fleetError + " The totals above still count every phone.";
+      } else if (filter === "fleet") {
+        note.textContent = visible.length
+          ? "Each card is one phone that entered a fleet code. The totals above still count every phone. A code nobody has entered yet stays on Fleet Management."
+          : "No phone that entered a fleet code has reported yet. The totals above still count every phone. Unused codes stay on Fleet Management.";
       } else {
         note.textContent = visible.length
           ? "Each row is one install. Last opened is the last day the app was opened. Last activity is the last report of any kind. Miles are along the route from where that trip started to arrival. Days open counts different days the app was opened. Delete removes that phone from this list only."
@@ -343,9 +385,12 @@
       var first = new Date(row.first_seen || "");
       var age = isNaN(first.getTime()) ? "" : Math.max(0, Math.round((Date.now() - first.getTime()) / 86400000));
       var id = String(row.install_id || "");
+      var fleet = fleetForInstall(id);
       var busy = deletingId && deletingId === id;
       var ageLabel = age === "" ? "—" : age + "d";
-      var group = row.is_subscribed ? "Subscribed" : "Not subscribed";
+      var group = filter === "fleet"
+        ? (fleet ? fleet.company : "Fleet")
+        : (row.is_subscribed ? "Subscribed" : "Not subscribed");
       var heading = "";
       if (group !== lastGroup) {
         lastGroup = group;
@@ -360,8 +405,11 @@
                 '<span class="direct-platform direct-platform-' + platformKind + '">' + esc(phone) + "</span>" +
                 badge(row.is_subscribed ? "Subscribed" : "Not subscribed", row.is_subscribed ? "paid" : "free") +
                 badge(row.is_signed_in ? "Signed in" : "Guest", row.is_signed_in ? "account" : "guest") +
+                (fleet ? badge(fleet.code, "account") : "") +
               "</div>" +
               '<div class="direct-card-sub">' +
+                (fleet ? "<span>" + esc(fleet.company) + "</span>" : "") +
+                (fleet && fleet.note ? "<span>" + esc(fleet.note) + "</span>" : "") +
                 "<span>App " + esc(row.app_version || "—") + "</span>" +
                 "<span>Last opened " + esc(openedDay(row.last_open_date) || "—") + "</span>" +
                 "<span>Last activity " + esc(when(row.last_seen) || "—") + "</span>" +
@@ -438,12 +486,35 @@
         error = (err && err.message) || "Could not load direct app analytics.";
         render();
       });
+    window.STLLocalApi.get("/api/permitpath-fleets")
+      .then(function (res) {
+        var data = (res && res.data) || {};
+        if (!res || !res.ok) {
+          fleets = [];
+          seats = [];
+          fleetError = data.error || "Could not load fleet codes.";
+        } else {
+          fleets = data.fleets || [];
+          seats = data.seats || [];
+          fleetError = "";
+        }
+        render();
+      })
+      .catch(function () {
+        fleets = [];
+        seats = [];
+        fleetError = "Could not load fleet codes.";
+        render();
+      });
   }
 
   window.STLDirectAnalytics = {
     mount: function (panel) {
       root = panel;
       rows = [];
+      fleets = [];
+      seats = [];
+      fleetError = "";
       filter = "all";
       error = "";
       notice = "";
