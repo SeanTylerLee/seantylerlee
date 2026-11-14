@@ -7,7 +7,9 @@
     { id: "quote", title: "Quote" },
     { id: "permit_sample", title: "Permit sample" },
     { id: "haulpath_report", title: "Haul Path report" },
-    { id: "fleet_replace", title: "Code replacement" }
+    { id: "fleet_replace", title: "Code replacement" },
+    { id: "fleet_reset", title: "Fleet password reset" },
+    { id: "fleet_expiry", title: "Fleet expiry" }
   ];
 
   var root = null;
@@ -72,6 +74,12 @@
     }
     if (row && row.source === "fleet_replace") {
       return "Permit Path code replacement";
+    }
+    if (row && row.source === "fleet_reset") {
+      return "Permit Path fleet password reset";
+    }
+    if (row && row.source === "fleet_expiry") {
+      return "Permit Path fleet codes expire soon";
     }
     return siteTitle(row && row.site) + " — your message";
   }
@@ -922,7 +930,10 @@
         items = [];
       } else {
         items = (res.data || []).map(function (row) {
-          if (asObject(row.payload).kind === "fleet_replace") row.source = "fleet_replace";
+          var kind = asObject(row.payload).kind;
+          if (kind === "fleet_replace") row.source = "fleet_replace";
+          if (kind === "fleet_reset") row.source = "fleet_reset";
+          if (kind === "fleet_expiry") row.source = "fleet_expiry";
           return row;
         });
         showMsg("");
