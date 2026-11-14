@@ -182,6 +182,9 @@
         '<h3 class="direct-section-title">Imports by state</h3>' +
         '<p class="tos-note">Official permit imports after the 5.1.0 app build. Failed is an import that did not land on the map. Run sql/078_import_by_state.sql in the Permit Path SQL editor or this stays at zero.</p>' +
         '<div data-el="state-imports"></div>' +
+        '<h3 class="direct-section-title">Star rating</h3>' +
+        '<p class="tos-note">Taps in the in-app Rate Permit Path sheet after End or Save. This is not the public App Store or Play rating. Bounce means they opened the store and came back in under 2.5 seconds. Run sql/079_review_prompt.sql or this stays at zero.</p>' +
+        '<div class="direct-stats" data-el="review-stats"></div>' +
         '<h3 class="direct-section-title">App versions</h3>' +
         '<div class="direct-stats" data-el="versions"></div>' +
         '<h3 class="direct-section-title">By day</h3>' +
@@ -304,6 +307,20 @@
         "No per-state imports yet. Paste sql/078_import_by_state.sql, then open a 5.1.0 build and import a permit."
       );
     }
+    var reviewBox = el("review-stats");
+    if (reviewBox) {
+      reviewBox.innerHTML =
+        stat("Prompt shown", sum(rows, "review_prompt_shown")) +
+        stat("1 star tap", sum(rows, "review_star_1")) +
+        stat("2 star taps", sum(rows, "review_star_2")) +
+        stat("3 star taps", sum(rows, "review_star_3")) +
+        stat("4 star taps", sum(rows, "review_star_4")) +
+        stat("5 star taps", sum(rows, "review_star_5")) +
+        stat("Submit", sum(rows, "review_submit")) +
+        stat("Not now", sum(rows, "review_not_now")) +
+        stat("Cancel", sum(rows, "review_cancel")) +
+        stat("Left store too fast", sum(rows, "review_bounce"));
+    }
     var versions = el("versions");
     if (versions) {
       var versionList = versionCounts();
@@ -354,7 +371,7 @@
         var key = String(day.day || "").slice(0, 10);
         if (!key) return;
         if (!byDay[key]) byDay[key] = { day: key };
-        ["opens", "navigations_started", "arrivals", "miles_driven", "off_route_trips", "navigations_official", "navigations_built", "paywall_shown", "subscribe_tapped", "free_tier_chosen", "imports_pdf", "imports_qr"].forEach(function (field) {
+        ["opens", "navigations_started", "arrivals", "miles_driven", "off_route_trips", "navigations_official", "navigations_built", "paywall_shown", "subscribe_tapped", "free_tier_chosen", "imports_pdf", "imports_qr", "review_prompt_shown", "review_star_1", "review_star_2", "review_star_3", "review_star_4", "review_star_5", "review_not_now", "review_cancel", "review_submit", "review_bounce"].forEach(function (field) {
           byDay[key][field] = num(byDay[key][field]) + num(day[field]);
         });
         IMPORT_STATES.forEach(function (item) {
@@ -383,6 +400,18 @@
               '<div class="direct-metric"><strong>' + num(day.free_tier_chosen) + "</strong><span>Chose free</span></div>" +
               '<div class="direct-metric"><strong>' + num(day.imports_pdf) + "</strong><span>PDF imports</span></div>" +
               '<div class="direct-metric"><strong>' + num(day.imports_qr) + "</strong><span>QR imports</span></div>" +
+              (num(day.review_prompt_shown) || num(day.review_submit) || num(day.review_not_now) || num(day.review_cancel) || num(day.review_bounce)
+                ? '<div class="direct-metric"><strong>' + num(day.review_prompt_shown) + "</strong><span>Rate shown</span></div>" +
+                  '<div class="direct-metric"><strong>' + num(day.review_star_1) + "</strong><span>1★</span></div>" +
+                  '<div class="direct-metric"><strong>' + num(day.review_star_2) + "</strong><span>2★</span></div>" +
+                  '<div class="direct-metric"><strong>' + num(day.review_star_3) + "</strong><span>3★</span></div>" +
+                  '<div class="direct-metric"><strong>' + num(day.review_star_4) + "</strong><span>4★</span></div>" +
+                  '<div class="direct-metric"><strong>' + num(day.review_star_5) + "</strong><span>5★</span></div>" +
+                  '<div class="direct-metric"><strong>' + num(day.review_submit) + "</strong><span>Rate submit</span></div>" +
+                  '<div class="direct-metric"><strong>' + num(day.review_not_now) + "</strong><span>Not now</span></div>" +
+                  '<div class="direct-metric"><strong>' + num(day.review_cancel) + "</strong><span>Rate cancel</span></div>" +
+                  '<div class="direct-metric"><strong>' + num(day.review_bounce) + "</strong><span>Rate bounce</span></div>"
+                : "") +
             "</div>" +
             stateImportTable([day], "") +
           "</article>"
@@ -518,6 +547,18 @@
             }).join("") +
             metric("Saved opened", num(row.saved_routes_opened)) +
             metric("Routes shared", num(row.routes_shared)) +
+            (num(row.review_prompt_shown) || num(row.review_submit) || num(row.review_not_now) || num(row.review_cancel) || num(row.review_bounce) || num(row.review_star_1) || num(row.review_star_2) || num(row.review_star_3) || num(row.review_star_4) || num(row.review_star_5)
+              ? metric("Rate shown", num(row.review_prompt_shown)) +
+                metric("1★ tap", num(row.review_star_1)) +
+                metric("2★ tap", num(row.review_star_2)) +
+                metric("3★ tap", num(row.review_star_3)) +
+                metric("4★ tap", num(row.review_star_4)) +
+                metric("5★ tap", num(row.review_star_5)) +
+                metric("Rate submit", num(row.review_submit)) +
+                metric("Rate not now", num(row.review_not_now)) +
+                metric("Rate cancel", num(row.review_cancel)) +
+                metric("Rate bounce", num(row.review_bounce))
+              : "") +
             metric("Days open", num(row.days_opened)) +
             metric("Since first", ageLabel) +
           "</div>" +
