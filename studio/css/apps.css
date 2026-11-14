@@ -889,6 +889,31 @@
   font-size: 12px;
 }
 
+.direct-state-table {
+  width: 100%;
+  max-width: 520px;
+  border-collapse: collapse;
+  margin: 0 0 18px;
+  font-size: 14px;
+}
+
+.direct-state-table th,
+.direct-state-table td {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: right;
+}
+
+.direct-state-table th:first-child,
+.direct-state-table td:first-child {
+  text-align: left;
+}
+
+.direct-state-table thead th {
+  background: #f7f9fc;
+  font-weight: 650;
+}
+
 .direct-row-actions {
   margin-left: auto;
   display: flex;

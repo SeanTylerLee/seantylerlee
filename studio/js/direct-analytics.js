@@ -32,6 +32,56 @@
     return isFinite(n) ? n : 0;
   }
 
+  var IMPORT_STATES = [
+    ["tx", "Texas"],
+    ["wy", "Wyoming"],
+    ["nd", "North Dakota"],
+    ["co", "Colorado"],
+    ["va", "Virginia"],
+    ["ga", "Georgia"],
+    ["ky", "Kentucky"]
+  ];
+
+  function importCount(row, kind, code) {
+    return num(row["import_" + kind + "_" + code]);
+  }
+
+  function stateImportTable(sourceRows, emptyNote) {
+    var body = IMPORT_STATES.map(function (item) {
+      var code = item[0];
+      var pdf = 0;
+      var qr = 0;
+      var fail = 0;
+      sourceRows.forEach(function (row) {
+        pdf += importCount(row, "pdf", code);
+        qr += importCount(row, "qr", code);
+        fail += importCount(row, "fail", code);
+      });
+      return (
+        "<tr>" +
+          "<th>" + esc(item[1]) + "</th>" +
+          "<td>" + pdf + "</td>" +
+          "<td>" + qr + "</td>" +
+          "<td>" + fail + "</td>" +
+        "</tr>"
+      );
+    }).join("");
+    var hasAny = sourceRows.some(function (row) {
+      return IMPORT_STATES.some(function (item) {
+        return importCount(row, "pdf", item[0]) || importCount(row, "qr", item[0]) || importCount(row, "fail", item[0]);
+      });
+    });
+    if (!hasAny) {
+      return emptyNote ? '<p class="tos-note">' + esc(emptyNote) + "</p>" : "";
+    }
+    return (
+      '<table class="direct-state-table">' +
+        "<thead><tr><th>State</th><th>PDF</th><th>QR</th><th>Failed</th></tr></thead>" +
+        "<tbody>" + body + "</tbody>" +
+      "</table>"
+    );
+  }
+
   function when(value) {
     var date = new Date(value || "");
     if (isNaN(date.getTime())) return "";
@@ -129,6 +179,9 @@
         '<div class="direct-totals" data-el="totals"></div>' +
         '<div class="direct-sub-pair" data-el="sub-pair"></div>' +
         '<div class="direct-stats" data-el="stats"></div>' +
+        '<h3 class="direct-section-title">Imports by state</h3>' +
+        '<p class="tos-note">Official permit imports after the 5.1.0 app build. Failed is an import that did not land on the map. Run sql/078_import_by_state.sql in the Permit Path SQL editor or this stays at zero.</p>' +
+        '<div data-el="state-imports"></div>' +
         '<h3 class="direct-section-title">App versions</h3>' +
         '<div class="direct-stats" data-el="versions"></div>' +
         '<h3 class="direct-section-title">By day</h3>' +
@@ -230,7 +283,7 @@
         stat("Arrived", sum(rows, "arrivals")) +
         stat("Miles on finished trips", miles.toLocaleString("en-US")) +
         stat("Off the line", sum(rows, "off_route_trips")) +
-        stat("Go on a Texas import", sum(rows, "navigations_official")) +
+        stat("Go on an official import", sum(rows, "navigations_official")) +
         stat("Go on a built route", sum(rows, "navigations_built")) +
         stat("Routes built", sum(rows, "routes_built")) +
         stat("Paywall shown", sum(rows, "paywall_shown")) +
@@ -243,6 +296,13 @@
         stat("QR imports", sum(rows, "imports_qr")) +
         stat("Saved routes opened", sum(rows, "saved_routes_opened")) +
         stat("Routes shared", sum(rows, "routes_shared"));
+    }
+    var stateBox = el("state-imports");
+    if (stateBox) {
+      stateBox.innerHTML = stateImportTable(
+        rows,
+        "No per-state imports yet. Paste sql/078_import_by_state.sql, then open a 5.1.0 build and import a permit."
+      );
     }
     var versions = el("versions");
     if (versions) {
@@ -297,6 +357,12 @@
         ["opens", "navigations_started", "arrivals", "miles_driven", "off_route_trips", "navigations_official", "navigations_built", "paywall_shown", "subscribe_tapped", "free_tier_chosen", "imports_pdf", "imports_qr"].forEach(function (field) {
           byDay[key][field] = num(byDay[key][field]) + num(day[field]);
         });
+        IMPORT_STATES.forEach(function (item) {
+          ["pdf", "qr", "fail"].forEach(function (kind) {
+            var field = "import_" + kind + "_" + item[0];
+            byDay[key][field] = num(byDay[key][field]) + num(day[field]);
+          });
+        });
       });
       var dayKeys = Object.keys(byDay).sort().reverse();
       var cards = dayKeys.map(function (key) {
@@ -310,7 +376,7 @@
               '<div class="direct-metric"><strong>' + num(day.arrivals) + "</strong><span>Arrived</span></div>" +
               '<div class="direct-metric"><strong>' + Math.round(num(day.miles_driven)).toLocaleString("en-US") + "</strong><span>Miles</span></div>" +
               '<div class="direct-metric"><strong>' + num(day.off_route_trips) + "</strong><span>Off the line</span></div>" +
-              '<div class="direct-metric"><strong>' + num(day.navigations_official) + "</strong><span>Texas Go</span></div>" +
+              '<div class="direct-metric"><strong>' + num(day.navigations_official) + "</strong><span>Official Go</span></div>" +
               '<div class="direct-metric"><strong>' + num(day.navigations_built) + "</strong><span>Built Go</span></div>" +
               '<div class="direct-metric"><strong>' + num(day.paywall_shown) + "</strong><span>Paywall</span></div>" +
               '<div class="direct-metric"><strong>' + num(day.subscribe_tapped) + "</strong><span>Subscribe</span></div>" +
@@ -318,6 +384,7 @@
               '<div class="direct-metric"><strong>' + num(day.imports_pdf) + "</strong><span>PDF imports</span></div>" +
               '<div class="direct-metric"><strong>' + num(day.imports_qr) + "</strong><span>QR imports</span></div>" +
             "</div>" +
+            stateImportTable([day], "") +
           "</article>"
         );
       }).join("");
@@ -432,7 +499,7 @@
             metric("Arrived", num(row.arrivals)) +
             metric("Miles", Math.round(num(row.miles_driven))) +
             metric("Off line", num(row.off_route_trips)) +
-            metric("Texas Go", num(row.navigations_official)) +
+            metric("Official Go", num(row.navigations_official)) +
             metric("Built Go", num(row.navigations_built)) +
             metric("Paywall", num(row.paywall_shown)) +
             metric("Subscribe", num(row.subscribe_tapped)) +
@@ -442,6 +509,13 @@
             metric("Chose free", num(row.free_tier_chosen)) +
             metric("PDF import", num(row.imports_pdf)) +
             metric("QR import", num(row.imports_qr)) +
+            IMPORT_STATES.map(function (item) {
+              var pdf = importCount(row, "pdf", item[0]);
+              var qr = importCount(row, "qr", item[0]);
+              var fail = importCount(row, "fail", item[0]);
+              if (!pdf && !qr && !fail) return "";
+              return metric(item[1] + " PDF", pdf) + metric(item[1] + " QR", qr) + metric(item[1] + " fail", fail);
+            }).join("") +
             metric("Saved opened", num(row.saved_routes_opened)) +
             metric("Routes shared", num(row.routes_shared)) +
             metric("Days open", num(row.days_opened)) +
