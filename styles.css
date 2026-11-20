@@ -304,6 +304,78 @@ h3 {
     linear-gradient(180deg, var(--white) 0%, var(--ice) 100%);
 }
 
+.home .hero {
+  display: flex;
+  align-items: center;
+  min-height: calc(100dvh - 4.4rem - env(safe-area-inset-top, 0px));
+  padding: 3.5rem 0;
+  background: #000f30;
+}
+
+.home .hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 32%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.home .hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(105deg, rgba(0, 15, 48, 0.45) 0%, rgba(0, 24, 72, 0.18) 46%, rgba(0, 24, 72, 0.08) 100%);
+}
+
+.home .hero .wrap {
+  position: relative;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home .hero-video {
+    display: none;
+  }
+
+  .home .hero {
+    background: #000f30 url("images/home-bg.jpg") center 32% / cover no-repeat;
+  }
+}
+
+.home .hero-inner {
+  max-width: 36rem;
+  padding: 2.35rem 2.4rem 2.15rem;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 18px;
+  box-shadow: 0 22px 50px rgba(0, 15, 48, 0.28);
+}
+
+.home .hero h1 {
+  font-size: clamp(2.35rem, 4.4vw, 3.45rem);
+  max-width: 11em;
+}
+
+.home .hero .lede {
+  margin-top: 1rem;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  max-width: 32rem;
+}
+
+.home .hero-actions {
+  margin-top: 1.6rem;
+}
+
+.home .hero .btn-ghost {
+  background: transparent;
+}
+
 .hero-grid {
   display: grid;
   gap: 2.75rem;
@@ -845,6 +917,10 @@ h3 {
   color: var(--blue);
 }
 
+.services-grid.services-grid-3 {
+  grid-template-columns: 1fr;
+}
+
 @media (min-width: 860px) {
   .hero-grid {
     grid-template-columns: 1.15fr 0.85fr;
@@ -852,6 +928,10 @@ h3 {
 
   .services-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  .services-grid.services-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .about-grid {
@@ -882,6 +962,31 @@ h3 {
 
   .hero {
     padding: 2rem 0 2.1rem;
+  }
+
+  .home .hero {
+    align-items: flex-end;
+    padding: 1.25rem 0 1.5rem;
+    background: #000f30;
+  }
+
+  .home .hero-video {
+    object-position: center 22%;
+  }
+
+  .home .hero::after {
+    background: linear-gradient(180deg, rgba(0, 15, 48, 0.2) 0%, rgba(0, 15, 48, 0.38) 100%);
+  }
+
+  .home .hero-inner {
+    width: 100%;
+    max-width: none;
+    padding: 1.45rem 1.25rem 1.3rem;
+    border-radius: 16px;
+  }
+
+  .home .hero h1 {
+    font-size: clamp(1.85rem, 8.2vw, 2.35rem);
   }
 
   .hero-mark {
@@ -1108,6 +1213,7 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  padding-top: 2.25rem;
 }
 
 .app-feature {
