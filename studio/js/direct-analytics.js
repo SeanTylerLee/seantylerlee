@@ -9,7 +9,8 @@
   var seats = [];
   var fleetError = "";
   var filter = "all";
-  var daysOpen = false;
+  var calendarMonth = "";
+  var selectedDay = "";
   var loading = false;
   var error = "";
   var notice = "";
@@ -86,6 +87,76 @@
     var date = new Date(value || "");
     if (isNaN(date.getTime())) return "";
     return date.toLocaleString();
+  }
+
+  function line(label, value, extra) {
+    var zero = value === 0 || value === "0";
+    var text = typeof value === "number" ? value.toLocaleString("en-US") : String(value);
+    return (
+      '<div class="direct-line' + (zero ? " is-zero" : "") + (extra ? " " + extra : "") + '">' +
+        "<span>" + esc(label) + "</span>" +
+        "<strong>" + esc(text) + "</strong>" +
+      "</div>"
+    );
+  }
+
+  function panel(title, inner) {
+    return (
+      '<section class="direct-panel-block">' +
+        "<h4>" + esc(title) + "</h4>" +
+        '<div class="direct-lines">' + inner + "</div>" +
+      "</section>"
+    );
+  }
+
+  function pad2(value) {
+    return (value < 10 ? "0" : "") + value;
+  }
+
+  function centralToday() {
+    var map = {};
+    try {
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Chicago",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(new Date()).forEach(function (part) {
+        map[part.type] = part.value;
+      });
+    } catch (err) {
+      var now = new Date();
+      map = {
+        year: String(now.getFullYear()),
+        month: pad2(now.getMonth() + 1),
+        day: pad2(now.getDate())
+      };
+    }
+    return {
+      month: map.year + "-" + map.month,
+      day: map.year + "-" + map.month + "-" + map.day
+    };
+  }
+
+  function shiftMonth(ym, delta) {
+    var date = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1 + delta, 1);
+    return date.getFullYear() + "-" + pad2(date.getMonth() + 1);
+  }
+
+  function monthTitle(ym) {
+    var names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return names[Number(ym.slice(5, 7)) - 1] + " " + ym.slice(0, 4);
+  }
+
+  function metric(label, value) {
+    var zero = value === 0 || value === "0";
+    var text = typeof value === "number" ? value.toLocaleString("en-US") : String(value);
+    return (
+      '<div class="direct-metric' + (zero ? " is-zero" : "") + '">' +
+        "<span>" + esc(label) + "</span>" +
+        "<strong>" + esc(text) + "</strong>" +
+      "</div>"
+    );
   }
 
   function openedDay(value) {
@@ -175,18 +246,17 @@
       '<div class="tos-panel direct-panel">' +
         '<p class="tos-note">Counts come from the app on each phone. A person shows up after they open a build that sends this report. The Apple and Google reports stay on Apps → Analytics. This list has no email.</p>' +
         '<div data-el="live"></div>' +
-        '<h3 class="direct-section-title">Total</h3>' +
-        '<div class="direct-totals" data-el="totals"></div>' +
-        '<div class="direct-sub-pair" data-el="sub-pair"></div>' +
-        '<div class="direct-stats" data-el="stats"></div>' +
+        '<h3 class="direct-section-title">At a glance</h3>' +
+        '<div class="direct-hero" data-el="totals"></div>' +
+        '<div class="direct-boards" data-el="boards"></div>' +
         '<h3 class="direct-section-title">Imports by state</h3>' +
         '<p class="tos-note">Official permit imports after the 5.1.0 app build. Failed is an import that did not land on the map. Run sql/078_import_by_state.sql in the Permit Path SQL editor or this stays at zero.</p>' +
         '<div data-el="state-imports"></div>' +
         '<h3 class="direct-section-title">Star rating</h3>' +
         '<p class="tos-note">Taps in the in-app Rate Permit Path sheet after End or Save. This is not the public App Store or Play rating. Bounce means they opened the store and came back in under 2.5 seconds. Run sql/079_review_prompt.sql or this stays at zero.</p>' +
-        '<div class="direct-stats" data-el="review-stats"></div>' +
+        '<div data-el="review-stats"></div>' +
         '<h3 class="direct-section-title">App versions</h3>' +
-        '<div class="direct-stats" data-el="versions"></div>' +
+        '<div data-el="versions"></div>' +
         '<h3 class="direct-section-title">By day</h3>' +
         '<div data-el="days"></div>' +
         '<div class="tos-subtabs" data-el="filters"></div>' +
@@ -268,37 +338,41 @@
         stat("Active today", activeToday, "direct-stat-lead") +
         stat("Active in 7 days", activeWeek, "direct-stat-lead");
     }
-    var stats = el("stats");
     var subscribed = rows.filter(function (row) { return row.is_subscribed; }).length;
     var signedIn = rows.filter(function (row) { return row.is_signed_in; }).length;
     var miles = Math.round(sum(rows, "miles_driven"));
-    var subPair = el("sub-pair");
-    if (subPair) {
-      subPair.innerHTML =
-        stat("Subscribed", subscribed, "direct-stat-paid") +
-        stat("Not subscribed", Math.max(0, rows.length - subscribed), "direct-stat-free");
-    }
-    if (stats) {
-      stats.innerHTML =
-        stat("Signed in", signedIn) +
-        stat("Guest", Math.max(0, rows.length - signedIn)) +
-        stat("Go taps", sum(rows, "navigations_started")) +
-        stat("Arrived", sum(rows, "arrivals")) +
-        stat("Miles on finished trips", miles.toLocaleString("en-US")) +
-        stat("Off the line", sum(rows, "off_route_trips")) +
-        stat("Go on an official import", sum(rows, "navigations_official")) +
-        stat("Go on a built route", sum(rows, "navigations_built")) +
-        stat("Routes built", sum(rows, "routes_built")) +
-        stat("Paywall shown", sum(rows, "paywall_shown")) +
-        stat("Subscribe tapped", sum(rows, "subscribe_tapped")) +
-        stat("Restore tapped", sum(rows, "restore_tapped")) +
-        stat("Hit 4-waypoint cap", sum(rows, "waypoint_cap")) +
-        stat("Import locked", sum(rows, "import_locked")) +
-        stat("Chose free", sum(rows, "free_tier_chosen")) +
-        stat("PDF imports", sum(rows, "imports_pdf")) +
-        stat("QR imports", sum(rows, "imports_qr")) +
-        stat("Saved routes opened", sum(rows, "saved_routes_opened")) +
-        stat("Routes shared", sum(rows, "routes_shared"));
+    var boards = el("boards");
+    if (boards) {
+      boards.innerHTML =
+        panel("People",
+          line("Subscribed", subscribed, "is-paid") +
+          line("Not subscribed", Math.max(0, rows.length - subscribed)) +
+          line("Signed in", signedIn) +
+          line("Guest", Math.max(0, rows.length - signedIn))
+        ) +
+        panel("On the road",
+          line("Go taps", sum(rows, "navigations_started")) +
+          line("Arrived", sum(rows, "arrivals")) +
+          line("Miles on finished trips", miles) +
+          line("Off the line", sum(rows, "off_route_trips")) +
+          line("Go on an official import", sum(rows, "navigations_official")) +
+          line("Go on a built route", sum(rows, "navigations_built")) +
+          line("Routes built", sum(rows, "routes_built"))
+        ) +
+        panel("Paywall",
+          line("Paywall shown", sum(rows, "paywall_shown")) +
+          line("Subscribe tapped", sum(rows, "subscribe_tapped")) +
+          line("Restore tapped", sum(rows, "restore_tapped")) +
+          line("Hit 4-waypoint cap", sum(rows, "waypoint_cap")) +
+          line("Import locked", sum(rows, "import_locked")) +
+          line("Chose free", sum(rows, "free_tier_chosen"))
+        ) +
+        panel("Imports and sharing",
+          line("PDF imports", sum(rows, "imports_pdf")) +
+          line("QR imports", sum(rows, "imports_qr")) +
+          line("Saved routes opened", sum(rows, "saved_routes_opened")) +
+          line("Routes shared", sum(rows, "routes_shared"))
+        );
     }
     var stateBox = el("state-imports");
     if (stateBox) {
@@ -310,22 +384,26 @@
     var reviewBox = el("review-stats");
     if (reviewBox) {
       reviewBox.innerHTML =
-        stat("Prompt shown", sum(rows, "review_prompt_shown")) +
-        stat("1 star tap", sum(rows, "review_star_1")) +
-        stat("2 star taps", sum(rows, "review_star_2")) +
-        stat("3 star taps", sum(rows, "review_star_3")) +
-        stat("4 star taps", sum(rows, "review_star_4")) +
-        stat("5 star taps", sum(rows, "review_star_5")) +
-        stat("Submit", sum(rows, "review_submit")) +
-        stat("Not now", sum(rows, "review_not_now")) +
-        stat("Cancel", sum(rows, "review_cancel")) +
-        stat("Left store too fast", sum(rows, "review_bounce"));
+        '<div class="direct-lines direct-lines-wide">' +
+          line("Prompt shown", sum(rows, "review_prompt_shown")) +
+          line("1 star tap", sum(rows, "review_star_1")) +
+          line("2 star taps", sum(rows, "review_star_2")) +
+          line("3 star taps", sum(rows, "review_star_3")) +
+          line("4 star taps", sum(rows, "review_star_4")) +
+          line("5 star taps", sum(rows, "review_star_5")) +
+          line("Submit", sum(rows, "review_submit")) +
+          line("Not now", sum(rows, "review_not_now")) +
+          line("Cancel", sum(rows, "review_cancel")) +
+          line("Left store too fast", sum(rows, "review_bounce")) +
+        "</div>";
     }
     var versions = el("versions");
     if (versions) {
       var versionList = versionCounts();
       versions.innerHTML = versionList.length
-        ? versionList.map(function (item) { return stat(item.label, item.count); }).join("")
+        ? '<div class="direct-versions">' + versionList.map(function (item) {
+            return '<div class="direct-version"><span>' + esc(item.label) + "</span><strong>" + esc(item.count) + "</strong></div>";
+          }).join("") + "</div>"
         : '<p class="tos-note">No app versions yet.</p>';
     }
     var filters = [
@@ -381,57 +459,111 @@
           });
         });
       });
-      var dayKeys = Object.keys(byDay).sort().reverse();
-      var cards = dayKeys.map(function (key) {
-        var day = byDay[key];
-        return (
-          '<article class="direct-card direct-day">' +
-            '<header class="direct-card-head"><div class="direct-card-name"><span class="direct-platform">' + esc(openedDay(key) || key) + "</span></div></header>" +
-            '<div class="direct-metrics">' +
-              '<div class="direct-metric"><strong>' + num(day.opens) + "</strong><span>Opens</span></div>" +
-              '<div class="direct-metric"><strong>' + num(day.navigations_started) + "</strong><span>Go taps</span></div>" +
-              '<div class="direct-metric"><strong>' + num(day.arrivals) + "</strong><span>Arrived</span></div>" +
-              '<div class="direct-metric"><strong>' + Math.round(num(day.miles_driven)).toLocaleString("en-US") + "</strong><span>Miles</span></div>" +
-              '<div class="direct-metric"><strong>' + num(day.off_route_trips) + "</strong><span>Off the line</span></div>" +
-              '<div class="direct-metric"><strong>' + num(day.navigations_official) + "</strong><span>Official Go</span></div>" +
-              '<div class="direct-metric"><strong>' + num(day.navigations_built) + "</strong><span>Built Go</span></div>" +
-              '<div class="direct-metric"><strong>' + num(day.paywall_shown) + "</strong><span>Paywall</span></div>" +
-              '<div class="direct-metric"><strong>' + num(day.subscribe_tapped) + "</strong><span>Subscribe</span></div>" +
-              '<div class="direct-metric"><strong>' + num(day.free_tier_chosen) + "</strong><span>Chose free</span></div>" +
-              '<div class="direct-metric"><strong>' + num(day.imports_pdf) + "</strong><span>PDF imports</span></div>" +
-              '<div class="direct-metric"><strong>' + num(day.imports_qr) + "</strong><span>QR imports</span></div>" +
-              (num(day.review_prompt_shown) || num(day.review_submit) || num(day.review_not_now) || num(day.review_cancel) || num(day.review_bounce)
-                ? '<div class="direct-metric"><strong>' + num(day.review_prompt_shown) + "</strong><span>Rate shown</span></div>" +
-                  '<div class="direct-metric"><strong>' + num(day.review_star_1) + "</strong><span>1★</span></div>" +
-                  '<div class="direct-metric"><strong>' + num(day.review_star_2) + "</strong><span>2★</span></div>" +
-                  '<div class="direct-metric"><strong>' + num(day.review_star_3) + "</strong><span>3★</span></div>" +
-                  '<div class="direct-metric"><strong>' + num(day.review_star_4) + "</strong><span>4★</span></div>" +
-                  '<div class="direct-metric"><strong>' + num(day.review_star_5) + "</strong><span>5★</span></div>" +
-                  '<div class="direct-metric"><strong>' + num(day.review_submit) + "</strong><span>Rate submit</span></div>" +
-                  '<div class="direct-metric"><strong>' + num(day.review_not_now) + "</strong><span>Not now</span></div>" +
-                  '<div class="direct-metric"><strong>' + num(day.review_cancel) + "</strong><span>Rate cancel</span></div>" +
-                  '<div class="direct-metric"><strong>' + num(day.review_bounce) + "</strong><span>Rate bounce</span></div>"
-                : "") +
+      var dayKeys = Object.keys(byDay).sort();
+      if (!dayKeys.length) {
+        dayBox.innerHTML = '<p class="tos-note">No daily counts yet. Run sql/065_direct_app_days.sql in the Permit Path SQL editor. Counts start the next time a phone opens the app. The total above is still the all-time number.</p>';
+      } else {
+        if (!calendarMonth) calendarMonth = centralToday().month;
+        var todayKey = centralToday().day;
+        var year = Number(calendarMonth.slice(0, 4));
+        var month = Number(calendarMonth.slice(5, 7));
+        var firstWeekday = new Date(year, month - 1, 1).getDay();
+        var daysInMonth = new Date(year, month, 0).getDate();
+        var cells = [];
+        var i;
+        for (i = 0; i < firstWeekday; i++) cells.push("");
+        for (i = 1; i <= daysInMonth; i++) cells.push(calendarMonth + "-" + pad2(i));
+        while (cells.length % 7) cells.push("");
+        var scope = filter === "ios" ? "iPhone only. " : filter === "android" ? "Android only. " : "";
+        var grid = cells.map(function (key) {
+          if (!key) return '<div class="direct-cal-day is-pad"></div>';
+          var day = byDay[key];
+          var miles = day ? Math.round(num(day.miles_driven)) : 0;
+          var subscribe = day ? num(day.subscribe_tapped) : 0;
+          var routes = day ? num(day.imports_pdf) + num(day.imports_qr) : 0;
+          var classes = "direct-cal-day";
+          if (day) classes += " has-data";
+          if (key === todayKey) classes += " is-today";
+          if (key === selectedDay) classes += " is-on";
+          var highlights =
+            (miles ? '<span class="direct-cal-hl direct-cal-miles">' + miles.toLocaleString("en-US") + " mi</span>" : "") +
+            (subscribe ? '<span class="direct-cal-hl direct-cal-sub">' + subscribe.toLocaleString("en-US") + " subscribe</span>" : "") +
+            (routes ? '<span class="direct-cal-hl direct-cal-routes">' + routes.toLocaleString("en-US") + " routes</span>" : "");
+          return (
+            '<button type="button" class="' + classes + '" data-day="' + key + '">' +
+              '<span class="direct-cal-num">' + Number(key.slice(8, 10)) + "</span>" +
+              highlights +
+            "</button>"
+          );
+        }).join("");
+        var picked = byDay[selectedDay];
+        var detail = "";
+        if (selectedDay) {
+          detail =
+            '<article class="direct-card direct-day direct-cal-detail">' +
+              '<header class="direct-card-head"><div class="direct-card-name"><span class="direct-platform">' + esc(openedDay(selectedDay) || selectedDay) + "</span></div></header>" +
+              (picked
+                ? '<div class="direct-metrics">' +
+                    metric("Opens", num(picked.opens)) +
+                    metric("Go taps", num(picked.navigations_started)) +
+                    metric("Arrived", num(picked.arrivals)) +
+                    metric("Miles", Math.round(num(picked.miles_driven))) +
+                    metric("Off the line", num(picked.off_route_trips)) +
+                    metric("Official Go", num(picked.navigations_official)) +
+                    metric("Built Go", num(picked.navigations_built)) +
+                    metric("Paywall", num(picked.paywall_shown)) +
+                    metric("Subscribe", num(picked.subscribe_tapped)) +
+                    metric("Chose free", num(picked.free_tier_chosen)) +
+                    metric("Routes", num(picked.imports_pdf) + num(picked.imports_qr)) +
+                    metric("PDF imports", num(picked.imports_pdf)) +
+                    metric("QR imports", num(picked.imports_qr)) +
+                    (num(picked.review_prompt_shown) || num(picked.review_submit) || num(picked.review_not_now) || num(picked.review_cancel) || num(picked.review_bounce)
+                      ? metric("Rate shown", num(picked.review_prompt_shown)) +
+                        metric("1★", num(picked.review_star_1)) +
+                        metric("2★", num(picked.review_star_2)) +
+                        metric("3★", num(picked.review_star_3)) +
+                        metric("4★", num(picked.review_star_4)) +
+                        metric("5★", num(picked.review_star_5)) +
+                        metric("Rate submit", num(picked.review_submit)) +
+                        metric("Not now", num(picked.review_not_now)) +
+                        metric("Rate cancel", num(picked.review_cancel)) +
+                        metric("Rate bounce", num(picked.review_bounce))
+                      : "") +
+                  "</div>" +
+                  stateImportTable([picked], "")
+                : '<p class="tos-note">No reports on this day.</p>') +
+            "</article>";
+        }
+        dayBox.innerHTML =
+          '<div class="direct-cal">' +
+            '<div class="direct-cal-head">' +
+              '<button type="button" class="direct-cal-nav" data-cal="-1" aria-label="Previous month">‹</button>' +
+              "<h4>" + esc(monthTitle(calendarMonth)) + "</h4>" +
+              '<button type="button" class="direct-cal-nav" data-cal="1" aria-label="Next month">›</button>' +
             "</div>" +
-            stateImportTable([day], "") +
-          "</article>"
-        );
-      }).join("");
-      var dayLabel = dayKeys.length === 1 ? "1 day" : dayKeys.length + " days";
-      dayBox.innerHTML = dayKeys.length
-        ? '<button type="button" class="btn direct-days-toggle" data-el="days-toggle">' +
-            (daysOpen ? "Hide days" : "Show " + dayLabel) +
-          "</button>" +
-          (daysOpen
-            ? '<p class="tos-note">Each day runs midnight to midnight, US Central time. Days already saved were counted in UTC.</p>' + cards
-            : "")
-        : '<p class="tos-note">No daily counts yet. Run sql/065_direct_app_days.sql in the Permit Path SQL editor. Counts start the next time a phone opens the app. The total above is still the all-time number.</p>';
-      var toggle = el("days-toggle");
-      if (toggle) {
-        toggle.onclick = function () {
-          daysOpen = !daysOpen;
-          render();
-        };
+            '<p class="direct-cal-legend"><span class="direct-cal-miles">Miles</span><span class="direct-cal-sub">Subscribe</span><span class="direct-cal-routes">Routes (PDF + QR)</span></p>' +
+            '<div class="direct-cal-grid">' +
+              ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(function (name) {
+                return '<div class="direct-cal-dow">' + name + "</div>";
+              }).join("") +
+              grid +
+            "</div>" +
+          "</div>" +
+          '<p class="tos-note">' + scope + "Each day runs midnight to midnight, US Central time. Days already saved were counted in UTC. Choose a day for the full counts.</p>" +
+          detail;
+        dayBox.querySelectorAll("[data-cal]").forEach(function (btn) {
+          btn.onclick = function () {
+            calendarMonth = shiftMonth(calendarMonth, Number(btn.getAttribute("data-cal")) || 0);
+            render();
+          };
+        });
+        dayBox.querySelectorAll("[data-day]").forEach(function (btn) {
+          btn.onclick = function () {
+            var key = btn.getAttribute("data-day") || "";
+            selectedDay = selectedDay === key ? "" : key;
+            render();
+          };
+        });
       }
     }
     var note = el("note");
@@ -463,14 +595,6 @@
       }
     }
     if (!list) return;
-    function metric(label, value) {
-      return (
-        '<div class="direct-metric">' +
-          '<strong>' + esc(value) + "</strong>" +
-          "<span>" + esc(label) + "</span>" +
-        "</div>"
-      );
-    }
     function badge(text, kind) {
       return '<span class="direct-badge direct-badge-' + kind + '">' + esc(text) + "</span>";
     }
@@ -631,6 +755,8 @@
       seats = [];
       fleetError = "";
       filter = "all";
+      calendarMonth = "";
+      selectedDay = "";
       error = "";
       notice = "";
       deletingId = "";
