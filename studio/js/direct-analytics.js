@@ -149,12 +149,11 @@
   }
 
   function metric(label, value) {
-    var zero = value === 0 || value === "0";
     var text = typeof value === "number" ? value.toLocaleString("en-US") : String(value);
     return (
-      '<div class="direct-metric' + (zero ? " is-zero" : "") + '">' +
-        "<span>" + esc(label) + "</span>" +
+      '<div class="direct-metric">' +
         "<strong>" + esc(text) + "</strong>" +
+        "<span>" + esc(label) + "</span>" +
       "</div>"
     );
   }
@@ -244,16 +243,13 @@
   function shell() {
     return (
       '<div class="tos-panel direct-panel">' +
-        '<p class="tos-note">Counts come from the app on each phone. A person shows up after they open a build that sends this report. The Apple and Google reports stay on Apps → Analytics. This list has no email.</p>' +
         '<div data-el="live"></div>' +
         '<h3 class="direct-section-title">At a glance</h3>' +
         '<div class="direct-hero" data-el="totals"></div>' +
         '<div class="direct-boards" data-el="boards"></div>' +
         '<h3 class="direct-section-title">Imports by state</h3>' +
-        '<p class="tos-note">Official permit imports after the 5.1.0 app build. Failed is an import that did not land on the map. Run sql/078_import_by_state.sql in the Permit Path SQL editor or this stays at zero.</p>' +
         '<div data-el="state-imports"></div>' +
         '<h3 class="direct-section-title">Star rating</h3>' +
-        '<p class="tos-note">Taps in the in-app Rate Permit Path sheet after End or Save. This is not the public App Store or Play rating. Bounce means they opened the store and came back in under 2.5 seconds. Run sql/079_review_prompt.sql or this stays at zero.</p>' +
         '<div data-el="review-stats"></div>' +
         '<h3 class="direct-section-title">App versions</h3>' +
         '<div data-el="versions"></div>' +
@@ -474,7 +470,6 @@
         for (i = 0; i < firstWeekday; i++) cells.push("");
         for (i = 1; i <= daysInMonth; i++) cells.push(calendarMonth + "-" + pad2(i));
         while (cells.length % 7) cells.push("");
-        var scope = filter === "ios" ? "iPhone only. " : filter === "android" ? "Android only. " : "";
         var grid = cells.map(function (key) {
           if (!key) return '<div class="direct-cal-day is-pad"></div>';
           var day = byDay[key];
@@ -549,7 +544,6 @@
               grid +
             "</div>" +
           "</div>" +
-          '<p class="tos-note">' + scope + "Each day runs midnight to midnight, US Central time. Days already saved were counted in UTC. Choose a day for the full counts.</p>" +
           detail;
         dayBox.querySelectorAll("[data-cal]").forEach(function (btn) {
           btn.onclick = function () {
@@ -590,7 +584,7 @@
           : "No phone that entered a fleet code has reported yet. The totals above still count every phone. Unused codes stay on Fleet Management.";
       } else {
         note.textContent = visible.length
-          ? "Each row is one install. Last opened is the last day the app was opened. Last activity is the last report of any kind. Miles are along the route from where that trip started to arrival. Days open counts different days the app was opened. Delete removes that phone from this list only."
+          ? ""
           : "No installs have reported yet. Run sql/020 and sql/021 in the Permit Path Supabase SQL editor, then open a new app build.";
       }
     }
