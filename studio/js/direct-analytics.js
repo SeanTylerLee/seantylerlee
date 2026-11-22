@@ -149,11 +149,15 @@
   }
 
   // One tile with five stars; filled up to the highest star this user tapped.
-  function starMetric(row) {
-    var picked = 0;
+  function starPicked(row) {
     for (var n = 5; n >= 1; n--) {
-      if (num(row["review_star_" + n])) { picked = n; break; }
+      if (num(row["review_star_" + n])) return n;
     }
+    return 0;
+  }
+
+  function starMetric(row) {
+    var picked = starPicked(row);
     var stars = "";
     for (var i = 1; i <= 5; i++) {
       stars += '<span class="direct-star' + (i <= picked ? " is-on" : "") + '">★</span>';
@@ -243,6 +247,8 @@
       if (filter === "ios" || filter === "android") return row.platform === filter;
       if (filter === "subscribed") return !!row.is_subscribed;
       if (filter === "free") return !row.is_subscribed;
+      if (filter === "rated") return starPicked(row) > 0;
+      if (filter === "unrated") return starPicked(row) === 0;
       return true;
     }).sort(function (a, b) {
       if (filter === "fleet") {
@@ -251,6 +257,10 @@
         var company = String(left.company || "").localeCompare(String(right.company || ""));
         if (company) return company;
         return String(left.code || "").localeCompare(String(right.code || ""));
+      }
+      if (filter === "rated") {
+        var stars = starPicked(b) - starPicked(a);
+        if (stars) return stars;
       }
       var subscribed = (b.is_subscribed ? 1 : 0) - (a.is_subscribed ? 1 : 0);
       if (subscribed) return subscribed;
@@ -426,7 +436,9 @@
       ["android", "Android"],
       ["subscribed", "Subscribed"],
       ["free", "Not subscribed"],
-      ["fleet", "Fleet codes"]
+      ["fleet", "Fleet codes"],
+      ["rated", "Rated"],
+      ["unrated", "Not rated"]
     ];
     var bar = el("filters");
     if (bar) {
