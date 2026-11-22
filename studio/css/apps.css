@@ -1268,11 +1268,54 @@
 
 .direct-card-actions {
   flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
 }
 
 .direct-card-actions .btn {
   font-size: 12px;
   padding: 7px 12px;
+}
+
+.direct-card-actions .direct-eye {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 9px;
+  color: #9aa2b4;
+}
+
+.direct-card-actions .direct-eye.is-on {
+  color: #fff;
+  background: #2f6fed;
+  border-color: #2f6fed;
+}
+
+.direct-note {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border: 1px dashed #dfe3ec;
+  border-radius: 8px;
+  background: #fffdf5;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  resize: vertical;
+  min-height: 34px;
+}
+
+.direct-note:placeholder-shown {
+  background: transparent;
+}
+
+.direct-note:focus {
+  outline: none;
+  border-style: solid;
+  border-color: #2f6fed;
+  background: #fff;
 }
 
 .direct-metrics {

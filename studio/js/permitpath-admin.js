@@ -997,7 +997,8 @@
       if (body.getAttribute("data-panel") !== which && window[apiName]) {
         releaseBody(body);
         body.setAttribute("data-panel", which);
-        window[apiName].mount(body);
+        if (which === "direct") window[apiName].mount(body, db);
+        else window[apiName].mount(body);
       }
       return;
     }

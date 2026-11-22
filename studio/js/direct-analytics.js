@@ -15,6 +15,9 @@
   var error = "";
   var notice = "";
   var deletingId = "";
+  var db = null;
+  var watch = {};
+  var watchError = "";
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -149,6 +152,52 @@
   }
 
   // One tile with five stars; filled up to the highest star this user tapped.
+  function watchFor(installId) {
+    return watch[String(installId || "")] || { watching: false, note: "" };
+  }
+
+  function loadWatch() {
+    if (!db) {
+      watchError = "Watching and notes need Studio sign-in.";
+      return;
+    }
+    db.from("direct_app_watch").select("install_id,watching,note").then(function (res) {
+      if (res.error) {
+        watchError = /direct_app_watch|schema cache|does not exist/i.test(res.error.message || "")
+          ? "Run sql/081_direct_app_watch.sql in the STL Studio Supabase SQL editor to save watching and notes."
+          : (res.error.message || "Could not load watching and notes.");
+      } else {
+        watchError = "";
+        watch = {};
+        (res.data || []).forEach(function (item) {
+          watch[String(item.install_id)] = { watching: !!item.watching, note: String(item.note || "") };
+        });
+      }
+      render();
+    });
+  }
+
+  function saveWatch(installId, patch, rerender) {
+    var id = String(installId || "");
+    if (!id) return;
+    var before = watchFor(id);
+    var next = { watching: before.watching, note: before.note };
+    if ("watching" in patch) next.watching = !!patch.watching;
+    if ("note" in patch) next.note = String(patch.note || "").slice(0, 500);
+    watch[id] = next;
+    if (rerender) render();
+    if (!db) return;
+    db.from("direct_app_watch")
+      .upsert({ install_id: id, watching: next.watching, note: next.note, updated_at: new Date().toISOString() }, { onConflict: "user_id,install_id" })
+      .then(function (res) {
+        if (res.error) {
+          watch[id] = before;
+          error = "Could not save: " + (res.error.message || "unknown error");
+          render();
+        }
+      });
+  }
+
   function starPicked(row) {
     for (var n = 5; n >= 1; n--) {
       if (num(row["review_star_" + n])) return n;
@@ -249,6 +298,7 @@
       if (filter === "free") return !row.is_subscribed;
       if (filter === "rated") return starPicked(row) > 0;
       if (filter === "unrated") return starPicked(row) === 0;
+      if (filter === "watching") return watchFor(row.install_id).watching;
       return true;
     }).sort(function (a, b) {
       if (filter === "fleet") {
@@ -301,6 +351,36 @@
 
   function bindDeletes() {
     if (!root) return;
+    root.querySelectorAll("[data-watch]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-watch") || "";
+        saveWatch(id, { watching: !watchFor(id).watching }, true);
+      };
+    });
+    root.querySelectorAll("[data-note]").forEach(function (box) {
+      box.onchange = function () {
+        var id = box.getAttribute("data-note") || "";
+        if (box.value !== watchFor(id).note) saveWatch(id, { note: box.value }, false);
+      };
+      box.onkeydown = function (ev) {
+        if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); box.blur(); }
+      };
+    });
+    root.querySelectorAll("[data-copy-email]").forEach(function (btn) {
+      btn.onclick = function () {
+        var email = btn.getAttribute("data-copy-email") || "";
+        if (!email) return;
+        var done = function () {
+          btn.textContent = "Copied";
+          setTimeout(function () { btn.textContent = "Copy email"; }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(email).then(done, function () { window.prompt("Copy email", email); });
+        } else {
+          window.prompt("Copy email", email);
+        }
+      };
+    });
     root.querySelectorAll("[data-delete-install]").forEach(function (btn) {
       btn.onclick = function () {
         var id = btn.getAttribute("data-delete-install") || "";
@@ -436,6 +516,7 @@
       ["android", "Android"],
       ["subscribed", "Subscribed"],
       ["free", "Not subscribed"],
+      ["watching", "Watching"],
       ["fleet", "Fleet codes"],
       ["rated", "Rated"],
       ["unrated", "Not rated"]
@@ -606,6 +687,10 @@
     if (note) {
       if (notice) {
         note.textContent = notice;
+      } else if (watchError && filter === "watching") {
+        note.textContent = watchError;
+      } else if (filter === "watching" && !visible.length) {
+        note.textContent = "Click the eye on a user card to watch them. Watched users show here.";
       } else if (filter === "fleet" && fleetError) {
         note.textContent = fleetError + " The totals above still count every phone.";
       } else if (filter === "fleet") {
@@ -664,6 +749,13 @@
               "</div>" +
             "</div>" +
             '<div class="direct-card-actions">' +
+              '<button type="button" class="btn direct-eye' + (watchFor(id).watching ? " is-on" : "") + '" data-watch="' + esc(id) + '"' +
+                ' aria-pressed="' + (watchFor(id).watching ? "true" : "false") + '" title="' + (watchFor(id).watching ? "Watching — click to stop" : "Watch this user") + '">' +
+                '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.2" fill="currentColor"/></svg>' +
+              "</button>" +
+              (row.is_signed_in && row.user_email
+                ? '<button type="button" class="btn" data-copy-email="' + esc(row.user_email) + '" title="' + esc(row.user_email) + '">Copy email</button>'
+                : "") +
               '<button type="button" class="btn btn-danger" data-delete-install="' + esc(id) + '" data-delete-phone="' + esc(phone) + '"' +
                 (busy || deletingId ? " disabled" : "") + ">" +
                 (busy ? "Deleting…" : "Delete") +
@@ -706,6 +798,7 @@
             metric("Days open", num(row.days_opened)) +
             metric("Since first", ageLabel) +
           "</div>" +
+          '<textarea class="direct-note" rows="1" maxlength="500" placeholder="Add a note…" data-note="' + esc(id) + '">' + esc(watchFor(id).note) + "</textarea>" +
         "</article>"
       );
     }).join("");
@@ -723,6 +816,7 @@
     error = "";
     notice = "";
     render();
+    loadWatch();
     window.STLLocalApi.get("/api/direct-app-analytics")
       .then(function (res) {
         loading = false;
@@ -768,8 +862,11 @@
   }
 
   window.STLDirectAnalytics = {
-    mount: function (panel) {
+    mount: function (panel, client) {
       root = panel;
+      db = client || null;
+      watch = {};
+      watchError = "";
       rows = [];
       fleets = [];
       seats = [];
