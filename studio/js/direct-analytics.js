@@ -148,6 +148,24 @@
     return names[Number(ym.slice(5, 7)) - 1] + " " + ym.slice(0, 4);
   }
 
+  // One tile with five stars; filled up to the highest star this user tapped.
+  function starMetric(row) {
+    var picked = 0;
+    for (var n = 5; n >= 1; n--) {
+      if (num(row["review_star_" + n])) { picked = n; break; }
+    }
+    var stars = "";
+    for (var i = 1; i <= 5; i++) {
+      stars += '<span class="direct-star' + (i <= picked ? " is-on" : "") + '">★</span>';
+    }
+    return (
+      '<div class="direct-metric direct-metric-stars" aria-label="' + (picked ? picked + " of 5 stars" : "No star tapped") + '">' +
+        "<strong>" + stars + "</strong>" +
+        "<span>" + (picked ? picked + "★ tapped" : "No star tapped") + "</span>" +
+      "</div>"
+    );
+  }
+
   function metric(label, value) {
     var text = typeof value === "number" ? value.toLocaleString("en-US") : String(value);
     return (
@@ -641,6 +659,7 @@
             "</div>" +
           "</header>" +
           '<div class="direct-metrics">' +
+            starMetric(row) +
             metric("Routes built", num(row.routes_built)) +
             metric("Go taps", num(row.navigations_started)) +
             metric("Arrived", num(row.arrivals)) +
@@ -667,11 +686,6 @@
             metric("Routes shared", num(row.routes_shared)) +
             (num(row.review_prompt_shown) || num(row.review_submit) || num(row.review_not_now) || num(row.review_cancel) || num(row.review_bounce) || num(row.review_star_1) || num(row.review_star_2) || num(row.review_star_3) || num(row.review_star_4) || num(row.review_star_5)
               ? metric("Rate shown", num(row.review_prompt_shown)) +
-                metric("1★ tap", num(row.review_star_1)) +
-                metric("2★ tap", num(row.review_star_2)) +
-                metric("3★ tap", num(row.review_star_3)) +
-                metric("4★ tap", num(row.review_star_4)) +
-                metric("5★ tap", num(row.review_star_5)) +
                 metric("Rate submit", num(row.review_submit)) +
                 metric("Rate not now", num(row.review_not_now)) +
                 metric("Rate cancel", num(row.review_cancel)) +

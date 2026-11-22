@@ -1298,6 +1298,22 @@
   line-height: 1.15;
 }
 
+.direct-metric-stars strong {
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.direct-star {
+  display: inline !important;
+  margin: 0 !important;
+  font-size: 18px !important;
+  color: #d5dae3 !important;
+}
+
+.direct-star.is-on {
+  color: #f5b301 !important;
+}
+
 .direct-metric span {
   display: block;
   margin-top: 3px;
