@@ -33,7 +33,7 @@
   var periodsByUser = {};
   var loading = false;
   var deleting = false;
-  var tab = "overview";
+  var tab = "direct";
   var lastAccountsTab = "overview";
   var fleetTrialRequests = [];
   var userFilter = null;
