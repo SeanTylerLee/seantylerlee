@@ -6,7 +6,7 @@
     "calendar_day_notes", "calendar_hidden", "studio_settings", "business_expenses", "business_expense_skips",
     "business_incomes", "business_income_skips", "owner_draws", "inventory_items",
     "mileage_trips", "managed_apps", "app_logins", "app_issues", "app_promos", "app_releases", "studio_competitors", "haulpath_states", "haulpath_developer_notes",
-    "sop_guides", "support_tickets", "studio_inbox", "studio_websites", "studio_website_clicks", "studio_website_ignores", "email_lists", "email_contacts", "email_templates", "email_page_notes",
+    "support_tickets", "studio_inbox", "studio_websites", "studio_website_clicks", "studio_website_ignores", "email_lists", "email_contacts", "email_templates", "email_page_notes",
     "image_asset_notes", "image_asset_files", "studio_advertisements",
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
     "project_logins", "project_costs", "project_hour_entries", "project_issues",
@@ -37,19 +37,6 @@
       return v;
     }
     return "";
-  }
-
-  function stepsOf(guide) {
-    var raw = guide && guide.steps;
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw === "string") {
-      try {
-        var parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (err) {}
-      return raw.split(/\n/);
-    }
-    return [];
   }
 
   function payloadOf(doc) {
@@ -162,18 +149,6 @@
 
   function zipAt(pack, key) {
     return (pack && pack.zipIndex && pack.zipIndex[key]) || "";
-  }
-
-  function checksOf(guide) {
-    var raw = guide && guide.checks;
-    if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw;
-    if (typeof raw === "string") {
-      try {
-        var parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") return parsed;
-      } catch (err) {}
-    }
-    return {};
   }
 
   function table(pdf, headers, rows, widths, rightFrom) {
@@ -396,7 +371,6 @@
         ["Websites", String((t.studio_websites || []).length) + " · " + String((t.studio_website_clicks || []).length) + " clicks"],
         ["HaulPath Admin", String((t.haulpath_states || []).filter(haulpathFilled).length) + " states · " + String((t.haulpath_developer_notes || []).filter(function (row) { return row && String(row.body || "").trim(); }).length) + " developer notes"],
         ["TOS Accepted", String((pack.tosAcceptances || []).length) + " acceptances"],
-        ["SOP", String((t.sop_guides || []).length)],
         ["Image Assets", String((t.image_asset_files || []).length) + " files"],
         ["Advertisement", String((t.studio_advertisements || []).length) + " in the library"],
         ["Support", String((t.support_tickets || []).length)],
@@ -679,33 +653,6 @@
         ["Store ref", r.store_ref],
         ["Notes", r.notes]
       ]);
-    });
-  }
-
-  function sop(pdf, pack) {
-    openMenu(pdf, "SOP", "Open SOP. Add each guide and paste the steps, one per line.");
-    var rows = pack.tables.sop_guides || [];
-    if (!rows.length) { noRows(pdf, pack, "sop_guides"); return; }
-    rows.forEach(function (g, i) {
-      pdf.recordHead(g.title || "Untitled SOP", i + 1, rows.length);
-      filled(pdf, [
-        ["Category", g.category],
-        ["Summary", g.summary],
-        ["Link title", g.link_title],
-        ["Link URL", g.link_url],
-        ["Sort", g.sort_order],
-        ["Built-in key", g.seed_key]
-      ]);
-      pdf.heading("Steps (mark DONE if the box was checked)", 12);
-      var steps = stepsOf(g);
-      var checks = checksOf(g);
-      if (!steps.length) empty(pdf, "No steps.");
-      else {
-        pdf.bullets(steps.map(function (step, index) {
-          if (String(step).indexOf("## ") === 0) return step;
-          return (checks[String(index)] ? "DONE — " : "") + step;
-        }));
-      }
     });
   }
 
@@ -1591,7 +1538,6 @@
     websites(pdf, pack);
     haulpathStates(pdf, pack);
     promos(pdf, pack);
-    sop(pdf, pack);
     imageAssets(pdf, pack);
     advertisements(pdf, pack);
     skipPage(pdf, "Analytics", "Open that app's admin page, then Analytics. Loads from App Store Connect and Google Play once the Secrets/ keys are in place. Subscribed is a tab on that same screen.");

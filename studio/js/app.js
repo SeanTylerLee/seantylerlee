@@ -9,19 +9,11 @@
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Needs-you board and studio snapshot." },
-      { id: "bank", title: "Bank", icon: "building-columns-fill", tint: "#1F6B52", body: "Mercury cash, accounts, and activity." },
+      { id: "finances", title: "Finances", icon: "dollarsign-circle-fill", tint: "#1F6B52", body: "Bank, taxes, expenses, income, owner draw, inventory, and mileage." },
       { id: "business", title: "Business Info", icon: "building-2-fill", tint: "#12213D", body: "Company details will live here." },
       { id: "loginVault", title: "Login Vault", icon: "key-fill", tint: "#D98C2E", body: "Saved passwords will live here." },
       { id: "renewals", title: "Renewals", icon: "calendar-badge-clock", tint: "#8C59D9", body: "LLC filings, Apple Developer, domains, insurance." },
       { id: "calendar", title: "Calendar", icon: "calendar", tint: "#5973CC", body: "Month grid, day notes, and studio due dates." }
-    ],
-    [
-      { id: "taxes", title: "Taxes", icon: "percent", tint: "#2E5C7A", body: "Year P&L from income, expenses, and draws." },
-      { id: "expenses", title: "Expenses", icon: "creditcard-fill", tint: "#26856B", body: "Business costs by year." },
-      { id: "income", title: "Income", icon: "checkmark-seal-fill", tint: "#38B375", body: "LLC revenue by year." },
-      { id: "ownerDraws", title: "Owner Draw", icon: "banknote-fill", tint: "#B87A38", body: "Money you pulled from the LLC." },
-      { id: "inventory", title: "Inventory", icon: "shippingbox-fill", tint: "#7361D9", body: "Gear list: purchase date, cost, purpose, serial." },
-      { id: "mileage", title: "Mileage", icon: "car-fill", tint: "#3D6B99", body: "Business trips, miles, and standard mileage deduction." }
     ],
     [
       { id: "competitors", title: "Competitors", icon: "chart-bar-xaxis", tint: "#C45C26", body: "Your dates against other apps." },
@@ -48,13 +40,30 @@
     ]
   ];
 
+  // Pages that live under the Finances button as tabs (not in the sidebar).
+  var FINANCE_TABS = [
+    { id: "bank", title: "Bank", icon: "building-columns-fill", tint: "#1F6B52", body: "Mercury cash, accounts, and activity." },
+    { id: "taxes", title: "Taxes", icon: "percent", tint: "#2E5C7A", body: "Year P&L from income, expenses, and draws." },
+    { id: "expenses", title: "Expenses", icon: "creditcard-fill", tint: "#26856B", body: "Business costs by year." },
+    { id: "income", title: "Income", icon: "checkmark-seal-fill", tint: "#38B375", body: "LLC revenue by year." },
+    { id: "ownerDraws", title: "Owner Draw", icon: "banknote-fill", tint: "#B87A38", body: "Money you pulled from the LLC." },
+    { id: "inventory", title: "Inventory", icon: "shippingbox-fill", tint: "#7361D9", body: "Gear list: purchase date, cost, purpose, serial." },
+    { id: "mileage", title: "Mileage", icon: "car-fill", tint: "#3D6B99", body: "Business trips, miles, and standard mileage deduction." }
+  ];
+  var lastFinanceTab = "bank";
+
+  function isFinance(id) {
+    return FINANCE_TABS.some(function (t) { return t.id === id; });
+  }
+
   var SECTION_ALIASES = {
     apps: { id: "overview" },
     promos: { id: "overview" },
     appleAnalytics: { id: "overview" },
     subscribed: { id: "overview" },
     leads: { id: "clients" },
-    sop: { id: "overview" }
+    sop: { id: "overview" },
+    finances: { id: "bank" }
   };
 
   var SETTINGS_SECTION = {
@@ -67,9 +76,10 @@
 
   var SECTIONS = NAV_GROUPS.reduce(function (all, group) {
     return all.concat(group);
-  }, []).concat([SETTINGS_SECTION]);
+  }, []).filter(function (s) { return s.id !== "finances"; }).concat(FINANCE_TABS, [SETTINGS_SECTION]);
 
   function resolveSection(id) {
+    if (id === "finances") return lastFinanceTab;
     var alias = SECTION_ALIASES[id];
     return alias ? alias.id : id;
   }
@@ -330,6 +340,7 @@
     }
     var openSection = "";
     try { openSection = new URLSearchParams(window.location.search).get("open") || ""; } catch (err) {}
+    openSection = openSection ? resolveSection(openSection) : "";
     if (openSection && SECTIONS.some(function (s) { return s.id === openSection; })) {
       currentSection = openSection;
     }
@@ -366,7 +377,8 @@
         var btn = document.createElement("button");
         btn.type = "button";
         btn.setAttribute("data-section", section.id);
-        btn.className = "sidebar-item" + (section.id === currentSection ? " is-on" : "");
+        var on = section.id === currentSection || (section.id === "finances" && isFinance(currentSection));
+        btn.className = "sidebar-item" + (on ? " is-on" : "");
         btn.innerHTML =
           '<span class="sidebar-icon" style="background:linear-gradient(135deg,' + section.tint + ',' + section.tint + "bf)\">" +
           '<img src="images/sidebar/' + section.icon + '.png" alt="" />' +
@@ -374,7 +386,7 @@
           "<span class=\"sidebar-label\">" + section.title + "</span>" +
           (section.id === "inbox" && inboxUnread > 0 ? '<span class="sidebar-dot" aria-hidden="true"></span>' : "");
         btn.addEventListener("click", function () {
-          currentSection = section.id;
+          currentSection = section.id === "finances" ? lastFinanceTab : section.id;
           closePhoneMenu();
           renderNav();
           renderPanel();
@@ -405,8 +417,41 @@
 
     var titleEl = document.querySelector(".topbar-title");
     var current = SECTIONS.filter(function (s) { return s.id === currentSection; })[0];
-    if (titleEl && current) titleEl.textContent = current.title;
+    if (titleEl && current) titleEl.textContent = isFinance(current.id) ? "Finances" : current.title;
     paintInboxDot();
+  }
+
+  var financeBar = null;
+
+  function paintFinanceBar(sectionId) {
+    var on = isFinance(sectionId);
+    app.classList.toggle("is-finances", on);
+    if (!pagesEl) return;
+    if (!financeBar) {
+      financeBar = document.createElement("div");
+      financeBar.className = "finance-tabs";
+      FINANCE_TABS.forEach(function (t) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "ops-pill";
+        b.setAttribute("data-finance-tab", t.id);
+        b.textContent = t.title;
+        b.addEventListener("click", function () {
+          if (currentSection === t.id) return;
+          currentSection = t.id;
+          renderNav();
+          renderPanel();
+        });
+        financeBar.appendChild(b);
+      });
+    }
+    if (financeBar.parentNode !== pagesEl || pagesEl.firstChild !== financeBar) {
+      pagesEl.insertBefore(financeBar, pagesEl.firstChild);
+    }
+    financeBar.classList.toggle("hidden", !on);
+    financeBar.querySelectorAll("[data-finance-tab]").forEach(function (b) {
+      b.classList.toggle("is-on", b.getAttribute("data-finance-tab") === sectionId);
+    });
   }
 
   function renderPanel() {
@@ -415,6 +460,8 @@
       app.classList.remove(PAGE_MODE[id]);
     });
     if (PAGE_MODE[section.id]) app.classList.add(PAGE_MODE[section.id]);
+    if (isFinance(section.id)) lastFinanceTab = section.id;
+    paintFinanceBar(section.id);
 
     Object.keys(pageHosts).forEach(function (id) {
       pageHosts[id].classList.toggle("hidden", id !== section.id);
@@ -545,6 +592,7 @@
 
   window.STLApp = {
     navigate: function (sectionId, opts) {
+      if (sectionId === "finances") sectionId = lastFinanceTab;
       var alias = SECTION_ALIASES[sectionId];
       var tab = opts && opts.tab;
       if (alias) {

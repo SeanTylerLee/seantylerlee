@@ -26,17 +26,11 @@
 
   var SECTION_CHOICES = [
     { id: "overview", title: "Overview" },
-    { id: "bank", title: "Bank" },
+    { id: "finances", title: "Finances" },
     { id: "business", title: "Business Info" },
     { id: "loginVault", title: "Login Vault" },
     { id: "renewals", title: "Renewals" },
     { id: "calendar", title: "Calendar" },
-    { id: "taxes", title: "Taxes" },
-    { id: "expenses", title: "Expenses" },
-    { id: "income", title: "Income" },
-    { id: "ownerDraws", title: "Owner Draw" },
-    { id: "inventory", title: "Inventory" },
-    { id: "mileage", title: "Mileage" },
     { id: "competitors", title: "Competitors" },
     { id: "websites", title: "Websites" },
     { id: "imageAssets", title: "Image Assets" },
@@ -58,7 +52,15 @@
     promos: "overview",
     appleAnalytics: "overview",
     subscribed: "overview",
-    leads: "clients"
+    leads: "clients",
+    sop: "overview",
+    bank: "finances",
+    taxes: "finances",
+    expenses: "finances",
+    income: "finances",
+    ownerDraws: "finances",
+    inventory: "finances",
+    mileage: "finances"
   };
 
   function canonicalSection(id) {

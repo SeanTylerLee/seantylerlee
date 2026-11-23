@@ -1207,3 +1207,33 @@ html.is-phone .app.is-sop .main,
 html.is-phone .app.is-inbox .main {
   overflow: auto;
 }
+
+/* Finances: one sidebar button, tabs for Bank, Taxes, Expenses, Income, Owner Draw, Inventory, Mileage. */
+.finance-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 12px 24px 4px;
+  background: var(--window);
+}
+
+.finance-tabs.hidden {
+  display: none;
+}
+
+.app.is-finances .main > .panel {
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+html.is-phone .finance-tabs {
+  padding: 10px 12px 2px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+html.is-phone .finance-tabs .ops-pill {
+  flex: 0 0 auto;
+}
