@@ -1742,3 +1742,95 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Direct App Analytics: phone ---------- */
+
+.direct-more {
+  margin-top: 8px;
+}
+
+.direct-more-toggle {
+  display: none;
+  width: 100%;
+  margin-top: 8px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--chip);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .direct-panel { padding: 8px 0 32px; }
+  .direct-section-title { margin: 22px 0 10px; font-size: 17px; }
+  .direct-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .direct-hero .direct-stat { padding: 12px; }
+  .direct-panel .tos-subtabs { flex-wrap: nowrap; overflow-x: auto; margin: 0 0 12px; padding: 2px 0 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .direct-panel .tos-subtabs::-webkit-scrollbar { display: none; }
+  .direct-panel .tos-subtab { flex: 0 0 auto; padding: 9px 14px; font-size: 13px; }
+  .direct-cal { padding: 12px 10px; }
+  .direct-cal-grid { gap: 4px; }
+  .direct-cal-day { min-height: 48px; padding: 5px 4px; border-radius: 9px; text-align: center; }
+  .direct-cal-num { font-size: 13px; margin-bottom: 3px; }
+  .direct-cal-hl { display: inline-block; width: 6px; height: 6px; margin: 0 1px; border-radius: 50%; background: currentColor; font-size: 0; line-height: 0; overflow: hidden; vertical-align: middle; }
+  .direct-cal-dow { font-size: 11px; text-align: center; }
+  .direct-cal-legend { font-size: 11px; }
+  .direct-boards, .direct-lines-wide { grid-template-columns: 1fr; }
+  .direct-panel-block { padding: 12px 14px 4px; }
+  .direct-lines-wide { padding: 4px 14px; }
+  .direct-lines-wide .direct-line:nth-child(2) { border-top: 1px solid rgba(0, 0, 0, 0.06); }
+  .direct-line { padding: 11px 0; font-size: 14px; }
+  .direct-versions { padding: 10px; gap: 8px; }
+  .direct-version { min-width: 0; flex: 1 1 calc(50% - 8px); padding: 10px 12px; }
+  .direct-state-table { font-size: 14px; max-width: none; }
+  .direct-state-table th, .direct-state-table td { padding: 9px 6px; }
+  .direct-card { padding: 12px 12px 14px; border-radius: 12px; }
+  .direct-card-head { flex-direction: column; gap: 10px; }
+  .direct-card-actions { width: 100%; display: flex; gap: 8px; }
+  .direct-card-actions .btn { flex: 1 1 0; min-height: 40px; justify-content: center; }
+  .direct-card-actions .direct-eye { flex: 0 0 48px; }
+  .direct-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .direct-metric { padding: 8px; }
+  .direct-more { display: none; }
+  .direct-card.is-expanded .direct-more { display: grid; }
+  .direct-more-toggle { display: block; }
+  .direct-note { font-size: 16px; }
+}
+
+html.is-phone .direct-panel { padding: 8px 0 32px; }
+html.is-phone .direct-section-title { margin: 22px 0 10px; font-size: 17px; }
+html.is-phone .direct-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+html.is-phone .direct-hero .direct-stat { padding: 12px; }
+html.is-phone .direct-panel .tos-subtabs { flex-wrap: nowrap; overflow-x: auto; margin: 0 0 12px; padding: 2px 0 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html.is-phone .direct-panel .tos-subtabs::-webkit-scrollbar { display: none; }
+html.is-phone .direct-panel .tos-subtab { flex: 0 0 auto; padding: 9px 14px; font-size: 13px; }
+html.is-phone .direct-cal { padding: 12px 10px; }
+html.is-phone .direct-cal-grid { gap: 4px; }
+html.is-phone .direct-cal-day { min-height: 48px; padding: 5px 4px; border-radius: 9px; text-align: center; }
+html.is-phone .direct-cal-num { font-size: 13px; margin-bottom: 3px; }
+html.is-phone .direct-cal-hl { display: inline-block; width: 6px; height: 6px; margin: 0 1px; border-radius: 50%; background: currentColor; font-size: 0; line-height: 0; overflow: hidden; vertical-align: middle; }
+html.is-phone .direct-cal-dow { font-size: 11px; text-align: center; }
+html.is-phone .direct-cal-legend { font-size: 11px; }
+html.is-phone .direct-boards, html.is-phone .direct-lines-wide { grid-template-columns: 1fr; }
+html.is-phone .direct-panel-block { padding: 12px 14px 4px; }
+html.is-phone .direct-lines-wide { padding: 4px 14px; }
+html.is-phone .direct-lines-wide .direct-line:nth-child(2) { border-top: 1px solid rgba(0, 0, 0, 0.06); }
+html.is-phone .direct-line { padding: 11px 0; font-size: 14px; }
+html.is-phone .direct-versions { padding: 10px; gap: 8px; }
+html.is-phone .direct-version { min-width: 0; flex: 1 1 calc(50% - 8px); padding: 10px 12px; }
+html.is-phone .direct-state-table { font-size: 14px; max-width: none; }
+html.is-phone .direct-state-table th, html.is-phone .direct-state-table td { padding: 9px 6px; }
+html.is-phone .direct-card { padding: 12px 12px 14px; border-radius: 12px; }
+html.is-phone .direct-card-head { flex-direction: column; gap: 10px; }
+html.is-phone .direct-card-actions { width: 100%; display: flex; gap: 8px; }
+html.is-phone .direct-card-actions .btn { flex: 1 1 0; min-height: 40px; justify-content: center; }
+html.is-phone .direct-card-actions .direct-eye { flex: 0 0 48px; }
+html.is-phone .direct-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+html.is-phone .direct-metric { padding: 8px; }
+html.is-phone .direct-more { display: none; }
+html.is-phone .direct-card.is-expanded .direct-more { display: grid; }
+html.is-phone .direct-more-toggle { display: block; }
+html.is-phone .direct-note { font-size: 16px; }

@@ -362,6 +362,14 @@
 
   function bindDeletes() {
     if (!root) return;
+    root.querySelectorAll("[data-more-toggle]").forEach(function (btn) {
+      btn.onclick = function () {
+        var card = btn.closest(".direct-card");
+        if (!card) return;
+        var open = card.classList.toggle("is-expanded");
+        btn.textContent = open ? "Show fewer numbers" : "Show all numbers";
+      };
+    });
     root.querySelectorAll("[data-watch]").forEach(function (btn) {
       btn.onclick = function () {
         var id = btn.getAttribute("data-watch") || "";
@@ -790,6 +798,9 @@
             metric("Arrived", num(row.arrivals)) +
             metric("Miles", Math.round(num(row.miles_driven))) +
             metric("Off line", num(row.off_route_trips)) +
+          "</div>" +
+          '<button type="button" class="direct-more-toggle" data-more-toggle>Show all numbers</button>' +
+          '<div class="direct-metrics direct-more">' +
             metric("Official Go", num(row.navigations_official)) +
             metric("Built Go", num(row.navigations_built)) +
             metric("Paywall", num(row.paywall_shown)) +

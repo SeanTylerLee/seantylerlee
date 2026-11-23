@@ -3122,3 +3122,17 @@ html.is-phone .app.is-inbox .inbox-msgs .inbox-list {
 html.is-phone .app.is-inbox .main {
   overflow: hidden;
 }
+
+/* Permit Path Admin header and tabs on a phone: one row that scrolls sideways */
+@media (max-width: 720px) {
+  .app.is-permitPathAdmin .pp-admin-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 0 12px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .app.is-permitPathAdmin .pp-admin-tabs::-webkit-scrollbar { display: none; }
+  .app.is-permitPathAdmin .pp-admin-tabs > * { flex: 0 0 auto; }
+  .app.is-permitPathAdmin .pp-admin-tabs .ops-pill { padding: 8px 12px; font-size: 13px; min-height: 34px; }
+  .app.is-permitPathAdmin .ops-header p { display: none; }
+}
+html.is-phone .app.is-permitPathAdmin .pp-admin-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 0 12px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html.is-phone .app.is-permitPathAdmin .pp-admin-tabs::-webkit-scrollbar { display: none; }
+html.is-phone .app.is-permitPathAdmin .pp-admin-tabs > * { flex: 0 0 auto; }
+html.is-phone .app.is-permitPathAdmin .pp-admin-tabs .ops-pill { padding: 8px 12px; font-size: 13px; min-height: 34px; }
+html.is-phone .app.is-permitPathAdmin .ops-header p { display: none; }
