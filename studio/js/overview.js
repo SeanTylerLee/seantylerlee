@@ -12,8 +12,6 @@
   var projects = [];
   var hours = [];
   var issues = [];
-  var apps = [];
-  var appIssues = [];
   var inboxUnread = 0;
   var supportOpen = 0;
   var pc4hPendingReviews = 0;
@@ -24,10 +22,10 @@
   var draws = [];
   var reservePercent = 30;
   var dayNotes = [];
-  var comps = [];
   var pp = { loading: true, rows: [], days: [], error: "" };
   var bank = { loading: true, snapshot: null, error: "" };
   var baseLoaded = false;
+  var web = { loading: true, sites: [], rows: [], ignores: [], error: "" };
   var FLEET_SEEN_KEY = "stl-fleet-signup-seen-at";
 
   function M() { return window.STLMoney; }
@@ -277,7 +275,7 @@
       '<div class="ov-hello">' +
         "<div><h1>" + hello + "</h1>" +
         '<p class="ov-hello-date">' + M().esc(dateText) + "</p></div>" +
-        '<span class="ov-count ' + (count === 0 ? "clear" : "busy") + '">' +
+        '<span class="ov-hello-status ' + (count === 0 ? "clear" : "busy") + '">' +
           (count === 0 ? "All clear" : count + (count === 1 ? " thing needs you" : " things need you")) +
         "</span>" +
       "</div>"
@@ -335,6 +333,81 @@
     return html;
   }
 
+  function webIgnored(row) {
+    var visit = String(row.visit_id || "").trim();
+    var ip = String(row.ip_address || "").trim();
+    return web.ignores.some(function (item) {
+      var val = String(item.value || "").trim();
+      if (!val) return false;
+      if (item.kind === "ip") return ip === val;
+      return visit === val || (visit && visit.indexOf(val) === 0);
+    });
+  }
+
+  function websitesHtml() {
+    var html = '<div class="ov-card">' + cardHead("Websites today", "websites", "Websites");
+    if (web.loading) return html + '<p class="ov-note">Loading…</p></div>';
+    if (web.error) return html + '<p class="ov-note">' + M().esc(web.error) + "</p></div>";
+    var byHost = {};
+    var allVisits = {};
+    var total = 0;
+    web.rows.forEach(function (row) {
+      if (row.kind === "click" || webIgnored(row)) return;
+      var host = String(row.host || "").toLowerCase();
+      if (!byHost[host]) byHost[host] = { views: 0, visits: {} };
+      byHost[host].views += 1;
+      if (row.visit_id) { byHost[host].visits[row.visit_id] = true; allVisits[row.visit_id] = true; }
+      total += 1;
+    });
+    var lines = web.sites.map(function (site) {
+      var host = String(site.domain || "").toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
+      var pack = byHost[host] || { views: 0, visits: {} };
+      return { name: site.name || host, views: pack.views, visitors: Object.keys(pack.visits).length };
+    }).sort(function (a, b) { return b.views - a.views || a.name.localeCompare(b.name); });
+    html +=
+      '<div class="ov-cash-row" data-go="websites"><span class="ov-cash">' + total.toLocaleString("en-US") + '</span>' +
+      '<span class="ov-cash-note">page views · ' + Object.keys(allVisits).length.toLocaleString("en-US") + " visitors</span></div>" +
+      '<div class="ov-sites">' +
+        lines.map(function (line) {
+          return '<div class="ov-site" data-go="websites"><span>' + M().esc(line.name) + "</span>" +
+            "<b>" + line.views.toLocaleString("en-US") + "</b>" +
+            "<i>" + line.visitors.toLocaleString("en-US") + (line.visitors === 1 ? " visitor" : " visitors") + "</i></div>";
+        }).join("") +
+      "</div>";
+    return html + "</div>";
+  }
+
+  function loadWebsites() {
+    var midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    var since = midnight.toISOString();
+    var PAGE = 1000;
+    var all = [];
+    function page(from) {
+      return db.from("studio_website_clicks").select("host,kind,visit_id,ip_address")
+        .gte("clicked_at", since).order("clicked_at", { ascending: true }).range(from, from + PAGE - 1)
+        .then(function (res) {
+          if (res.error) throw res.error;
+          var got = res.data || [];
+          all = all.concat(got);
+          if (got.length === PAGE && from < 50000) return page(from + PAGE);
+          return all;
+        });
+    }
+    web = { loading: true, sites: [], rows: [], ignores: [], error: "" };
+    Promise.all([
+      safe("studio_websites", "id,name,domain,sort_order"),
+      safe("studio_website_ignores", "kind,value"),
+      page(0)
+    ]).then(function (pair) {
+      web = { loading: false, sites: (pair[0] || []).sort(function (a, b) { return (a.sort_order || 0) - (b.sort_order || 0); }), ignores: pair[1] || [], rows: pair[2] || [], error: "" };
+      render();
+    }).catch(function (err) {
+      web = { loading: false, sites: [], rows: [], ignores: [], error: (err && err.message) || "Could not load website views." };
+      render();
+    });
+  }
+
   function moneyHtml() {
     var year = M().currentYear();
     var month = new Date().getMonth();
@@ -373,6 +446,7 @@
           '<span data-go="taxes">Set aside for taxes ' + M().esc(M().money(reserve)) + " (" + reservePercent + "%)</span>" +
           '<span data-go="ownerDraws">Owner draws ' + M().esc(M().money(drawn)) + "</span>" +
           (owed > 0 ? '<span data-go="billing" class="warn">Clients owe ' + M().esc(M().money(owed)) + "</span>" : "") +
+          (renewalsDueThisMonth().length ? '<span data-go="renewals">Renewals this month ' + M().esc(M().money(renewalsDueMonthTotal())) + "</span>" : "") +
         "</div>" +
       "</div>"
     );
@@ -404,42 +478,14 @@
       add(note.day, body.split(/\n/)[0].slice(0, 90), "Calendar note", "#5973CC", "calendar");
     });
     items.sort(function (a, b) { return a.d - b.d || a.title.localeCompare(b.title); });
-    var html = '<div class="ov-card">' + cardHead("Coming up · next 2 weeks", "calendar", "Calendar");
-    if (!items.length) return html + '<p class="ov-note" style="margin-top:8px">Nothing on the calendar for the next two weeks.</p></div>';
+    var html = '<div class="ov-card">' + cardHead("Coming up", "calendar", "Calendar");
+    if (!items.length) return html + '<p class="ov-note">Nothing in the next two weeks.</p></div>';
     items.slice(0, 12).forEach(function (it) {
       var when = it.d === 0 ? "Today" : it.d === 1 ? "Tomorrow" : M().formatDate ? M().formatDate(it.iso) : it.iso;
       html += row(it.title, when + " · " + it.detail, it.tint, it.goTo);
     });
     if (items.length > 12) html += '<p class="ov-note">' + (items.length - 12) + " more on the calendar.</p>";
     return html + "</div>";
-  }
-
-  function competitorsHtml() {
-    var shown = comps.filter(function (c) { return c.is_self || !(c.details && c.details.hidden); });
-    if (!shown.length) return "";
-    shown.sort(function (a, b) { return (b.is_self ? 1 : 0) - (a.is_self ? 1 : 0); });
-    var oldest = "";
-    var lines = shown.map(function (c) {
-      var d = c.details || {};
-      if (d.ratings_checked_on && (!oldest || d.ratings_checked_on < oldest)) oldest = d.ratings_checked_on;
-      var rating = Number(d.ios_rating);
-      var price = Number(d.price_monthly);
-      return (
-        '<div class="ov-comp' + (c.is_self ? " is-you" : "") + '">' +
-          "<span>" + M().esc(c.app_name || c.company_name || "App") + "</span>" +
-          "<span>" + (Number.isFinite(rating) && d.ios_rating ? '<b class="ov-star">★</b> ' + rating.toFixed(1) + (d.ios_rating_count ? ' <i>(' + M().esc(d.ios_rating_count) + ")</i>" : "") : "—") + "</span>" +
-          "<span>" + (Number.isFinite(price) && d.price_monthly ? "$" + price.toFixed(2) + "/mo" : "—") + "</span>" +
-        "</div>"
-      );
-    }).join("");
-    var stale = oldest && daysUntil(oldest) < -60;
-    return (
-      '<div class="ov-card">' + cardHead("Competitors", "competitors", "Compare") +
-        '<div class="ov-comp ov-comp-head"><span>App</span><span>App Store</span><span>Monthly</span></div>' +
-        lines +
-        (stale ? '<p class="ov-note warn" style="margin-top:8px">Prices and ratings were last checked ' + M().esc(M().formatDate ? M().formatDate(oldest) : oldest) + ". Time to recheck.</p>" : "") +
-      "</div>"
-    );
   }
 
   function shell() {
@@ -468,49 +514,28 @@
     var count = needsYouCount();
     var html = greetingHtml();
 
+    var kpi = function (cls, label, value, alert, go, extra) {
+      return '<button type="button" class="ov-kpi ' + cls + (alert ? " has-alert" : "") + '" data-go="' + go + '"' + (extra || "") + ">" +
+        '<span class="k">' + M().esc(label) + '</span><span class="v">' + M().esc(value) + "</span></button>";
+    };
     html +=
-      '<div class="ov-card">' +
-        '<div class="ov-chips ov-chips-ops">' +
-          '<button type="button" class="ov-chip inbox' + (inboxUnread ? " has-alert" : "") + '" data-go="inbox"><span class="k">Messages unread</span><span class="v">' + inboxUnread + "</span></button>" +
-          '<button type="button" class="ov-chip support' + (supportOpen ? " has-alert" : "") + '" data-go="support"><span class="k">Support open</span><span class="v">' + supportOpen + "</span></button>" +
-          '<button type="button" class="ov-chip pc4h' + (pc4hPendingReviews ? " has-alert" : "") + '" data-go="pc4hAdmin" data-pc4h-reviews="1"><span class="k">PC4H reviews waiting</span><span class="v">' + pc4hPendingReviews + "</span></button>" +
-          '<button type="button" class="ov-chip fleet' + (newFleetSignups().length ? " has-alert" : "") + '" data-go="permitPathAdmin" data-fleet-signups="1"><span class="k">New fleet signups</span><span class="v">' + newFleetSignups().length + "</span></button>" +
-          '<button type="button" class="ov-chip backup' + (backupStale() ? " has-alert" : "") + '" data-go="settings"><span class="k">Backup Log</span><span class="v">' + M().esc(backupLabel()) + "</span></button>" +
-        "</div>" +
+      '<div class="ov-kpis">' +
+        kpi("inbox", "Unread messages", inboxUnread, inboxUnread > 0, "inbox") +
+        kpi("support", "Open support", supportOpen, supportOpen > 0, "support") +
+        kpi("pc4h", "PC4H reviews", pc4hPendingReviews, pc4hPendingReviews > 0, "pc4hAdmin", ' data-pc4h-reviews="1"') +
+        kpi("fleet", "New fleet signups", newFleetSignups().length, newFleetSignups().length > 0, "permitPathAdmin", ' data-fleet-signups="1"') +
+        kpi("backup", "Last backup", backupLabel(), backupStale(), "settings") +
       "</div>";
 
     html += '<div class="ov-grid"><div class="ov-col">';
-    var dueMonth = renewalsDueThisMonth();
-    if (dueMonth.length) {
-      html +=
-        '<div class="ov-card">' +
-          '<div style="display:flex;align-items:baseline;gap:10px">' +
-            "<h2>Expected renewals · " + MONTHS[selectedMonth - 1] + "</h2>" +
-            '<span class="ov-count busy" style="margin-left:auto">' + M().money(renewalsDueMonthTotal()) + "</span>" +
-          "</div>" +
-          '<p class="ov-note" style="margin-top:8px">From Renewals with an amount set. Log as expense when you pay so the P&amp;L stays accurate.</p>';
-      dueMonth.forEach(function (item) {
-        html += row(
-          item.title || "Renewal",
-          M().money(item.amount) + " · due " + (item.due_date || "—") + (item.logged_expense_id ? " · logged" : " · not logged"),
-          item.logged_expense_id ? "#38B375" : "#8C59D9",
-          "renewals"
-        );
-      });
-      html += "</div>";
-    }
-
     html +=
       '<div class="ov-card">' +
-        '<div style="display:flex;align-items:baseline;gap:10px">' +
-          "<h2>Needs you today</h2>" +
-          '<span class="ov-count ' + (count === 0 ? "clear" : "busy") + '" style="margin-left:auto">' +
-            (count === 0 ? "Clear" : String(count)) +
-          "</span>" +
+        '<div class="ov-card-head"><h2>Needs you today</h2>' +
+          '<span class="ov-count ' + (count === 0 ? "clear" : "busy") + '">' + (count === 0 ? "Clear" : String(count)) + "</span>" +
         "</div>";
 
     if (count === 0) {
-      html += '<p class="ov-note" style="margin-top:10px">Nothing overdue, waiting, or unbilled. Enjoy it.</p>';
+      html += '<p class="ov-note">Nothing overdue, waiting, or unbilled. Enjoy it.</p>';
     } else {
       if (inboxUnread > 0) {
         html += '<div class="ov-section"><h3>Messages</h3>';
@@ -663,62 +688,7 @@
     }
     html += "</div>";
     html += upcomingHtml();
-    html += '</div><div class="ov-col">' + pulseHtml() + moneyHtml() + competitorsHtml() + "</div></div>";
-
-    var ranked = apps.slice().sort(function (a, b) {
-      var rank = { "In Development": 0, Live: 1, Paused: 2, Idea: 3, Archived: 4 };
-      var ra = rank[a.status] != null ? rank[a.status] : 9;
-      var rb = rank[b.status] != null ? rank[b.status] : 9;
-      if (ra !== rb) return ra - rb;
-      return String(a.name || "").localeCompare(String(b.name || ""));
-    });
-    if (ranked.length) {
-      html += '<div class="ov-apps">';
-      ranked.forEach(function (app) {
-        var openCount = appIssues.filter(function (i) {
-          return i.app_id === app.id && (i.status === "open" || i.status === "inProgress");
-        }).length;
-        var hex = String(app.accent_hex || "1A70EB").replace(/^#/, "");
-        var platforms = Array.isArray(app.platforms) ? app.platforms.join(" · ") : "";
-        var mark = app._iconUrl
-          ? '<img class="ov-app-mark" src="' + M().esc(app._iconUrl) + '" alt="" />'
-          : '<span class="ov-app-mark" style="background:#' + M().esc(hex) + '">' +
-            M().esc((app.name || "?").charAt(0).toUpperCase()) +
-            "</span>";
-        var adminSection = window.STLAppPanels && window.STLAppPanels.sectionFor
-          ? window.STLAppPanels.sectionFor(app)
-          : "";
-        html +=
-          '<button type="button" class="ov-app"' +
-            (adminSection ? ' data-go="' + adminSection + '" data-studio-pane="app"' : "") +
-          ">" +
-            '<div class="ov-app-head">' +
-              mark +
-              "<div>" +
-                "<h3>" + M().esc(app.name || "Untitled app") + "</h3>" +
-                '<span class="apps-badge">' + M().esc(app.status || "Idea") + "</span>" +
-              "</div>" +
-            "</div>" +
-            (app.summary ? '<p class="sum">' + M().esc(app.summary) + "</p>" : "") +
-            '<div class="ov-app-foot">' +
-              (platforms ? "<span>" + M().esc(platforms) + "</span>" : "") +
-              (openCount ? '<span class="issue">' + openCount + " open</span>" : "") +
-            "</div>" +
-          "</button>";
-      });
-      html += "</div>";
-    }
-
-    var liveCount = apps.filter(function (a) { return a.status === "Live"; }).length;
-    var devCount = apps.filter(function (a) { return a.status === "In Development"; }).length;
-    html +=
-      '<div class="ov-card">' +
-        '<div class="ov-totals">' +
-          '<div class="ov-total"><span class="k">Apps</span><span class="v">' + apps.length + "</span></div>" +
-          '<div class="ov-total"><span class="k">Live</span><span class="v">' + liveCount + "</span></div>" +
-          '<div class="ov-total"><span class="k">In Development</span><span class="v">' + devCount + "</span></div>" +
-        "</div>" +
-      "</div>";
+    html += '</div><div class="ov-col">' + pulseHtml() + websitesHtml() + moneyHtml() + "</div></div>";
 
     el("body").innerHTML = html;
     bind();
@@ -840,8 +810,8 @@
       safe("client_projects"),
       safe("project_hour_entries"),
       safe("project_issues"),
-      safe("managed_apps"),
-      safe("app_issues"),
+      Promise.resolve([]),
+      Promise.resolve([]),
       safe("studio_inbox", "id,status"),
       safe("support_tickets", "id,status"),
       loadPc4hPendingReviews(),
@@ -855,8 +825,7 @@
       db.from("studio_settings").select("value").eq("key", "tax_reserve_percent").maybeSingle().then(function (res) {
         return res.data ? res.data.value : null;
       }).catch(function () { return null; }),
-      safe("calendar_day_notes", "id,day,body"),
-      safe("studio_competitors", "is_self,app_name,company_name,details,created_at")
+      safe("calendar_day_notes", "id,day,body")
     ]).then(function (pair) {
       baseLoaded = true;
       incomes = pair[12] || [];
@@ -864,14 +833,11 @@
       draws = pair[14] || [];
       if (pair[15] != null && Number.isFinite(Number(pair[15]))) reservePercent = Number(pair[15]);
       dayNotes = pair[16] || [];
-      comps = (pair[17] || []).sort(function (a, b) { return String(a.created_at) < String(b.created_at) ? -1 : 1; });
       renewals = pair[0];
       documents = pair[1];
       projects = pair[2];
       hours = pair[3];
       issues = pair[4];
-      apps = pair[5];
-      appIssues = pair[6];
       inboxUnread = (pair[7] || []).filter(function (row) { return row.status === "unread"; }).length;
       supportOpen = (pair[8] || []).filter(function (row) {
         return row.status === "open" || row.status === "inProgress" || row.status === "waiting";
@@ -879,29 +845,8 @@
       pc4hPendingReviews = Number(pair[9]) || 0;
       fleetSignups = pair[10] || [];
       backupAt = pair[11] || "";
-      var paths = [];
-      apps.forEach(function (app) {
-        if (app.icon_path && paths.indexOf(app.icon_path) < 0) paths.push(app.icon_path);
-      });
-      if (!paths.length) {
-        showMsg("");
-        render();
-        return;
-      }
-      return db.storage.from("app-icons").createSignedUrls(paths, 3600).then(function (res) {
-        var map = {};
-        (res.data || []).forEach(function (row) {
-          if (row && row.path && row.signedUrl) map[row.path] = row.signedUrl;
-        });
-        apps.forEach(function (app) {
-          app._iconUrl = map[app.icon_path] || "";
-        });
-        showMsg("");
-        render();
-      }).catch(function () {
-        showMsg("");
-        render();
-      });
+      showMsg("");
+      render();
     }).catch(function (err) {
       baseLoaded = true;
       showMsg((err && err.message) || "Could not load overview.", false);
@@ -948,6 +893,7 @@
       baseLoaded = false;
       load();
       loadSlow();
+      loadWebsites();
     },
     unmount: function (panel) {
       if (panel) panel.classList.remove("overview-wide");
