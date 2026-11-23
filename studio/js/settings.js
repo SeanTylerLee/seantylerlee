@@ -41,9 +41,7 @@
     { id: "inbox", title: "Messages" },
     { id: "emails", title: "Email Lists" },
     { id: "notifications", title: "App Notices" },
-    { id: "clients", title: "Clients" },
-    { id: "projects", title: "Projects" },
-    { id: "billing", title: "Billing" },
+    { id: "clientWork", title: "Clients" },
     { id: "notes", title: "Notes" }
   ];
 
@@ -52,7 +50,10 @@
     promos: "overview",
     appleAnalytics: "overview",
     subscribed: "overview",
-    leads: "clients",
+    leads: "clientWork",
+    clients: "clientWork",
+    projects: "clientWork",
+    billing: "clientWork",
     sop: "overview",
     bank: "finances",
     taxes: "finances",

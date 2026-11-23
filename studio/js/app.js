@@ -31,29 +31,40 @@
       { id: "pc4hAdmin", title: "PC4H Admin", icon: "car-fill", tint: "#0F1A2E", body: "Pilot Car 4 Hire pilots, listings, handoffs, and emails." }
     ],
     [
-      { id: "clients", title: "Clients", icon: "person-2-fill", tint: "#338CBF", body: "People and companies you bill." },
-      { id: "projects", title: "Projects", icon: "hammer-fill", tint: "#7361D9", body: "Client jobs, logins, costs, hours, issues, and handoff." },
-      { id: "billing", title: "Billing", icon: "doc-text-fill", tint: "#F29E2E", body: "Quotes, invoices, and the price book." }
+      { id: "clientWork", title: "Clients", icon: "person-2-fill", tint: "#338CBF", body: "Clients, projects, and billing." }
     ],
     [
       { id: "notes", title: "Notes", icon: "note-text", tint: "#F29E2E", body: "Your private notepad." }
     ]
   ];
 
-  // Pages that live under the Finances button as tabs (not in the sidebar).
-  var FINANCE_TABS = [
-    { id: "bank", title: "Bank", icon: "building-columns-fill", tint: "#1F6B52", body: "Mercury cash, accounts, and activity." },
-    { id: "taxes", title: "Taxes", icon: "percent", tint: "#2E5C7A", body: "Year P&L from income, expenses, and draws." },
-    { id: "expenses", title: "Expenses", icon: "creditcard-fill", tint: "#26856B", body: "Business costs by year." },
-    { id: "income", title: "Income", icon: "checkmark-seal-fill", tint: "#38B375", body: "LLC revenue by year." },
-    { id: "ownerDraws", title: "Owner Draw", icon: "banknote-fill", tint: "#B87A38", body: "Money you pulled from the LLC." },
-    { id: "inventory", title: "Inventory", icon: "shippingbox-fill", tint: "#7361D9", body: "Gear list: purchase date, cost, purpose, serial." },
-    { id: "mileage", title: "Mileage", icon: "car-fill", tint: "#3D6B99", body: "Business trips, miles, and standard mileage deduction." }
-  ];
-  var lastFinanceTab = "bank";
+  // Sidebar buttons that open a page with tabs. The tabs are normal sections, just not in the sidebar.
+  var MENUS = {
+    finances: [
+      { id: "bank", title: "Bank", icon: "building-columns-fill", tint: "#1F6B52", body: "Mercury cash, accounts, and activity." },
+      { id: "taxes", title: "Taxes", icon: "percent", tint: "#2E5C7A", body: "Year P&L from income, expenses, and draws." },
+      { id: "expenses", title: "Expenses", icon: "creditcard-fill", tint: "#26856B", body: "Business costs by year." },
+      { id: "income", title: "Income", icon: "checkmark-seal-fill", tint: "#38B375", body: "LLC revenue by year." },
+      { id: "ownerDraws", title: "Owner Draw", icon: "banknote-fill", tint: "#B87A38", body: "Money you pulled from the LLC." },
+      { id: "inventory", title: "Inventory", icon: "shippingbox-fill", tint: "#7361D9", body: "Gear list: purchase date, cost, purpose, serial." },
+      { id: "mileage", title: "Mileage", icon: "car-fill", tint: "#3D6B99", body: "Business trips, miles, and standard mileage deduction." }
+    ],
+    clientWork: [
+      { id: "clients", title: "Clients", icon: "person-2-fill", tint: "#338CBF", body: "People and companies you bill." },
+      { id: "projects", title: "Projects", icon: "hammer-fill", tint: "#7361D9", body: "Client jobs, logins, costs, hours, issues, and handoff." },
+      { id: "billing", title: "Billing", icon: "doc-text-fill", tint: "#F29E2E", body: "Quotes, invoices, and the price book." }
+    ]
+  };
+  var lastMenuTab = {};
+  Object.keys(MENUS).forEach(function (m) { lastMenuTab[m] = MENUS[m][0].id; });
 
-  function isFinance(id) {
-    return FINANCE_TABS.some(function (t) { return t.id === id; });
+  // Which menu a section's tab belongs to ("" if it is a normal sidebar page).
+  function menuOf(id) {
+    var found = "";
+    Object.keys(MENUS).forEach(function (m) {
+      if (MENUS[m].some(function (t) { return t.id === id; })) found = m;
+    });
+    return found;
   }
 
   var SECTION_ALIASES = {
@@ -62,8 +73,7 @@
     appleAnalytics: { id: "overview" },
     subscribed: { id: "overview" },
     leads: { id: "clients" },
-    sop: { id: "overview" },
-    finances: { id: "bank" }
+    sop: { id: "overview" }
   };
 
   var SETTINGS_SECTION = {
@@ -76,11 +86,14 @@
 
   var SECTIONS = NAV_GROUPS.reduce(function (all, group) {
     return all.concat(group);
-  }, []).filter(function (s) { return s.id !== "finances"; }).concat(FINANCE_TABS, [SETTINGS_SECTION]);
+  }, []).filter(function (s) { return !MENUS[s.id]; }).concat(Object.keys(MENUS).reduce(function (all, m) {
+    return all.concat(MENUS[m]);
+  }, []), [SETTINGS_SECTION]);
 
   function resolveSection(id) {
-    if (id === "finances") return lastFinanceTab;
+    if (MENUS[id]) return lastMenuTab[id];
     var alias = SECTION_ALIASES[id];
+    if (alias && MENUS[alias.id]) return lastMenuTab[alias.id];
     return alias ? alias.id : id;
   }
 
@@ -377,7 +390,7 @@
         var btn = document.createElement("button");
         btn.type = "button";
         btn.setAttribute("data-section", section.id);
-        var on = section.id === currentSection || (section.id === "finances" && isFinance(currentSection));
+        var on = section.id === currentSection || (!!MENUS[section.id] && menuOf(currentSection) === section.id);
         btn.className = "sidebar-item" + (on ? " is-on" : "");
         btn.innerHTML =
           '<span class="sidebar-icon" style="background:linear-gradient(135deg,' + section.tint + ',' + section.tint + "bf)\">" +
@@ -386,7 +399,7 @@
           "<span class=\"sidebar-label\">" + section.title + "</span>" +
           (section.id === "inbox" && inboxUnread > 0 ? '<span class="sidebar-dot" aria-hidden="true"></span>' : "");
         btn.addEventListener("click", function () {
-          currentSection = section.id === "finances" ? lastFinanceTab : section.id;
+          currentSection = MENUS[section.id] ? lastMenuTab[section.id] : section.id;
           closePhoneMenu();
           renderNav();
           renderPanel();
@@ -417,41 +430,49 @@
 
     var titleEl = document.querySelector(".topbar-title");
     var current = SECTIONS.filter(function (s) { return s.id === currentSection; })[0];
-    if (titleEl && current) titleEl.textContent = isFinance(current.id) ? "Finances" : current.title;
+    var parentMenu = current ? menuOf(current.id) : "";
+    var parent = parentMenu ? NAV_GROUPS.reduce(function (all, g) { return all.concat(g); }, []).filter(function (s) { return s.id === parentMenu; })[0] : null;
+    if (titleEl && current) titleEl.textContent = parent ? parent.title : current.title;
     paintInboxDot();
   }
 
-  var financeBar = null;
+  var menuBars = {};
 
-  function paintFinanceBar(sectionId) {
-    var on = isFinance(sectionId);
-    app.classList.toggle("is-finances", on);
+  function paintMenuBars(sectionId) {
+    var active = menuOf(sectionId);
+    app.classList.toggle("has-menu-tabs", !!active);
     if (!pagesEl) return;
-    if (!financeBar) {
-      financeBar = document.createElement("div");
-      financeBar.className = "finance-tabs";
-      FINANCE_TABS.forEach(function (t) {
-        var b = document.createElement("button");
-        b.type = "button";
-        b.className = "ops-pill";
-        b.setAttribute("data-finance-tab", t.id);
-        b.textContent = t.title;
-        b.addEventListener("click", function () {
-          if (currentSection === t.id) return;
-          currentSection = t.id;
-          renderNav();
-          renderPanel();
+    Object.keys(MENUS).forEach(function (m) {
+      var bar = menuBars[m];
+      if (!bar) {
+        bar = document.createElement("div");
+        bar.className = "menu-tabs";
+        bar.setAttribute("data-menu", m);
+        MENUS[m].forEach(function (t) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "ops-pill";
+          b.setAttribute("data-menu-tab", t.id);
+          b.textContent = t.title;
+          b.addEventListener("click", function () {
+            if (currentSection === t.id) return;
+            currentSection = t.id;
+            renderNav();
+            renderPanel();
+          });
+          bar.appendChild(b);
         });
-        financeBar.appendChild(b);
+        menuBars[m] = bar;
+      }
+      bar.classList.toggle("hidden", m !== active);
+      bar.querySelectorAll("[data-menu-tab]").forEach(function (b) {
+        b.classList.toggle("is-on", b.getAttribute("data-menu-tab") === sectionId);
       });
-    }
-    if (financeBar.parentNode !== pagesEl || pagesEl.firstChild !== financeBar) {
-      pagesEl.insertBefore(financeBar, pagesEl.firstChild);
-    }
-    financeBar.classList.toggle("hidden", !on);
-    financeBar.querySelectorAll("[data-finance-tab]").forEach(function (b) {
-      b.classList.toggle("is-on", b.getAttribute("data-finance-tab") === sectionId);
     });
+    if (active) {
+      var shown = menuBars[active];
+      if (pagesEl.firstChild !== shown) pagesEl.insertBefore(shown, pagesEl.firstChild);
+    }
   }
 
   function renderPanel() {
@@ -460,8 +481,9 @@
       app.classList.remove(PAGE_MODE[id]);
     });
     if (PAGE_MODE[section.id]) app.classList.add(PAGE_MODE[section.id]);
-    if (isFinance(section.id)) lastFinanceTab = section.id;
-    paintFinanceBar(section.id);
+    var menu = menuOf(section.id);
+    if (menu) lastMenuTab[menu] = section.id;
+    paintMenuBars(section.id);
 
     Object.keys(pageHosts).forEach(function (id) {
       pageHosts[id].classList.toggle("hidden", id !== section.id);
@@ -592,7 +614,7 @@
 
   window.STLApp = {
     navigate: function (sectionId, opts) {
-      if (sectionId === "finances") sectionId = lastFinanceTab;
+      if (MENUS[sectionId]) sectionId = lastMenuTab[sectionId];
       var alias = SECTION_ALIASES[sectionId];
       var tab = opts && opts.tab;
       if (alias) {

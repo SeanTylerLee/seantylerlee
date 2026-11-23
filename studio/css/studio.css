@@ -1208,8 +1208,8 @@ html.is-phone .app.is-inbox .main {
   overflow: auto;
 }
 
-/* Finances: one sidebar button, tabs for Bank, Taxes, Expenses, Income, Owner Draw, Inventory, Mileage. */
-.finance-tabs {
+/* Sidebar buttons with tabs (Finances, Clients). */
+.menu-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -1218,22 +1218,27 @@ html.is-phone .app.is-inbox .main {
   background: var(--window);
 }
 
-.finance-tabs.hidden {
+.menu-tabs.hidden {
   display: none;
 }
 
-.app.is-finances .main > .panel {
+.app.has-menu-tabs .main {
+  display: flex;
+  flex-direction: column;
+}
+
+.app.has-menu-tabs .main > .panel {
   height: auto;
   min-height: 0;
   flex: 1 1 auto;
 }
 
-html.is-phone .finance-tabs {
+html.is-phone .menu-tabs {
   padding: 10px 12px 2px;
   flex-wrap: nowrap;
   overflow-x: auto;
 }
 
-html.is-phone .finance-tabs .ops-pill {
+html.is-phone .menu-tabs .ops-pill {
   flex: 0 0 auto;
 }
