@@ -31,12 +31,12 @@
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
       { id: "inbox", title: "Messages", icon: "tray-fill", tint: "#3D6B99", body: "Website contact and notify-me messages." },
       { id: "emails", title: "Email Lists", icon: "envelope-fill", tint: "#738094", body: "Named lists of emails." },
-      { id: "notifications", title: "App Notices", icon: "bell-fill", tint: "#5B6B8C", body: "Write a card and send it to an app." }
+      { id: "notifications", title: "App Notices", icon: "bell-fill", tint: "#5B6B8C", body: "Write a card and send it to an app." },
+      { id: "haulPathAd", title: "Advertisement", icon: "square-stack-3d-up-fill", tint: "#1574E6", body: "Library, a simple maker, and which image each app shows." }
     ],
     [
       { id: "permitPathAdmin", title: "Permit Path Admin", icon: "square-stack-3d-up-fill", tint: "#1A4F8B", body: "Live Permit Path signups, subscriptions, and deletions." },
       { id: "haulPathAdmin", title: "HaulPath Admin", icon: "square-stack-3d-up-fill", tint: "#1574E6", body: "Travel time, legal thresholds, curfews, and a note for each state." },
-      { id: "haulPathAd", title: "Advertisement", icon: "square-stack-3d-up-fill", tint: "#1574E6", body: "Library, a simple maker, and which image each app shows." },
       { id: "pc4hAdmin", title: "PC4H Admin", icon: "car-fill", tint: "#0F1A2E", body: "Pilot Car 4 Hire pilots, listings, handoffs, and emails." }
     ],
     [
