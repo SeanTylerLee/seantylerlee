@@ -19,6 +19,36 @@
   var search = "";
   var loading = false;
   var searchBound = false;
+  var filter = "inbox";
+  var listScroll = 0;
+
+  var FILTERS = [
+    { id: "inbox", title: "Inbox", test: function (row) { return row.status !== "archived"; } },
+    { id: "unread", title: "Unread", test: function (row) { return row.status === "unread"; } },
+    { id: "quotes", title: "Quotes", test: function (row) { return row.source === "quote" && row.status !== "archived"; } },
+    { id: "notify", title: "Notify me", test: function (row) { return row.source === "release_notify" && row.status !== "archived"; } },
+    { id: "fleet", title: "Fleet", test: function (row) { return /^fleet_/.test(row.source || "") && row.status !== "archived"; } },
+    { id: "archived", title: "Archived", test: function (row) { return row.status === "archived"; } }
+  ];
+
+  function filterTest() {
+    var f = FILTERS.filter(function (x) { return x.id === filter; })[0] || FILTERS[0];
+    return f.test;
+  }
+
+  function dayGroup(iso) {
+    var t = new Date(iso || "");
+    if (isNaN(t.getTime())) return "Earlier";
+    var start = new Date();
+    start.setHours(0, 0, 0, 0);
+    var day = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
+    var diff = Math.round((start.getTime() - day) / 86400000);
+    if (diff <= 0) return "Today";
+    if (diff === 1) return "Yesterday";
+    if (diff < 7) return "This week";
+    if (diff < 31) return "This month";
+    return "Earlier";
+  }
 
   function el(name) { return root ? root.querySelector('[data-el="' + name + '"]') : null; }
   function esc(s) {
@@ -193,7 +223,8 @@
     return "xx";
   }
   function visible() {
-    var list = items.slice();
+    var test = filterTest();
+    var list = items.filter(function (row) { return test(row); });
     var q = trim(search).toLowerCase();
     if (q) {
       list = list.filter(function (row) {
@@ -204,10 +235,6 @@
       });
     }
     list.sort(function (a, b) {
-      var ar = a.status === "archived";
-      var br = b.status === "archived";
-      if (ar !== br) return ar ? 1 : -1;
-      if ((a.status === "unread") !== (b.status === "unread")) return a.status === "unread" ? -1 : 1;
       return String(b.created_at || "") < String(a.created_at || "") ? -1 : 1;
     });
     return list;
@@ -215,11 +242,15 @@
 
   function shell() {
     return (
-      '<div class="ops-workspace inbox-shell">' +
+      '<div class="ops-workspace inbox-shell inbox-msgs" data-el="shell">' +
         '<div class="inbox-head">' +
-          "<div><h1>Messages</h1><p>Website messages and quotes. Reply from your own email.</p></div>" +
-          '<input data-el="search" type="search" placeholder="Search messages" />' +
+          '<div class="inbox-head-title"><h1>Messages</h1><p>Website messages and quotes. Reply from your own email.</p></div>' +
+          '<div class="inbox-head-tools">' +
+            '<input data-el="search" type="search" placeholder="Search messages" />' +
+            '<button class="btn btn-ghost" type="button" data-el="mark-all">Mark all read</button>' +
+          "</div>" +
         "</div>" +
+        '<div class="inbox-filters" data-el="filters"></div>' +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="inbox-split">' +
           '<div class="inbox-list" data-el="list"></div>' +
@@ -230,17 +261,68 @@
     );
   }
 
+  function renderFilters() {
+    var box = el("filters");
+    if (box) {
+      box.innerHTML = FILTERS.map(function (f) {
+        var n = items.filter(function (row) { return f.test(row); }).length;
+        var hot = f.id === "unread" && n > 0;
+        return '<button type="button" class="inbox-filter' + (f.id === filter ? " is-on" : "") + (hot ? " is-hot" : "") + '" data-filter="' + f.id + '">' +
+          esc(f.title) + (n ? '<span class="n">' + n + "</span>" : "") + "</button>";
+      }).join("");
+      box.querySelectorAll("[data-filter]").forEach(function (btn) {
+        btn.onclick = function () {
+          filter = btn.getAttribute("data-filter");
+          if (selectedId && !visible().some(function (row) { return row.id === selectedId; })) selectedId = null;
+          render();
+        };
+      });
+    }
+    var markAll = el("mark-all");
+    if (markAll) {
+      var unread = items.filter(function (row) { return row.status === "unread"; }).length;
+      markAll.disabled = !unread;
+      markAll.onclick = markAllRead;
+    }
+  }
+
+  function markAllRead() {
+    var ids = items.filter(function (row) { return row.status === "unread"; }).map(function (row) { return row.id; });
+    if (!ids.length) return;
+    showMsg("Marking " + ids.length + " read…", true);
+    db.from("studio_inbox").update({ status: "read" }).in("id", ids).then(function (res) {
+      if (res.error) return showMsg(res.error.message, false);
+      items.forEach(function (row) { if (ids.indexOf(row.id) !== -1) row.status = "read"; });
+      publishUnread();
+      showMsg("All caught up.", true);
+      setTimeout(function () { showMsg(""); }, 1200);
+      render();
+    });
+  }
+
   function renderList() {
+    renderFilters();
     var box = el("list");
     if (!box) return;
     var list = visible();
     if (!list.length) {
-      box.innerHTML = '<p class="inbox-empty">' +
-        (items.length ? "No matches." : "No messages yet. Contact forms, quotes, notify-me signups, and permit samples land here.") +
-        "</p>";
+      var emptyText = !items.length
+        ? "No messages yet. Contact forms, quotes, notify-me signups, and permit samples land here."
+        : (trim(search) ? "No matches." : (filter === "unread" ? "All caught up. No unread messages." : "Nothing here."));
+      box.innerHTML = '<p class="inbox-empty">' + esc(emptyText) + "</p>";
       return;
     }
+    var lastGroup = "";
     box.innerHTML = list.map(function (item) {
+      var group = dayGroup(item.created_at);
+      var header = group !== lastGroup ? '<div class="inbox-group">' + esc(group) + "</div>" : "";
+      lastGroup = group;
+      return header + rowHtml(item);
+    }).join("");
+    bindRows(box);
+  }
+
+  function rowHtml(item) {
       var draft = billingDraft(item);
       var label = trim(item.name) || trim(item.email) || (draft && draft.number) || "Message";
       var extra = item.source === "quote"
@@ -269,11 +351,14 @@
           "</span>" +
         "</button>"
       );
-    }).join("");
+  }
+
+  function bindRows(box) {
     box.querySelectorAll("[data-id]").forEach(function (btn) {
       btn.onclick = function () {
         var id = btn.getAttribute("data-id");
         if (id === selectedId) return;
+        listScroll = box.scrollTop;
         selectedId = id;
         var row = selected();
         render();
@@ -286,6 +371,8 @@
     var box = el("read");
     if (!box) return;
     var row = selected();
+    var shellEl = el("shell");
+    if (shellEl) shellEl.classList.toggle("is-reading", !!row);
     if (!row) {
       box.innerHTML = '<div class="inbox-placeholder"><strong>Select a message</strong><p>Replies open in your own email with the original note quoted.</p></div>';
       return;
@@ -297,6 +384,7 @@
     if (row.source === "quote") bits.push("Prefers " + (info.method === "phone" ? "phone" : "email"));
     box.innerHTML =
       '<article class="inbox-letter">' +
+        '<button type="button" class="inbox-back" data-el="back">‹ Messages</button>' +
         '<header class="inbox-letter-head">' +
           '<span class="inbox-avatar lg is-' + siteTone(row.site) + '">' + esc(initials(row.name, row.email)) + "</span>" +
           "<div>" +
@@ -812,6 +900,13 @@
   }
 
   function bindRead() {
+    var back = el("back");
+    if (back) back.onclick = function () {
+      selectedId = null;
+      render();
+      var list = el("list");
+      if (list) list.scrollTop = listScroll;
+    };
     var addListBtn = el("add-to-list");
     if (addListBtn) addListBtn.onclick = function () { addToList(selected()); };
     var makeTicket = el("make-ticket");
@@ -914,6 +1009,8 @@
     db.from("studio_inbox").update({ status: status }).eq("id", row.id).then(function (res) {
       if (res.error) return showMsg(res.error.message, false);
       row.status = status;
+      if (status === "archived" && filter !== "archived") selectedId = null;
+      if (status !== "archived" && filter === "archived") selectedId = null;
       publishUnread();
       render();
     });
@@ -950,6 +1047,7 @@
       root = panel;
       selectedId = null;
       search = "";
+      filter = "inbox";
       items = [];
       searchBound = false;
       panel.classList.add("ops-wide");

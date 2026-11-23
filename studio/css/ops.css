@@ -2885,3 +2885,240 @@ html.is-phone .pp-admin-watch,
   padding: 0;
   overflow: hidden;
 }
+
+/* ---------- Messages overhaul ---------- */
+
+.inbox-msgs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+}
+
+.inbox-msgs .inbox-head {
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 16px 20px 10px;
+}
+
+.inbox-msgs .inbox-head h1 {
+  font-size: 20px;
+}
+
+.inbox-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 380px;
+  min-width: 0;
+}
+
+.inbox-msgs .inbox-head input[type="search"] {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  min-height: 32px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+.inbox-head-tools .btn {
+  white-space: nowrap;
+}
+
+.inbox-filters {
+  display: flex;
+  gap: 6px;
+  padding: 0 20px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.inbox-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.inbox-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--ink);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inbox-filter .n {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 11px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.inbox-filter.is-hot .n {
+  background: var(--danger);
+  color: #fff;
+}
+
+.inbox-filter.is-on {
+  background: var(--navy);
+  color: #fff;
+}
+
+.inbox-filter.is-on .n {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.inbox-msgs .ops-banner {
+  margin: 0 20px 10px;
+}
+
+.inbox-msgs .inbox-split {
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+}
+
+.inbox-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 14px 6px;
+  background: rgba(246, 246, 246, 0.96);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.inbox-msgs .inbox-row {
+  grid-template-columns: 8px 36px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 14px 12px 8px;
+  cursor: pointer;
+}
+
+.inbox-msgs .inbox-avatar {
+  width: 36px;
+  height: 36px;
+}
+
+.inbox-msgs .inbox-row.is-on {
+  background: rgba(26, 112, 235, 0.1);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.inbox-back {
+  display: none;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 0;
+  margin: 0 0 12px;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.inbox-msgs .inbox-letter {
+  max-width: 760px;
+  padding: 22px 26px 28px;
+}
+
+.inbox-msgs .inbox-letter-body {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ---------- Messages on a phone or narrow window ---------- */
+
+@media (max-width: 800px) {
+  .inbox-msgs .inbox-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+html.is-phone .inbox-msgs .inbox-split {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 800px) {
+  .inbox-msgs .inbox-read { display: none; }
+  .inbox-msgs.is-reading .inbox-read { display: block; }
+  .inbox-msgs.is-reading .inbox-list,
+  .inbox-msgs.is-reading .inbox-filters,
+  .inbox-msgs.is-reading .inbox-head { display: none; }
+  .inbox-msgs .inbox-back { display: inline-flex; align-items: center; }
+  .inbox-msgs .inbox-head { padding: 12px 14px 8px; }
+  .inbox-msgs .inbox-head p { display: none; }
+  .inbox-head-tools { flex: 1 1 100%; }
+  .inbox-filters { padding: 0 14px 10px; }
+  .inbox-msgs .ops-banner { margin: 0 14px 8px; }
+  .inbox-msgs .inbox-letter { padding: 12px 16px 96px; }
+  .inbox-msgs .inbox-letter-head { grid-template-columns: 40px minmax(0, 1fr); }
+  .inbox-msgs .inbox-letter-head > .inbox-tag { display: none; }
+  .inbox-msgs .inbox-letter-foot {
+    position: sticky;
+    bottom: 0;
+    margin: 0 -16px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 -1px 0 var(--line);
+  }
+  .inbox-msgs .inbox-letter-foot .btn { min-height: 40px; height: 40px; font-size: 14px; }
+  .inbox-msgs .inbox-letter-primary,
+  .inbox-msgs .inbox-letter-more { width: 100%; }
+  .inbox-msgs .inbox-letter-primary .btn { flex: 1 1 auto; }
+  .inbox-msgs .inbox-letter-more .btn { flex: 1 1 0; padding: 0 8px; }
+}
+
+html.is-phone .inbox-msgs .inbox-read { display: none; }
+html.is-phone .inbox-msgs.is-reading .inbox-read { display: block; }
+html.is-phone .inbox-msgs.is-reading .inbox-list,
+html.is-phone .inbox-msgs.is-reading .inbox-filters,
+html.is-phone .inbox-msgs.is-reading .inbox-head { display: none; }
+html.is-phone .inbox-msgs .inbox-back { display: inline-flex; align-items: center; }
+html.is-phone .inbox-msgs .inbox-head p { display: none; }
+html.is-phone .inbox-head-tools { flex: 1 1 100%; }
+html.is-phone .inbox-msgs .inbox-head input[type="search"] { font-size: 16px; min-height: 40px; }
+html.is-phone .inbox-head-tools .btn { min-height: 40px; }
+html.is-phone .inbox-filter { padding: 8px 14px; font-size: 13px; }
+html.is-phone .inbox-msgs .inbox-row { padding: 14px 14px 14px 8px; }
+html.is-phone .inbox-msgs .inbox-letter { padding: 12px 16px 96px; }
+html.is-phone .inbox-msgs .inbox-letter-head { grid-template-columns: 40px minmax(0, 1fr); }
+html.is-phone .inbox-msgs .inbox-letter-head > .inbox-tag { display: none; }
+html.is-phone .inbox-msgs .inbox-letter-foot {
+  position: sticky;
+  bottom: 0;
+  margin: 0 -16px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 -1px 0 var(--line);
+}
+html.is-phone .inbox-msgs .inbox-letter-foot .btn { min-height: 44px; height: 44px; font-size: 15px; }
+html.is-phone .inbox-msgs .inbox-letter-primary,
+html.is-phone .inbox-msgs .inbox-letter-more { width: 100%; }
+html.is-phone .inbox-msgs .inbox-letter-primary .btn { flex: 1 1 auto; }
+html.is-phone .inbox-msgs .inbox-letter-more .btn { flex: 1 1 0; padding: 0 8px; }
+
+/* Undo the shared phone rules (Email Lists keeps them). */
+html.is-phone .app.is-inbox .inbox-msgs .inbox-list {
+  max-height: none;
+  border-bottom: 0;
+}
+
+html.is-phone .app.is-inbox .main {
+  overflow: hidden;
+}
