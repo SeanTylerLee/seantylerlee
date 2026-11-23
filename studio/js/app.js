@@ -9,7 +9,7 @@
   var NAV_GROUPS = [
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Needs-you board and studio snapshot." },
-      { id: "finances", title: "Finances", icon: "dollarsign-circle-fill", image: "finances.png", tint: "#1F6B52", body: "Bank, taxes, expenses, income, owner draw, inventory, and mileage." },
+      { id: "finances", title: "Finances", icon: "dollarsign-circle-fill", image: "finance-stl.png", tint: "#1F6B52", body: "Bank, taxes, expenses, income, owner draw, inventory, and mileage." },
       { id: "business", title: "Business Info", icon: "building-2-fill", tint: "#12213D", body: "Company details will live here." },
       { id: "loginVault", title: "Login Vault", icon: "key-fill", tint: "#D98C2E", body: "Saved passwords will live here." },
       { id: "renewals", title: "Renewals", icon: "calendar-badge-clock", tint: "#8C59D9", body: "LLC filings, Apple Developer, domains, insurance." },
