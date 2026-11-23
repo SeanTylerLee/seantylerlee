@@ -242,6 +242,15 @@
     return isNaN(time) ? 0 : time;
   }
 
+  // Old builds hidden from the App versions list (rows themselves are untouched).
+  var HIDDEN_VERSIONS = {
+    "Android 5.0.1": true,
+    "Android 5.0.2": true,
+    "iPhone 5.0.1": true,
+    "iPhone 5.0.2": true,
+    "iPhone 5.0.3": true
+  };
+
   function versionCounts() {
     var counts = {};
     rows.forEach(function (row) {
@@ -250,7 +259,9 @@
       var label = phone + " " + version;
       counts[label] = (counts[label] || 0) + 1;
     });
-    return Object.keys(counts).map(function (label) {
+    return Object.keys(counts).filter(function (label) {
+      return !HIDDEN_VERSIONS[label];
+    }).map(function (label) {
       return { label: label, count: counts[label] };
     }).sort(function (a, b) {
       return b.count - a.count || a.label.localeCompare(b.label);
@@ -327,7 +338,7 @@
         '<div class="direct-boards" data-el="boards"></div>' +
         '<h3 class="direct-section-title">Imports by state</h3>' +
         '<div data-el="state-imports"></div>' +
-        '<h3 class="direct-section-title">Star rating</h3>' +
+        '<h3 class="direct-section-title">Star rating <span class="direct-star-avg" data-el="star-avg"></span></h3>' +
         '<div data-el="review-stats"></div>' +
         '<h3 class="direct-section-title">App versions</h3>' +
         '<div data-el="versions"></div>' +
@@ -484,6 +495,16 @@
         rows,
         "No per-state imports yet. Paste sql/078_import_by_state.sql, then open a 5.1.0 build and import a permit."
       );
+    }
+    var starAvg = el("star-avg");
+    if (starAvg) {
+      var tapCount = 0, tapTotal = 0;
+      for (var sn = 1; sn <= 5; sn++) {
+        var taps = sum(rows, "review_star_" + sn);
+        tapCount += taps;
+        tapTotal += taps * sn;
+      }
+      starAvg.textContent = tapCount ? "★ " + (tapTotal / tapCount).toFixed(1) + " avg (" + tapCount + " tap" + (tapCount === 1 ? "" : "s") + ")" : "";
     }
     var reviewBox = el("review-stats");
     if (reviewBox) {

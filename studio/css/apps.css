@@ -850,6 +850,14 @@
   letter-spacing: -0.02em;
 }
 
+.direct-star-avg {
+  margin-left: 8px;
+  color: #f5a623;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
 .direct-section-title:first-of-type {
   margin-top: 8px;
 }
