@@ -1742,3 +1742,99 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Direct App Analytics: notices to one signed-in user */
+.direct-notices {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.direct-notices-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.direct-notices-head h4 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.direct-notice {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.direct-notice summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.direct-notice-subject {
+  font-weight: 600;
+  color: var(--ink);
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.direct-notice-date,
+.direct-notice-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.direct-notice-body {
+  padding: 0 10px 10px;
+}
+
+.direct-notice-message {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.direct-notice-meta {
+  margin: 0 0 8px;
+}
+
+.direct-notice-compose {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.direct-notice-compose input,
+.direct-notice-compose textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--card);
+}
+
+.direct-notice-compose textarea {
+  resize: vertical;
+}
+
+.direct-notice-compose-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

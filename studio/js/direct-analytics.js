@@ -18,6 +18,12 @@
   var db = null;
   var watch = {};
   var watchError = "";
+  var notices = [];
+  var noticesError = "";
+  var composeFor = "";
+  var sendingFor = "";
+  var drafts = {};
+  var openNotices = {};
 
   function el(name) {
     return root ? root.querySelector('[data-el="' + name + '"]') : null;
@@ -310,6 +316,7 @@
       if (filter === "rated") return starPicked(row) > 0;
       if (filter === "unrated") return starPicked(row) === 0;
       if (filter === "watching") return watchFor(row.install_id).watching;
+      if (filter === "signed_in") return !!row.is_signed_in;
       return true;
     }).sort(function (a, b) {
       if (filter === "fleet") {
@@ -360,8 +367,187 @@
     );
   }
 
+  function noticesFor(row) {
+    var uid = String(row.user_id || "");
+    if (!uid) return [];
+    return notices.filter(function (n) { return String(n.target_user_id || "") === uid; });
+  }
+
+  function noticeSection(row) {
+    if (!row.is_signed_in) return "";
+    var id = String(row.install_id || "");
+    var list = noticesFor(row);
+    var linked = !!row.user_id;
+    var open = composeFor === id;
+    var sending = sendingFor === id;
+    var draft = drafts[id] || { subject: "", message: "" };
+    var items = list.map(function (n) {
+      var nid = String(n.id || "");
+      var cleared = !!n.cleared_at;
+      return (
+        '<details class="direct-notice" data-notice-id="' + esc(nid) + '"' + (openNotices[nid] ? " open" : "") + ">" +
+          "<summary>" +
+            '<span class="direct-notice-subject">' + esc(n.subject || "(no subject)") + "</span>" +
+            '<span class="direct-notice-date">' + esc(when(n.created_at)) + "</span>" +
+            '<span class="direct-badge ' + (cleared ? "direct-badge-paid" : "direct-badge-guest") + '">' + (cleared ? "Cleared" : "Not cleared") + "</span>" +
+          "</summary>" +
+          '<div class="direct-notice-body">' +
+            (n.message ? '<p class="direct-notice-message">' + esc(n.message) + "</p>" : "") +
+            '<p class="direct-notice-meta">Sent ' + esc(when(n.created_at)) +
+              (cleared ? " · Cleared " + esc(when(n.cleared_at)) : " · They haven't cleared it yet. It shows the next time they open the app signed in.") +
+            "</p>" +
+            '<button type="button" class="btn btn-danger" data-notice-delete="' + esc(nid) + '">Delete notice</button>' +
+          "</div>" +
+        "</details>"
+      );
+    }).join("");
+    var compose = open
+      ? '<div class="direct-notice-compose">' +
+          '<input type="text" maxlength="200" placeholder="Subject" data-draft-subject="' + esc(id) + '" value="' + esc(draft.subject) + '"' + (sending ? " disabled" : "") + " />" +
+          '<textarea rows="3" maxlength="5000" placeholder="Message" data-draft-message="' + esc(id) + '"' + (sending ? " disabled" : "") + ">" + esc(draft.message) + "</textarea>" +
+          '<div class="direct-notice-compose-actions">' +
+            '<button type="button" class="btn btn-primary" data-notice-send="' + esc(id) + '"' + (sending ? " disabled" : "") + ">" + (sending ? "Sending…" : "Send to this user") + "</button>" +
+            '<button type="button" class="btn" data-notice-compose="' + esc(id) + '"' + (sending ? " disabled" : "") + ">Cancel</button>" +
+          "</div>" +
+          '<p class="direct-notice-meta">Only this account sees it, on any phone they\'re signed in on. It pops up the next time they open the app.</p>' +
+        "</div>"
+      : "";
+    return (
+      '<section class="direct-notices">' +
+        '<div class="direct-notices-head">' +
+          "<h4>Notices" + (list.length ? " (" + list.length + ")" : "") + "</h4>" +
+          (linked
+            ? (open ? "" : '<button type="button" class="btn" data-notice-compose="' + esc(id) + '">Send notice</button>')
+            : '<span class="direct-notice-meta">Not linked to their account yet. It links the next time they open the app signed in.</span>') +
+        "</div>" +
+        (noticesError ? '<p class="direct-notice-meta">' + esc(noticesError) + "</p>" : "") +
+        compose +
+        items +
+      "</section>"
+    );
+  }
+
+  function loadNotices() {
+    if (!window.STLLocalApi || !window.STLLocalApi.available || !window.STLLocalApi.available()) return;
+    window.STLLocalApi.get("/api/direct-app-analytics/notices")
+      .then(function (res) {
+        if (!res.ok) {
+          notices = [];
+          noticesError = (res.data && res.data.error) || "Could not load notices.";
+        } else {
+          notices = (res.data && res.data.notices) || [];
+          noticesError = "";
+        }
+        render();
+      })
+      .catch(function (err) {
+        noticesError = (err && err.message) || "Could not load notices.";
+        render();
+      });
+  }
+
+  function sendNotice(installId) {
+    var draft = drafts[installId] || { subject: "", message: "" };
+    var subject = String(draft.subject || "").trim();
+    var message = String(draft.message || "").trim();
+    if (!subject && !message) {
+      notice = "Write a subject or a message first.";
+      render();
+      return;
+    }
+    if (!window.confirm("Send this notice to this user?\n\n" + (subject || "(no subject)"))) return;
+    sendingFor = installId;
+    notice = "";
+    render();
+    window.STLLocalApi.post("/api/direct-app-analytics/notices/send", { install_id: installId, subject: subject, message: message })
+      .then(function (res) {
+        sendingFor = "";
+        if (!res.ok) {
+          notice = (res.data && res.data.error) || "Could not send the notice.";
+          render();
+          return;
+        }
+        var row = res.data && res.data.notice;
+        if (row && row.id) {
+          row.cleared_at = "";
+          notices.unshift(row);
+        }
+        delete drafts[installId];
+        composeFor = "";
+        notice = "Notice sent. It shows the next time they open the app.";
+        render();
+      })
+      .catch(function (err) {
+        sendingFor = "";
+        notice = (err && err.message) || "Could not send the notice.";
+        render();
+      });
+  }
+
+  function deleteNotice(noticeId) {
+    if (!window.confirm("Delete this notice? If they haven't seen it yet, they never will.")) return;
+    window.STLLocalApi.post("/api/direct-app-analytics/notices/delete", { id: noticeId })
+      .then(function (res) {
+        if (!res.ok) {
+          notice = (res.data && res.data.error) || "Could not delete the notice.";
+        } else {
+          notices = notices.filter(function (n) { return String(n.id || "") !== noticeId; });
+          notice = "Notice deleted.";
+        }
+        render();
+      })
+      .catch(function (err) {
+        notice = (err && err.message) || "Could not delete the notice.";
+        render();
+      });
+  }
+
   function bindDeletes() {
     if (!root) return;
+    root.querySelectorAll("[data-notice-id]").forEach(function (box) {
+      box.addEventListener("toggle", function () {
+        var nid = box.getAttribute("data-notice-id") || "";
+        if (box.open) openNotices[nid] = true;
+        else delete openNotices[nid];
+      });
+    });
+    root.querySelectorAll("[data-notice-compose]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-notice-compose") || "";
+        composeFor = composeFor === id ? "" : id;
+        render();
+        if (composeFor) {
+          var box = root.querySelector('[data-draft-subject="' + id.replace(/"/g, "") + '"]');
+          if (box) box.focus();
+        }
+      };
+    });
+    root.querySelectorAll("[data-draft-subject]").forEach(function (box) {
+      box.oninput = function () {
+        var id = box.getAttribute("data-draft-subject") || "";
+        drafts[id] = drafts[id] || { subject: "", message: "" };
+        drafts[id].subject = box.value;
+      };
+    });
+    root.querySelectorAll("[data-draft-message]").forEach(function (box) {
+      box.oninput = function () {
+        var id = box.getAttribute("data-draft-message") || "";
+        drafts[id] = drafts[id] || { subject: "", message: "" };
+        drafts[id].message = box.value;
+      };
+    });
+    root.querySelectorAll("[data-notice-send]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-notice-send") || "";
+        if (id && !sendingFor) sendNotice(id);
+      };
+    });
+    root.querySelectorAll("[data-notice-delete]").forEach(function (btn) {
+      btn.onclick = function () {
+        var nid = btn.getAttribute("data-notice-delete") || "";
+        if (nid) deleteNotice(nid);
+      };
+    });
     root.querySelectorAll("[data-watch]").forEach(function (btn) {
       btn.onclick = function () {
         var id = btn.getAttribute("data-watch") || "";
@@ -537,6 +723,7 @@
       ["android", "Android"],
       ["subscribed", "Subscribed"],
       ["free", "Not subscribed"],
+      ["signed_in", "Signed in"],
       ["watching", "Watching"],
       ["fleet", "Fleet codes"],
       ["rated", "Rated"],
@@ -710,6 +897,10 @@
         note.textContent = notice;
       } else if (watchError && filter === "watching") {
         note.textContent = watchError;
+      } else if (filter === "signed_in") {
+        note.textContent = visible.length
+          ? "Signed-in users can get a notice only they see. Open a card and tap Send notice."
+          : "No signed-in users yet.";
       } else if (filter === "watching" && !visible.length) {
         note.textContent = "Click the eye on a user card to watch them. Watched users show here.";
       } else if (filter === "fleet" && fleetError) {
@@ -820,6 +1011,7 @@
             metric("Since first", ageLabel) +
           "</div>" +
           '<textarea class="direct-note" rows="1" maxlength="500" placeholder="Add a note…" data-note="' + esc(id) + '">' + esc(watchFor(id).note) + "</textarea>" +
+          noticeSection(row) +
         "</article>"
       );
     }).join("");
@@ -838,6 +1030,7 @@
     notice = "";
     render();
     loadWatch();
+    loadNotices();
     window.STLLocalApi.get("/api/direct-app-analytics")
       .then(function (res) {
         loading = false;
@@ -888,6 +1081,12 @@
       db = client || null;
       watch = {};
       watchError = "";
+      notices = [];
+      noticesError = "";
+      composeFor = "";
+      sendingFor = "";
+      drafts = {};
+      openNotices = {};
       rows = [];
       fleets = [];
       seats = [];
