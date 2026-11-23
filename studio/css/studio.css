@@ -1242,3 +1242,17 @@ html.is-phone .menu-tabs {
 html.is-phone .menu-tabs .ops-pill {
   flex: 0 0 auto;
 }
+
+/* Sidebar icon that is a full image (Finances $). */
+.sidebar-icon.is-image {
+  background: none;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.sidebar-icon.is-image img,
+html.is-phone .sidebar-icon.is-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
