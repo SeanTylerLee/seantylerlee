@@ -16,7 +16,7 @@
       { id: "calendar", title: "Calendar", icon: "calendar", tint: "#5973CC", body: "Month grid, day notes, and studio due dates." }
     ],
     [
-      { id: "competitors", title: "Competitors", icon: "chart-bar-xaxis", tint: "#C45C26", body: "Your dates against other apps." },
+      { id: "competitors", title: "Competitors", icon: "chart-bar-xaxis", tint: "#C45C26", body: "Side by side: price, ratings, states, features, and dates." },
       { id: "websites", title: "Websites", icon: "square-grid-2x2", tint: "#1A70EB", body: "Site list, clicks, date and time, and visit ids." },
       { id: "imageAssets", title: "Image Assets", icon: "square-stack-3d-up-fill", tint: "#7A5C99", body: "Screenshots, icons, and store art." },
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },

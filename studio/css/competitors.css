@@ -1,141 +1,262 @@
 .comp-page {
-  max-width: 880px;
+  max-width: 1280px;
 }
 
-.comp-card {
-  background: var(--card);
-  border-radius: 14px;
-  padding: 16px;
-  margin-bottom: 14px;
+.comp-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
-.comp-card h2,
-.comp-section-title {
+.comp-top h1 {
   margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+}
+
+.comp-top-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .comp-sub {
-  margin: 4px 0 14px;
+  margin: 4px 0 0;
   color: var(--muted);
   font-size: 13px;
 }
 
-.comp-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px 14px;
-}
-
-.comp-head {
+.comp-chips {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
   flex-wrap: wrap;
-  margin: 8px 0 10px;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 12px;
 }
 
-.comp-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
+.comp-chips-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 4px;
 }
 
-.comp-card-top h3 {
-  margin: 0;
+/* ---------- comparison table ---------- */
+
+.comp-table-wrap {
+  background: var(--card);
+  border-radius: 14px;
+  overflow-x: auto;
+  margin-bottom: 14px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.comp-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.comp-table th,
+.comp-table td {
+  padding: 9px 12px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.comp-rowhead {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+  width: 180px;
+  min-width: 150px;
+  color: var(--muted);
+  font-weight: 600;
+  box-shadow: 1px 0 0 var(--line);
+}
+
+.comp-col {
+  min-width: 170px;
+  background: var(--card);
+  vertical-align: bottom;
+}
+
+.comp-col-name {
   font-size: 15px;
   font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.comp-col-sub {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.comp-col.is-you .comp-col-name {
+  color: var(--accent);
+}
+
+.comp-cell.is-you,
+.comp-col.is-you {
+  background: rgba(26, 112, 235, 0.05);
+}
+
+.comp-cell {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.comp-cell.is-best {
+  background: #e8f5ee;
+  color: #1f6b52;
+  font-weight: 700;
+}
+
+.comp-group th {
+  position: sticky;
+  left: 0;
+  background: var(--window);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+}
+
+.comp-table tbody:first-of-type .comp-group th {
+  border-top: 0;
+}
+
+.comp-none {
+  color: rgba(0, 0, 0, 0.3);
+  font-weight: 500;
+}
+
+.comp-yes {
+  color: #1f6b52;
+  font-weight: 700;
+}
+
+.comp-no {
+  color: #9b1c1c;
+  font-weight: 600;
+}
+
+.comp-star {
+  color: #f5a623;
+}
+
+.comp-count {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.comp-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.comp-tag.is-first {
+  background: #1f6b52;
+  color: #fff;
+}
+
+.comp-cell a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.comp-in {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--field-h);
+  padding: 5px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-field);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+}
+
+textarea.comp-in {
+  resize: vertical;
+}
+
+.comp-in:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(26, 112, 235, 0.2);
+}
+
+.comp-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
 
 .comp-remove {
   border: 0;
   background: transparent;
   color: #9b1c1c;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  min-height: 32px;
-  padding: 0 4px;
+  min-height: 28px;
+  padding: 0;
 }
 
-.comp-compare-block {
+/* ---------- timeline and notes ---------- */
+
+.comp-card {
   background: var(--card);
   border-radius: 14px;
-  padding: 16px 18px;
-  margin-bottom: 12px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
 }
 
-.comp-compare-block h3 {
-  margin: 0 0 10px;
-  font-size: 16px;
-}
-
-.comp-metric {
-  margin: 0 0 16px;
-}
-
-.comp-metric h4 {
-  margin: 0 0 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.comp-rank-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) 140px minmax(0, 1fr);
-  gap: 10px;
+.comp-card > summary {
+  cursor: default;
+  font-size: 14px;
+  min-height: 28px;
+  display: flex;
   align-items: baseline;
-  padding: 9px 10px;
-  border-radius: 8px;
-  font-size: 15px;
-  line-height: 1.35;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
-.comp-rank-row + .comp-rank-row {
-  margin-top: 4px;
-}
-
-.comp-rank-row.is-first {
-  background: #e8f5ee;
-  color: #1f6b52;
-  font-weight: 700;
-}
-
-.comp-rank-row.is-you:not(.is-first) .comp-rank-who {
-  color: #1a70eb;
-  font-weight: 700;
-}
-
-.comp-rank-who {
-  font-weight: 650;
-  overflow-wrap: anywhere;
-}
-
-.comp-rank-day {
-  font-variant-numeric: tabular-nums;
-}
-
-.comp-rank-gap {
+.comp-card > summary span {
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 650;
 }
 
-.comp-rank-row.is-first .comp-rank-gap {
-  color: #1f6b52;
+.comp-notes-meta {
+  margin-left: auto;
+  font-size: 12px;
 }
 
-.comp-rank-row.is-open .comp-rank-day,
-.comp-rank-row.is-open .comp-rank-gap {
-  color: var(--muted);
-  font-weight: 500;
+.comp-notes-body,
+.comp-timeline [data-el="timeline"] {
+  margin-top: 8px;
+}
+
+.comp-section-title {
+  margin: 20px 0 10px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .comp-empty {
@@ -144,11 +265,8 @@
   font-size: 13px;
 }
 
-.comp-wide {
-  grid-column: 1 / -1;
-}
-
-.comp-events-head h4 {
+.comp-events-head h4,
+.comp-notes-title {
   margin: 10px 0 8px;
   font-size: 13px;
   font-weight: 700;
@@ -168,7 +286,7 @@
   min-width: 0;
   min-height: var(--field-h);
   padding: var(--field-pad-y) var(--field-pad-x);
-  border: 1px solid rgba(0, 0, 0, 0.14);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-field);
   background: var(--card);
   color: var(--ink);
@@ -183,19 +301,8 @@
 }
 
 .comp-notes {
-  min-height: 120px;
+  min-height: 160px;
   resize: vertical;
-}
-
-.comp-notes-wrap {
-  margin-top: 8px;
-}
-
-.comp-notes-wrap summary {
-  font-size: 13px;
-  font-weight: 700;
-  padding: 8px 0;
-  min-height: 32px;
 }
 
 .comp-add-date {
@@ -204,17 +311,17 @@
 
 .comp-time {
   display: grid;
-  grid-template-columns: 128px minmax(110px, 200px) minmax(0, 1fr);
+  grid-template-columns: 120px minmax(110px, 180px) minmax(0, 1fr);
   gap: 10px;
   align-items: baseline;
-  padding: 9px 0;
+  padding: 8px 0;
   border-top: 1px solid var(--line);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.35;
 }
 
 .comp-time-who.is-you {
-  color: #1a70eb;
+  color: var(--accent);
   font-weight: 700;
 }
 
@@ -222,27 +329,35 @@
   font-weight: 700;
 }
 
-.comp-board {
-  margin-bottom: 14px;
+/* ---------- phone ---------- */
+
+html.is-phone .comp-rowhead {
+  width: 120px;
+  min-width: 120px;
+  font-size: 12px;
 }
 
-html.is-phone .comp-grid,
-html.is-phone .comp-rank-row,
+html.is-phone .comp-col {
+  min-width: 150px;
+}
+
+html.is-phone .comp-table th,
+html.is-phone .comp-table td {
+  padding: 8px 10px;
+}
+
 html.is-phone .comp-event,
 html.is-phone .comp-time {
   grid-template-columns: 1fr;
 }
 
 html.is-phone .comp-remove,
-html.is-phone .comp-event .comp-remove,
-html.is-phone .comp-add-date,
-html.is-phone .comp-notes-wrap summary {
+html.is-phone .comp-add-date {
   min-height: 44px;
 }
 
+html.is-phone .comp-in,
 html.is-phone .comp-event input,
-html.is-phone .comp-notes,
-html.is-phone .comp-rank-row,
-html.is-phone .comp-time {
+html.is-phone .comp-notes {
   font-size: 16px;
 }
