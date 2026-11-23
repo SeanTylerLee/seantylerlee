@@ -403,8 +403,8 @@
         "</div>" +
         '<p class="status ops-banner" data-el="banner"></p>' +
         '<div class="ops-filters pp-admin-tabs">' +
-          '<button type="button" class="ops-pill" data-tab="accounts">Account holders overview</button>' +
           '<button type="button" class="ops-pill" data-tab="direct">Direct App Analytics</button>' +
+          '<button type="button" class="ops-pill" data-tab="accounts">Account holders overview</button>' +
           '<button type="button" class="ops-pill" data-tab="fleet">Fleet Management</button>' +
           (window.STLAppPanels ? window.STLAppPanels.pills("permitpath") : "") +
           '<button type="button" class="btn btn-ghost" data-el="refresh" style="margin-left:auto">Refresh</button>' +
