@@ -10,13 +10,13 @@
     [
       { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Needs-you board and studio snapshot." },
       { id: "finances", title: "Finances", icon: "dollarsign-circle-fill", image: "finance-stl.png", tint: "#1F6B52", body: "Bank, taxes, expenses, income, owner draw, inventory, and mileage." },
-      { id: "business", title: "Business Info", icon: "building-2-fill", tint: "#12213D", body: "Company details will live here." },
-      { id: "loginVault", title: "Login Vault", icon: "key-fill", tint: "#D98C2E", body: "Saved passwords will live here." },
-      { id: "renewals", title: "Renewals", icon: "calendar-badge-clock", tint: "#8C59D9", body: "LLC filings, Apple Developer, domains, insurance." },
-      { id: "calendar", title: "Calendar", icon: "calendar", tint: "#5973CC", body: "Month grid, day notes, and studio due dates." }
+      { id: "business", title: "Business Info", icon: "building-2-fill", image: "business-stl.png", tint: "#12213D", body: "Company details will live here." },
+      { id: "loginVault", title: "Login Vault", icon: "key-fill", image: "vault-stl.png", tint: "#D98C2E", body: "Saved passwords will live here." },
+      { id: "renewals", title: "Renewals", icon: "calendar-badge-clock", image: "renewals-stl.png", tint: "#8C59D9", body: "LLC filings, Apple Developer, domains, insurance." },
+      { id: "calendar", title: "Calendar", icon: "calendar", image: "calendar-stl.png", tint: "#5973CC", body: "Month grid, day notes, and studio due dates." }
     ],
     [
-      { id: "competitors", title: "Competitors", icon: "chart-bar-xaxis", tint: "#C45C26", body: "Side by side: price, ratings, states, features, and dates." },
+      { id: "competitors", title: "Competitors", icon: "chart-bar-xaxis", image: "competitors-stl.png", tint: "#C45C26", body: "Side by side: price, ratings, states, features, and dates." },
       { id: "websites", title: "Websites", icon: "square-grid-2x2", tint: "#1A70EB", body: "Site list, clicks, date and time, and visit ids." },
       { id: "imageAssets", title: "Image Assets", icon: "square-stack-3d-up-fill", tint: "#7A5C99", body: "Screenshots, icons, and store art." },
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
