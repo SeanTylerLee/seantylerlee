@@ -19,6 +19,15 @@
   var pc4hPendingReviews = 0;
   var backupAt = "";
   var fleetSignups = [];
+  var incomes = [];
+  var expenses = [];
+  var draws = [];
+  var reservePercent = 30;
+  var dayNotes = [];
+  var comps = [];
+  var pp = { loading: true, rows: [], days: [], error: "" };
+  var bank = { loading: true, snapshot: null, error: "" };
+  var baseLoaded = false;
   var FLEET_SEEN_KEY = "stl-fleet-signup-seen-at";
 
   function M() { return window.STLMoney; }
@@ -230,6 +239,209 @@
     }, 0));
   }
 
+  // ---------- new Overview cards ----------
+
+  function num(v) {
+    var n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function centralTodayKey() {
+    try {
+      var map = {};
+      new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit" })
+        .formatToParts(new Date()).forEach(function (part) { map[part.type] = part.value; });
+      return map.year + "-" + map.month + "-" + map.day;
+    } catch (err) {
+      return todayISO();
+    }
+  }
+
+  function stat(label, value, extra) {
+    return '<div class="ov-stat' + (extra ? " " + extra : "") + '"><span class="v">' + M().esc(value) + '</span><span class="k">' + M().esc(label) + "</span></div>";
+  }
+
+  function cardHead(title, goTo, linkText) {
+    return '<div class="ov-card-head"><h2>' + M().esc(title) + "</h2>" +
+      (goTo ? '<button type="button" class="ov-link" data-go="' + goTo + '">' + M().esc(linkText || "Open") + " ›</button>" : "") +
+      "</div>";
+  }
+
+  function greetingHtml() {
+    var now = new Date();
+    var h = now.getHours();
+    var hello = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+    var dateText = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    var count = needsYouCount();
+    return (
+      '<div class="ov-hello">' +
+        "<div><h1>" + hello + "</h1>" +
+        '<p class="ov-hello-date">' + M().esc(dateText) + "</p></div>" +
+        '<span class="ov-count ' + (count === 0 ? "clear" : "busy") + '">' +
+          (count === 0 ? "All clear" : count + (count === 1 ? " thing needs you" : " things need you")) +
+        "</span>" +
+      "</div>"
+    );
+  }
+
+  function pulseHtml() {
+    var html = '<div class="ov-card">' + cardHead("Permit Path today", "permitPathAdmin", "Analytics");
+    if (pp.loading) return html + '<p class="ov-note">Loading…</p></div>';
+    if (pp.error) return html + '<p class="ov-note">' + M().esc(pp.error) + "</p></div>";
+    var rows = pp.rows || [];
+    var midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    var weekAgo = Date.now() - 7 * 86400000;
+    var seen = function (row) { return new Date(row.last_seen || "").getTime() || 0; };
+    var activeToday = rows.filter(function (row) { return seen(row) >= midnight.getTime(); }).length;
+    var activeWeek = rows.filter(function (row) { return seen(row) >= weekAgo; }).length;
+    var newToday = rows.filter(function (row) { return (new Date(row.first_seen || "").getTime() || 0) >= midnight.getTime(); }).length;
+    var newWeek = rows.filter(function (row) { return (new Date(row.first_seen || "").getTime() || 0) >= weekAgo; }).length;
+    var subscribed = rows.filter(function (row) { return row.is_subscribed; }).length;
+    var taps = 0;
+    var tapTotal = 0;
+    var n;
+    for (n = 1; n <= 5; n++) {
+      var c = rows.reduce(function (s, row) { return s + num(row["review_star_" + n]); }, 0);
+      taps += c;
+      tapTotal += c * n;
+    }
+    var key = centralTodayKey();
+    var today = { opens: 0, navigations_started: 0, imports: 0, subscribe_tapped: 0 };
+    (pp.days || []).forEach(function (day) {
+      if (String(day.day || "").slice(0, 10) !== key) return;
+      today.opens += num(day.opens);
+      today.navigations_started += num(day.navigations_started);
+      today.imports += num(day.imports_pdf) + num(day.imports_qr);
+      today.subscribe_tapped += num(day.subscribe_tapped);
+    });
+    html +=
+      '<div class="ov-stats">' +
+        stat("Active today", activeToday, "lead") +
+        stat("New today", newToday, newToday ? "lead good" : "lead") +
+        stat("Opens today", today.opens) +
+        stat("Go taps today", today.navigations_started) +
+        stat("Imports today", today.imports) +
+        stat("Subscribe taps today", today.subscribe_tapped) +
+      "</div>" +
+      '<div class="ov-mini">' +
+        "<span>" + rows.length + " installs</span>" +
+        "<span>" + subscribed + " subscribed</span>" +
+        "<span>" + activeWeek + " active this week</span>" +
+        "<span>" + newWeek + " new this week</span>" +
+        (taps ? '<span><b class="ov-star">★</b> ' + (tapTotal / taps).toFixed(1) + " in-app (" + taps + ")</span>" : "") +
+      "</div>" +
+    "</div>";
+    return html;
+  }
+
+  function moneyHtml() {
+    var year = M().currentYear();
+    var month = new Date().getMonth();
+    var yIn = incomes.filter(function (r) { return Number(r.year) === year; });
+    var yEx = expenses.filter(function (r) { return Number(r.year) === year; });
+    var income = M().round2(yIn.reduce(function (s, r) { return s + M().yearTotal(r); }, 0));
+    var expense = M().round2(yEx.reduce(function (s, r) { return s + M().yearTotal(r); }, 0));
+    var profit = M().round2(income - expense);
+    var reserve = profit > 0 ? M().round2(profit * Math.min(100, Math.max(0, reservePercent)) / 100) : 0;
+    var drawn = M().round2(draws.filter(function (r) { return Number(r.year) === year; })
+      .reduce(function (s, r) { return s + num(r.amount); }, 0));
+    var slice = M().monthSlices(year, yIn, yEx)[month] || { income: 0, expense: 0, profit: 0 };
+    var owed = M().round2(followUpDocuments().reduce(function (s, doc) { return s + invoiceTotals(doc).balance; }, 0));
+
+    var cash = "";
+    if (bank.loading) cash = '<span class="ov-cash-note">Loading Mercury…</span>';
+    else if (bank.snapshot) {
+      var list = bank.snapshot.accounts || [];
+      var total = list.reduce(function (s, a) { return s + num(a.currentBalance); }, 0);
+      cash = '<span class="ov-cash">' + M().esc(M().money(total)) + '</span><span class="ov-cash-note">in Mercury' +
+        (list.length > 1 ? " · " + list.length + " accounts" : "") + "</span>";
+    } else cash = '<span class="ov-cash-note">' + M().esc(bank.error || "Bank not connected") + "</span>";
+
+    return (
+      '<div class="ov-card">' + cardHead("Money", "finances", "Finances") +
+        '<div class="ov-cash-row" data-go="bank">' + cash + "</div>" +
+        '<div class="ov-stats">' +
+          stat(MONTHS[month] + " income", M().money(slice.income)) +
+          stat(MONTHS[month] + " expenses", M().money(slice.expense)) +
+          stat(MONTHS[month] + " profit", M().money(slice.profit), slice.profit >= 0 ? "good" : "bad") +
+          stat(year + " income", M().money(income)) +
+          stat(year + " expenses", M().money(expense)) +
+          stat(year + " profit", M().money(profit), profit >= 0 ? "good" : "bad") +
+        "</div>" +
+        '<div class="ov-mini">' +
+          '<span data-go="taxes">Set aside for taxes ' + M().esc(M().money(reserve)) + " (" + reservePercent + "%)</span>" +
+          '<span data-go="ownerDraws">Owner draws ' + M().esc(M().money(drawn)) + "</span>" +
+          (owed > 0 ? '<span data-go="billing" class="warn">Clients owe ' + M().esc(M().money(owed)) + "</span>" : "") +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function upcomingHtml() {
+    var DAYS = 14;
+    var items = [];
+    var add = function (iso, title, detail, tint, goTo) {
+      var d = daysUntil(iso);
+      if (!parseISO(iso) || d < 0 || d > DAYS) return;
+      items.push({ iso: String(iso).slice(0, 10), d: d, title: title, detail: detail, tint: tint, goTo: goTo });
+    };
+    renewals.forEach(function (r) {
+      add(r.due_date, r.title || "Renewal", "Renewal" + (r.amount ? " · " + M().money(r.amount) : ""), "#8C59D9", "renewals");
+    });
+    documents.forEach(function (doc) {
+      if (doc.kind !== "invoice" || !doc.due_on) return;
+      var bal = invoiceTotals(doc).balance;
+      if (bal <= 0) return;
+      add(doc.due_on, "Invoice " + (doc.number || "") + (doc.client_name ? " · " + doc.client_name : ""), "Payment due · " + M().money(bal), "#F29E2E", "billing");
+    });
+    projects.forEach(function (p) {
+      add(p.due_date, p.name || p.title || "Project", "Project due", "#7361D9", "projects");
+    });
+    dayNotes.forEach(function (note) {
+      var body = String(note.body || "").trim();
+      if (!body) return;
+      add(note.day, body.split(/\n/)[0].slice(0, 90), "Calendar note", "#5973CC", "calendar");
+    });
+    items.sort(function (a, b) { return a.d - b.d || a.title.localeCompare(b.title); });
+    var html = '<div class="ov-card">' + cardHead("Coming up · next 2 weeks", "calendar", "Calendar");
+    if (!items.length) return html + '<p class="ov-note" style="margin-top:8px">Nothing on the calendar for the next two weeks.</p></div>';
+    items.slice(0, 12).forEach(function (it) {
+      var when = it.d === 0 ? "Today" : it.d === 1 ? "Tomorrow" : M().formatDate ? M().formatDate(it.iso) : it.iso;
+      html += row(it.title, when + " · " + it.detail, it.tint, it.goTo);
+    });
+    if (items.length > 12) html += '<p class="ov-note">' + (items.length - 12) + " more on the calendar.</p>";
+    return html + "</div>";
+  }
+
+  function competitorsHtml() {
+    var shown = comps.filter(function (c) { return c.is_self || !(c.details && c.details.hidden); });
+    if (!shown.length) return "";
+    shown.sort(function (a, b) { return (b.is_self ? 1 : 0) - (a.is_self ? 1 : 0); });
+    var oldest = "";
+    var lines = shown.map(function (c) {
+      var d = c.details || {};
+      if (d.ratings_checked_on && (!oldest || d.ratings_checked_on < oldest)) oldest = d.ratings_checked_on;
+      var rating = Number(d.ios_rating);
+      var price = Number(d.price_monthly);
+      return (
+        '<div class="ov-comp' + (c.is_self ? " is-you" : "") + '">' +
+          "<span>" + M().esc(c.app_name || c.company_name || "App") + "</span>" +
+          "<span>" + (Number.isFinite(rating) && d.ios_rating ? '<b class="ov-star">★</b> ' + rating.toFixed(1) + (d.ios_rating_count ? ' <i>(' + M().esc(d.ios_rating_count) + ")</i>" : "") : "—") + "</span>" +
+          "<span>" + (Number.isFinite(price) && d.price_monthly ? "$" + price.toFixed(2) + "/mo" : "—") + "</span>" +
+        "</div>"
+      );
+    }).join("");
+    var stale = oldest && daysUntil(oldest) < -60;
+    return (
+      '<div class="ov-card">' + cardHead("Competitors", "competitors", "Compare") +
+        '<div class="ov-comp ov-comp-head"><span>App</span><span>App Store</span><span>Monthly</span></div>' +
+        lines +
+        (stale ? '<p class="ov-note warn" style="margin-top:8px">Prices and ratings were last checked ' + M().esc(M().formatDate ? M().formatDate(oldest) : oldest) + ". Time to recheck.</p>" : "") +
+      "</div>"
+    );
+  }
+
   function shell() {
     return (
       '<div class="overview-workspace">' +
@@ -252,9 +464,9 @@
   }
 
   function render() {
-    if (!root || !el("body")) return;
+    if (!root || !el("body") || !baseLoaded) return;
     var count = needsYouCount();
-    var html = "";
+    var html = greetingHtml();
 
     html +=
       '<div class="ov-card">' +
@@ -267,6 +479,7 @@
         "</div>" +
       "</div>";
 
+    html += '<div class="ov-grid"><div class="ov-col">';
     var dueMonth = renewalsDueThisMonth();
     if (dueMonth.length) {
       html +=
@@ -449,6 +662,8 @@
       }
     }
     html += "</div>";
+    html += upcomingHtml();
+    html += '</div><div class="ov-col">' + pulseHtml() + moneyHtml() + competitorsHtml() + "</div></div>";
 
     var ranked = apps.slice().sort(function (a, b) {
       var rank = { "In Development": 0, Live: 1, Paused: 2, Idea: 3, Archived: 4 };
@@ -633,8 +848,23 @@
       loadFleetSignups(),
       db.from("studio_settings").select("value").eq("key", "backup_log_at").maybeSingle().then(function (res) {
         return (res.data && res.data.value) || "";
-      }).catch(function () { return ""; })
+      }).catch(function () { return ""; }),
+      safe("business_incomes"),
+      safe("business_expenses"),
+      safe("owner_draws"),
+      db.from("studio_settings").select("value").eq("key", "tax_reserve_percent").maybeSingle().then(function (res) {
+        return res.data ? res.data.value : null;
+      }).catch(function () { return null; }),
+      safe("calendar_day_notes", "id,day,body"),
+      safe("studio_competitors", "is_self,app_name,company_name,details,created_at")
     ]).then(function (pair) {
+      baseLoaded = true;
+      incomes = pair[12] || [];
+      expenses = pair[13] || [];
+      draws = pair[14] || [];
+      if (pair[15] != null && Number.isFinite(Number(pair[15]))) reservePercent = Number(pair[15]);
+      dayNotes = pair[16] || [];
+      comps = (pair[17] || []).sort(function (a, b) { return String(a.created_at) < String(b.created_at) ? -1 : 1; });
       renewals = pair[0];
       documents = pair[1];
       projects = pair[2];
@@ -673,7 +903,36 @@
         render();
       });
     }).catch(function (err) {
+      baseLoaded = true;
       showMsg((err && err.message) || "Could not load overview.", false);
+      render();
+    });
+  }
+
+  function loadSlow() {
+    var api = window.STLLocalApi;
+    if (!api || typeof api.get !== "function" || (api.available && !api.available())) {
+      pp = { loading: false, rows: [], days: [], error: "Sign in again to load app numbers." };
+      bank = { loading: false, snapshot: null, error: "Bank not connected" };
+      render();
+      return;
+    }
+    pp = { loading: true, rows: [], days: [], error: "" };
+    bank = { loading: true, snapshot: null, error: "" };
+    api.get("/api/direct-app-analytics").then(function (res) {
+      if (!res.ok) pp = { loading: false, rows: [], days: [], error: (res.data && res.data.error) || "Could not load app numbers." };
+      else pp = { loading: false, rows: (res.data && res.data.rows) || [], days: (res.data && res.data.days) || [], error: "" };
+      render();
+    }).catch(function (err) {
+      pp = { loading: false, rows: [], days: [], error: (err && err.message) || "Could not load app numbers." };
+      render();
+    });
+    api.get("/api/mercury/snapshot").then(function (res) {
+      if (!res.ok) bank = { loading: false, snapshot: null, error: (res.data && res.data.error) || "Could not load Mercury." };
+      else bank = { loading: false, snapshot: res.data || null, error: "" };
+      render();
+    }).catch(function () {
+      bank = { loading: false, snapshot: null, error: "Could not load Mercury." };
       render();
     });
   }
@@ -686,7 +945,9 @@
       selectedMonth = new Date().getMonth() + 1;
       panel.classList.add("overview-wide");
       panel.innerHTML = shell();
+      baseLoaded = false;
       load();
+      loadSlow();
     },
     unmount: function (panel) {
       if (panel) panel.classList.remove("overview-wide");
