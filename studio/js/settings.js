@@ -39,7 +39,6 @@
     { id: "mileage", title: "Mileage" },
     { id: "competitors", title: "Competitors" },
     { id: "websites", title: "Websites" },
-    { id: "sop", title: "SOP" },
     { id: "imageAssets", title: "Image Assets" },
     { id: "support", title: "Support" },
     { id: "permitPathAdmin", title: "Permit Path Admin" },

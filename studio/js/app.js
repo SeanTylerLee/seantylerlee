@@ -26,7 +26,6 @@
     [
       { id: "competitors", title: "Competitors", icon: "chart-bar-xaxis", tint: "#C45C26", body: "Your dates against other apps." },
       { id: "websites", title: "Websites", icon: "square-grid-2x2", tint: "#1A70EB", body: "Site list, clicks, date and time, and visit ids." },
-      { id: "sop", title: "SOP", icon: "list-clipboard-fill", tint: "#336BB3", body: "How-to guides with checkable steps." },
       { id: "imageAssets", title: "Image Assets", icon: "square-stack-3d-up-fill", tint: "#7A5C99", body: "Screenshots, icons, and store art." },
       { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
       { id: "inbox", title: "Messages", icon: "tray-fill", tint: "#3D6B99", body: "Website contact and notify-me messages." },
@@ -54,7 +53,8 @@
     promos: { id: "overview" },
     appleAnalytics: { id: "overview" },
     subscribed: { id: "overview" },
-    leads: { id: "clients" }
+    leads: { id: "clients" },
+    sop: { id: "overview" }
   };
 
   var SETTINGS_SECTION = {
@@ -111,7 +111,6 @@
     permitPathAdmin: "is-permitPathAdmin",
     haulPathAdmin: "is-haulPathAdmin",
     pc4hAdmin: "is-pc4hAdmin",
-    sop: "is-sop",
     imageAssets: "is-imageAssets",
     apps: "is-apps",
     support: "is-support",
@@ -142,7 +141,6 @@
     haulPathAdmin: "STLHaulPathAdmin",
     haulPathAd: "STLHaulPathAd",
     pc4hAdmin: "STLPc4hAdmin",
-    sop: "STLSOP",
     imageAssets: "STLImageAssets",
     apps: "STLApps",
     competitors: "STLCompetitors",
@@ -174,7 +172,6 @@
       income: window.STLIncome,
       ownerDraws: window.STLOwnerDraws,
       taxes: window.STLTaxes,
-      sop: window.STLSOP,
       competitors: window.STLCompetitors,
       permitPathAdmin: window.STLPermitPathAdmin,
       haulPathAdmin: window.STLHaulPathAdmin,
