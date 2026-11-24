@@ -371,11 +371,14 @@
     showMsg("Building Backup Log…", true);
     window.STLBackupLog.download(db, {
       onStatus: function (msg) { showMsg(msg || "Building Backup Log…", true); }
-    }).then(function () {
+    }).then(function (done) {
       backingUp = false;
       if (root) render();
-      showMsg("Backup Log downloaded.", true);
-      setTimeout(function () { if (!backingUp) showMsg(""); }, 1600);
+      if (done && done.problems) {
+        showMsg("Backup downloaded, but " + done.problems + " item" + (done.problems === 1 ? "" : "s") + " could not be copied. Open 04-Backup-Report.txt in the zip.", false);
+      } else {
+        showMsg("Backup downloaded. Everything was copied: " + (done ? done.rows.toLocaleString() + " rows and " + done.files + " files." : "done."), true);
+      }
     }).catch(function (err) {
       backingUp = false;
       if (root) render();

@@ -11,8 +11,107 @@
     "app_notifications", "studio_clients", "studio_leads", "client_projects",
     "project_logins", "project_costs", "project_hour_entries", "project_issues",
     "project_handoff_items", "meeting_logs", "billing_documents", "studio_notes",
-    "studio_pricing_items", "studio_pricing_settings", "studio_secrets"
+    "studio_pricing_items", "studio_pricing_settings", "studio_secrets", "direct_app_watch", "sop_guides"
   ];
+
+  // Apps with their own database. Every table and sign-in account is copied.
+  var APP_DATABASES = [
+    { id: "permitpath", name: "Permit Path" },
+    { id: "pilotcar4hire", name: "Pilot Car 4 Hire" },
+    { id: "haulpath", name: "Haul Path" }
+  ];
+
+  // Every file bucket in Studio. Anything in here that no record points to is copied too.
+  var BUCKETS = ["announcement-images", "app-icons", "business-docs", "image-assets", "inbox-uploads", "ledger-receipts"];
+
+  function backupPost(path, body) {
+    return window.STLLocalApi.cloudPost("/backup/" + path, body).then(function (res) {
+      if (!res.ok) throw new Error((res.data && res.data.error) || "Could not read it.");
+      return res.data || {};
+    });
+  }
+
+  // Run one after another, so a big backup does not flood the databases.
+  function inOrder(list, fn) {
+    return (list || []).reduce(function (chain, item, i) {
+      return chain.then(function () { return fn(item, i); });
+    }, Promise.resolve());
+  }
+
+  function remoteTable(app, name) {
+    var all = [];
+    function next() {
+      return backupPost("page", { app: app, table: name, offset: all.length }).then(function (data) {
+        var rows = data.rows || [];
+        all = all.concat(rows);
+        // Short of the total with rows still coming: keep going.
+        if (rows.length && data.total != null && all.length < data.total) return next();
+        if (rows.length === 1000 && data.total == null) return next();
+        if (data.total != null && all.length < data.total) {
+          throw new Error("Got " + all.length + " of " + data.total + " rows.");
+        }
+        return all;
+      });
+    }
+    return next();
+  }
+
+  // Tables added to Studio later are picked up here without changing this file.
+  function loadStudioExtras(db, pack, onStatus) {
+    onStatus("Checking for new Studio tables…");
+    return backupPost("tables", { app: "studio" }).then(function (data) {
+      return inOrder((data.tables || []).filter(function (t) { return TABLES.indexOf(t.name) < 0; }), function (t) {
+        if (t.remote) {
+          return remoteTable("studio", t.name).then(function (rows) { pack.tables[t.name] = rows; }).catch(function (err) {
+            pack.failed.push({ table: t.name, error: err.message });
+          });
+        }
+        return fetchTable(db, t.name).then(function (result) {
+          pack.tables[t.name] = result.rows;
+          if (result.error) pack.failed.push({ table: t.name, error: result.error });
+        });
+      }).then(function () {
+        // haulpath_states comes from the Haul Path database instead.
+        (data.tables || []).forEach(function (t) {
+          if (t.name === "haulpath_states" || t.count == null || tableError(pack, t.name)) return;
+          var got = (pack.tables[t.name] || []).length;
+          if (got < t.count) pack.failed.push({ table: t.name, error: "Got " + got + " of " + t.count + " rows." });
+        });
+      });
+    }).catch(function (err) {
+      pack.failed.push({ table: "New Studio tables", error: err.message });
+    });
+  }
+
+  function loadAppDatabases(pack, onStatus) {
+    pack.apps = {};
+    return inOrder(APP_DATABASES, function (app) {
+      var out = { tables: {}, users: [], schema: null };
+      pack.apps[app.id] = out;
+      onStatus("Copying the " + app.name + " database…");
+      return backupPost("tables", { app: app.id }).then(function (data) {
+        out.schema = data.schema;
+        return inOrder(data.tables, function (t) {
+          onStatus("Copying " + app.name + ": " + t.name + "…");
+          return remoteTable(app.id, t.name).then(function (rows) { out.tables[t.name] = rows; }).catch(function (err) {
+            pack.failed.push({ table: app.name + " " + t.name, error: err.message });
+          });
+        });
+      }).catch(function (err) {
+        pack.failed.push({ table: app.name + " database", error: err.message });
+      }).then(function () {
+        function page(n) {
+          return backupPost("users", { app: app.id, page: n }).then(function (data) {
+            out.users = out.users.concat(data.users || []);
+            return data.more ? page(n + 1) : null;
+          });
+        }
+        return page(1).catch(function (err) {
+          pack.failed.push({ table: app.name + " sign-in accounts", error: err.message });
+        });
+      });
+    });
+  }
 
   function money(n) {
     return window.STLStudioPdf ? window.STLStudioPdf.money(n) : String(n || 0);
@@ -177,16 +276,32 @@
     pdf.newSection(title, how);
   }
 
+  // The column that keeps page order steady. Tables without an id use their own key.
+  var ORDER_BY = {
+    studio_settings: "key", business_profile: "user_id", studio_secrets: "user_id",
+    studio_pricing_settings: "user_id", email_page_notes: "user_id"
+  };
+
   function fetchTable(db, tableName) {
     var page = 1000;
     var all = [];
+    var ordered = false;
     function next(from) {
-      return db.from(tableName).select("*").range(from, from + page - 1).then(function (res) {
+      var query = db.from(tableName).select("*", { count: "exact" });
+      if (ordered) query = query.order(ORDER_BY[tableName] || "id");
+      return query.range(from, from + page - 1).then(function (res) {
         if (res.error) throw new Error(res.error.message || ("Could not read " + tableName));
         var rows = res.data || [];
+        // More than one page: start again in a fixed order so nothing is skipped or doubled.
+        if (from === 0 && !ordered && res.count != null && res.count > rows.length) {
+          ordered = true;
+          return next(0);
+        }
         all = all.concat(rows);
-        if (rows.length < page) return all;
-        return next(from + page);
+        if (rows.length && res.count != null && all.length < res.count) return next(all.length);
+        if (res.count != null && all.length < res.count) throw new Error("Got " + all.length + " of " + res.count + " rows.");
+        if (res.count == null && rows.length === page) return next(from + page);
+        return all;
       });
     }
     return next(0).then(function (rows) {
@@ -660,7 +775,7 @@
     openMenu(
       pdf,
       "TOS Accepted",
-      "Open Permit Path Admin, then TOS Accepted, for the live list. This is the proof copy. Keep 03-TOS-Accepted.txt. It lists every person who accepted, with time and IP, then the terms of use they agreed to."
+      "Open Permit Path Admin, then TOS Accepted, for the live list. This lists everyone who accepted, with time and IP. 03-TOS-Accepted.txt has the same list with install ids. Terms-Versions.txt has the wording of each version once."
     );
     var err = tableError(pack, "tos_acceptances");
     if (err) {
@@ -675,30 +790,20 @@
       return;
     }
     pdf.note(rows.length + " acceptance" + (rows.length === 1 ? "" : "s") + ".");
-    rows.forEach(function (row, i) {
-      var who = row.account_email || "Guest";
-      var when = row.accepted_at ? String(row.accepted_at) : "";
-      pdf.recordHead((row.platform || "app") + " · " + who, i + 1, rows.length);
-      filled(pdf, [
-        ["Accepted at", when],
-        ["Platform", row.platform],
-        ["IP address", row.ip_address],
-        ["Account email", row.account_email],
-        ["Account user id", row.account_user_id],
-        ["Install id", row.install_id],
-        ["App version", row.app_version],
-        ["Terms version", row.terms_version],
-        ["Record id", row.id]
-      ]);
-      if (String(row.highlights || "").trim()) {
-        pdf.heading("Highlights they saw", 12);
-        longText(pdf, row.highlights);
-      }
-      if (String(row.terms_text || "").trim()) {
-        pdf.heading("Full terms they accepted", 12);
-        longText(pdf, row.terms_text);
-      }
-    });
+    table(
+      pdf,
+      ["Accepted", "Who", "Platform", "Terms", "IP address"],
+      rows.map(function (row) {
+        return [
+          String(row.accepted_at || "").replace("T", " ").slice(0, 16),
+          row.account_email || "Guest",
+          row.platform || "",
+          row.terms_version || "",
+          row.ip_address || ""
+        ];
+      }),
+      [105, pdf.maxW - 345, 60, 80, 100]
+    );
   }
 
   function imageAssetAppId(row) {
@@ -1354,6 +1459,13 @@
         pdf.heading("Other dates", 12);
         longText(pdf, extra.join("\n"));
       }
+      if (row.details && Object.keys(row.details).length) {
+        pdf.heading("Comparison details", 12);
+        longText(pdf, Object.keys(row.details).map(function (k) {
+          var v = row.details[k];
+          return k.replace(/_/g, " ") + ": " + (v && typeof v === "object" ? JSON.stringify(v) : String(v == null ? "" : v));
+        }).join("\n"));
+      }
       if (row.notes) {
         pdf.heading("Notes", 12);
         longText(pdf, row.notes);
@@ -1567,7 +1679,6 @@
 
   function tosListText(pack) {
     var rule = "------------------------------------------------------------";
-    var ruleWide = "============================================================";
     function blank(v) {
       var s = String(v == null ? "" : v).trim();
       return s || "—";
@@ -1599,7 +1710,7 @@
       "",
       "Everyone who accepted is listed below.",
       "Each block is one person. Time and IP are the proof of where they accepted from.",
-      "The terms of use they agreed to are at the bottom of this file.",
+      "Terms-Versions.txt, next to this file, has the wording of each version.",
       "",
       "Total: " + rows.length,
       ""
@@ -1623,28 +1734,33 @@
       lines.push(field("Record", row.id));
       lines.push("");
     });
-    lines.push(rule);
+    return lines.join("\n");
+  }
 
+  // The wording of each terms version, once. Not repeated per person.
+  function termsVersionsText(pack) {
     var seen = {};
-    var blocks = [];
-    rows.forEach(function (row) {
-      var key = (row.platform || "") + "\n" + (row.terms_version || "") + "\n" + (row.terms_text || "") + "\n" + (row.highlights || "");
+    var lines = ["Permit Path - the wording of each terms version people accepted", ""];
+    (pack.tosAcceptances || []).forEach(function (row) {
+      var key = [row.platform, row.terms_version, row.terms_text, row.highlights].join("\n");
       if (seen[key]) return;
       seen[key] = true;
-      blocks.push(row);
+      lines.push("============================================================",
+        (row.platform || "app") + "  version " + (row.terms_version || ""), "");
+      if (String(row.highlights || "").trim()) lines.push("Highlights", "", String(row.highlights).trim(), "");
+      lines.push("Terms", "", String(row.terms_text || "").trim() || "(No terms text stored on this version.)", "");
     });
-    lines.push("", "", ruleWide, "TERMS OF USE THEY ACCEPTED", ruleWide, "");
-    blocks.forEach(function (row, i) {
-      if (i) lines.push("", rule, "");
-      var title = platformName(row.platform);
-      if (row.terms_version) title += "  ·  version " + row.terms_version;
-      lines.push(title, "");
-      if (String(row.highlights || "").trim()) {
-        lines.push("Highlights", "", String(row.highlights).replace(/\r\n/g, "\n").trim(), "");
-      }
-      lines.push("Full terms", "", String(row.terms_text || "").replace(/\r\n/g, "\n").trim() || "(No terms text stored on this version.)", "");
+    return lines.join("\n").replace(/\r\n/g, "\n");
+  }
+
+  function withoutTerms(rows) {
+    return (rows || []).map(function (row) {
+      var out = {};
+      Object.keys(row).forEach(function (k) {
+        if (k !== "terms_text" && k !== "highlights") out[k] = row[k];
+      });
+      return out;
     });
-    return lines.join("\n");
   }
 
   function uniqueName(used, name) {
@@ -1660,10 +1776,13 @@
     return n;
   }
 
+  var copied = {};
+
   function storageBlob(db, bucket, path) {
     if (!db || !path) return Promise.resolve(null);
     return db.storage.from(bucket).download(path).then(function (res) {
       if (res.error || !res.data) return null;
+      copied[bucket + "/" + path] = true;
       return res.data;
     }).catch(function () { return null; });
   }
@@ -1720,6 +1839,65 @@
         return storageBlob(db, "announcement-images", match[1]);
       }
     });
+  }
+
+  function listFiles(db, bucket, folder) {
+    var found = [];
+    function page(offset) {
+      return db.storage.from(bucket).list(folder, { limit: 1000, offset: offset, sortBy: { column: "name", order: "asc" } }).then(function (res) {
+        if (res.error) throw new Error(res.error.message || "Could not list files.");
+        var items = res.data || [];
+        return inOrder(items, function (item) {
+          var path = folder ? folder + "/" + item.name : item.name;
+          if (item.id) {
+            found.push(path);
+            return null;
+          }
+          return listFiles(db, bucket, path).then(function (more) { found = found.concat(more); });
+        }).then(function () {
+          return items.length === 1000 ? page(offset + 1000) : found;
+        });
+      });
+    }
+    return page(0);
+  }
+
+  // Files in storage that no record points to. Kept so nothing is left behind.
+  function collectLooseFiles(db, pack, onStatus) {
+    var files = [];
+    return inOrder(BUCKETS, function (bucket) {
+      onStatus("Checking " + bucket + " for other files…");
+      return listFiles(db, bucket, "").then(function (paths) {
+        return inOrder(paths.filter(function (p) { return !copied[bucket + "/" + p]; }), function (path) {
+          return storageBlob(db, bucket, path).then(function (blob) {
+            if (!blob) { rememberMiss(pack, bucket + ": " + path); return; }
+            var cut = path.lastIndexOf("/");
+            files.push({ folder: "Other-Files/" + bucket + (cut > 0 ? "/" + path.slice(0, cut) : ""), name: path.slice(cut + 1), blob: blob });
+          });
+        });
+      }).catch(function (err) {
+        pack.failed.push({ table: "Files in " + bucket, error: err.message });
+      });
+    }).then(function () { return files; });
+  }
+
+  function reportText(pack, fileCount) {
+    var lines = ["STL Studio backup report - " + stamp(), ""];
+    var rows = 0;
+    var names = Object.keys(pack.tables).sort();
+    lines.push("STUDIO (" + names.length + " tables)");
+    names.forEach(function (n) { rows += pack.tables[n].length; lines.push("  " + n + ": " + pack.tables[n].length); });
+    APP_DATABASES.forEach(function (app) {
+      var a = (pack.apps || {})[app.id] || { tables: {}, users: [] };
+      lines.push("", app.name.toUpperCase() + " (" + Object.keys(a.tables).length + " tables, " + a.users.length + " sign-in accounts)");
+      Object.keys(a.tables).sort().forEach(function (n) { rows += a.tables[n].length; lines.push("  " + n + ": " + a.tables[n].length); });
+    });
+    lines.push("", "Files copied: " + fileCount, "Rows copied: " + rows, "", "COULD NOT COPY");
+    if (!pack.failed.length && !pack.missingFiles.length) lines.push("  Nothing. Every table and file was copied.");
+    pack.failed.forEach(function (f) { lines.push("  " + f.table + ": " + f.error); });
+    pack.missingFiles.forEach(function (f) { lines.push("  File: " + f); });
+    pack.summary = { rows: rows, files: fileCount, problems: pack.failed.length + pack.missingFiles.length };
+    return lines.join("\n");
   }
 
   function collectFiles(db, pack, onStatus) {
@@ -1862,12 +2040,17 @@
       "",
       "The Advertisement library is copied. Re-upload Advertisement-Images/, then select one and run it on Haul Path or Pilot Car 4 Hire. Which image was running is written on the Advertisement page of the PDF.",
       "",
-      "Not copied (they stay in their own databases, and the keys are in Secrets/):",
-      "- Bank activity (Mercury)",
-      "- Analytics and Subscribed (App Store Connect and Google Play)",
-      "- Permit Path Admin and PC4H Admin (live app databases)",
+      "App-Databases/ has every table and sign-in account from Permit Path (fleets, codes, payments, analytics, users), Pilot Car 4 Hire, and Haul Path, one file per table.",
+      "04-Backup-Report.txt lists how many rows were copied from each table and anything that failed. Read it after every backup.",
       "",
-      "TOS Accepted is copied. See 03-TOS-Accepted.txt (the list plus terms), 03-TOS-Accepted.json, and the TOS Accepted pages in the PDF.",
+      "Other-Files/ has uploaded files that no record points to any more.",
+      "",
+      "Not in this zip:",
+      "- Bank activity (Mercury) and Analytics and Subscribed (App Store Connect and Google Play). Those companies keep them.",
+      "- Sign-in passwords. Supabase does not give them out, so app users would reset theirs.",
+      "- App code, Android signing keys, Stripe keys, and the secrets folder. Run Back Up My Mac for those.",
+      "",
+      "TOS Accepted is copied. See 03-TOS-Accepted.txt and the TOS Accepted pages in the PDF for who accepted. Terms-Versions.txt has the wording of each version once.",
       "",
       "Menus that did not load:",
       (pack.failed || []).length
@@ -1889,7 +2072,7 @@
       missing_files: pack.missingFiles || [],
       zip_index: pack.zipIndex || {},
       secrets: pack.secrets || {},
-      tos_acceptances: pack.tosAcceptances || [],
+      tos_acceptances: withoutTerms(pack.tosAcceptances),
       tables: pack.tables || {}
     }, null, 2);
   }
@@ -1902,7 +2085,14 @@
     if (!db) return Promise.reject(new Error("Sign in first."));
     return loadAll(db, onStatus).then(function (pack) {
       pack.zipIndex = {};
-      return collectFiles(db, pack, onStatus).then(function (files) {
+      copied = {};
+      return loadStudioExtras(db, pack, onStatus).then(function () {
+        return loadAppDatabases(pack, onStatus);
+      }).then(function () {
+        return collectFiles(db, pack, onStatus);
+      }).then(function (files) {
+        return collectLooseFiles(db, pack, onStatus).then(function (more) { return files.concat(more); });
+      }).then(function (files) {
         onStatus("Writing restore guide…");
         return window.STLStudioPdf.open({
           db: db,
@@ -1922,9 +2112,21 @@
             source: "Permit Path tos_acceptances",
             count: (pack.tosAcceptances || []).length,
             error: tableError(pack, "tos_acceptances") || "",
-            rows: pack.tosAcceptances || []
+            rows: withoutTerms(pack.tosAcceptances)
           }, null, 2));
           root.file("03-TOS-Accepted.txt", tosListText(pack));
+          root.file("Terms-Versions.txt", termsVersionsText(pack));
+          root.file("04-Backup-Report.txt", reportText(pack, files.length));
+          APP_DATABASES.forEach(function (app) {
+            var a = pack.apps[app.id];
+            var folder = root.folder("App-Databases/" + app.name.replace(/ /g, "-"));
+            Object.keys(a.tables).forEach(function (n) {
+              var rows = n === "tos_acceptances" ? withoutTerms(a.tables[n]) : a.tables[n];
+              folder.file(n + ".json", JSON.stringify(rows, null, 1));
+            });
+            folder.file("_sign-in-accounts.json", JSON.stringify(a.users, null, 1));
+            folder.file("_table-layout.json", JSON.stringify(a.schema, null, 1));
+          });
           var secrets = root.folder("Secrets");
           writeSecrets(secrets, pack.secrets);
           secrets.file(
@@ -1938,7 +2140,8 @@
         });
       }).then(function (blob) {
         downloadBlob(blob, "STL-Apps-LLC_Backup-Log_" + stamp() + ".zip");
-        return markBackup(db);
+        // A backup that missed a table does not count, so Overview keeps reminding.
+        return (pack.failed.length ? Promise.resolve() : markBackup(db)).then(function () { return pack.summary; });
       });
     });
   }

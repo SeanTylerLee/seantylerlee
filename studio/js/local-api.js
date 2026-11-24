@@ -127,6 +127,7 @@
     message: "Bank and Analytics need keys saved in your studio account. Open this studio on your Mac once while signed in, after running sql/017_studio_secrets.sql.",
     get: get,
     post: post,
+    cloudPost: cloudPost,
     syncSecretsFromMac: syncSecretsFromMac
   };
 })();
