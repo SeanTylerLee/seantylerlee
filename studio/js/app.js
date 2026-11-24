@@ -8,7 +8,7 @@
   // Same order and grouping as the Mac app sidebar. Cache bust 66.
   var NAV_GROUPS = [
     [
-      { id: "overview", title: "Overview", icon: "square-grid-2x2", tint: "#1A70EB", body: "Needs-you board and studio snapshot." },
+      { id: "overview", title: "Overview", icon: "square-grid-2x2", image: "overview-stl.png", tint: "#1A70EB", body: "Needs-you board and studio snapshot." },
       { id: "finances", title: "Finances", icon: "dollarsign-circle-fill", image: "finance-stl.png", tint: "#1F6B52", body: "Bank, taxes, expenses, income, owner draw, inventory, and mileage." },
       { id: "business", title: "Business Info", icon: "building-2-fill", image: "business-stl.png", tint: "#12213D", body: "Company details will live here." },
       { id: "loginVault", title: "Login Vault", icon: "key-fill", image: "vault-stl.png", tint: "#D98C2E", body: "Saved passwords will live here." },
@@ -17,24 +17,24 @@
     ],
     [
       { id: "competitors", title: "Competitors", icon: "chart-bar-xaxis", image: "competitors-stl.png", tint: "#C45C26", body: "Side by side: price, ratings, states, features, and dates." },
-      { id: "websites", title: "Websites", icon: "square-grid-2x2", tint: "#1A70EB", body: "Site list, clicks, date and time, and visit ids." },
-      { id: "imageAssets", title: "Image Assets", icon: "square-stack-3d-up-fill", tint: "#7A5C99", body: "Screenshots, icons, and store art." },
-      { id: "support", title: "Support", icon: "questionmark-circle-fill", tint: "#BF5261", body: "Customer tickets by app." },
-      { id: "inbox", title: "Messages", icon: "tray-fill", tint: "#3D6B99", body: "Website contact and notify-me messages." },
-      { id: "emails", title: "Email Lists", icon: "envelope-fill", tint: "#738094", body: "Named lists of emails." },
-      { id: "notifications", title: "App Notices", icon: "bell-fill", tint: "#5B6B8C", body: "Write a card and send it to an app." },
-      { id: "haulPathAd", title: "Advertisement", icon: "square-stack-3d-up-fill", tint: "#1574E6", body: "Library, a simple maker, and which image each app shows." }
+      { id: "websites", title: "Websites", icon: "square-grid-2x2", image: "websites-stl.png", tint: "#1A70EB", body: "Site list, clicks, date and time, and visit ids." },
+      { id: "imageAssets", title: "Image Assets", icon: "square-stack-3d-up-fill", image: "image-assets-stl.png", tint: "#7A5C99", body: "Screenshots, icons, and store art." },
+      { id: "support", title: "Support", icon: "questionmark-circle-fill", image: "support-stl.png", tint: "#BF5261", body: "Customer tickets by app." },
+      { id: "inbox", title: "Messages", icon: "tray-fill", image: "messages-stl.png", tint: "#3D6B99", body: "Website contact and notify-me messages." },
+      { id: "emails", title: "Email Lists", icon: "envelope-fill", image: "email-lists-stl.png", tint: "#738094", body: "Named lists of emails." },
+      { id: "notifications", title: "App Notices", icon: "bell-fill", image: "app-notices-stl.png", tint: "#5B6B8C", body: "Write a card and send it to an app." },
+      { id: "haulPathAd", title: "Advertisement", icon: "square-stack-3d-up-fill", image: "advertisement-stl.png", tint: "#1574E6", body: "Library, a simple maker, and which image each app shows." }
     ],
     [
-      { id: "permitPathAdmin", title: "Permit Path Admin", icon: "square-stack-3d-up-fill", tint: "#1A4F8B", body: "Live Permit Path signups, subscriptions, and deletions." },
-      { id: "haulPathAdmin", title: "HaulPath Admin", icon: "square-stack-3d-up-fill", tint: "#1574E6", body: "Travel time, legal thresholds, curfews, and a note for each state." },
-      { id: "pc4hAdmin", title: "PC4H Admin", icon: "car-fill", tint: "#0F1A2E", body: "Pilot Car 4 Hire pilots, listings, handoffs, and emails." }
+      { id: "permitPathAdmin", title: "Permit Path Admin", icon: "square-stack-3d-up-fill", image: "permitpath-admin-stl.png", tint: "#1A4F8B", body: "Live Permit Path signups, subscriptions, and deletions." },
+      { id: "haulPathAdmin", title: "HaulPath Admin", icon: "square-stack-3d-up-fill", image: "haulpath-admin-stl.png", tint: "#1574E6", body: "Travel time, legal thresholds, curfews, and a note for each state." },
+      { id: "pc4hAdmin", title: "PC4H Admin", icon: "car-fill", image: "pc4h-admin-stl.png", tint: "#0F1A2E", body: "Pilot Car 4 Hire pilots, listings, handoffs, and emails." }
     ],
     [
-      { id: "clientWork", title: "Clients", icon: "person-2-fill", tint: "#338CBF", body: "Clients, projects, and billing." }
+      { id: "clientWork", title: "Clients", icon: "person-2-fill", image: "clients-stl.png", tint: "#338CBF", body: "Clients, projects, and billing." }
     ],
     [
-      { id: "notes", title: "Notes", icon: "note-text", tint: "#F29E2E", body: "Your private notepad." }
+      { id: "notes", title: "Notes", icon: "note-text", image: "notes-stl.png", tint: "#F29E2E", body: "Your private notepad." }
     ]
   ];
 
@@ -80,6 +80,7 @@
     id: "settings",
     title: "Settings",
     icon: "gearshape-fill",
+    image: "settings-stl.png",
     tint: "#5A6578",
     body: "Studio defaults, store report IDs, and connection status."
   };
@@ -417,9 +418,7 @@
     settingsBtn.type = "button";
     settingsBtn.className = "sidebar-item" + (currentSection === "settings" ? " is-on" : "");
     settingsBtn.innerHTML =
-      '<span class="sidebar-icon" style="background:linear-gradient(135deg,' + SETTINGS_SECTION.tint + "," + SETTINGS_SECTION.tint + 'bf)">' +
-      '<img src="images/sidebar/' + SETTINGS_SECTION.icon + '.png" alt="" />' +
-      "</span>" +
+      '<span class="sidebar-icon is-image"><img src="images/sidebar/' + SETTINGS_SECTION.image + '" alt="" /></span>' +
       '<span class="sidebar-label">' + SETTINGS_SECTION.title + "</span>";
     settingsBtn.addEventListener("click", function () {
       currentSection = "settings";
